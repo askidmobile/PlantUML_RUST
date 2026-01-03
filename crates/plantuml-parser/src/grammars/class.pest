@@ -125,7 +125,18 @@ member = {
     | field
 }
 
-separator = { ".." ~ (!NEWLINE ~ ANY)* ~ ".." | "--" ~ (!NEWLINE ~ ANY)* ~ "--" | "__" ~ (!NEWLINE ~ ANY)* ~ "__" | "==" ~ (!NEWLINE ~ ANY)* ~ "==" }
+// Разделители в теле класса:
+// -- или -- text -- (сплошная линия)
+// .. или .. text .. (пунктирная линия)  
+// __ или __ text __ (жирная линия)
+// == или == text == (двойная линия)
+separator = { 
+    ".." ~ separator_text? ~ ("..")? 
+    | "--" ~ separator_text? ~ ("--")? 
+    | "__" ~ separator_text? ~ ("__")? 
+    | "==" ~ separator_text? ~ ("==")?
+}
+separator_text = { (!NEWLINE ~ !".." ~ !"--" ~ !"__" ~ !"==" ~ ANY)+ }
 
 // Метод - ищем по наличию скобок ()
 method = {
