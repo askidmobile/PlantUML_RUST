@@ -45,8 +45,30 @@ comment = { "'" ~ (!NEWLINE ~ ANY)* }
 title_stmt = { "title" ~ ws+ ~ rest_of_line }
 
 // === Autonumber ===
+// Поддерживаемые варианты:
+// autonumber                    - включить с 1
+// autonumber 15                 - начать с 15
+// autonumber 40 10              - начать с 40, шаг 10
+// autonumber "[00]"             - формат без чисел
+// autonumber 10 "[00]"          - начало + формат
+// autonumber 10 10 "[00]"       - начало + шаг + формат
+// autonumber stop               - остановить
+// autonumber resume             - продолжить
+// autonumber resume 50          - продолжить с 50
+// autonumber resume "[00]"      - продолжить с форматом
+// autonumber inc A              - инкремент уровня
 
-autonumber = { "autonumber" ~ (ws+ ~ number ~ (ws+ ~ number)? ~ (ws+ ~ quoted_string)?)? }
+autonumber = { 
+    "autonumber" ~ ws+ ~ "stop"
+    | "autonumber" ~ ws+ ~ "resume" ~ (ws+ ~ autonumber_params)?
+    | "autonumber" ~ ws+ ~ "inc" ~ ws+ ~ identifier
+    | "autonumber" ~ (ws+ ~ autonumber_params)?
+}
+
+autonumber_params = {
+    number ~ (ws+ ~ number)? ~ (ws+ ~ quoted_string)?   // числа, опционально формат
+    | quoted_string                                      // только формат
+}
 
 // === Участники ===
 // ВАЖНО: Используем конкретные ключевые слова, а не identifier
