@@ -41,8 +41,8 @@ impl Default for SequenceLayoutConfig {
     fn default() -> Self {
         Self {
             // PlantUML стиль: более компактные размеры
-            participant_spacing: 80.0,    // уменьшено (было 100)
-            message_spacing: 28.0,        // уменьшено (было 35) - PlantUML плотнее
+            participant_spacing: 50.0,    // дефолт для пар без сообщений
+            message_spacing: 28.0,        // PlantUML ~28px между однострочными сообщениями
             participant_width: 50.0,      // уменьшено (было 80) - PlantUML адаптивный
             participant_height: 30.0,     // уменьшено (было 40)
             activation_width: 10.0,       // уменьшено (было 12)
@@ -81,7 +81,14 @@ impl SequenceLayoutConfig {
     }
 
     /// Вычисляет ширину текста сообщения с отступами
+    /// Для многострочного текста возвращает ширину самой длинной строки
     pub fn message_label_width(&self, label: &str) -> f64 {
-        self.text_width(label) + 16.0 // padding с обеих сторон
+        // Разбиваем на строки (учитываем и \n и \\n)
+        let processed = label.replace("\\n", "\n");
+        let max_line_width = processed
+            .split('\n')
+            .map(|line| self.text_width(line))
+            .fold(0.0_f64, f64::max);
+        max_line_width + 16.0 // padding с обеих сторон
     }
 }

@@ -226,9 +226,10 @@ impl ErRelationship {
 }
 
 /// Кардинальность связи
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Cardinality {
     /// Ровно один (||)
+    #[default]
     One,
     /// Ноль или один (|o)
     ZeroOrOne,
@@ -279,11 +280,7 @@ impl Cardinality {
     }
 }
 
-impl Default for Cardinality {
-    fn default() -> Self {
-        Self::One
-    }
-}
+
 
 #[cfg(test)]
 mod tests {

@@ -159,7 +159,12 @@ impl ClassLayoutEngine {
                     .iter()
                     .map(|m| {
                         let visibility = Self::convert_visibility(&m.visibility);
-                        let text = format!("{}()", m.name);
+                        // Формируем текст метода с return type (member_type в AST)
+                        let text = if let Some(ref ret_type) = m.member_type {
+                            format!("{}(): {}", m.name, ret_type)
+                        } else {
+                            format!("{}()", m.name)
+                        };
                         ClassMember {
                             visibility,
                             text,
@@ -215,8 +220,12 @@ impl ClassLayoutEngine {
             _ => (from_node, to_node),
         };
 
-        // Вычисляем точки соединения
-        let (start_point, end_point) = self.calculate_connection_points(visual_from, visual_to);
+        // Вычисляем точки соединения (передаём тип связи для правильного выбора грани)
+        let (start_point, end_point) = self.calculate_connection_points(
+            visual_from, 
+            visual_to, 
+            edge.relationship_type
+        );
 
         // Создаём путь с ортогональными линиями
         let points = self.create_orthogonal_path(start_point, end_point, visual_from, visual_to);
@@ -240,6 +249,15 @@ impl ClassLayoutEngine {
             (arrow_start, arrow_end)
         };
 
+        // Для кардинальностей: если ребро было инвертировано для визуала, меняем местами
+        let (from_card, to_card) = match edge.relationship_type {
+            RelationshipType::Inheritance | RelationshipType::Realization => {
+                // Визуально стрелка идёт от to_node к from_node
+                (edge.to_cardinality.clone(), edge.from_cardinality.clone())
+            }
+            _ => (edge.from_cardinality.clone(), edge.to_cardinality.clone()),
+        };
+
         LayoutElement {
             id: format!("edge_{}_{}", from_node.id, to_node.id),
             bounds: self.calculate_edge_bounds(&points),
@@ -252,6 +270,8 @@ impl ClassLayoutEngine {
                 arrow_end,
                 dashed,
                 edge_type,
+                from_cardinality: from_card,
+                to_cardinality: to_card,
             },
         }
     }
@@ -261,52 +281,60 @@ impl ClassLayoutEngine {
         &self,
         from: &super::graph::Node,
         to: &super::graph::Node,
+        relationship_type: RelationshipType,
     ) -> (Point, Point) {
         let from_center_x = from.x + from.size.width / 2.0;
-        let from_center_y = from.y + from.size.height / 2.0;
         let to_center_x = to.x + to.size.width / 2.0;
-        let to_center_y = to.y + to.size.height / 2.0;
 
-        // Определяем направление связи
-        let dx = to_center_x - from_center_x;
-        let dy = to_center_y - from_center_y;
-
-        let (start, end) = if dy.abs() > dx.abs() {
-            // Вертикальное соединение
-            if dy > 0.0 {
-                // to ниже from
-                (
-                    Point::new(from_center_x, from.y + from.size.height),
-                    Point::new(to_center_x, to.y),
-                )
-            } else {
-                // to выше from
-                (
-                    Point::new(from_center_x, from.y),
-                    Point::new(to_center_x, to.y + to.size.height),
-                )
+        // Для наследования и реализации ВСЕГДА используем верхнюю/нижнюю грань
+        // независимо от горизонтального расположения узлов
+        match relationship_type {
+            RelationshipType::Inheritance | RelationshipType::Realization => {
+                // from = потомок (снизу), to = родитель (сверху)
+                // Стрелка выходит из верхней грани потомка, входит в нижнюю грань родителя
+                let start = Point::new(from_center_x, from.y); // верх потомка
+                let end = Point::new(to_center_x, to.y + to.size.height); // низ родителя
+                (start, end)
             }
-        } else {
-            // Горизонтальное соединение
-            if dx > 0.0 {
-                // to правее from
-                (
-                    Point::new(from.x + from.size.width, from_center_y),
-                    Point::new(to.x, to_center_y),
-                )
-            } else {
-                // to левее from
-                (
-                    Point::new(from.x, from_center_y),
-                    Point::new(to.x + to.size.width, to_center_y),
-                )
-            }
-        };
+            _ => {
+                // Для других типов связей - автоопределение направления
+                let from_center_y = from.y + from.size.height / 2.0;
+                let to_center_y = to.y + to.size.height / 2.0;
+                let dx = to_center_x - from_center_x;
+                let dy = to_center_y - from_center_y;
 
-        (start, end)
+                if dy.abs() > dx.abs() {
+                    // Вертикальное соединение
+                    if dy > 0.0 {
+                        (
+                            Point::new(from_center_x, from.y + from.size.height),
+                            Point::new(to_center_x, to.y),
+                        )
+                    } else {
+                        (
+                            Point::new(from_center_x, from.y),
+                            Point::new(to_center_x, to.y + to.size.height),
+                        )
+                    }
+                } else {
+                    // Горизонтальное соединение
+                    if dx > 0.0 {
+                        (
+                            Point::new(from.x + from.size.width, from_center_y),
+                            Point::new(to.x, to_center_y),
+                        )
+                    } else {
+                        (
+                            Point::new(from.x, from_center_y),
+                            Point::new(to.x + to.size.width, to_center_y),
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    /// Создаёт ортогональный путь между точками
+    /// Создаёт ортогональный путь между точками (с коленом)
     fn create_orthogonal_path(
         &self,
         start: Point,
@@ -314,23 +342,36 @@ impl ClassLayoutEngine {
         _from: &super::graph::Node,
         _to: &super::graph::Node,
     ) -> Vec<Point> {
-        // Простой ортогональный путь с одной или двумя точками перегиба
         let dx = end.x - start.x;
         let dy = end.y - start.y;
 
+        // Если точки почти на одной линии - прямая
         if dx.abs() < 1.0 || dy.abs() < 1.0 {
-            // Прямая линия (горизонтальная или вертикальная)
-            vec![start, end]
-        } else {
-            // Путь с перегибом посередине
-            let mid_y = start.y + dy / 2.0;
-            vec![
-                start,
-                Point::new(start.x, mid_y),
-                Point::new(end.x, mid_y),
-                end,
-            ]
+            return vec![start, end];
         }
+
+        // Ортогональный путь с коленом
+        // Для вертикального наследования (потомок снизу, родитель сверху):
+        // start = верх потомка, end = низ родителя
+        // Линия: вверх от потомка → горизонтально → вниз к родителю
+        
+        // Вычисляем Y для горизонтального сегмента
+        // Это должно быть между нижней гранью родителя и верхней гранью потомка
+        let mid_y = if dy < 0.0 {
+            // end выше start (типичное наследование: потомок внизу)
+            // mid_y = середина между end.y и start.y
+            end.y + (start.y - end.y) / 2.0
+        } else {
+            // end ниже start
+            start.y + (end.y - start.y) / 2.0
+        };
+
+        vec![
+            start,
+            Point::new(start.x, mid_y),
+            Point::new(end.x, mid_y),
+            end,
+        ]
     }
 
     /// Вычисляет bounds для ребра

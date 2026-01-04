@@ -46,18 +46,84 @@ fn process_rule(
 ) {
     match pair.as_rule() {
         Rule::class_decl => {
-            if let Some(classifier) = parse_class_decl(pair, ClassifierType::Class) {
-                add_classifier(classifier, diagram, package_stack);
+            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::Class) {
+                let class_name = result.classifier.id.name.clone();
+                add_classifier(result.classifier, diagram, package_stack);
+                // Создаём relationship для extends
+                if let Some(parent) = result.extends {
+                    diagram.add_relationship(Relationship {
+                        from: class_name.clone(),
+                        to: parent,
+                        relationship_type: RelationshipType::Inheritance,
+                        label: None,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                        line_style: plantuml_ast::common::LineStyle::Solid,
+                        direction: None,
+                    });
+                }
+                // Создаём relationship для implements
+                for iface in result.implements {
+                    diagram.add_relationship(Relationship {
+                        from: class_name.clone(),
+                        to: iface,
+                        relationship_type: RelationshipType::Realization,
+                        label: None,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                        line_style: plantuml_ast::common::LineStyle::Dashed,
+                        direction: None,
+                    });
+                }
             }
         }
         Rule::interface_decl => {
-            if let Some(classifier) = parse_class_decl(pair, ClassifierType::Interface) {
-                add_classifier(classifier, diagram, package_stack);
+            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::Interface) {
+                let class_name = result.classifier.id.name.clone();
+                add_classifier(result.classifier, diagram, package_stack);
+                // Интерфейсы тоже могут наследовать от других интерфейсов
+                if let Some(parent) = result.extends {
+                    diagram.add_relationship(Relationship {
+                        from: class_name.clone(),
+                        to: parent,
+                        relationship_type: RelationshipType::Inheritance,
+                        label: None,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                        line_style: plantuml_ast::common::LineStyle::Solid,
+                        direction: None,
+                    });
+                }
             }
         }
         Rule::abstract_decl => {
-            if let Some(classifier) = parse_class_decl(pair, ClassifierType::AbstractClass) {
-                add_classifier(classifier, diagram, package_stack);
+            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::AbstractClass) {
+                let class_name = result.classifier.id.name.clone();
+                add_classifier(result.classifier, diagram, package_stack);
+                if let Some(parent) = result.extends {
+                    diagram.add_relationship(Relationship {
+                        from: class_name.clone(),
+                        to: parent,
+                        relationship_type: RelationshipType::Inheritance,
+                        label: None,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                        line_style: plantuml_ast::common::LineStyle::Solid,
+                        direction: None,
+                    });
+                }
+                for iface in result.implements {
+                    diagram.add_relationship(Relationship {
+                        from: class_name.clone(),
+                        to: iface,
+                        relationship_type: RelationshipType::Realization,
+                        label: None,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                        line_style: plantuml_ast::common::LineStyle::Dashed,
+                        direction: None,
+                    });
+                }
             }
         }
         Rule::enum_decl => {
@@ -114,11 +180,26 @@ fn add_classifier(
     }
 }
 
+/// Результат парсинга объявления класса
+struct ClassDeclResult {
+    classifier: Classifier,
+    extends: Option<String>,
+    implements: Vec<String>,
+}
+
 /// Парсит объявление класса/интерфейса/enum
 fn parse_class_decl(
     pair: pest::iterators::Pair<Rule>,
     default_type: ClassifierType,
 ) -> Option<Classifier> {
+    parse_class_decl_with_inheritance(pair, default_type).map(|r| r.classifier)
+}
+
+/// Парсит объявление класса с информацией о наследовании
+fn parse_class_decl_with_inheritance(
+    pair: pest::iterators::Pair<Rule>,
+    default_type: ClassifierType,
+) -> Option<ClassDeclResult> {
     let mut name = String::new();
     let mut classifier_type = default_type;
     let mut stereotype: Option<Stereotype> = None;
@@ -126,6 +207,8 @@ fn parse_class_decl(
     let mut generics: Option<String> = None;
     let mut fields: Vec<Member> = Vec::new();
     let mut methods: Vec<Member> = Vec::new();
+    let mut extends: Option<String> = None;
+    let mut implements: Vec<String> = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -149,6 +232,22 @@ fn parse_class_decl(
             Rule::generic_params => {
                 generics = Some(inner.as_str().to_string());
             }
+            Rule::extends_clause => {
+                // extends_clause = { "extends" ~ ws+ ~ class_name }
+                for ext_inner in inner.into_inner() {
+                    if ext_inner.as_rule() == Rule::class_name {
+                        extends = Some(extract_name(ext_inner));
+                    }
+                }
+            }
+            Rule::implements_clause => {
+                // implements_clause = { "implements" ~ ws+ ~ class_name ~ ("," ~ ws* ~ class_name)* }
+                for impl_inner in inner.into_inner() {
+                    if impl_inner.as_rule() == Rule::class_name {
+                        implements.push(extract_name(impl_inner));
+                    }
+                }
+            }
             Rule::class_body | Rule::enum_body => {
                 parse_class_body(inner, &mut fields, &mut methods);
             }
@@ -160,15 +259,19 @@ fn parse_class_decl(
         return None;
     }
 
-    Some(Classifier {
-        id: plantuml_ast::common::Identifier::new(name),
-        classifier_type,
-        fields,
-        methods,
-        stereotype,
-        background_color: color,
-        border_color: None,
-        generics,
+    Some(ClassDeclResult {
+        classifier: Classifier {
+            id: plantuml_ast::common::Identifier::new(name),
+            classifier_type,
+            fields,
+            methods,
+            stereotype,
+            background_color: color,
+            border_color: None,
+            generics,
+        },
+        extends,
+        implements,
     })
 }
 
@@ -375,6 +478,9 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
     let mut label: Option<String> = None;
     let mut rel_type = RelationshipType::Association;
     let mut line_style = LineStyle::Solid;
+    let mut from_cardinality: Option<String> = None;
+    let mut to_cardinality: Option<String> = None;
+    let mut seen_arrow = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -386,7 +492,18 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
                     to = name;
                 }
             }
+            Rule::cardinality => {
+                let card = extract_cardinality(inner);
+                if !seen_arrow {
+                    // Кардинальность до стрелки - это from_cardinality
+                    from_cardinality = Some(card);
+                } else {
+                    // Кардинальность после стрелки - это to_cardinality
+                    to_cardinality = Some(card);
+                }
+            }
             Rule::relationship_arrow => {
+                seen_arrow = true;
                 let (rtype, lstyle) = parse_arrow(inner);
                 rel_type = rtype;
                 line_style = lstyle;
@@ -410,11 +527,22 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
         to,
         relationship_type: rel_type,
         label,
-        from_cardinality: None,
-        to_cardinality: None,
+        from_cardinality,
+        to_cardinality,
         line_style,
         direction: None,
     })
+}
+
+/// Извлекает значение кардинальности из кавычек
+fn extract_cardinality(pair: pest::iterators::Pair<Rule>) -> String {
+    let fallback = pair.as_str().trim_matches('"').to_string();
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::cardinality_value {
+            return inner.as_str().to_string();
+        }
+    }
+    fallback
 }
 
 /// Парсит стрелку отношения
@@ -679,5 +807,46 @@ package "com.example" {
         assert_eq!(diagram.packages.len(), 1);
         assert_eq!(diagram.packages[0].name, "com.example");
         assert_eq!(diagram.packages[0].classifiers.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_cardinality() {
+        let source = r#"@startuml
+class User
+class Order
+User "1" -- "*" Order : places
+@enduml"#;
+
+        let result = parse_class(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+        assert_eq!(diagram.classifiers.len(), 2);
+        assert_eq!(diagram.relationships.len(), 1);
+
+        let rel = &diagram.relationships[0];
+        assert_eq!(rel.from, "User");
+        assert_eq!(rel.to, "Order");
+        assert_eq!(rel.from_cardinality, Some("1".to_string()));
+        assert_eq!(rel.to_cardinality, Some("*".to_string()));
+        assert_eq!(rel.label, Some("places".to_string()));
+    }
+
+    #[test]
+    fn test_parse_cardinality_complex() {
+        let source = r#"@startuml
+class Customer
+class Order
+Customer "1" --o "0..*" Order
+@enduml"#;
+
+        let result = parse_class(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+        let rel = &diagram.relationships[0];
+        assert_eq!(rel.from_cardinality, Some("1".to_string()));
+        assert_eq!(rel.to_cardinality, Some("0..*".to_string()));
+        assert_eq!(rel.relationship_type, RelationshipType::Aggregation);
     }
 }

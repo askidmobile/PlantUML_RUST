@@ -251,7 +251,7 @@ impl ErLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link,
+                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
                 },
                 bounds: Rect::from_points(from_point, to_point),
                 text: rel.label.clone(),

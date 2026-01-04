@@ -41,6 +41,56 @@ pub use usecase::{UseCaseLayoutConfig, UseCaseLayoutEngine};
 pub use wbs::{WbsLayoutConfig, WbsLayoutEngine};
 pub use yaml::{YamlLayoutConfig, YamlLayoutEngine};
 
+/// Слои z-order для элементов диаграммы
+/// Элементы с меньшим номером рендерятся ПОД элементами с большим номером
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum ZLayer {
+    /// Фоновые элементы (box группировки участников)
+    Background = 0,
+    /// Lifelines (пунктирные вертикальные линии)
+    Lifeline = 1,
+    /// Activation boxes (белые прямоугольники на lifeline)
+    Activation = 2,
+    /// Стрелки сообщений
+    #[default]
+    Message = 3,
+    /// Фреймы фрагментов (alt, opt, loop) — рамки
+    FragmentFrame = 4,
+    /// Labels фрагментов и текст сообщений
+    FragmentLabel = 5,
+    /// Заметки (notes)
+    Note = 6,
+    /// Участники (header/footer блоки) — самые верхние
+    Participant = 7,
+}
+
+impl ZLayer {
+    /// Определяет z-layer по типу элемента и его id
+    pub fn from_element(element: &LayoutElement) -> Self {
+        match &element.element_type {
+            ElementType::ParticipantBox => ZLayer::Background,
+            ElementType::Activation => ZLayer::Activation,
+            // Lifeline: пунктирная линия без стрелок
+            ElementType::Edge { dashed: true, arrow_end: false, arrow_start: false, .. } 
+                if element.id.starts_with("lifeline_") => ZLayer::Lifeline,
+            // Обычные сообщения (edges)
+            ElementType::Edge { .. } => ZLayer::Message,
+            // Fragment
+            ElementType::Fragment { .. } => ZLayer::FragmentFrame,
+            // Участники (header и footer)
+            ElementType::Rectangle { .. } 
+                if element.id.starts_with("participant_") || element.id.starts_with("footer_") 
+                => ZLayer::Participant,
+            // Заметки
+            ElementType::Rectangle { .. } if element.id.starts_with("note_") => ZLayer::Note,
+            // Текст
+            ElementType::Text { .. } => ZLayer::FragmentLabel,
+            // Всё остальное — дефолт
+            _ => ZLayer::Message,
+        }
+    }
+}
+
 /// Элемент результата layout
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutElement {
@@ -119,6 +169,17 @@ pub enum ElementType {
     RoundedRectangle,
     /// Эллипс (начальное/конечное состояние)
     Ellipse { label: Option<String> },
+    /// UML Initial State (чёрный заполненный круг)
+    InitialState,
+    /// UML Final State (bullseye: круг в круге)
+    FinalState,
+    /// UML State (прямоугольник со скруглёнными углами и разделителем)
+    State {
+        /// Название состояния
+        name: String,
+        /// Описание (entry/exit/do actions)
+        description: Option<String>,
+    },
     /// Актёр (stick figure) для UseCase диаграмм
     Actor { label: String },
     /// Система/пакет для UseCase диаграмм (прямоугольник с заголовком сверху)
@@ -133,6 +194,10 @@ pub enum ElementType {
         dashed: bool,
         /// Тип связи (определяет форму маркеров)
         edge_type: EdgeType,
+        /// Кардинальность у начальной точки (например "1")
+        from_cardinality: Option<String>,
+        /// Кардинальность у конечной точки (например "*")
+        to_cardinality: Option<String>,
     },
     /// SVG Path (для кривых Безье, etc.)
     Path,

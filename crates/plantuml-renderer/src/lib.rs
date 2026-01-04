@@ -31,7 +31,7 @@ pub mod png_renderer;
 
 pub use plantuml_layout::{
     ClassMember, ClassifierKind, EdgeType, ElementType, FragmentSection, 
-    LayoutElement, LayoutResult, MemberVisibility, Point, Rect,
+    LayoutElement, LayoutResult, MemberVisibility, Point, Rect, ZLayer,
 };
 pub use plantuml_themes::Theme;
 pub use svg_renderer::SvgRenderer;

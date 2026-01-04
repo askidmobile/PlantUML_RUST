@@ -4,7 +4,7 @@ assertion_line: 26
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="340" viewBox="215 25 190 340" width="190" xmlns="http://www.w3.org/2000/svg">
+<svg height="420" viewBox="215 25 230 420" width="230" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -22,39 +22,45 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
-<g id="initial_">
-<ellipse cx="280" cy="40" fill="#E2E2F0" rx="10" ry="10" stroke="#181818" stroke-width="1"/>
+<g id="initial_initial">
+<ellipse cx="280" cy="40" fill="#181818" rx="10" ry="10" stroke="none"/>
 </g>
 <g id="state_Active">
-<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="0.5" width="120" x="220" y="140"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="280" y="165">
+<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="220" y="140"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="280" y="157.5">
 Active
 </text>
+<line stroke="#181818" stroke-width="0.5" x1="220" x2="340" y1="165" y2="165"/>
 </g>
 <g id="state_Inactive">
-<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="0.5" width="120" x="220" y="250"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="280" y="275">
+<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="220" y="250"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="280" y="267.5">
 Inactive
 </text>
+<line stroke="#181818" stroke-width="0.5" x1="220" x2="340" y1="275" y2="275"/>
 </g>
-<g id="trans__Active">
+<g id="final_final">
+<ellipse cx="280" cy="370" fill="#FFFFFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
+<ellipse cx="280" cy="370" fill="#181818" rx="6" ry="6" stroke="none"/>
+</g>
+<g id="trans_initial_Active">
 <path d="M280,50 L280,140" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="trans_Active_Inactive">
 <path d="M280,190 L280,250" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="285" y="185">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="285" y="220">
 timeout
 </text>
 </g>
 <g id="trans_Inactive_Active">
-<path d="M280,250 L280,190" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="285" y="245">
+<path d="M340,275 L380,275 L380,165 L340,165" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="345" y="270">
 resume
 </text>
 </g>
-<g id="trans_Active_">
-<path d="M280,140 L280,50" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="285" y="135">
+<g id="trans_Active_final">
+<path d="M280,190 L280,360" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="285" y="275">
 close
 </text>
 </g>

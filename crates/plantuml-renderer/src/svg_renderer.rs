@@ -5,7 +5,7 @@ use svg::Document;
 
 use crate::{
     ClassMember, ClassifierKind, EdgeType, ElementType, FragmentSection, LayoutElement, LayoutResult, 
-    MemberVisibility, Point, Rect, RenderOptions, Renderer,
+    MemberVisibility, Point, Rect, RenderOptions, Renderer, ZLayer,
 };
 use plantuml_themes::Theme;
 
@@ -187,6 +187,15 @@ impl SvgRenderer {
             ElementType::Ellipse { label } => {
                 group = self.render_ellipse(&element.bounds, label.as_deref(), theme, group);
             }
+            ElementType::InitialState => {
+                group = self.render_initial_state(&element.bounds, theme, group);
+            }
+            ElementType::FinalState => {
+                group = self.render_final_state(&element.bounds, theme, group);
+            }
+            ElementType::State { name, description } => {
+                group = self.render_uml_state(&element.bounds, name, description.as_deref(), theme, group);
+            }
             ElementType::Actor { label } => {
                 group = self.render_actor(&element.bounds, label, theme, group);
             }
@@ -200,14 +209,20 @@ impl SvgRenderer {
                 arrow_end,
                 dashed,
                 edge_type,
+                from_cardinality,
+                to_cardinality,
             } => {
+                let autonumber = element.properties.get("autonumber").map(|s| s.as_str());
                 group = self.render_edge(
                     points,
                     label.as_deref(),
+                    autonumber,
                     *arrow_start,
                     *arrow_end,
                     *dashed,
                     *edge_type,
+                    from_cardinality.as_deref(),
+                    to_cardinality.as_deref(),
                     theme,
                     group,
                 );
@@ -350,6 +365,133 @@ impl SvgRenderer {
         group
     }
 
+    /// Рендерит UML Initial State (чёрный заполненный круг)
+    fn render_initial_state(
+        &self,
+        bounds: &Rect,
+        theme: &Theme,
+        group: Group,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let cy = bounds.y + bounds.height / 2.0;
+        let r = bounds.width.min(bounds.height) / 2.0;
+
+        // Заполненный чёрный круг (UML standard)
+        let circle = svg::node::element::Ellipse::new()
+            .set("cx", cx)
+            .set("cy", cy)
+            .set("rx", r)
+            .set("ry", r)
+            .set("fill", theme.node_border.to_css()) // чёрная заливка
+            .set("stroke", "none");
+
+        group.add(circle)
+    }
+
+    /// Рендерит UML Final State (bullseye: внешний круг + внутренний заполненный круг)
+    fn render_final_state(
+        &self,
+        bounds: &Rect,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let cy = bounds.y + bounds.height / 2.0;
+        let outer_r = bounds.width.min(bounds.height) / 2.0;
+        let inner_r = outer_r * 0.6; // внутренний круг 60% от внешнего
+
+        // Внешний круг (пустой, с обводкой)
+        let outer_circle = svg::node::element::Ellipse::new()
+            .set("cx", cx)
+            .set("cy", cy)
+            .set("rx", outer_r)
+            .set("ry", outer_r)
+            .set("fill", theme.background_color.to_css())
+            .set("stroke", theme.node_border.to_css())
+            .set("stroke-width", 1.5);
+
+        group = group.add(outer_circle);
+
+        // Внутренний круг (заполненный чёрный)
+        let inner_circle = svg::node::element::Ellipse::new()
+            .set("cx", cx)
+            .set("cy", cy)
+            .set("rx", inner_r)
+            .set("ry", inner_r)
+            .set("fill", theme.node_border.to_css()) // чёрная заливка
+            .set("stroke", "none");
+
+        group.add(inner_circle)
+    }
+
+    /// Рендерит UML State (скруглённый прямоугольник с разделителем и названием)
+    fn render_uml_state(
+        &self,
+        bounds: &Rect,
+        name: &str,
+        description: Option<&str>,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let corner_radius = 10.0;
+        let header_height = 25.0;
+        
+        // 1. Основной прямоугольник со скруглёнными углами
+        let rect = Rectangle::new()
+            .set("x", bounds.x)
+            .set("y", bounds.y)
+            .set("width", bounds.width)
+            .set("height", bounds.height)
+            .set("rx", corner_radius)
+            .set("ry", corner_radius)
+            .set("fill", theme.node_background.to_css())
+            .set("stroke", theme.node_border.to_css())
+            .set("stroke-width", 1);
+
+        group = group.add(rect);
+
+        // 2. Название состояния (центрировано сверху)
+        let name_y = bounds.y + header_height / 2.0 + 5.0;
+        let name_text = svg::node::element::Text::new(name)
+            .set("x", bounds.x + bounds.width / 2.0)
+            .set("y", name_y)
+            .set("text-anchor", "middle")
+            .set("dominant-baseline", "middle")
+            .set("font-family", theme.font_family.as_str())
+            .set("font-size", theme.font_size)
+            .set("font-weight", "bold")
+            .set("fill", theme.text_color.to_css());
+
+        group = group.add(name_text);
+
+        // 3. Горизонтальный разделитель (UML style)
+        let separator_y = bounds.y + header_height;
+        let separator = svg::node::element::Line::new()
+            .set("x1", bounds.x)
+            .set("y1", separator_y)
+            .set("x2", bounds.x + bounds.width)
+            .set("y2", separator_y)
+            .set("stroke", theme.node_border.to_css())
+            .set("stroke-width", 0.5);
+
+        group = group.add(separator);
+
+        // 4. Описание (entry/exit/do actions) если есть
+        if let Some(desc) = description {
+            let desc_y = separator_y + 15.0;
+            let desc_text = svg::node::element::Text::new(desc)
+                .set("x", bounds.x + 5.0)
+                .set("y", desc_y)
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", theme.font_size - 2.0)
+                .set("fill", theme.text_color.to_css());
+
+            group = group.add(desc_text);
+        }
+
+        group
+    }
+
     /// Рендерит актёра (stick figure) для UseCase диаграмм
     fn render_actor(
         &self,
@@ -481,10 +623,13 @@ impl SvgRenderer {
         &self,
         points: &[Point],
         label: Option<&str>,
+        autonumber: Option<&str>,
         arrow_start: bool,
         arrow_end: bool,
         dashed: bool,
         edge_type: EdgeType,
+        from_cardinality: Option<&str>,
+        to_cardinality: Option<&str>,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
@@ -576,47 +721,162 @@ impl SvgRenderer {
 
         group = group.add(path);
 
-        // Метка сообщения (в стиле PlantUML: текст НАД стрелкой)
+        // Метка сообщения (в стиле PlantUML: текст рядом с линией)
         // По умолчанию в PlantUML: skinparam sequenceMessageAlign left
-        if let Some(label) = label {
-            // Позиция текста зависит от типа сообщения
-            let (text_x, text_y, anchor) = if is_self_message {
+        // Если есть autonumber — рендерим его отдельно слева, текст справа от него
+        if label.is_some() || autonumber.is_some() {
+            // Определяем тип линии
+            let dx = points[points.len() - 1].x - points[0].x;
+            let dy = points[points.len() - 1].y - points[0].y;
+            
+            let is_vertical = points.len() == 2 && dy.abs() > dx.abs() * 3.0;
+            let is_horizontal = points.len() == 2 && dx.abs() > dy.abs() * 3.0;
+            let is_diagonal = points.len() == 2 && !is_vertical && !is_horizontal;
+            
+            // Позиция текста зависит от типа линии
+            let (base_x, text_y, anchor) = if is_self_message {
                 // PlantUML: для self-message текст НАД верхней линией петли
-                // PlantUML SVG: text x=35.8 (lifeline + 8), y=62.4 (верхняя линия 67.4 - 5)
-                let left_x = points[0].x + 8.0; // отступ справа от lifeline
-                let top_y = points[0].y - 5.0; // над верхней линией петли ~5px
-                (left_x, top_y, "start")
-            } else if points.len() == 2 {
-                // PlantUML default: sequenceMessageAlign left
-                // Текст НАД стрелкой, выровнен по ЛЕВОМУ краю от начала стрелки
-                let is_left_to_right = points[1].x > points[0].x;
-                let left_x = if is_left_to_right {
-                    points[0].x + 5.0 // отступ от источника (слева)
+                let text_start = points[0].x + 5.0;
+                let top_y = points[0].y - 5.0;
+                (text_start, top_y, "start")
+            } else if points.len() == 4 {
+                // Ортогональный путь (4 точки): текст на вертикальном сегменте
+                // Вертикальный сегмент: points[1] -> points[2]
+                let mid_y = (points[1].y + points[2].y) / 2.0;
+                let text_x = points[1].x + 5.0; // справа от вертикальной линии
+                (text_x, mid_y, "start")
+            } else if is_diagonal {
+                // Диагональная линия (state diagrams): текст РЯДОМ с линией
+                // PlantUML style: текст размещается вдоль стрелки, с внешней стороны
+                
+                // Позиция вдоль линии (40% от начала для лучшего разделения расходящихся стрелок)
+                let t = 0.40;
+                let text_x = points[0].x + dx * t;
+                let text_y = points[0].y + dy * t;
+                
+                // Смещаем текст в сторону от линии (перпендикулярно, на ВНЕШНЮЮ сторону)
+                // Для расходящихся из одной точки стрелок:
+                // - Линия влево-вниз — текст СЛЕВА от линии
+                // - Линия вправо-вниз — текст СПРАВА от линии
+                let offset = 8.0; // отступ от линии
+                if dx > 0.0 {
+                    // Линия идёт вправо-вниз — текст СПРАВА от линии (внешняя сторона)
+                    (text_x + offset, text_y, "start")
                 } else {
-                    points[1].x + 5.0 // для обратных стрелок — от получателя (который слева)
+                    // Линия идёт влево-вниз — текст СЛЕВА от линии (внешняя сторона)
+                    (text_x - offset, text_y, "end")
+                }
+            } else if is_vertical {
+                // Вертикальная линия: метка СПРАВА, ПОСЕРЕДИНЕ по высоте
+                let mid_y = (points[0].y + points[1].y) / 2.0;
+                let text_x = points[0].x + 5.0;
+                (text_x, mid_y, "start")
+            } else if is_horizontal {
+                // Горизонтальная стрелка (sequence diagrams)
+                let is_left_to_right = dx > 0.0;
+                let left_x = if is_left_to_right {
+                    points[0].x + 5.0
+                } else {
+                    points[1].x + 5.0
                 };
-                let top_y = points[0].y - 5.0; // над линией стрелки
-                (left_x, top_y, "start") // выравнивание по левому краю
+                let top_y = points[0].y - 5.0;
+                (left_x, top_y, "start")
             } else {
-                // Для ортогональных путей (class diagrams): текст в середине пути
-                let mid_idx = points.len() / 2;
-                let mid_x = (points[mid_idx - 1].x + points[mid_idx].x) / 2.0;
-                let mid_y = (points[mid_idx - 1].y + points[mid_idx].y) / 2.0;
+                // Fallback: середина первого сегмента
+                let mid_x = (points[0].x + points[1].x) / 2.0;
+                let mid_y = (points[0].y + points[1].y) / 2.0;
                 (mid_x, mid_y - 5.0, "middle")
             };
 
             // PlantUML не использует белый фон для текста — текст просто над стрелкой
             // PlantUML использует font-size 13 для сообщений
-            let text = svg::node::element::Text::new(label)
-                .set("x", text_x)
-                .set("y", text_y)
-                .set("text-anchor", anchor)
-                .set("dominant-baseline", "auto") // текст baseline выше линии
-                .set("font-family", theme.font_family.as_str())
-                .set("font-size", 13.0) // PlantUML style: 13 для сообщений
-                .set("fill", theme.text_color.to_css());
+            let font_size = 13.0;
+            
+            // Вычисляем позицию для текста (учитывая autonumber)
+            let text_x = if let Some(num_text) = autonumber {
+                // Рендерим autonumber отдельно
+                // Номер уже отформатирован (например "[01]" или "1." в зависимости от формата)
+                
+                // Autonumber слева
+                let autonumber_element = svg::node::element::Text::new(num_text)
+                    .set("x", base_x)
+                    .set("y", text_y)
+                    .set("text-anchor", anchor)
+                    .set("dominant-baseline", "auto")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("fill", theme.text_color.to_css());
+                group = group.add(autonumber_element);
+                
+                // Вычисляем ширину autonumber для смещения текста
+                // PlantUML: ~7px на символ + небольшой отступ 3px
+                let num_width = num_text.len() as f64 * 7.0 + 3.0;
+                base_x + num_width
+            } else {
+                base_x
+            };
+            
+            // Рендерим текст сообщения (если есть)
+            if let Some(label) = label {
+                // Поддержка многострочного текста через \n
+                group = self.render_multiline_text(
+                    text_x, text_y, label, anchor, font_size, theme, group
+                );
+            }
+        }
 
-            group = group.add(text);
+        // Рендерим кардинальности (для class diagrams)
+        // PlantUML: кардинальности располагаются СЛЕВА от вертикальной линии,
+        // близко к точкам соединения с классами
+        if points.len() >= 2 {
+            let font_size = 13.0; // PlantUML использует 13px
+            let horizontal_offset = 10.0; // отступ слева от линии
+            let vertical_offset = 12.0; // отступ от точки соединения вниз/вверх
+            
+            // Определяем, это вертикальная линия
+            let is_vertical = (points[1].y - points[0].y).abs() > (points[1].x - points[0].x).abs();
+            
+            // Кардинальность у начальной точки (from)
+            if let Some(card) = from_cardinality {
+                let p = &points[0];
+                let (text_x, text_y) = if is_vertical {
+                    // Вертикальная линия: текст СЛЕВА, чуть НИЖЕ точки соединения
+                    (p.x - horizontal_offset, p.y + vertical_offset)
+                } else {
+                    // Горизонтальная линия: текст сверху
+                    (p.x + vertical_offset, p.y - horizontal_offset / 2.0)
+                };
+                let text_elem = svg::node::element::Text::new(card)
+                    .set("x", text_x)
+                    .set("y", text_y)
+                    .set("text-anchor", "end") // выравнивание по правому краю (к линии)
+                    .set("dominant-baseline", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("fill", theme.text_color.to_css());
+                group = group.add(text_elem);
+            }
+            
+            // Кардинальность у конечной точки (to)
+            if let Some(card) = to_cardinality {
+                let p = &points[points.len() - 1];
+                let (text_x, text_y) = if is_vertical {
+                    // Вертикальная линия: текст СЛЕВА, чуть ВЫШЕ точки соединения
+                    (p.x - horizontal_offset, p.y - vertical_offset)
+                } else {
+                    // Горизонтальная линия: текст сверху
+                    (p.x - vertical_offset, p.y - horizontal_offset / 2.0)
+                };
+                let text_elem = svg::node::element::Text::new(card)
+                    .set("x", text_x)
+                    .set("y", text_y)
+                    .set("text-anchor", "end") // выравнивание по правому краю (к линии)
+                    .set("dominant-baseline", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("fill", theme.text_color.to_css());
+                group = group.add(text_elem);
+            }
         }
 
         group
@@ -639,6 +899,64 @@ impl SvgRenderer {
             .set("fill", theme.text_color.to_css());
 
         group.add(text)
+    }
+
+    /// Рендерит многострочный текст с поддержкой \n
+    /// PlantUML использует <tspan> для каждой строки с dy для смещения
+    #[allow(clippy::too_many_arguments)]
+    fn render_multiline_text(
+        &self,
+        x: f64,
+        y: f64,
+        label: &str,
+        anchor: &str,
+        font_size: f64,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        // Конвертируем escape-последовательность \n в реальные переносы строк
+        let processed_label = label.replace("\\n", "\n");
+        let lines: Vec<&str> = processed_label.split('\n').collect();
+        
+        if lines.len() == 1 {
+            // Одна строка — простой текст
+            let text = svg::node::element::Text::new(label)
+                .set("x", x)
+                .set("y", y)
+                .set("text-anchor", anchor)
+                .set("dominant-baseline", "auto")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", font_size)
+                .set("fill", theme.text_color.to_css());
+            group = group.add(text);
+        } else {
+            // Многострочный текст — используем <text> с <tspan> для каждой строки
+            // PlantUML: последняя строка на y (ближе к стрелке), предыдущие строки ВВЕРХ
+            // Так текст располагается над стрелкой, и не наезжает на неё
+            let line_height = font_size + 2.0;
+            
+            // Начинаем с верхней строки (которая будет самой верхней визуально)
+            let top_y = y - (lines.len() as f64 - 1.0) * line_height;
+            
+            let mut text_element = svg::node::element::Text::new("")
+                .set("x", x)
+                .set("text-anchor", anchor)
+                .set("dominant-baseline", "auto")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", font_size)
+                .set("fill", theme.text_color.to_css());
+            
+            for (i, line) in lines.iter().enumerate() {
+                let tspan = svg::node::element::TSpan::new(*line)
+                    .set("x", x)
+                    .set("y", top_y + (i as f64) * line_height);
+                text_element = text_element.add(tspan);
+            }
+            
+            group = group.add(text_element);
+        }
+        
+        group
     }
 
     /// Рендерит группу (устаревший, для совместимости)
@@ -1087,7 +1405,12 @@ impl Renderer for SvgRenderer {
     fn render(&self, layout: &LayoutResult, theme: &Theme) -> String {
         let mut doc = self.create_document(layout, theme);
 
-        for element in &layout.elements {
+        // Сортируем элементы по z-layer для правильного порядка рендеринга
+        // Элементы с меньшим z-layer рендерятся первыми (внизу)
+        let mut sorted_elements: Vec<_> = layout.elements.iter().collect();
+        sorted_elements.sort_by_key(|e| ZLayer::from_element(e));
+
+        for element in sorted_elements {
             let rendered = self.render_element(element, theme);
             doc = doc.add(rendered);
         }

@@ -3,7 +3,7 @@ source: crates/plantuml-core/tests/sequence_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="201" viewBox="10 10 328 201" width="328" xmlns="http://www.w3.org/2000/svg">
+<svg height="201" viewBox="10 10 265 201" width="265" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -21,56 +21,56 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g id="lifeline_User">
+<path d="M40,45 L40,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="lifeline_Admin">
+<path d="M142.5,45 L142.5,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="lifeline_DB">
+<path d="M245,45 L245,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="participant_Admin">
+<ellipse cx="142.5" cy="30" fill="#E2E2F0" rx="27.5" ry="15" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="142.5" y="30">
+Admin
+</text>
+</g>
+<g id="msg_User_Admin">
+<path d="M40,75 L142.5,75" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="45" y="70">
+Request
+</text>
+</g>
+<g id="msg_Admin_DB">
+<path d="M142.5,103 L245,103" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="147.5" y="98">
+Query
+</text>
+</g>
+<g id="msg_DB_Admin">
+<path d="M245,131 L142.5,131" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="147.5" y="126">
+Data
+</text>
+</g>
+<g id="msg_Admin_User">
+<path d="M142.5,159 L40,159" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="45" y="154">
+Response
+</text>
+</g>
 <g id="participant_User">
 <rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="15" y="15"/>
 <text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="40" y="30">
 User
 </text>
 </g>
-<g id="participant_Admin">
-<ellipse cx="184.5" cy="30" fill="#E2E2F0" rx="27.5" ry="15" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="184.5" y="30">
-Admin
-</text>
-</g>
 <g id="participant_DB">
-<rect fill="#E2E2F0" height="30" rx="10" ry="10" stroke="#181818" stroke-width="0.5" width="50" x="283" y="15"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="308" y="30">
+<rect fill="#E2E2F0" height="30" rx="10" ry="10" stroke="#181818" stroke-width="0.5" width="50" x="220" y="15"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="245" y="30">
 DB
 </text>
-</g>
-<g id="msg_User_Admin">
-<path d="M40,75 L184.5,75" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="45" y="70">
-Request
-</text>
-</g>
-<g id="msg_Admin_DB">
-<path d="M184.5,103 L308,103" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="189.5" y="98">
-Query
-</text>
-</g>
-<g id="msg_DB_Admin">
-<path d="M308,131 L184.5,131" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="189.5" y="126">
-Data
-</text>
-</g>
-<g id="msg_Admin_User">
-<path d="M184.5,159 L40,159" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="45" y="154">
-Response
-</text>
-</g>
-<g id="lifeline_User">
-<path d="M40,45 L40,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
-</g>
-<g id="lifeline_Admin">
-<path d="M184.5,45 L184.5,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
-</g>
-<g id="lifeline_DB">
-<path d="M308,45 L308,176" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="footer_User">
 <rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="15" y="176"/>
@@ -79,14 +79,14 @@ User
 </text>
 </g>
 <g id="footer_Admin">
-<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="55" x="157" y="176"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="184.5" y="191">
+<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="55" x="115" y="176"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="142.5" y="191">
 Admin
 </text>
 </g>
 <g id="footer_DB">
-<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="283" y="176"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="308" y="191">
+<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="220" y="176"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="245" y="191">
 DB
 </text>
 </g>

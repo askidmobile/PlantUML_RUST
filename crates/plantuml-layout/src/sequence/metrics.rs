@@ -32,6 +32,41 @@ pub struct ActivationInfo {
     pub level: u32,
 }
 
+/// Состояние autonumber
+#[derive(Debug, Clone, Default)]
+pub struct AutonumberState {
+    /// Включена ли автонумерация
+    pub enabled: bool,
+    /// Текущий номер
+    pub current: u32,
+    /// Шаг нумерации
+    pub step: u32,
+    /// Формат нумерации (например: "[00]", "<b>[0]</b>")
+    pub format: Option<String>,
+}
+
+impl AutonumberState {
+    /// Возвращает следующий номер и увеличивает счётчик
+    pub fn next(&mut self) -> String {
+        let num = self.current;
+        self.current += self.step;
+
+        if let Some(fmt) = &self.format {
+            // Простая замена: 0 -> число, 00 -> с ведущими нулями
+            if fmt.contains("00") {
+                fmt.replace("00", &format!("{:02}", num))
+            } else if fmt.contains('0') {
+                fmt.replace('0', &num.to_string())
+            } else {
+                // Если формат не содержит 0, просто добавляем номер в начало
+                format!("{}{}", num, fmt)
+            }
+        } else {
+            num.to_string()
+        }
+    }
+}
+
 /// Метрики всей диаграммы
 #[derive(Debug, Clone)]
 pub struct DiagramMetrics {
@@ -49,6 +84,10 @@ pub struct DiagramMetrics {
     pub active_activations: IndexMap<String, Vec<ActivationInfo>>,
     /// Завершённые активации (для отрисовки)
     pub completed_activations: Vec<(ActivationInfo, f64)>, // (info, end_y)
+    /// Состояние autonumber
+    pub autonumber: AutonumberState,
+    /// Стек вызовов для return (caller, callee)
+    pub call_stack: Vec<(String, String)>,
 }
 
 impl DiagramMetrics {
@@ -62,6 +101,8 @@ impl DiagramMetrics {
             activation_stack: IndexMap::new(),
             active_activations: IndexMap::new(),
             completed_activations: Vec::new(),
+            autonumber: AutonumberState::default(),
+            call_stack: Vec::new(),
         }
     }
 

@@ -4,7 +4,7 @@ assertion_line: 50
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="280" viewBox="215 25 250 280" width="250" xmlns="http://www.w3.org/2000/svg">
+<svg height="310" viewBox="215 25 250 310" width="250" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -22,19 +22,24 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
-<g id="initial_">
-<ellipse cx="280" cy="40" fill="#E2E2F0" rx="10" ry="10" stroke="#181818" stroke-width="1"/>
+<g id="initial_initial">
+<ellipse cx="280" cy="40" fill="#181818" rx="10" ry="10" stroke="none"/>
 </g>
 <g id="composite_Active">
-<rect fill="#E2E2F0" height="100" rx="10" ry="10" stroke="#181818" stroke-width="0.5" width="180" x="220" y="140"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="310" y="190">
+<rect fill="#E2E2F0" height="100" rx="10" ry="10" stroke="#181818" stroke-width="1" width="180" x="220" y="140"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="310" y="157.5">
 Active
 </text>
+<line stroke="#181818" stroke-width="0.5" x1="220" x2="400" y1="165" y2="165"/>
 </g>
-<g id="trans__Active">
-<path d="M280,50 L310,140" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<g id="final_final">
+<ellipse cx="280" cy="260" fill="#FFFFFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
+<ellipse cx="280" cy="260" fill="#181818" rx="6" ry="6" stroke="none"/>
 </g>
-<g id="trans_Active_">
-<path d="M310,140 L280,50" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<g id="trans_initial_Active">
+<path d="M284,50 L274,140" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+</g>
+<g id="trans_Active_final">
+<path d="M274,240 L280,250" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 </svg>

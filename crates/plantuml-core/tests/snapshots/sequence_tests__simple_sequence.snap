@@ -3,7 +3,7 @@ source: crates/plantuml-core/tests/sequence_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="145" viewBox="10 10 186 145" width="186" xmlns="http://www.w3.org/2000/svg">
+<svg height="145" viewBox="10 10 165 145" width="165" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -21,6 +21,24 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g id="lifeline_Alice">
+<path d="M42.5,45 L42.5,120" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="lifeline_Bob">
+<path d="M145,45 L145,120" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="msg_Alice_Bob">
+<path d="M42.5,75 L145,75" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="47.5" y="70">
+Hello
+</text>
+</g>
+<g id="msg_Bob_Alice">
+<path d="M145,103 L42.5,103" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="47.5" y="98">
+Hi
+</text>
+</g>
 <g id="participant_Alice">
 <rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="55" x="15" y="15"/>
 <text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="42.5" y="30">
@@ -28,28 +46,10 @@ Alice
 </text>
 </g>
 <g id="participant_Bob">
-<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="141" y="15"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="166" y="30">
+<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="120" y="15"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="145" y="30">
 Bob
 </text>
-</g>
-<g id="msg_Alice_Bob">
-<path d="M42.5,75 L166,75" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="47.5" y="70">
-Hello
-</text>
-</g>
-<g id="msg_Bob_Alice">
-<path d="M166,103 L42.5,103" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="47.5" y="98">
-Hi
-</text>
-</g>
-<g id="lifeline_Alice">
-<path d="M42.5,45 L42.5,120" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
-</g>
-<g id="lifeline_Bob">
-<path d="M166,45 L166,120" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="footer_Alice">
 <rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="55" x="15" y="120"/>
@@ -58,8 +58,8 @@ Alice
 </text>
 </g>
 <g id="footer_Bob">
-<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="141" y="120"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="166" y="135">
+<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="120" y="120"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="145" y="135">
 Bob
 </text>
 </g>

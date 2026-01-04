@@ -4,8 +4,8 @@
 
 use plantuml_ast::common::{LineStyle, Note, NotePosition};
 use plantuml_ast::sequence::{
-    Activation, ActivationType, Delay, Divider, Fragment, FragmentType, Message, ParticipantType,
-    SequenceDiagram, SequenceElement,
+    Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, 
+    Message, ParticipantType, Return, SequenceDiagram, SequenceElement,
 };
 use plantuml_model::{Point, Rect};
 
@@ -95,7 +95,107 @@ impl SequenceLayoutEngine {
         };
         result.calculate_bounds();
 
+        // 12. Расширяем bounds для текста сообщений (PlantUML Вариант B)
+        // Текст может выходить за границы участников, viewBox расширяется
+        self.adjust_bounds_for_message_text(diagram, &metrics, &mut result);
+
         result
+    }
+
+    /// Расширяет bounds диаграммы для учёта текста сообщений, выходящего за участников
+    /// PlantUML Вариант B: фиксированный spacing, но viewBox расширяется под текст
+    fn adjust_bounds_for_message_text(
+        &self,
+        diagram: &SequenceDiagram,
+        metrics: &DiagramMetrics,
+        result: &mut LayoutResult,
+    ) {
+        let mut max_right = result.bounds.x + result.bounds.width;
+        let mut max_left_overflow = 0.0_f64;
+
+        // Проходим по всем элементам и вычисляем максимальный выход текста за границы
+        for element in &diagram.elements {
+            self.check_element_text_overflow(element, metrics, &mut max_right, &mut max_left_overflow);
+        }
+
+        // Расширяем bounds если текст выходит за правую границу
+        // Добавляем небольшой отступ (5px) для читабельности, но не полный margin
+        let current_right = result.bounds.x + result.bounds.width;
+        if max_right > current_right {
+            result.bounds.width = max_right - result.bounds.x + 5.0;
+        }
+
+        // Расширяем bounds если текст выходит за левую границу
+        if max_left_overflow > 0.0 {
+            result.bounds.x -= max_left_overflow + 5.0;
+            result.bounds.width += max_left_overflow + 5.0;
+        }
+    }
+
+    /// Рекурсивно проверяет overflow текста сообщений
+    fn check_element_text_overflow(
+        &self,
+        element: &SequenceElement,
+        metrics: &DiagramMetrics,
+        max_right: &mut f64,
+        max_left_overflow: &mut f64,
+    ) {
+        match element {
+            SequenceElement::Message(msg) => {
+                let is_self_message = msg.from == msg.to;
+
+                if is_self_message {
+                    // Self-message: текст справа от петли
+                    if let Some(pm) = metrics.participants.get(&msg.from) {
+                        let loop_width = 40.0;
+                        let text_offset = 5.0; // отступ от петли до текста
+                        let text_width = self.config.message_label_width(&msg.label);
+                        let right_edge = pm.center_x + loop_width + text_offset + text_width;
+                        *max_right = max_right.max(right_edge);
+                    }
+                } else {
+                    // Обычное сообщение: текст слева от стрелки (над ней)
+                    // Проверяем, не выходит ли текст за левого участника
+                    let from_x = metrics.lifeline_x(&msg.from, &self.config);
+                    let to_x = metrics.lifeline_x(&msg.to, &self.config);
+                    let left_x = from_x.min(to_x);
+                    let text_start = left_x + 5.0; // отступ от lifeline
+                    let text_width = self.config.message_label_width(&msg.label);
+                    let text_end = text_start + text_width;
+
+                    // Проверяем overflow вправо
+                    *max_right = max_right.max(text_end);
+
+                    // Проверяем overflow влево (если сообщение идёт справа налево)
+                    let min_x = metrics.participants.values()
+                        .map(|p| p.center_x - p.width / 2.0)
+                        .fold(f64::MAX, f64::min);
+                    if text_start < min_x {
+                        *max_left_overflow = max_left_overflow.max(min_x - text_start);
+                    }
+                }
+            }
+            SequenceElement::Fragment(frag) => {
+                for section in &frag.sections {
+                    for elem in &section.elements {
+                        self.check_element_text_overflow(elem, metrics, max_right, max_left_overflow);
+                    }
+                }
+            }
+            SequenceElement::Return(ret) => {
+                // Return тоже может иметь label
+                if let Some(label) = &ret.label {
+                    let text_width = self.config.message_label_width(label);
+                    // Return обычно идёт справа налево, текст над стрелкой
+                    // Просто добавляем к max_right для безопасности
+                    let current_max_x = metrics.participants.values()
+                        .map(|p| p.center_x + p.width / 2.0)
+                        .fold(f64::MIN, f64::max);
+                    *max_right = max_right.max(current_max_x + text_width);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Создаёт layout для box группировок
@@ -206,8 +306,18 @@ impl SequenceLayoutEngine {
             self.config.margin
         };
 
+        // Сначала вычисляем ширины всех участников
+        let participant_widths: Vec<f64> = participant_order
+            .iter()
+            .map(|name| {
+                let display_name = participant_names.get(name).unwrap_or(name);
+                self.config.participant_width_for_name(display_name)
+            })
+            .collect();
+        
         // Вычисляем максимальную ширину сообщений между соседними участниками
-        let spacing_map = self.calculate_participant_spacing(diagram, &participant_order);
+        // Теперь с учётом реальных ширин участников
+        let spacing_map = self.calculate_participant_spacing(diagram, &participant_order, &participant_widths);
 
         // Размещаем участников с вычисленными расстояниями
         let mut x = self.config.margin;
@@ -219,7 +329,7 @@ impl SequenceLayoutEngine {
                 .copied()
                 .unwrap_or(ParticipantType::Participant);
 
-            let width = self.config.participant_width_for_name(display_name);
+            let width = participant_widths[i];
             let center_x = x + width / 2.0;
 
             // Y-координата зависит от того, есть ли боксы с заголовками
@@ -253,10 +363,9 @@ impl SequenceLayoutEngine {
             if i < participant_order.len() - 1 {
                 let next_name = &participant_order[i + 1];
                 let key = format!("{}_{}", name, next_name);
-                let spacing = spacing_map
-                    .get(&key)
-                    .copied()
-                    .unwrap_or(self.config.participant_spacing);
+                // Используем расстояние из spacing_map (уже рассчитано для всех пар)
+                // Если пары нет — минимальный отступ 15px
+                let spacing = spacing_map.get(&key).copied().unwrap_or(15.0);
                 x += width + spacing;
             } else {
                 x += width;
@@ -300,88 +409,179 @@ impl SequenceLayoutEngine {
     }
 
     /// Вычисляет необходимое расстояние между соседними участниками на основе длины сообщений
+    /// 
+    /// Алгоритм (см. docs/SEQUENCE_LAYOUT_ALGORITHM.md):
+    /// 1. Собираем все сообщения и группируем по span (количеству сегментов)
+    /// 2. Обрабатываем от коротких к длинным (span=1, затем span=2, ...)
+    /// 3. Для соседних (span=1): устанавливаем spacing напрямую
+    /// 4. Для несоседних (span>1): проверяем суммарную длину, увеличиваем только первый сегмент
     fn calculate_participant_spacing(
         &self,
         diagram: &SequenceDiagram,
         participant_order: &[String],
+        participant_widths: &[f64],
     ) -> std::collections::HashMap<String, f64> {
-        let mut spacing_map: std::collections::HashMap<String, f64> =
-            std::collections::HashMap::new();
-
-        // Минимальное расстояние
-        let min_spacing = 40.0;
-
-        // Собираем все сообщения и вычисляем необходимое расстояние
-        self.collect_message_spacing(diagram, participant_order, &mut spacing_map, min_spacing);
-
+        let n = participant_order.len();
+        if n < 2 {
+            return std::collections::HashMap::new();
+        }
+        
+        // Инициализируем spacing минимальными значениями
+        let min_spacing = 50.0;
+        let mut spacing: Vec<f64> = vec![min_spacing; n - 1];
+        
+        // Отслеживаем пары с ПРЯМЫМИ сообщениями
+        let mut direct_pairs: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        
+        // Определяем есть ли autonumber
+        let has_autonumber = self.diagram_has_autonumber(diagram);
+        
+        // Собираем все сообщения и группируем по span
+        let mut messages_by_span: std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>> = 
+            std::collections::BTreeMap::new();
+        
+        self.collect_messages_by_span(
+            diagram,
+            participant_order,
+            has_autonumber,
+            &mut messages_by_span,
+        );
+        
+        // Обрабатываем от коротких к длинным
+        for (span, messages) in messages_by_span {
+            for (start_idx, end_idx, text_width) in messages {
+                // Padding для текста: 5px слева + 15px справа от наконечника
+                let required_length = text_width + 20.0;
+                
+                if span == 1 {
+                    // Соседние участники: устанавливаем spacing напрямую
+                    // Стрелка идёт от центра до центра:
+                    // arrow_length = spacing + (width_start + width_end) / 2
+                    // required_length <= arrow_length
+                    // spacing >= required_length - (width_start + width_end) / 2
+                    let half_widths = (participant_widths[start_idx] + participant_widths[end_idx]) / 2.0;
+                    let required_spacing = (required_length - half_widths).max(min_spacing);
+                    spacing[start_idx] = spacing[start_idx].max(required_spacing);
+                    direct_pairs.insert(start_idx);
+                } else {
+                    // Несоседние участники: проверяем суммарную длину
+                    // arrow_length = sum(spacing[i]) + сумма ширин промежуточных участников + половины крайних
+                    let current_spacing_sum: f64 = (start_idx..end_idx).map(|i| spacing[i]).sum();
+                    
+                    // Ширины промежуточных участников (от start+1 до end-1) + половины крайних
+                    let half_start = participant_widths[start_idx] / 2.0;
+                    let half_end = participant_widths[end_idx] / 2.0;
+                    let intermediate_widths: f64 = (start_idx + 1..end_idx)
+                        .map(|i| participant_widths[i])
+                        .sum();
+                    let total_widths = half_start + intermediate_widths + half_end;
+                    
+                    let current_arrow_length = current_spacing_sum + total_widths;
+                    
+                    if current_arrow_length < required_length {
+                        // Нужно увеличить. Увеличиваем ТОЛЬКО первый сегмент.
+                        let deficit = required_length - current_arrow_length;
+                        spacing[start_idx] += deficit;
+                    }
+                    // Отмечаем ВСЕ сегменты как используемые (чтобы не уменьшать)
+                    for i in start_idx..end_idx {
+                        direct_pairs.insert(i);
+                    }
+                }
+            }
+        }
+        
+        // Конвертируем в HashMap с ключами "participant1_participant2"
+        let mut spacing_map: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        for i in 0..n - 1 {
+            let key = format!("{}_{}", participant_order[i], participant_order[i + 1]);
+            // Для пар без прямых сообщений можно использовать меньший spacing
+            let final_spacing = if direct_pairs.contains(&i) {
+                spacing[i]
+            } else {
+                spacing[i].min(30.0) // минимум для промежуточных
+            };
+            spacing_map.insert(key, final_spacing);
+        }
+        
         spacing_map
     }
-
-    /// Рекурсивно собирает информацию о расстояниях из сообщений
-    fn collect_message_spacing(
+    
+    /// Собирает все сообщения и группирует по span (количеству сегментов)
+    fn collect_messages_by_span(
         &self,
         diagram: &SequenceDiagram,
         participant_order: &[String],
-        spacing_map: &mut std::collections::HashMap<String, f64>,
-        min_spacing: f64,
+        has_autonumber: bool,
+        messages_by_span: &mut std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>>,
     ) {
         for element in &diagram.elements {
-            self.collect_spacing_from_element(element, participant_order, spacing_map, min_spacing);
+            self.collect_message_span(element, participant_order, has_autonumber, messages_by_span);
         }
     }
-
-    fn collect_spacing_from_element(
+    
+    /// Рекурсивно собирает сообщение и добавляет в группу по span
+    fn collect_message_span(
         &self,
         element: &SequenceElement,
         participant_order: &[String],
-        spacing_map: &mut std::collections::HashMap<String, f64>,
-        min_spacing: f64,
+        has_autonumber: bool,
+        messages_by_span: &mut std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>>,
     ) {
         match element {
             SequenceElement::Message(msg) => {
-                // Вычисляем требуемое расстояние на основе длины текста
                 let text_width = self.config.message_label_width(&msg.label);
-                let required_spacing = (text_width + 20.0).max(min_spacing); // +20 для стрелок и отступов
-
-                // Находим все пары соседних участников между from и to
+                let autonumber_width = if has_autonumber { 45.0 } else { 0.0 };
+                let total_width = text_width + autonumber_width;
+                
                 let from_idx = participant_order.iter().position(|p| p == &msg.from);
                 let to_idx = participant_order.iter().position(|p| p == &msg.to);
-
+                
                 if let (Some(from_idx), Some(to_idx)) = (from_idx, to_idx) {
                     let (start, end) = if from_idx < to_idx {
                         (from_idx, to_idx)
                     } else {
                         (to_idx, from_idx)
                     };
-
-                    // Распределяем расстояние между всеми парами участников на пути
-                    let pairs_count = (end - start) as f64;
-                    if pairs_count > 0.0 {
-                        let spacing_per_pair = required_spacing / pairs_count;
-
-                        for i in start..end {
-                            let key =
-                                format!("{}_{}", participant_order[i], participant_order[i + 1]);
-                            let current = spacing_map.get(&key).copied().unwrap_or(min_spacing);
-                            spacing_map.insert(key, current.max(spacing_per_pair));
-                        }
+                    let span = end - start;
+                    if span > 0 {
+                        messages_by_span.entry(span).or_default().push((start, end, total_width));
                     }
+                }
+            }
+            SequenceElement::Return(ret) => {
+                // Return тоже влияет на spacing
+                if let Some(label) = &ret.label {
+                    let text_width = self.config.message_label_width(label);
+                    // Return не имеет autonumber
+                    
+                    // Для return нужно знать caller и callee
+                    // Но здесь у нас нет доступа к call_stack
+                    // Пока пропускаем, т.к. return обычно короче прямого сообщения
                 }
             }
             SequenceElement::Fragment(frag) => {
                 for section in &frag.sections {
                     for elem in &section.elements {
-                        self.collect_spacing_from_element(
-                            elem,
-                            participant_order,
-                            spacing_map,
-                            min_spacing,
-                        );
+                        self.collect_message_span(elem, participant_order, has_autonumber, messages_by_span);
                     }
                 }
             }
             _ => {}
         }
+    }
+
+    /// Проверяет есть ли команда autonumber в диаграмме
+    fn diagram_has_autonumber(&self, diagram: &SequenceDiagram) -> bool {
+        for element in &diagram.elements {
+            if let SequenceElement::Autonumber(cmd) = element {
+                match cmd {
+                    AutonumberCommand::Start(_) | AutonumberCommand::Resume(_) => return true,
+                    _ => {}
+                }
+            }
+        }
+        false
     }
 
     /// Создаёт элемент участника
@@ -462,6 +662,108 @@ impl SequenceLayoutEngine {
                 // TODO: Реализовать ref блоки
                 let _ = reference;
             }
+            SequenceElement::Autonumber(cmd) => {
+                self.process_autonumber(cmd, metrics);
+            }
+            SequenceElement::Return(ret) => {
+                self.layout_return(ret, metrics, elements);
+            }
+        }
+    }
+
+    /// Обрабатывает команду autonumber
+    fn process_autonumber(&self, cmd: &AutonumberCommand, metrics: &mut DiagramMetrics) {
+        match cmd {
+            AutonumberCommand::Start(params) => {
+                metrics.autonumber.enabled = true;
+                if let Some(start) = params.start {
+                    metrics.autonumber.current = start;
+                } else {
+                    // Если не указано, начинаем с 1
+                    metrics.autonumber.current = 1;
+                }
+                if let Some(step) = params.step {
+                    metrics.autonumber.step = step;
+                } else {
+                    metrics.autonumber.step = 1;
+                }
+                metrics.autonumber.format = params.format.clone();
+            }
+            AutonumberCommand::Stop => {
+                metrics.autonumber.enabled = false;
+            }
+            AutonumberCommand::Resume(params) => {
+                metrics.autonumber.enabled = true;
+                // При resume можно указать новые параметры
+                if let Some(p) = params {
+                    if let Some(start) = p.start {
+                        metrics.autonumber.current = start;
+                    }
+                    if let Some(step) = p.step {
+                        metrics.autonumber.step = step;
+                    }
+                    if p.format.is_some() {
+                        metrics.autonumber.format = p.format.clone();
+                    }
+                }
+            }
+            AutonumberCommand::Inc(_level) => {
+                // TODO: Поддержка многоуровневой нумерации (1.1, 1.2, etc.)
+                // Пока просто продолжаем
+            }
+        }
+    }
+
+    /// Обрабатывает return statement
+    fn layout_return(
+        &self,
+        ret: &Return,
+        metrics: &mut DiagramMetrics,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        // Извлекаем последний вызов из стека
+        if let Some((caller, callee)) = metrics.call_stack.pop() {
+            // Создаём return message: callee --> caller
+            let mut msg = Message::new(&callee, &caller, ret.label.clone().unwrap_or_default());
+            msg.line_style = LineStyle::Dashed;
+            msg.deactivate = true; // Return деактивирует callee
+            
+            // Layout return message (без autonumber)
+            let y = metrics.current_y;
+            metrics.last_message_y = y;
+
+            // Деактивируем callee
+            metrics.deactivate(&callee);
+
+            let from_x = metrics.lifeline_x(&callee, &self.config);
+            let to_x = metrics.lifeline_x(&caller, &self.config);
+
+            let points = vec![Point::new(from_x, y), Point::new(to_x, y)];
+
+            let bounds = Rect::new(
+                from_x.min(to_x),
+                y - 1.0,
+                (to_x - from_x).abs().max(1.0),
+                2.0,
+            );
+
+            let edge = LayoutElement {
+                id: format!("return_{}_{}", callee, caller),
+                bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
+                    points,
+                    label: ret.label.clone(),
+                    arrow_start: false,
+                    arrow_end: true,
+                    dashed: true,
+                    edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                },
+            };
+
+            elements.push(edge);
+            metrics.advance_y(self.config.message_spacing);
         }
     }
 
@@ -472,6 +774,15 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
+        // Сначала вычисляем количество строк текста
+        let line_count = msg.label.matches("\\n").count() + msg.label.matches('\n').count();
+        
+        // Для многострочного текста нужно добавить место ПЕРЕД стрелкой
+        // (текст идёт вверх от стрелки)
+        if line_count > 0 {
+            metrics.advance_y(line_count as f64 * self.config.line_height);
+        }
+        
         let y = metrics.current_y;
 
         // Сохраняем Y позицию этого сообщения для последующих активаций
@@ -485,19 +796,31 @@ impl SequenceLayoutEngine {
         // Важно: активация начинается с Y позиции ЭТОГО сообщения
         if msg.activate {
             metrics.activate_at(&msg.to, y);
+            // Добавляем в call_stack для return
+            metrics.call_stack.push((msg.from.clone(), msg.to.clone()));
         }
         if msg.deactivate {
             metrics.deactivate(&msg.from);
         }
 
+        // Получаем номер autonumber (если включен)
+        let autonumber = if metrics.autonumber.enabled {
+            Some(metrics.autonumber.next())
+        } else {
+            None
+        };
+        
+        // Label сообщения (без номера - он будет отдельным элементом)
+        let label = msg.label.clone();
+
         // Создаём линию сообщения
         let is_self_message = msg.from == msg.to;
 
         // Вычисляем ширину текста для корректного позиционирования
-        let label_width = if msg.label.is_empty() {
+        let label_width = if label.is_empty() {
             0.0
         } else {
-            self.config.message_label_width(&msg.label)
+            self.config.message_label_width(&label)
         };
 
         let points = if is_self_message {
@@ -542,31 +865,43 @@ impl SequenceLayoutEngine {
             )
         };
 
+        // Properties для хранения autonumber (если есть)
+        let mut properties = std::collections::HashMap::new();
+        if let Some(ref num) = autonumber {
+            properties.insert("autonumber".to_string(), num.clone());
+        }
+
         let edge = LayoutElement {
             id: format!("msg_{}_{}", msg.from, msg.to),
             bounds,
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            text: None, 
+            properties, 
+            element_type: ElementType::Edge {
                 points,
-                label: if msg.label.is_empty() {
+                label: if label.is_empty() && autonumber.is_none() {
+                    None
+                } else if label.is_empty() {
+                    // Только номер без текста — не добавляем label (номер в properties)
                     None
                 } else {
-                    Some(msg.label.clone())
+                    Some(label)
                 },
                 arrow_start: false,
                 arrow_end: true,
                 dashed: is_dashed, // пунктирная линия для --> (response)
                 edge_type: EdgeType::Association, // стандартные стрелки sequence diagram
+                from_cardinality: None,
+                to_cardinality: None,
             },
         };
 
         elements.push(edge);
 
-        // Продвигаем Y
-        // PlantUML self-message: шаг между self-messages ~42px
-        // Это обеспечивает достаточно места для текста следующего сообщения
-        // (текст на 5px выше верхней линии петли)
+        // Продвигаем Y на базовое расстояние между сообщениями
+        // (место для многострочного текста уже добавлено ПЕРЕД стрелкой)
         let height = if is_self_message {
-            42.0
+            // PlantUML self-message: шаг между self-messages ~30px (петля 13px + отступ)
+            30.0
         } else {
             self.config.message_spacing
         };
@@ -875,6 +1210,8 @@ impl SequenceLayoutEngine {
                     arrow_end: false,
                     dashed: true, // Lifelines всегда пунктирные
                     edge_type: EdgeType::Link, // линия без маркеров
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             };
             elements.push(lifeline);

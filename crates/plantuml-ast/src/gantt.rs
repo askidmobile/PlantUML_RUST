@@ -90,7 +90,7 @@ impl GanttDate {
 
     /// Парсит дату из строки формата "YYYY-MM-DD" или "YYYY/MM/DD"
     pub fn parse(s: &str) -> Option<Self> {
-        let parts: Vec<&str> = s.split(|c| c == '-' || c == '/').collect();
+        let parts: Vec<&str> = s.split(['-', '/']).collect();
         if parts.len() == 3 {
             let year = parts[0].parse().ok()?;
             let month = parts[1].parse().ok()?;
@@ -101,9 +101,11 @@ impl GanttDate {
         }
     }
 
-    /// Форматирует дату как строку
-    pub fn to_string(&self) -> String {
-        format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
+}
+
+impl std::fmt::Display for GanttDate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04}-{:02}-{:02}", self.year, self.month, self.day)
     }
 }
 

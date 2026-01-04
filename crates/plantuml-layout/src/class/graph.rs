@@ -54,14 +54,21 @@ impl Node {
     /// Вычисляет размер узла на основе содержимого класса
     fn calculate_size(classifier: &Classifier, config: &ClassLayoutConfig) -> Size {
         // Ширина: max(имя класса, поля, методы)
+        // Добавляем место для иконки класса (~30px)
+        let icon_width = 30.0;
         let name_width =
-            classifier.id.name.len() as f64 * config.char_width + config.class_padding * 2.0;
+            classifier.id.name.len() as f64 * config.char_width + icon_width + config.class_padding * 2.0;
 
         let field_max_width = classifier
             .fields
             .iter()
             .map(|f| {
-                let text = format!("{}{}", f.visibility.to_char(), f.name);
+                // Учитываем тип поля: "+name: type"
+                let text = if let Some(ref typ) = f.member_type {
+                    format!("{}{}: {}", f.visibility.to_char(), f.name, typ)
+                } else {
+                    format!("{}{}", f.visibility.to_char(), f.name)
+                };
                 text.len() as f64 * config.char_width
             })
             .max_by(|a, b| a.partial_cmp(b).unwrap())
@@ -71,29 +78,47 @@ impl Node {
             .methods
             .iter()
             .map(|m| {
-                let text = format!("{}{}()", m.visibility.to_char(), m.name);
+                // Учитываем return type (member_type в AST): "+method(): type"
+                let text = if let Some(ref ret_type) = m.member_type {
+                    format!("{}{}(): {}", m.visibility.to_char(), m.name, ret_type)
+                } else {
+                    format!("{}{}()", m.visibility.to_char(), m.name)
+                };
                 text.len() as f64 * config.char_width
             })
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0);
 
-        let content_width = field_max_width.max(method_max_width) + config.class_padding * 2.0;
+        // Добавляем место для иконки видимости (~15px)
+        let visibility_icon_width = 15.0;
+        let content_width = field_max_width.max(method_max_width) + visibility_icon_width + config.class_padding * 2.0;
         let width = name_width.max(content_width).max(config.min_class_width);
 
         // Высота: заголовок + поля + методы
+        // Заголовок включает: иконку + стереотип (если есть) + имя класса
+        let has_stereotype = classifier.classifier_type != plantuml_ast::class::ClassifierType::Class;
+        let header_height = if has_stereotype {
+            // Стереотип + имя = больше высоты
+            config.class_header_height + 12.0
+        } else {
+            config.class_header_height
+        };
+
+        // Секция полей
         let fields_height = if classifier.fields.is_empty() {
             0.0
         } else {
             classifier.fields.len() as f64 * config.line_height + config.class_padding
         };
 
+        // Секция методов
         let methods_height = if classifier.methods.is_empty() {
             0.0
         } else {
             classifier.methods.len() as f64 * config.line_height + config.class_padding
         };
 
-        let height = config.class_header_height + fields_height + methods_height;
+        let height = header_height + fields_height + methods_height + config.class_padding;
         let height = height.max(config.min_class_height);
 
         Size::new(width, height)
@@ -111,6 +136,10 @@ pub struct Edge {
     pub relationship_type: RelationshipType,
     /// Метка
     pub label: Option<String>,
+    /// Кардинальность у исходного узла (например "1")
+    pub from_cardinality: Option<String>,
+    /// Кардинальность у целевого узла (например "*")
+    pub to_cardinality: Option<String>,
     /// Обратное ребро (для удаления циклов)
     pub reversed: bool,
 }
@@ -123,6 +152,8 @@ impl Edge {
             to,
             relationship_type: rel.relationship_type,
             label: rel.label.clone(),
+            from_cardinality: rel.from_cardinality.clone(),
+            to_cardinality: rel.to_cardinality.clone(),
             reversed: false,
         }
     }

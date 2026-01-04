@@ -157,7 +157,7 @@ impl GanttLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: true,
-                    edge_type: EdgeType::Link,
+                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
                 },
             });
         }
@@ -318,7 +318,7 @@ impl GanttLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link,
+                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
                 },
             });
         }
@@ -340,7 +340,7 @@ impl GanttLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: true,
-                    edge_type: EdgeType::Link,
+                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
                 },
             });
         }

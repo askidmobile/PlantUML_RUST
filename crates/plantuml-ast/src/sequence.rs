@@ -127,6 +127,10 @@ pub enum SequenceElement {
     Space(u32),
     /// Ссылка (ref)
     Reference(Reference),
+    /// Команда autonumber
+    Autonumber(AutonumberCommand),
+    /// Return (возврат к вызывающему)
+    Return(Return),
 }
 
 /// Тип стрелки сообщения
@@ -331,6 +335,62 @@ pub struct ParticipantBox {
     pub color: Option<Color>,
     /// Участники внутри box
     pub participants: Vec<String>,
+}
+
+/// Команда autonumber в диаграмме
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AutonumberCommand {
+    /// autonumber [start] [step] [format]
+    Start(AutonumberStart),
+    /// autonumber stop
+    Stop,
+    /// autonumber resume [start] [step] [format]
+    Resume(Option<AutonumberStart>),
+    /// autonumber inc <level>
+    Inc(String),
+}
+
+/// Параметры запуска autonumber
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AutonumberStart {
+    /// Начальное значение (по умолчанию 1)
+    pub start: Option<u32>,
+    /// Шаг инкремента (по умолчанию 1)
+    pub step: Option<u32>,
+    /// Формат отображения (например "[00]", "<b>[000]</b>")
+    pub format: Option<String>,
+}
+
+impl AutonumberStart {
+    /// Создаёт параметры с указанным начальным значением
+    pub fn with_start(start: u32) -> Self {
+        Self {
+            start: Some(start),
+            step: None,
+            format: None,
+        }
+    }
+
+    /// Создаёт параметры с форматом
+    pub fn with_format(format: impl Into<String>) -> Self {
+        Self {
+            start: None,
+            step: None,
+            format: Some(format.into()),
+        }
+    }
+
+    /// Создаёт параметры со всеми значениями
+    pub fn new(start: Option<u32>, step: Option<u32>, format: Option<String>) -> Self {
+        Self { start, step, format }
+    }
+}
+
+/// Return statement - возврат к вызывающему участнику
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Return {
+    /// Текст возвращаемого сообщения (опционально)
+    pub label: Option<String>,
 }
 
 #[cfg(test)]

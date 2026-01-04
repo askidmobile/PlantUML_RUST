@@ -62,6 +62,21 @@ Repository <|.. AbstractRepository
 AbstractRepository <|-- UserRepository
 @enduml"#;
 
+    // Кардинальности (мультипликативность)
+    let cardinality_source = r#"@startuml
+class User {
+    +id: int
+    +name: string
+}
+
+class Order {
+    +id: int
+    +total: decimal
+}
+
+User "1" -- "*" Order : places
+@enduml"#;
+
     // Рендерим все примеры
     let options = RenderOptions::default();
 
@@ -101,6 +116,18 @@ AbstractRepository <|-- UserRepository
             );
         }
         Err(e) => println!("✗ Ошибка интерфейсов: {}", e),
+    }
+
+    // 4. Кардинальности
+    match render(cardinality_source, &options) {
+        Ok(svg) => {
+            fs::write("output_class_cardinality.svg", &svg).expect("Не удалось записать файл");
+            println!(
+                "✓ Кардинальности: output_class_cardinality.svg ({} байт)",
+                svg.len()
+            );
+        }
+        Err(e) => println!("✗ Ошибка кардинальностей: {}", e),
     }
 
     println!("\nГотово! Откройте SVG файлы в браузере для просмотра.");

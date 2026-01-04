@@ -107,11 +107,30 @@ return_stmt = { "return" ~ (ws+ ~ message_text)? }
 
 // === Сообщения ===
 // ВАЖНО: Сообщение должно содержать стрелку обязательно
+// Синтаксис PlantUML: from -> to++ : message
+// где ++ идёт ПОСЛЕ имени получателя (не после стрелки!)
 
 message = {
     participant_ref ~ ws* ~ arrow ~ ws* ~ participant_ref ~ 
+    ws* ~ target_activation? ~
     (ws* ~ ":" ~ ws* ~ message_text)?
 }
+
+// Активация/деактивация получателя после имени участника
+// Поддерживает: ++, --, **, !!, --++, --** и т.д.
+// Также может включать цвет: ++ #FFBBBB
+target_activation = {
+    source_deactivation? ~ target_action ~ (ws* ~ color)?
+}
+
+// Деактивация отправителя (--) перед действием над получателем
+source_deactivation = { "--" }
+
+// Действие над получателем:
+// ++ = активировать
+// ** = создать
+// !! = уничтожить
+target_action = { "++" | "**" | "!!" }
 
 // participant_ref не должен совпадать с ключевыми словами
 participant_ref = @{ 
@@ -139,13 +158,11 @@ arrow = {
 // Стрелки направо: ->, -->, ->>, .>, ..>, etc.
 arrow_right = {
     line_style_left? ~ 
-    arrow_line_right ~
-    activation_mark?
+    arrow_line_right
 }
 
 // Стрелки налево: <-, <--, <<-, <., <.., etc.
 arrow_left = {
-    activation_mark? ~
     arrow_line_left ~
     line_style_right?
 }
@@ -199,6 +216,8 @@ arrow_line_left = @{
 line_style_left = { "[" ~ line_color? ~ "]" }
 line_style_right = { "[" ~ line_color? ~ "]" }
 
+// DEPRECATED: activation_mark перенесён в target_activation
+// Оставлено для обратной совместимости со старыми тестами
 activation_mark = { "++" | "--" | "**" | "!!" }
 
 line_color = { "#" ~ hex_color }

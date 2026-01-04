@@ -90,6 +90,20 @@ Composite --> [*]
 @enduml
 "#;
 
+    // Пример 7: Пример из задачи - с retry и abort
+    let issue_example = r#"
+@startuml
+[*] --> Idle
+
+Idle --> Processing : start
+Processing --> Completed : success
+Processing --> Failed : error
+Completed --> [*]
+Failed --> Idle : retry
+Failed --> [*] : abort
+@enduml
+"#;
+
     // Рендерим все примеры
     let examples = [
         ("simple", simple),
@@ -98,6 +112,7 @@ Composite --> [*]
         ("with_choice", with_choice),
         ("with_fork", with_fork),
         ("composite", composite),
+        ("issue_example", issue_example),
     ];
 
     let options = RenderOptions::default();

@@ -244,6 +244,8 @@ impl UseCaseLayoutEngine {
                     UseCaseRelationType::Extend => EdgeType::Dependency,
                     UseCaseRelationType::Association => EdgeType::Association,
                 },
+                from_cardinality: None,
+                to_cardinality: None,
             },
         })
     }

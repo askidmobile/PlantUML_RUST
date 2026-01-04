@@ -311,7 +311,7 @@ impl ComponentLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: conn.dashed,
-                edge_type: EdgeType::Association,
+                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
             },
         })
     }

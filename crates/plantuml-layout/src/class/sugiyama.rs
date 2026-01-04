@@ -285,10 +285,23 @@ impl<'a> SugiyamaLayout<'a> {
 
         // Y координаты: PlantUML располагает родителей ВВЕРХУ, детей ВНИЗУ
         // Слой 0 = верх (корень/родитель), слой N = низ (потомки)
+        // Вычисляем Y на основе фактических высот узлов предыдущих слоёв
+        let mut layer_y = vec![0.0f64; max_layer + 1];
+        layer_y[0] = self.config.margin;
+        
+        for layer in 1..=max_layer {
+            // Находим максимальную высоту узлов на предыдущем слое
+            let prev_layer_max_height = self.graph.nodes_on_layer(layer - 1)
+                .iter()
+                .map(|&n| self.graph.nodes[n].size.height)
+                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or(self.config.min_class_height);
+            
+            layer_y[layer] = layer_y[layer - 1] + prev_layer_max_height + self.config.layer_vertical_spacing;
+        }
+        
         for node in &mut self.graph.nodes {
-            node.y = self.config.margin
-                + node.layer as f64
-                    * (self.config.layer_vertical_spacing + self.config.min_class_height);
+            node.y = layer_y[node.layer];
         }
 
         // X координаты: позиционируем узлы внутри каждого слоя

@@ -64,6 +64,36 @@ API --> Store: token
 Store --> App: logged in
 @enduml"#;
 
+    // Диаграмма с autonumber и return
+    let autonumber_source = r#"@startuml
+autonumber "[00]"
+
+participant "Потребитель API" as apiConsumer
+participant "IGA.SSO" as iam
+participant "Integration Platform" as ip
+participant "NBA Widget BFF" as bff
+
+apiConsumer->iam++: Атентификация - Client Credentials flow
+autonumber stop
+return Технический токен
+autonumber resume
+
+apiConsumer->ip++: Запрос к защищенному ресурсу через API + Технический токен
+autonumber stop
+ip->ip: Валидировать Технический токен и подписку на API
+autonumber resume
+ip->bff++: Запрос к защищенному ресурсу через API\n+ Данные подписки (витрины)
+bff->bff: Определение витрины
+bff->bff: Найти по clientId и issuer\nзапись о файле скрипта для витрины
+bff->bff: Обработать запрос и вернуть запрашиваемый ресурс\n(скрипт NBA Widget FE для определенной витрины)
+autonumber stop
+return Запрашиваемый ресурс
+autonumber resume
+autonumber stop
+return Запрашиваемый ресурс
+autonumber resume
+@enduml"#;
+
     // Рендерим все примеры
     let options = RenderOptions::default();
 
@@ -115,6 +145,18 @@ Store --> App: logged in
             );
         }
         Err(e) => println!("✗ Ошибка boxes: {}", e),
+    }
+
+    // 5. Диаграмма с autonumber и return
+    match render(autonumber_source, &options) {
+        Ok(svg) => {
+            fs::write("output_autonumber.svg", &svg).expect("Не удалось записать файл");
+            println!(
+                "✓ Диаграмма с autonumber: output_autonumber.svg ({} байт)",
+                svg.len()
+            );
+        }
+        Err(e) => println!("✗ Ошибка autonumber: {}", e),
     }
 
     println!("\nГотово! Откройте SVG файлы в браузере для просмотра.");

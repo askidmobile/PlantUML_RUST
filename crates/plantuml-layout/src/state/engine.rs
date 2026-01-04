@@ -15,6 +15,10 @@ pub struct StateLayoutEngine {
     config: StateLayoutConfig,
 }
 
+/// Внутренние идентификаторы для [*]
+const INITIAL_STATE_ID: &str = "[*]_initial";
+const FINAL_STATE_ID: &str = "[*]_final";
+
 impl StateLayoutEngine {
     /// Создаёт новый engine с конфигурацией по умолчанию
     pub fn new() -> Self {
@@ -33,21 +37,67 @@ impl StateLayoutEngine {
         let mut elements = Vec::new();
         let mut state_positions: IndexMap<String, Rect> = IndexMap::new();
 
-        // Собираем все состояния (включая [*]) с сохранением порядка
+        // Анализируем использование [*] - может быть initial, final или оба
+        let has_initial = diagram.transitions.iter().any(|t| t.from == "[*]");
+        let has_final = diagram.transitions.iter().any(|t| t.to == "[*]");
+
+        // Собираем все состояния с разделением [*] на initial и final
         let mut all_states: IndexSet<String> = IndexSet::new();
+        
+        // Добавляем начальное состояние если есть
+        if has_initial {
+            all_states.insert(INITIAL_STATE_ID.to_string());
+        }
+        
+        // Добавляем обычные состояния
         for state in &diagram.states {
-            all_states.insert(state.name.clone());
+            if state.name != "[*]" {
+                all_states.insert(state.name.clone());
+            }
             if let Some(alias) = &state.alias {
-                all_states.insert(alias.clone());
+                if alias != "[*]" {
+                    all_states.insert(alias.clone());
+                }
             }
         }
+        
+        // Добавляем состояния из переходов (кроме [*])
         for trans in &diagram.transitions {
-            all_states.insert(trans.from.clone());
-            all_states.insert(trans.to.clone());
+            if trans.from != "[*]" {
+                all_states.insert(trans.from.clone());
+            }
+            if trans.to != "[*]" {
+                all_states.insert(trans.to.clone());
+            }
+        }
+        
+        // Добавляем конечное состояние если есть
+        if has_final {
+            all_states.insert(FINAL_STATE_ID.to_string());
         }
 
-        // Определяем уровни состояний (простой топологический порядок)
-        let levels = self.assign_levels(diagram, &all_states);
+        // Преобразуем переходы для внутренней обработки
+        let internal_transitions: Vec<(String, String, Option<String>)> = diagram
+            .transitions
+            .iter()
+            .map(|t| {
+                let from = if t.from == "[*]" {
+                    INITIAL_STATE_ID.to_string()
+                } else {
+                    t.from.clone()
+                };
+                let to = if t.to == "[*]" {
+                    FINAL_STATE_ID.to_string()
+                } else {
+                    t.to.clone()
+                };
+                let label = t.label();
+                (from, to, if label.is_empty() { None } else { Some(label) })
+            })
+            .collect();
+
+        // Определяем уровни состояний
+        let levels = self.assign_levels(&all_states, &internal_transitions, has_initial, has_final);
         
         // Группируем состояния по уровням (используем IndexMap для стабильного порядка)
         let mut level_states: IndexMap<usize, Vec<String>> = IndexMap::new();
@@ -74,7 +124,7 @@ impl StateLayoutEngine {
                     let x = start_x + i as f64 * (self.config.state_width + self.config.horizontal_spacing);
                     
                     // Определяем тип состояния
-                    let state_type = self.get_state_type(diagram, state_name);
+                    let state_type = self.get_state_type_internal(diagram, state_name);
                     
                     let (elem, bounds) = self.create_state_element(state_name, state_type, x, y);
                     state_positions.insert(state_name.clone(), bounds);
@@ -84,11 +134,11 @@ impl StateLayoutEngine {
         }
 
         // Создаём переходы
-        for trans in &diagram.transitions {
+        for (from, to, label) in &internal_transitions {
             if let (Some(from_rect), Some(to_rect)) = 
-                (state_positions.get(&trans.from), state_positions.get(&trans.to)) 
+                (state_positions.get(from), state_positions.get(to)) 
             {
-                let edge = self.create_transition_element(trans, from_rect, to_rect);
+                let edge = self.create_transition_element_internal(from, to, label.as_deref(), from_rect, to_rect);
                 elements.push(edge);
             }
         }
@@ -108,61 +158,70 @@ impl StateLayoutEngine {
     }
 
     /// Назначает уровни состояниям (с сохранением порядка)
-    fn assign_levels(&self, diagram: &StateDiagram, all_states: &IndexSet<String>) -> IndexMap<String, usize> {
+    fn assign_levels(
+        &self,
+        all_states: &IndexSet<String>,
+        transitions: &[(String, String, Option<String>)],
+        has_initial: bool,
+        has_final: bool,
+    ) -> IndexMap<String, usize> {
         let mut levels: IndexMap<String, usize> = IndexMap::new();
         
-        // Находим начальные состояния ([*] как источник)
-        for state in all_states {
-            if state == "[*]" {
-                let is_source = diagram.transitions.iter().any(|t| t.from == *state);
-                if is_source {
-                    levels.insert(state.clone(), 0);
-                }
-            }
-        }
-
-        // Если нет начального [*], находим состояния без входящих переходов
-        if levels.is_empty() {
-            let targets: IndexSet<&String> = diagram.transitions.iter().map(|t| &t.to).collect();
+        // Начальное состояние всегда на уровне 0
+        if has_initial {
+            levels.insert(INITIAL_STATE_ID.to_string(), 0);
+        } else {
+            // Если нет начального [*], находим состояния без входящих переходов
+            let targets: IndexSet<&String> = transitions.iter().map(|(_, to, _)| to).collect();
             for state in all_states {
-                if !targets.contains(state) {
+                if state != FINAL_STATE_ID && !targets.contains(state) {
                     levels.insert(state.clone(), 0);
                 }
             }
         }
 
-        // Если всё ещё пусто, берём первое состояние
+        // Если всё ещё пусто, берём первое состояние (кроме final)
         if levels.is_empty() {
-            if let Some(first) = all_states.iter().next() {
+            if let Some(first) = all_states.iter().find(|s| *s != FINAL_STATE_ID) {
                 levels.insert(first.clone(), 0);
             }
         }
 
-        // BFS для назначения уровней (фиксированное количество итераций)
+        // BFS для назначения уровней (кроме final state)
         let max_iterations = all_states.len() + 1;
         for _ in 0..max_iterations {
             let mut new_levels = levels.clone();
             
-            for trans in &diagram.transitions {
-                if let Some(&fl) = levels.get(&trans.from) {
-                    let new_level = fl + 1;
+            for (from, to, _) in transitions {
+                // Пропускаем переходы к final state - он будет обработан позже
+                if to == FINAL_STATE_ID {
+                    continue;
+                }
+                
+                if let Some(&from_level) = levels.get(from) {
+                    let new_level = from_level + 1;
                     
-                    let current = new_levels.get(&trans.to).copied();
-                    // Назначаем уровень только если ещё не назначен
+                    // Назначаем уровень только если ещё не назначен или новый уровень больше
+                    let current = new_levels.get(to).copied();
                     if current.is_none() {
-                        new_levels.insert(trans.to.clone(), new_level);
+                        new_levels.insert(to.clone(), new_level);
                     }
                 }
             }
             
             if new_levels.len() == levels.len() {
-                // Нет новых состояний
                 break;
             }
             levels = new_levels;
         }
 
-        // Устанавливаем уровень 0 для оставшихся состояний
+        // Конечное состояние всегда на последнем уровне
+        if has_final {
+            let max_level = levels.values().max().copied().unwrap_or(0);
+            levels.insert(FINAL_STATE_ID.to_string(), max_level + 1);
+        }
+
+        // Устанавливаем уровень 0 для оставшихся состояний (не должно происходить)
         for state in all_states {
             if !levels.contains_key(state) {
                 levels.insert(state.clone(), 0);
@@ -170,6 +229,19 @@ impl StateLayoutEngine {
         }
 
         levels
+    }
+    
+    /// Получает тип состояния для внутреннего идентификатора
+    fn get_state_type_internal(&self, diagram: &StateDiagram, name: &str) -> StateType {
+        if name == INITIAL_STATE_ID {
+            return StateType::Initial;
+        }
+        if name == FINAL_STATE_ID {
+            return StateType::Final;
+        }
+        
+        // Делегируем к исходному методу
+        self.get_state_type(diagram, name)
     }
 
     /// Получает тип состояния
@@ -224,7 +296,7 @@ impl StateLayoutEngine {
         }
     }
 
-    /// Создаёт начальное состояние (заполненный круг)
+    /// Создаёт начальное состояние (UML: заполненный чёрный круг)
     fn create_initial_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
         let r = self.config.node_radius;
         let cx = x + self.config.state_width / 2.0;
@@ -233,13 +305,15 @@ impl StateLayoutEngine {
         let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
         
         (LayoutElement {
-            id: format!("initial_{}", name.replace(['[', ']', '*'], "")),
+            id: format!("initial_{}", name.replace(['[', ']', '*', '_'], "")),
             bounds: bounds.clone(),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse { label: None },
+            text: None, 
+            properties: std::collections::HashMap::new(), 
+            element_type: ElementType::InitialState,
         }, bounds)
     }
 
-    /// Создаёт конечное состояние (круг с внутренним кругом)
+    /// Создаёт конечное состояние (UML: bullseye - круг в круге)
     fn create_final_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
         let r = self.config.node_radius;
         let cx = x + self.config.state_width / 2.0;
@@ -248,24 +322,26 @@ impl StateLayoutEngine {
         let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
         
         (LayoutElement {
-            id: format!("final_{}", name.replace(['[', ']', '*'], "")),
+            id: format!("final_{}", name.replace(['[', ']', '*', '_'], "")),
             bounds: bounds.clone(),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse { 
-                label: Some("●".to_string()) // Внутренний круг
-            },
+            text: None, 
+            properties: std::collections::HashMap::new(), 
+            element_type: ElementType::FinalState,
         }, bounds)
     }
 
-    /// Создаёт простое состояние
+    /// Создаёт простое состояние (UML: скруглённый прямоугольник с разделителем)
     fn create_simple_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
         let bounds = Rect::new(x, y, self.config.state_width, self.config.state_min_height);
         
         (LayoutElement {
             id: format!("state_{}", name),
             bounds: bounds.clone(),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: self.config.state_corner_radius,
+            text: None, 
+            properties: std::collections::HashMap::new(), 
+            element_type: ElementType::State {
+                name: name.to_string(),
+                description: None,
             },
         }, bounds)
     }
@@ -279,9 +355,11 @@ impl StateLayoutEngine {
         (LayoutElement {
             id: format!("composite_{}", name),
             bounds: bounds.clone(),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: self.config.state_corner_radius,
+            text: None, 
+            properties: std::collections::HashMap::new(), 
+            element_type: ElementType::State {
+                name: name.to_string(),
+                description: None,
             },
         }, bounds)
     }
@@ -343,79 +421,139 @@ impl StateLayoutEngine {
         }, bounds)
     }
 
-    /// Создаёт элемент перехода
+    /// Создаёт элемент перехода (устаревший метод, оставлен для совместимости)
+    #[allow(dead_code)]
     fn create_transition_element(
         &self,
         trans: &Transition,
         from_rect: &Rect,
         to_rect: &Rect,
     ) -> LayoutElement {
-        // Вычисляем точки соединения
-        let (start, end) = self.calculate_connection_points(from_rect, to_rect);
-        
-        // Формируем метку
         let label = trans.label();
         let label_opt = if label.is_empty() { None } else { Some(label) };
+        self.create_transition_element_internal(&trans.from, &trans.to, label_opt.as_deref(), from_rect, to_rect)
+    }
+    
+    /// Создаёт элемент перехода для внутренних идентификаторов
+    fn create_transition_element_internal(
+        &self,
+        from: &str,
+        to: &str,
+        label: Option<&str>,
+        from_rect: &Rect,
+        to_rect: &Rect,
+    ) -> LayoutElement {
+        let from_center_y = from_rect.y + from_rect.height / 2.0;
+        let to_center_y = to_rect.y + to_rect.height / 2.0;
 
-        let min_x = start.x.min(end.x);
-        let min_y = start.y.min(end.y);
-        let max_x = start.x.max(end.x);
-        let max_y = start.y.max(end.y);
+        let dy = to_center_y - from_center_y;
+        
+        // Определяем, нужен ли ортогональный путь с обходом
+        // Обратный переход (вверх) на несколько уровней требует обхода справа
+        let is_backward_transition = dy < -self.config.vertical_spacing;
+        
+        let points = if is_backward_transition {
+            // Ортогональный путь с обходом СПРАВА (как в PlantUML)
+            // Выход справа от source, вверх, влево, в правый край target
+            let offset = 40.0; // отступ для обхода
+            
+            // Находим правую границу обоих элементов
+            let right_x = from_rect.x.max(to_rect.x) + from_rect.width.max(to_rect.width) + offset;
+            
+            let start = Point::new(from_rect.x + from_rect.width, from_center_y);
+            let corner1 = Point::new(right_x, from_center_y);
+            let corner2 = Point::new(right_x, to_center_y);
+            let end = Point::new(to_rect.x + to_rect.width, to_center_y);
+            
+            vec![start, corner1, corner2, end]
+        } else {
+            // Обычное прямое соединение
+            let (start, end) = self.calculate_connection_points(from_rect, to_rect);
+            vec![start, end]
+        };
+
+        // Вычисляем bounds для всех точек
+        let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+        let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+        let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+        let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+        
+        // Очищаем имена от специальных символов для id
+        let from_clean = from.replace(['[', ']', '*', '_'], "");
+        let to_clean = to.replace(['[', ']', '*', '_'], "");
 
         LayoutElement {
-            id: format!("trans_{}_{}", trans.from.replace(['[', ']', '*'], ""), 
-                       trans.to.replace(['[', ']', '*'], "")),
+            id: format!("trans_{}_{}", from_clean, to_clean),
             bounds: Rect::new(min_x, min_y, (max_x - min_x).max(1.0), (max_y - min_y).max(1.0)),
             text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
-                points: vec![start, end],
-                label: label_opt,
+                points,
+                label: label.map(|s| s.to_string()),
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association,
+                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
             },
         }
     }
 
-    /// Вычисляет точки соединения для перехода
+    /// Вычисляет точки соединения для прямого перехода
+    /// PlantUML style: вертикальные переходы выходят снизу/сверху
     fn calculate_connection_points(&self, from: &Rect, to: &Rect) -> (Point, Point) {
         let from_center_x = from.x + from.width / 2.0;
-        let from_center_y = from.y + from.height / 2.0;
         let to_center_x = to.x + to.width / 2.0;
-        let to_center_y = to.y + to.height / 2.0;
 
         // Определяем направление
         let dx = to_center_x - from_center_x;
-        let dy = to_center_y - from_center_y;
+        let dy = (to.y + to.height / 2.0) - (from.y + from.height / 2.0);
 
-        let start;
-        let end;
-
-        if dy.abs() > dx.abs() {
-            // Вертикальное соединение
-            if dy > 0.0 {
-                // Вниз
-                start = Point::new(from_center_x, from.y + from.height);
-                end = Point::new(to_center_x, to.y);
+        // Переход ВНИЗ
+        if dy > 0.0 {
+            // Проверяем, это маленький элемент (final state)?
+            let is_to_small = to.width < 30.0 && to.height < 30.0;
+            
+            if is_to_small {
+                // Переход к Final state: выходим снизу, входим СВЕРХУ по центру
+                // Диагональная линия от низа source к верху target
+                let from_x = if dx.abs() < 10.0 {
+                    from_center_x
+                } else if dx > 0.0 {
+                    from_center_x + from.width * 0.2
+                } else {
+                    from_center_x - from.width * 0.2
+                };
+                
+                let start = Point::new(from_x, from.y + from.height);
+                let end = Point::new(to_center_x, to.y); // Вход сверху в центр
+                (start, end)
             } else {
-                // Вверх
-                start = Point::new(from_center_x, from.y);
-                end = Point::new(to_center_x, to.y + to.height);
+                // Обычный переход между состояниями
+                // Смещаем точки по X для визуального разделения
+                let from_x = if dx.abs() < 10.0 {
+                    from_center_x
+                } else if dx > 0.0 {
+                    from_center_x + from.width * 0.2
+                } else {
+                    from_center_x - from.width * 0.2
+                };
+                
+                let to_x = if dx.abs() < 10.0 {
+                    to_center_x
+                } else if dx > 0.0 {
+                    to_center_x - to.width * 0.2
+                } else {
+                    to_center_x + to.width * 0.2
+                };
+                
+                let start = Point::new(from_x, from.y + from.height);
+                let end = Point::new(to_x, to.y);
+                (start, end)
             }
         } else {
-            // Горизонтальное соединение
-            if dx > 0.0 {
-                // Вправо
-                start = Point::new(from.x + from.width, from_center_y);
-                end = Point::new(to.x, to_center_y);
-            } else {
-                // Влево
-                start = Point::new(from.x, from_center_y);
-                end = Point::new(to.x + to.width, to_center_y);
-            }
+            // Переход ВВЕРХ (небольшой)
+            let start = Point::new(from_center_x, from.y);
+            let end = Point::new(to_center_x, to.y + to.height);
+            (start, end)
         }
-
-        (start, end)
     }
 }
 

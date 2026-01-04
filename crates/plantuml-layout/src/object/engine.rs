@@ -137,6 +137,8 @@ impl ObjectLayoutEngine {
                             ObjectLinkType::Association => EdgeType::Association,
                             ObjectLinkType::Link => EdgeType::Link,
                         },
+                        from_cardinality: None,
+                        to_cardinality: None,
                     },
                 });
             }

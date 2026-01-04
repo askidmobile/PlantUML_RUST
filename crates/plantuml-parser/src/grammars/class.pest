@@ -139,7 +139,9 @@ separator = {
 separator_text = { (!NEWLINE ~ !".." ~ !"--" ~ !"__" ~ !"==" ~ ANY)+ }
 
 // Метод - ищем по наличию скобок ()
+// Модификаторы ({abstract}, {static}) могут идти ДО или ПОСЛЕ visibility
 method = {
+    (modifier ~ ws*)* ~
     visibility? ~ ws* ~
     (modifier ~ ws+)* ~
     method_name ~ ws* ~
@@ -148,7 +150,9 @@ method = {
 }
 
 // Поле - всё что НЕ является методом (нет скобок)
+// Модификаторы ({abstract}, {static}) могут идти ДО или ПОСЛЕ visibility
 field = { 
+    (modifier ~ ws*)* ~
     visibility? ~ ws* ~ 
     (modifier ~ ws+)* ~
     field_name ~ 
@@ -177,13 +181,17 @@ enum_value = { identifier }
 // === Отношения ===
 
 relationship = {
-    class_ref ~ ws* ~
+    class_ref ~ (ws+ ~ cardinality)? ~ ws* ~
     relationship_arrow ~ ws* ~
-    class_ref ~
+    (cardinality ~ ws+)? ~ class_ref ~
     (ws* ~ ":" ~ ws* ~ relationship_label)?
 }
 
 class_ref = { qualified_name | quoted_string }
+
+// Кардинальность (multiplicity): "1", "*", "0..1", "1..*", etc.
+cardinality = { "\"" ~ cardinality_value ~ "\"" }
+cardinality_value = @{ (!"\"" ~ ANY)+ }
 
 // Типы отношений:
 // <|-- наследование (inheritance)

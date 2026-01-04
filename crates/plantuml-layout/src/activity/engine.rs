@@ -309,7 +309,7 @@ impl ActivityLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association,
+                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
             },
         });
 
@@ -373,7 +373,7 @@ impl ActivityLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association,
+                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
             },
         });
 
@@ -509,7 +509,7 @@ impl ActivityLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association,
+                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
             },
         });
     }

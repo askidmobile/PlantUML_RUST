@@ -3,7 +3,7 @@ source: crates/plantuml-core/tests/sequence_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="173" viewBox="10 10 113 173" width="113" xmlns="http://www.w3.org/2000/svg">
+<svg height="149" viewBox="10 10 163 149" width="163" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -21,30 +21,30 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g id="lifeline_Server">
+<path d="M46,45 L46,124" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+</g>
+<g id="msg_Server_Server">
+<path d="M46,75 L88,75 L88,88 L46,88" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="51" y="70">
+Process
+</text>
+</g>
+<g id="msg_Server_Server">
+<path d="M46,105 L88,105 L88,118 L46,118" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="51" y="100">
+Validate
+</text>
+</g>
 <g id="participant_Server">
 <rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="62" x="15" y="15"/>
 <text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="46" y="30">
 Server
 </text>
 </g>
-<g id="msg_Server_Server">
-<path d="M46,75 L88,75 L88,88 L46,88" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="54" y="70">
-Process
-</text>
-</g>
-<g id="msg_Server_Server">
-<path d="M46,117 L88,117 L88,130 L46,130" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="54" y="112">
-Validate
-</text>
-</g>
-<g id="lifeline_Server">
-<path d="M46,45 L46,148" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
-</g>
 <g id="footer_Server">
-<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="62" x="15" y="148"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="46" y="163">
+<rect fill="#E2E2F0" height="30" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="62" x="15" y="124"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="46" y="139">
 Server
 </text>
 </g>

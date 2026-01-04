@@ -1,9 +1,10 @@
 ---
 source: crates/plantuml-core/tests/class_tests.rs
+assertion_line: 27
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="180" viewBox="15 15 170 180" width="170" xmlns="http://www.w3.org/2000/svg">
+<svg height="190" viewBox="15 15 229 190" width="229" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -22,7 +23,7 @@ expression: svg
 </marker>
 </defs>
 <g id="User">
-<rect fill="#E2E2F0" height="130" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="120" x="20" y="20"/>
+<rect fill="#E2E2F0" height="140" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="179" x="20" y="20"/>
 <ellipse cx="36" cy="36" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="40">
 C
@@ -30,7 +31,7 @@ C
 <text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="52" y="39">
 User
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="139" y1="46" y2="46"/>
+<line stroke="#181818" stroke-width="0.5" x1="21" x2="198" y1="46" y2="46"/>
 <ellipse cx="28" cy="59" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="63">
 id: Long
@@ -39,14 +40,14 @@ id: Long
 <text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="79">
 name: String
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="139" y1="83" y2="83"/>
+<line stroke="#181818" stroke-width="0.5" x1="21" x2="198" y1="83" y2="83"/>
 <ellipse cx="28" cy="96" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="100">
-getId()
+getId(): Long
 </text>
 <ellipse cx="28" cy="112" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="116">
-getName()
+getName(): String
 </text>
 </g>
 </svg>
