@@ -196,6 +196,9 @@ impl SvgRenderer {
             ElementType::State { name, description } => {
                 group = self.render_uml_state(&element.bounds, name, description.as_deref(), theme, group);
             }
+            ElementType::CompositeState { name, header_height } => {
+                group = self.render_composite_state(&element.bounds, name, *header_height, theme, group);
+            }
             ElementType::Actor { label } => {
                 group = self.render_actor(&element.bounds, label, theme, group);
             }
@@ -492,6 +495,60 @@ impl SvgRenderer {
         group
     }
 
+    /// Рендерит UML Composite State (контейнер с заголовком и вложенными состояниями)
+    fn render_composite_state(
+        &self,
+        bounds: &Rect,
+        name: &str,
+        header_height: f64,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let corner_radius = 10.0;
+        
+        // 1. Основной прямоугольник контейнера со скруглёнными углами
+        let rect = Rectangle::new()
+            .set("x", bounds.x)
+            .set("y", bounds.y)
+            .set("width", bounds.width)
+            .set("height", bounds.height)
+            .set("rx", corner_radius)
+            .set("ry", corner_radius)
+            .set("fill", theme.node_background.to_css())
+            .set("stroke", theme.node_border.to_css())
+            .set("stroke-width", 1.5);
+
+        group = group.add(rect);
+
+        // 2. Заголовок состояния (название сверху, жирным, центрировано)
+        let name_y = bounds.y + header_height / 2.0 + 2.0;
+        let name_text = svg::node::element::Text::new(name)
+            .set("x", bounds.x + bounds.width / 2.0)
+            .set("y", name_y)
+            .set("text-anchor", "middle")
+            .set("dominant-baseline", "middle")
+            .set("font-family", theme.font_family.as_str())
+            .set("font-size", theme.font_size + 1.0)
+            .set("font-weight", "bold")
+            .set("fill", theme.text_color.to_css());
+
+        group = group.add(name_text);
+
+        // 3. Горизонтальный разделитель под заголовком
+        let separator_y = bounds.y + header_height;
+        let separator = svg::node::element::Line::new()
+            .set("x1", bounds.x)
+            .set("y1", separator_y)
+            .set("x2", bounds.x + bounds.width)
+            .set("y2", separator_y)
+            .set("stroke", theme.node_border.to_css())
+            .set("stroke-width", 1);
+
+        group = group.add(separator);
+
+        group
+    }
+
     /// Рендерит актёра (stick figure) для UseCase диаграмм
     fn render_actor(
         &self,
@@ -740,11 +797,18 @@ impl SvgRenderer {
                 let top_y = points[0].y - 5.0;
                 (text_start, top_y, "start")
             } else if points.len() == 4 {
-                // Ортогональный путь (4 точки): текст на вертикальном сегменте
-                // Вертикальный сегмент: points[1] -> points[2]
-                let mid_y = (points[1].y + points[2].y) / 2.0;
-                let text_x = points[1].x + 5.0; // справа от вертикальной линии
-                (text_x, mid_y, "start")
+                // Ортогональный путь (4 точки): это обратный переход
+                // Структура: start_h -> corner1 -> corner2 -> end_h
+                // points[0]: начало горизонтального сегмента
+                // points[1]: угол (конец первого горизонтального сегмента)
+                // points[2]: угол (начало последнего горизонтального сегмента)  
+                // points[3]: конец горизонтального сегмента
+                
+                // Метка располагается на ПЕРВОМ горизонтальном сегменте (исходящем),
+                // справа от точки выхода, на уровне Y этого сегмента
+                let text_x = points[0].x + 5.0; // справа от точки выхода
+                let text_y = points[0].y - 5.0; // чуть выше линии
+                (text_x, text_y, "start")
             } else if is_diagonal {
                 // Диагональная линия (state diagrams): текст РЯДОМ с линией
                 // PlantUML style: текст размещается вдоль стрелки, с внешней стороны

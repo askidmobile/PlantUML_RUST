@@ -180,6 +180,13 @@ pub enum ElementType {
         /// Описание (entry/exit/do actions)
         description: Option<String>,
     },
+    /// UML Composite State (контейнер с заголовком и вложенными состояниями)
+    CompositeState {
+        /// Название состояния
+        name: String,
+        /// Высота заголовка
+        header_height: f64,
+    },
     /// Актёр (stick figure) для UseCase диаграмм
     Actor { label: String },
     /// Система/пакет для UseCase диаграмм (прямоугольник с заголовком сверху)

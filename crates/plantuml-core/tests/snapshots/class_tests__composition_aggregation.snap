@@ -76,13 +76,13 @@ size: int
 </g>
 <g id="edge_Car_Engine">
 <path d="M166.5,110 L166.5,150 L81.5,150 L81.5,190" fill="none" marker-start="url(#composition)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="middle" x="124" y="145">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="171.5" y="105">
 contains
 </text>
 </g>
 <g id="edge_Car_Wheel">
 <path d="M166.5,110 L166.5,150 L253,150 L253,190" fill="none" marker-start="url(#aggregation)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="middle" x="209.75" y="145">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="171.5" y="105">
 has
 </text>
 </g>

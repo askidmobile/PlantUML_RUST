@@ -4,7 +4,7 @@ assertion_line: 70
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="420" viewBox="115 25 390 420" width="390" xmlns="http://www.w3.org/2000/svg">
+<svg height="390" viewBox="25 25 390 390" width="390" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -23,49 +23,49 @@ expression: svg
 </marker>
 </defs>
 <g id="initial_initial">
-<ellipse cx="280" cy="40" fill="#181818" rx="10" ry="10" stroke="none"/>
+<ellipse cx="190" cy="40" fill="#181818" rx="10" ry="10" stroke="none"/>
 </g>
 <g id="state_Valid">
-<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="120" y="250"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="180" y="267.5">
+<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="30" y="220"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="90" y="237.5">
 Valid
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="120" x2="240" y1="275" y2="275"/>
+<line stroke="#181818" stroke-width="0.5" x1="30" x2="150" y1="245" y2="245"/>
 </g>
 <g id="state_Invalid">
-<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="320" y="250"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="380" y="267.5">
+<rect fill="#E2E2F0" height="50" rx="10" ry="10" stroke="#181818" stroke-width="1" width="120" x="230" y="220"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="290" y="237.5">
 Invalid
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="320" x2="440" y1="275" y2="275"/>
+<line stroke="#181818" stroke-width="0.5" x1="230" x2="350" y1="245" y2="245"/>
 </g>
 <g id="final_final">
-<ellipse cx="280" cy="370" fill="#FFFFFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
-<ellipse cx="280" cy="370" fill="#181818" rx="6" ry="6" stroke="none"/>
+<ellipse cx="190" cy="340" fill="#FFFFFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
+<ellipse cx="190" cy="340" fill="#181818" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="trans_initial_check">
-<path d="M280,50 L280,140" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M190,50 L190,110" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="trans_check_Valid">
-<path d="M276,160 L204,250" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="end" x="239.2" y="196">
+<path d="M190,130 L90,220" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="end" x="142" y="166">
 [valid]
 </text>
 </g>
 <g id="trans_check_Invalid">
-<path d="M284,160 L356,250" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="320.8" y="196">
+<path d="M190,130 L290,220" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="238" y="166">
 [invalid]
 </text>
 </g>
 <g id="trans_Valid_final">
-<path d="M204,300 L280,360" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M90,270 L190,330" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="trans_Invalid_final">
-<path d="M356,300 L280,360" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M290,270 L190,330" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="choice_check">
-<text fill="#000000" font-family="sans-serif" font-size="16" x="270" y="156">
+<text fill="#000000" font-family="sans-serif" font-size="16" x="180" y="126">
 ◇
 </text>
 </g>

@@ -136,6 +136,69 @@ fn has_state_keyword(source: &str) -> bool {
     false
 }
 
+/// Проверяет наличие паттерна :Actor: --> (UseCase) — характерно для use case диаграмм
+fn has_colon_actor_usecase_pattern(source: &str) -> bool {
+    // Ищем :Name: --> (Name) или :Name: --> Name
+    for line in source.lines() {
+        let trimmed = line.trim();
+        // Проверяем начинается ли строка с :Name: и содержит --> и (
+        if trimmed.starts_with(':') && trimmed.contains(':') {
+            // Находим вторую : чтобы убедиться что это :Name:
+            if let Some(second_colon) = trimmed[1..].find(':') {
+                let after_actor = &trimmed[second_colon + 2..];
+                // Проверяем что после :Name: идёт --> и (
+                if (after_actor.contains("-->") || after_actor.contains("->"))
+                    && after_actor.contains('(')
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Проверяет наличие паттерна (UseCase) в скобках — характерно для use case диаграмм
+/// Ищем паттерны типа (Login), (Some Use Case) со стрелками
+fn has_paren_usecase_pattern(source: &str) -> bool {
+    // Проверяем наличие (Name) --> или --> (Name) паттернов
+    let chars: Vec<char> = source.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+    
+    while i < len {
+        if chars[i] == '(' {
+            // Ищем закрывающую скобку
+            let mut j = i + 1;
+            while j < len && chars[j] != ')' && chars[j] != '\n' {
+                j += 1;
+            }
+            if j < len && chars[j] == ')' {
+                // Нашли (something), проверяем есть ли рядом стрелки
+                // Проверяем что перед ( или после ) есть -->
+                let before = if i > 4 {
+                    source.get(i.saturating_sub(5)..i).unwrap_or("")
+                } else {
+                    ""
+                };
+                let after = if j + 5 < len {
+                    source.get(j+1..j+5).unwrap_or("")
+                } else {
+                    source.get(j+1..).unwrap_or("")
+                };
+                
+                if before.contains("-->") || before.contains("->")
+                    || after.contains("-->") || after.contains("->")
+                {
+                    return true;
+                }
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
 /// Определяет тип диаграммы по содержимому
 pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     let source_lower = source.to_lowercase();
@@ -240,13 +303,29 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Activity);
     }
 
+    // UseCase Diagram — проверяем РАНЬШЕ Sequence!
+    // actor + usecase или actor + (Name) паттерн — это UseCase
+    // actor + rectangle — также UseCase
+    // :Actor: --> (UseCase) паттерн — также UseCase
+    if source_lower.contains("usecase ")
+        || source_lower.contains("(usecase)")
+        || (source_lower.contains("actor ") && source_lower.contains("rectangle "))
+        || (source_lower.contains("actor ") && has_paren_usecase_pattern(&source_lower))
+        || has_colon_actor_usecase_pattern(&source_lower)
+    {
+        return Ok(DiagramKind::UseCase);
+    }
+
     // Sequence Diagram — проверяем РАНЬШЕ Component!
-    // participant и actor (без rectangle) — явные признаки sequence
+    // participant и actor (без rectangle/usecase) — явные признаки sequence
     // database/collections/queue вместе с participant — это тоже sequence
     // box — группировка участников в sequence диаграммах
     if source_lower.contains("participant ")
         || source_lower.contains("participant\"")
-        || (source_lower.contains("actor ") && !source_lower.contains("rectangle "))
+        || (source_lower.contains("actor ")
+            && !source_lower.contains("rectangle ")
+            && !source_lower.contains("usecase ")
+            && !has_paren_usecase_pattern(&source_lower))
         || source_lower.contains("boundary ")
         || source_lower.contains("control ")
         || source_lower.contains("collections ")
@@ -301,14 +380,6 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         && !source_lower.contains(" --> ")
     {
         return Ok(DiagramKind::Component);
-    }
-
-    // UseCase Diagram
-    if source_lower.contains("usecase ")
-        || source_lower.contains("(usecase)")
-        || (source_lower.contains("actor ") && source_lower.contains("rectangle "))
-    {
-        return Ok(DiagramKind::UseCase);
     }
 
     // Sequence Diagram — остальные случаи со стрелками

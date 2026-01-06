@@ -37,6 +37,18 @@ impl UseCaseLayoutEngine {
 
         let _is_left_to_right = diagram.direction == Direction::LeftToRight;
 
+        // Вычисляем максимальную ширину имён актёров для правильного позиционирования
+        // Кириллица занимает примерно 9 пикселей на символ (font-size 14)
+        let max_actor_label_width = diagram.actors.iter()
+            .map(|a| a.name.chars().count() as f64 * 9.0)
+            .fold(0.0f64, f64::max);
+        
+        // Минимальная ширина для актёра с его label
+        let actor_total_width = self.config.actor_width.max(max_actor_label_width);
+        
+        // Позиция актёров - центрируем по ширине их label
+        let actors_x = self.config.margin + actor_total_width / 2.0;
+
         // Собираем все use cases (из packages и верхнего уровня)
         let mut all_usecases: Vec<(&str, Option<&str>)> = Vec::new();
         
@@ -56,8 +68,8 @@ impl UseCaseLayoutEngine {
         let system_height = system_inner_height + self.config.package_header_height + self.config.package_padding * 2.0;
         let system_width = self.config.usecase_width + self.config.package_padding * 2.0 + 40.0;
         
-        // Позиция системы (справа от актёров)
-        let system_x = self.config.margin + self.config.actor_width + self.config.horizontal_spacing;
+        // Позиция системы (справа от актёров с учётом их label)
+        let system_x = self.config.margin + actor_total_width + self.config.horizontal_spacing;
         let system_y = self.config.margin;
 
         // Если есть packages, создаём System элемент
@@ -109,9 +121,7 @@ impl UseCaseLayoutEngine {
             }
         }
 
-        // Размещаем актёров слева, вычисляя оптимальную Y позицию
-        let actors_x = self.config.margin;
-        
+        // Размещаем актёров слева (actors_x уже вычислен выше с учётом ширины label)
         for actor in &diagram.actors {
             let actor_id = actor.alias.as_ref().unwrap_or(&actor.name);
             
@@ -236,7 +246,9 @@ impl UseCaseLayoutEngine {
                 points: vec![start, end],
                 label: rel.label.clone(),
                 arrow_start: false,
-                arrow_end: rel.relation_type != UseCaseRelationType::Association,
+                // В PlantUML --> всегда показывает стрелку
+                // Стрелки нужны для всех типов кроме undirected (которые мы пока не поддерживаем)
+                arrow_end: true,
                 dashed,
                 edge_type: match rel.relation_type {
                     UseCaseRelationType::Generalization => EdgeType::Inheritance,

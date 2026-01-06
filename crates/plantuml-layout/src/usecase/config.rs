@@ -32,7 +32,7 @@ impl Default for UseCaseLayoutConfig {
             actor_width: 40.0,       // Narrow actor
             actor_height: 70.0,      // Stick figure height
             vertical_spacing: 25.0,  // Compact
-            horizontal_spacing: 60.0,
+            horizontal_spacing: 80.0, // Increased for actor labels
             package_padding: 25.0,
             package_header_height: 30.0,
         }

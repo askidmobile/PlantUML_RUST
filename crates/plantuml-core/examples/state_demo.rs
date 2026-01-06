@@ -104,6 +104,25 @@ Failed --> [*] : abort
 @enduml
 "#;
 
+    // Пример 8: Сложный пример из задачи - Active с внутренними состояниями
+    let complex_composite = r#"
+@startuml
+[*] --> Active
+
+state Active {
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> Paused : pause
+    Paused --> Running : resume
+    Running --> Idle : stop
+}
+
+Active --> Inactive : disable
+Inactive --> Active : enable
+Inactive --> [*] : delete
+@enduml
+"#;
+
     // Рендерим все примеры
     let examples = [
         ("simple", simple),
@@ -113,6 +132,7 @@ Failed --> [*] : abort
         ("with_fork", with_fork),
         ("composite", composite),
         ("issue_example", issue_example),
+        ("complex_composite", complex_composite),
     ];
 
     let options = RenderOptions::default();

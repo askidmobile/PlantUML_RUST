@@ -11,7 +11,9 @@ end_tag = { "@enduml" }
 body = { (ws* ~ statement ~ NEWLINE*)* }
 
 // ВАЖНО: Порядок правил критичен!
-// relationship должна идти ПЕРЕД actor_def и usecase_def, чтобы :User: --> распознавался
+// actor_def и usecase_def должны идти ПЕРЕД relationship, чтобы
+// "usecase Login" распознавался как usecase_def, а не как начало relationship
+// relationship обрабатывает только явные связи типа "User --> Login" или ":User: --> (Login)"
 statement = _{
     comment
     | skinparam
@@ -22,9 +24,9 @@ statement = _{
     | top_to_bottom
     | package_def
     | rectangle_def
-    | relationship
     | actor_def
     | usecase_def
+    | relationship
     | note_stmt
 }
 
@@ -51,8 +53,9 @@ actor_def = {
 
 actor_keyword = { "actor" }
 
-// :Actor: синтаксис
-colon_actor = { ":" ~ actor_inner_name ~ ":" ~ alias_part? ~ stereotype_part? }
+// :Actor: синтаксис - только как объявление, не как часть relationship
+// Если за :Name: идёт стрелка, это relationship, а не actor_def
+colon_actor = { ":" ~ actor_inner_name ~ ":" ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
 actor_inner_name = { (!(":" | NEWLINE) ~ ANY)+ }
 
 actor_name = { quoted_string | simple_identifier }
@@ -66,8 +69,9 @@ usecase_def = {
 
 usecase_keyword = { "usecase" }
 
-// (Use Case) синтаксис
-paren_usecase = { "(" ~ usecase_inner_name ~ ")" ~ alias_part? ~ stereotype_part? }
+// (Use Case) синтаксис - только как объявление, не как часть relationship
+// Если за (Name) идёт стрелка, это relationship, а не usecase_def  
+paren_usecase = { "(" ~ usecase_inner_name ~ ")" ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
 usecase_inner_name = { (!(")" | NEWLINE) ~ ANY)+ }
 
 usecase_name = { quoted_string | simple_identifier }
@@ -94,10 +98,16 @@ relationship = {
     relationship_from ~ ws* ~ arrow ~ ws* ~ relationship_to ~ relationship_label?
 }
 
+// Исключаем ключевые слова из relationship_from, чтобы "usecase Login" не парсился как relationship
 relationship_from = { 
     colon_actor_ref
     | paren_usecase_ref
-    | simple_identifier 
+    | (!keyword ~ simple_identifier)
+}
+
+// Ключевые слова, которые не могут быть началом relationship
+keyword = { 
+    ("actor" | "usecase" | "package" | "rectangle" | "note" | "skinparam" | "title" | "hide" | "scale" | "left" | "top") ~ (ws | NEWLINE | EOI)
 }
 
 relationship_to = { 

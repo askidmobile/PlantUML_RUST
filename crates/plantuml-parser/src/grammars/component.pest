@@ -48,34 +48,34 @@ component_def = {
     | bracket_component ~ alias_part? ~ stereotype_part? ~ color_part?
 }
 
-// Ключевые слова, которые МОГУТ быть контейнерами (node, folder, frame, cloud, rectangle)
-// Для них нужна проверка на отсутствие {
+// Ключевые слова, которые МОГУТ быть контейнерами (с телом {})
+// Для них нужна проверка на отсутствие { чтобы отличить компонент от контейнера
 container_keyword = {
     "node"
     | "folder"
     | "frame"
     | "cloud"
     | "rectangle"
-}
-
-// Ключевые слова, которые НЕ могут быть контейнерами
-non_container_keyword = {
-    "component"
     | "database"
-    | "queue"
     | "storage"
+    | "queue"
     | "file"
     | "artifact"
     | "card"
     | "hexagon"
     | "stack"
+    | "collections"
+}
+
+// Ключевые слова, которые НЕ могут быть контейнерами (всегда компоненты)
+non_container_keyword = {
+    "component"
     | "actor"
     | "device"
     | "agent"
     | "control"
     | "boundary"
     | "entity"
-    | "collections"
 }
 
 // Ключевые слова для типов компонентов (все вместе для parse_component_type)
@@ -150,6 +150,15 @@ package_keyword = {
     "package"
     | "cloud"
     | "rectangle"
+    | "database"
+    | "storage"
+    | "queue"
+    | "file"
+    | "artifact"
+    | "card"
+    | "hexagon"
+    | "stack"
+    | "collections"
 }
 
 // Ключевые слова, которые могут быть и компонентом, и контейнером

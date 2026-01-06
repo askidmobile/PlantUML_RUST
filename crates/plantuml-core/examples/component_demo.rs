@@ -95,28 +95,46 @@ HTTP --> API
     // Пример 6: Микросервисы
     let microservices = r#"
 @startuml
-cloud "API Gateway" as GW
-
 package "Services" {
     component UserService
     component OrderService
     component PaymentService
-    component NotificationService
 }
 
 database UserDB
 database OrderDB
 queue Kafka
 
-GW --> UserService
-GW --> OrderService
-GW --> PaymentService
-
 UserService --> UserDB
 OrderService --> OrderDB
 OrderService --> Kafka
 PaymentService --> Kafka
-NotificationService --> Kafka
+@enduml
+"#;
+
+    // Пример 7: Database как контейнер (из задачи)
+    let database_container = r#"
+@startuml
+package "Frontend" {
+    [React App]
+    [Redux Store]
+}
+
+package "Backend" {
+    [API Gateway]
+    [Auth Service]
+    [User Service]
+}
+
+database "PostgreSQL" {
+    [Users DB]
+}
+
+[React App] --> [Redux Store]
+[Redux Store] --> [API Gateway]
+[API Gateway] --> [Auth Service]
+[API Gateway] --> [User Service]
+[User Service] --> [Users DB]
 @enduml
 "#;
 
@@ -128,6 +146,7 @@ NotificationService --> Kafka
         ("various_types", various_types),
         ("with_interfaces", with_interfaces),
         ("microservices", microservices),
+        ("database_container", database_container),
     ];
 
     let options = RenderOptions::default();
