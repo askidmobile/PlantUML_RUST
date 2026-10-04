@@ -1,5 +1,7 @@
 //! Конфигурация layout для Activity Diagrams
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация Activity Layout Engine
 #[derive(Debug, Clone)]
 pub struct ActivityLayoutConfig {
@@ -25,6 +27,10 @@ pub struct ActivityLayoutConfig {
     pub bar_width: f64,
     /// Радиус скругления действий
     pub action_corner_radius: f64,
+    /// Размер шрифта подписей
+    pub font_size: f64,
+    /// Измеритель текста
+    pub text: TextMeasurer,
     /// Размер стрелки
     pub arrow_size: f64,
     /// Ширина swimlane
@@ -38,17 +44,24 @@ pub struct ActivityLayoutConfig {
 impl Default for ActivityLayoutConfig {
     fn default() -> Self {
         Self {
-            margin: 20.0,
-            action_width: 120.0,
-            action_height: 40.0,
-            vertical_spacing: 30.0,
+            // Измерено по эталону activity_basic: действие — это текст плюс
+            // 20 («Первый шаг» 76.822 → 96.8; «Последний шаг» 98.209 → 118.2),
+            // высота 34. Ромб условия — 70.9 x 24.
+            margin: 16.0,
+            action_width: 96.8,
+            action_height: 34.0,
+            // Шаги эталона: initial 15..35, действие 55..89, ромб
+            // 108.969..132.969, действия веток 142.969, слияние 226.938.
+            vertical_spacing: 19.969,
             horizontal_spacing: 60.0,
             node_radius: 10.0,
-            diamond_width: 30.0,
-            diamond_height: 30.0,
+            diamond_width: 70.9,
+            diamond_height: 24.0,
             bar_height: 5.0,
             bar_width: 50.0,
             action_corner_radius: 10.0,
+            font_size: 12.0,
+            text: TextMeasurer::default(),
             arrow_size: 8.0,
             swimlane_width: 180.0,
             swimlane_header_height: 30.0,

@@ -11,6 +11,12 @@ use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
 
 use super::config::ActivityLayoutConfig;
+
+/// Добавка к ширине действия: вмещает внутренние отступы.
+///
+/// Измерено по эталону activity_basic: «Первый шаг» 76.822 → 96.8,
+/// «Последний шаг» 98.209 → 118.2.
+const ACTION_TEXT_PADDING: f64 = 20.0;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Информация о swimlane для layout
@@ -175,7 +181,11 @@ impl ActivityLayoutEngine {
                     (r * 2.0, false)
                 }
                 ActivityElement::Action(action) => {
-                    let w = self.config.action_width;
+                    // Ширина действия зависит от длины подписи: измерено по
+                    // эталону («Первый шаг» 76.822 → 96.8, «Последний шаг»
+                    // 98.209 → 118.2), то есть текст плюс 20.
+                    let w = self.config.text.width(&action.label, self.config.font_size)
+                        + ACTION_TEXT_PADDING;
                     let h = self.config.action_height;
                     elements.push(LayoutElement {
                         id: format!("action_{}", elements.len()),
@@ -505,7 +515,8 @@ impl ActivityLayoutEngine {
         current_y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
-        let w = self.config.action_width;
+        // Ширина по содержимому — см. ACTION_TEXT_PADDING
+        let w = self.config.text.width(&action.label, self.config.font_size) + ACTION_TEXT_PADDING;
         let h = self.config.action_height;
 
         elements.push(LayoutElement {
