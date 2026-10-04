@@ -1638,7 +1638,15 @@ impl Renderer for SvgRenderer {
     type Output = String;
 
     fn render(&self, layout: &LayoutResult, theme: &Theme) -> String {
-        let mut doc = self.create_document(layout, theme);
+        let doc = self.create_document(layout, theme);
+
+        // PlantUML оборачивает всё содержимое в один `<g>` с общим шрифтом
+        // и режимом подгонки текста. Группа нужна потребителям вывода:
+        // по ней наследуется font-family, а lengthAdjust="spacing" задаёт
+        // способ подгонки по textLength.
+        let mut group = Group::new()
+            .set("font-family", theme.font_family.as_str())
+            .set("lengthAdjust", "spacing");
 
         // Сортируем элементы по z-layer для правильного порядка рендеринга
         // Элементы с меньшим z-layer рендерятся первыми (внизу)
@@ -1666,9 +1674,14 @@ impl Renderer for SvgRenderer {
                 }
             };
             let rendered = self.render_element_with_id(element, theme, &unique_id);
-            doc = doc.add(rendered);
+            group = group.add(rendered);
         }
 
+        let doc = doc.add(group);
+
+        // Собственного XML-заголовка PlantUML не пишет ни в одном из
+        // эталонов: документ начинается сразу с `<svg>`. Опция оставлена
+        // для потребителей, которым заголовок нужен.
         let svg = if self.options.xml_header {
             format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}", doc)
         } else {

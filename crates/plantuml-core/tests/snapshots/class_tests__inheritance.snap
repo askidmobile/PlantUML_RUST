@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Animal">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.1754" x="65.29990000000002" y="7"/>
 <ellipse cx="81.29990000000002" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
@@ -75,5 +76,6 @@ meow()
 </g>
 <g id="edge_Animal_Cat">
 <path d="M160.81100000000004,131.297 L160.81100000000004,101.297 L105.38760000000002,101.297 L105.38760000000002,71.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+</g>
 </g>
 </svg>

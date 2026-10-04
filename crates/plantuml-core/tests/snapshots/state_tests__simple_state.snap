@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="initial_initial">
 <ellipse cx="97.88499999999999" cy="16" fill="#181818" rx="10" ry="10" stroke="none"/>
 </g>
@@ -63,5 +64,6 @@ resume
 <text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="138.63899999999998" y="161.4" textLength="35.857">
 close
 </text>
+</g>
 </g>
 </svg>

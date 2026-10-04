@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="initial_initial">
 <ellipse cx="94.5" cy="16" fill="#181818" rx="10" ry="10" stroke="none"/>
 </g>
@@ -61,5 +62,6 @@ Waiting
 </g>
 <g id="trans_Active_final">
 <path d="M94.5,269 L94.5,330" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+</g>
 </g>
 </svg>

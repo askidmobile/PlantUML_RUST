@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="User">
 <rect fill="#F1F1F1" height="121.18799999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="158.72503999999998" x="7" y="7"/>
 <ellipse cx="23" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
@@ -49,5 +50,6 @@ getId(): Long
 <text fill="#000000" font-family="sans-serif" font-size="14" x="23" y="103" textLength="125.991">
 getName(): String
 </text>
+</g>
 </g>
 </svg>

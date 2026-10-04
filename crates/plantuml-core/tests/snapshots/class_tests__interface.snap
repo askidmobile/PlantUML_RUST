@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Serializable">
 <rect fill="#F1F1F1" height="76.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="160.0724" x="7" y="7"/>
 <ellipse cx="23" cy="23" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
@@ -63,5 +64,6 @@ serialize(): String
 </g>
 <g id="edge_Serializable_User">
 <path d="M87.0362,143.297 L87.0362,83.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+</g>
 </g>
 </svg>

@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="lifeline_User">
 <path d="M35,85.297 L35,220.69600000000003" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
@@ -98,5 +99,6 @@ Admin
 <text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="238.8632" y="235.84450000000004" textLength="17.513">
 DB
 </text>
+</g>
 </g>
 </svg>

@@ -22,6 +22,7 @@ expression: svg
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
+<g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Repository">
 <rect fill="#F1F1F1" height="92.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="121.85939999999998" x="179.66122" y="7"/>
 <ellipse cx="195.66122" cy="23" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
@@ -108,5 +109,6 @@ findByCategory(): List&lt;Product&gt;
 </g>
 <g id="edge_AbstractRepository_ProductRepository">
 <path d="M343.51813999999996,320.188 L343.51813999999996,290.188 L240.59091999999998,290.188 L240.59091999999998,260.188" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+</g>
 </g>
 </svg>
