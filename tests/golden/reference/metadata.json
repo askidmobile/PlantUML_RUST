@@ -14,8 +14,8 @@
   "component_basic": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "f3aa4311af40adf80f48505cba9081d70e118c9aa01dd4abe82c7d7428020d4c",
-    "svg_bytes": "3287",
-    "svg_sha256": "0e29ef155f308fa6a9013dcd70e5431ed4c76b52e46555b4f3cacf3198447af1"
+    "svg_bytes": "3623",
+    "svg_sha256": "be47815f7303374950e3f2410cdc2a1fb436685e79cda1ea4b0f7768c25214e6"
   },
   "deployment_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -109,9 +109,9 @@
   },
   "wbs_basic": {
     "plantuml_version": "1.2026.9beta4",
-    "source_sha256": "c54e4be0e446aa75190cdaaf1dfca8d7f879ff233df71310cb1c36ded8d44802",
-    "svg_bytes": "2335",
-    "svg_sha256": "f0a044dad43b96629581ff8a7ec908c618a6aa48d29fdfb8cd9c922905bf1d0e"
+    "source_sha256": "9fbf6285276e13fd403d7bd324406e6162a82dc9266da0c9a91f8803eccb56b4",
+    "svg_bytes": "2612",
+    "svg_sha256": "077608010b947d62e3023dbe0366844261695bbf2d5d129074a4ca706c4a3814"
   },
   "yaml_basic": {
     "plantuml_version": "1.2026.9beta4",
