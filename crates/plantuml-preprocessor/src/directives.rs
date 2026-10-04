@@ -2,13 +2,51 @@
 
 use crate::{PreprocessContext, PreprocessError, Result};
 
-/// Обрабатывает !define
+/// Обрабатывает `!define`.
+///
+/// Поддерживаются обе формы PlantUML:
+///
+/// - простая подстановка: `!define NAME value` — значение подставляется
+///   вместо имени при упоминании;
+/// - **макрос с параметрами**: `!define NAME(a, b) тело` — вызов
+///   `NAME(x, y)` раскрывается в тело с подстановкой аргументов.
+///
+/// Вторая форма — основа стандартной библиотеки: `C4`, `tupadr3` и `office`
+/// объявляют свои элементы именно так
+/// (`!define Person(e_alias, e_label) rectangle "..." as e_alias`).
+/// Без её поддержки содержимое stdlib подставлялось, но вызовы макросов
+/// оставались в тексте как есть, и парсер падал на незнакомом синтаксисе.
 pub fn handle_define(rest: &str, ctx: &mut PreprocessContext) -> Result<()> {
     if !ctx.should_output() {
         return Ok(());
     }
 
     let rest = rest.trim();
+
+    // Макрос с параметрами: имя(...)  тело
+    if let Some(paren_open) = rest.find('(') {
+        if let Some(paren_close) = find_matching_paren(rest, paren_open) {
+            let name = rest[..paren_open].trim();
+            // Имя макроса не должно содержать пробелов: иначе это не макрос,
+            // а обычное значение, внутри которого встретилась скобка
+            if !name.is_empty() && !name.contains(char::is_whitespace) {
+                let params_str = &rest[paren_open + 1..paren_close];
+                let parameters: Vec<String> = if params_str.trim().is_empty() {
+                    Vec::new()
+                } else {
+                    params_str
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                };
+                let body = rest[paren_close + 1..].trim().to_string();
+
+                ctx.define_macro(name, parameters, body);
+                return Ok(());
+            }
+        }
+    }
 
     // Простой define: !define NAME или !define NAME value
     if let Some((name, value)) = rest.split_once(' ') {
@@ -19,6 +57,26 @@ pub fn handle_define(rest: &str, ctx: &mut PreprocessContext) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Находит позицию закрывающей скобки, соответствующей открывающей.
+///
+/// Учитывает вложенность: в теле макроса могут быть свои скобки.
+fn find_matching_paren(text: &str, open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in text.char_indices().skip_while(|(i, _)| *i < open) {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Обрабатывает !undef
@@ -75,6 +133,94 @@ pub fn handle_endif(ctx: &mut PreprocessContext) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Макрос с параметрами раскрывается с подстановкой аргументов.
+    ///
+    /// На этой форме держится вся стандартная библиотека: C4, tupadr3 и
+    /// office объявляют свои элементы как
+    /// `!define Person(e_alias, e_label) rectangle "..." as e_alias`.
+    /// Раньше `!define` с параметрами трактовался как обычная переменная,
+    /// поэтому вызовы `Person(user, "Имя")` не раскрывались.
+    #[test]
+    fn test_define_macro_with_parameters() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("GREET(name) participant name", &mut ctx).unwrap();
+
+        let def = ctx.macros.get("GREET").expect("макрос не объявлен");
+        assert_eq!(def.parameters, vec!["name"]);
+        assert_eq!(def.body, "participant name");
+
+        assert_eq!(ctx.expand_macros("GREET(Alice)"), "participant Alice");
+    }
+
+    /// Несколько параметров подставляются по порядку.
+    #[test]
+    fn test_macro_expands_multiple_parameters() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("BOX(a, b) rectangle \"a\" as b", &mut ctx).unwrap();
+        assert_eq!(ctx.expand_macros("BOX(X, Y)"), "rectangle \"X\" as Y");
+    }
+
+    /// Параметр сразу после литерала `\n` подставляется.
+    ///
+    /// В C4-макросах параметр описания идёт как `...\\n\\ne_descr`, и буква
+    /// `n` не должна считаться частью имени.
+    #[test]
+    fn test_macro_parameter_after_escape() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("M(a, b) rect \"a\\nb\"", &mut ctx).unwrap();
+        assert_eq!(ctx.expand_macros("M(X, Z)"), "rect \"X\\nZ\"");
+    }
+
+    /// Отсутствующий аргумент подставляется пустой строкой.
+    ///
+    /// PlantUML допускает вызов макроса с меньшим числом аргументов.
+    #[test]
+    fn test_macro_missing_argument_is_empty() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("M(a, b) [a|b]", &mut ctx).unwrap();
+        assert_eq!(ctx.expand_macros("M(X)"), "[X|]");
+    }
+
+    /// Запятая внутри кавычек не разрывает аргумент.
+    #[test]
+    fn test_macro_args_respect_quotes() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("M(a, b) a + b", &mut ctx).unwrap();
+        assert_eq!(ctx.expand_macros("M(\"x, y\", Z)"), "\"x, y\" + Z");
+    }
+
+    /// Имя параметра не заменяется внутри более длинного имени.
+    #[test]
+    fn test_macro_word_boundaries() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("M(a) [a] and [abc] and [a_x]", &mut ctx).unwrap();
+        let out = ctx.expand_macros("M(V)");
+        assert_eq!(out, "[V] and [abc] and [a_x]");
+    }
+
+    /// Простой `!define` без скобок работает как раньше.
+    #[test]
+    fn test_simple_define_still_works() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("DEBUG true", &mut ctx).unwrap();
+        assert_eq!(ctx.get_variable("DEBUG"), Some(&"true".to_string()));
+
+        let mut ctx2 = PreprocessContext::new();
+        handle_define("FLAG", &mut ctx2).unwrap();
+        assert_eq!(ctx2.get_variable("FLAG"), Some(&String::new()));
+    }
+
+    /// Взаимная рекурсия макросов не зацикливает препроцессор.
+    #[test]
+    fn test_macro_recursion_is_bounded() {
+        let mut ctx = PreprocessContext::new();
+        handle_define("A(x) B(x)", &mut ctx).unwrap();
+        handle_define("B(x) A(x)", &mut ctx).unwrap();
+        // Главное — не зависнуть и вернуть строку
+        let out = ctx.expand_macros("A(V)");
+        assert!(out.contains('V') || !out.is_empty());
+    }
 
     #[test]
     fn test_define() {

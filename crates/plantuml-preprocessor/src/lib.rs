@@ -23,6 +23,11 @@ pub use plantuml_themes::{SkinParams, Theme};
 
 use indexmap::IndexMap;
 
+/// Максимальное число проходов раскрытия макросов в одной строке.
+///
+/// Ограничивает взаимную рекурсию макросов, чтобы препроцессор не зациклился.
+pub const MAX_MACRO_EXPANSIONS: usize = 32;
+
 /// Максимальная глубина вложенности `!include`.
 ///
 /// Защищает от бесконечной рекурсии при взаимных включениях. Значение
@@ -83,6 +88,19 @@ enum DefiningCallable {
     Procedure(functions::UserCallable),
 }
 
+/// Макрос PlantUML, объявленный через `!define NAME(params) тело`.
+///
+/// В отличие от переменной, макрос принимает аргументы: вызов
+/// `NAME(x, y)` раскрывается в тело, где имена параметров заменены
+/// переданными значениями.
+#[derive(Debug, Clone)]
+pub struct MacroDefinition {
+    /// Имена параметров в порядке объявления
+    pub parameters: Vec<String>,
+    /// Тело макроса (то, что идёт после закрывающей скобки)
+    pub body: String,
+}
+
 /// Контекст препроцессора
 #[derive(Debug)]
 pub struct PreprocessContext {
@@ -102,6 +120,11 @@ pub struct PreprocessContext {
     pub theme: Theme,
     /// SkinParam параметры
     pub skin_params: SkinParams,
+    /// Макросы `!define NAME(params) тело`, определённые в исходнике.
+    ///
+    /// Хранятся отдельно от переменных: у макроса есть параметры и тело,
+    /// а подстановка выполняется с заменой аргументов.
+    pub macros: IndexMap<String, MacroDefinition>,
     /// Стек включаемых файлов для обнаружения циклов `!include`.
     ///
     /// Без него взаимные включения (a.puml → b.puml → a.puml) уходят в
@@ -124,6 +147,7 @@ impl Default for PreprocessContext {
             defining: DefiningCallable::None,
             theme: Theme::default(),
             skin_params: SkinParams::new(),
+            macros: IndexMap::new(),
             include_stack: Vec::new(),
             max_include_depth: MAX_INCLUDE_DEPTH,
         }
@@ -139,6 +163,92 @@ impl PreprocessContext {
     /// Устанавливает переменную
     pub fn set_variable(&mut self, name: impl Into<String>, value: impl Into<String>) {
         self.variables.insert(name.into(), value.into());
+    }
+
+    /// Объявляет макрос `!define NAME(params) тело`.
+    pub fn define_macro(
+        &mut self,
+        name: impl Into<String>,
+        parameters: Vec<String>,
+        body: impl Into<String>,
+    ) {
+        self.macros.insert(
+            name.into(),
+            MacroDefinition {
+                parameters,
+                body: body.into(),
+            },
+        );
+    }
+
+    /// Раскрывает вызовы макросов в строке.
+    ///
+    /// Ищет `ИМЯ(аргументы)` для каждого объявленного макроса и подставляет
+    /// его тело с заменой имён параметров на переданные аргументы.
+    /// Раскрытие повторяется, пока в строке есть вызовы (но не более
+    /// [`MAX_MACRO_EXPANSIONS`] раз — на случай взаимной рекурсии макросов).
+    pub fn expand_macros(&self, line: &str) -> String {
+        if self.macros.is_empty() || !line.contains('(') {
+            return line.to_string();
+        }
+
+        let mut current = line.to_string();
+        for _ in 0..MAX_MACRO_EXPANSIONS {
+            match self.expand_once(&current) {
+                Some(next) => current = next,
+                None => break,
+            }
+        }
+        current
+    }
+
+    /// Одно прохождение раскрытия: `None`, если вызовов не найдено.
+    fn expand_once(&self, line: &str) -> Option<String> {
+        for (name, def) in &self.macros {
+            let mut search_from = 0usize;
+            while let Some(rel) = line[search_from..].find(name.as_str()) {
+                let start = search_from + rel;
+                let after_name = start + name.len();
+
+                // Имя должно быть целым словом: `Person(` — да,
+                // `Person_Ext(` при поиске `Person` — нет
+                let boundary_ok = line[..start]
+                    .chars()
+                    .next_back()
+                    .is_none_or(|c| !c.is_alphanumeric() && c != '_');
+                if !boundary_ok {
+                    search_from = after_name;
+                    continue;
+                }
+
+                // Сразу за именем должна идти скобка
+                let rest = &line[after_name..];
+                let Some(open_rel) = rest.find('(') else {
+                    break;
+                };
+                if open_rel != 0 {
+                    search_from = after_name;
+                    continue;
+                }
+
+                let open = after_name;
+                let Some(close) = self::find_matching_paren_in(line, open) else {
+                    search_from = after_name;
+                    continue;
+                };
+
+                let args_str = &line[open + 1..close];
+                let args = split_macro_args(args_str);
+                let expanded = substitute_macro_args(&def.body, &def.parameters, &args);
+
+                let mut next = String::with_capacity(line.len() + expanded.len());
+                next.push_str(&line[..start]);
+                next.push_str(&expanded);
+                next.push_str(&line[close + 1..]);
+                return Some(next);
+            }
+        }
+        None
     }
 
     /// Получает значение переменной
@@ -308,6 +418,11 @@ impl<R: FileResolver> Preprocessor<R> {
 
             // Подстановка переменных
             let processed = self.substitute_variables(line, ctx);
+
+            // Раскрытие макросов `!define NAME(params) тело`.
+            // Выполняется после подстановки переменных: тело макроса может
+            // ссылаться на переменные, объявленные ранее.
+            let processed = ctx.expand_macros(&processed);
 
             // Обработка вызовов пользовательских функций
             let processed = self.process_function_calls(&processed, ctx);
@@ -1017,4 +1132,126 @@ mod include_tests {
             "!include_once включил файл дважды"
         );
     }
+}
+
+/// Находит позицию закрывающей скобки, соответствующей открывающей.
+fn find_matching_paren_in(text: &str, open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in text.char_indices().skip_while(|(i, _)| *i < open) {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Разбивает строку аргументов вызова макроса по запятым верхнего уровня.
+///
+/// Учитывает вложенные скобки и кавычки: аргумент вида
+/// `rectangle "a, b"` не должен разрываться по запятой внутри кавычек.
+fn split_macro_args(args: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0usize;
+    let mut in_quotes = false;
+    let mut escaped = false;
+
+    for c in args.chars() {
+        if escaped {
+            current.push(c);
+            escaped = false;
+            continue;
+        }
+        match c {
+            '\\' if in_quotes => {
+                current.push(c);
+                escaped = true;
+            }
+            '"' => {
+                in_quotes = !in_quotes;
+                current.push(c);
+            }
+            '(' | '[' if !in_quotes => {
+                depth += 1;
+                current.push(c);
+            }
+            ')' | ']' if !in_quotes => {
+                depth = depth.saturating_sub(1);
+                current.push(c);
+            }
+            ',' if depth == 0 && !in_quotes => {
+                result.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => current.push(c),
+        }
+    }
+
+    if !current.trim().is_empty() || !result.is_empty() {
+        result.push(current.trim().to_string());
+    }
+    result
+}
+
+/// Подставляет аргументы в тело макроса.
+///
+/// Заменяет имена параметров на переданные значения, соблюдая границы слов:
+/// параметр `e_label` не должен заменяться внутри `e_label_extra`.
+///
+/// Отсутствующие аргументы подставляются пустой строкой — PlantUML
+/// допускает вызов макроса с меньшим числом аргументов.
+fn substitute_macro_args(body: &str, params: &[String], args: &[String]) -> String {
+    let mut result = body.to_string();
+    for (i, param) in params.iter().enumerate() {
+        let value = args.get(i).map(String::as_str).unwrap_or("");
+        result = replace_word(&result, param, value);
+    }
+    result
+}
+
+/// Заменяет вхождения целого слова (с учётом границ) на новое значение.
+fn replace_word(text: &str, word: &str, replacement: &str) -> String {
+    if word.is_empty() {
+        return text.to_string();
+    }
+
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+
+    while let Some(pos) = rest.find(word) {
+        // Граница слева. Отдельно обрабатываем эскейп-последовательности:
+        // в телах макросов C4 параметр часто идёт сразу после литерала `\n`
+        // (например `\n\ne_descr`), и буква `n` не должна считаться частью
+        // имени. Поэтому если символ предварён обратным слэшем, это граница.
+        let before = &rest[..pos];
+        let before_ok = match before.chars().next_back() {
+            None => true,
+            Some(c) if !c.is_alphanumeric() && c != '_' => true,
+            Some(_) => before.chars().rev().nth(1).is_some_and(|prev| prev == '\\'),
+        };
+        let after = &rest[pos + word.len()..];
+        let after_ok = after
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '_');
+
+        if before_ok && after_ok {
+            out.push_str(&rest[..pos]);
+            out.push_str(replacement);
+            rest = after;
+        } else {
+            // Не целое слово — оставляем как есть и ищем дальше
+            out.push_str(&rest[..pos + word.len()]);
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
 }
