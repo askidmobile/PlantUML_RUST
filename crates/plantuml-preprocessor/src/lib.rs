@@ -224,6 +224,36 @@ impl<R: FileResolver> Preprocessor<R> {
         self.process_with_context(source, &mut ctx)
     }
 
+    /// Обрабатывает исходник и возвращает текст **вместе с темой**.
+    ///
+    /// # Зачем отдельный метод
+    ///
+    /// `process` возвращает только `String`, поэтому разобранные `!theme` и
+    /// `skinparam` терялись: они оседали в `PreprocessContext`, который
+    /// никуда не передавался. В результате `skinparam backgroundColor #FF0000`
+    /// давал байт-идентичный вывод с базовым — тема не влияла ни на что.
+    ///
+    /// Этот метод отдаёт тему наружу, чтобы pipeline мог применить её при
+    /// рендеринге.
+    ///
+    /// # Пример
+    ///
+    /// ```
+    /// use plantuml_preprocessor::Preprocessor;
+    ///
+    /// let pp = Preprocessor::new();
+    /// let (text, theme) = pp
+    ///     .process_with_theme("@startuml\nskinparam monochrome true\nA -> B\n@enduml")
+    ///     .unwrap();
+    /// assert!(text.contains("A -> B"));
+    /// assert_eq!(theme.node_border.to_css(), "#000000");
+    /// ```
+    pub fn process_with_theme(&self, source: &str) -> Result<(String, Theme)> {
+        let mut ctx = PreprocessContext::new();
+        let text = self.process_with_context(source, &mut ctx)?;
+        Ok((text, ctx.theme))
+    }
+
     /// Обрабатывает исходный код с заданным контекстом
     pub fn process_with_context(
         &self,

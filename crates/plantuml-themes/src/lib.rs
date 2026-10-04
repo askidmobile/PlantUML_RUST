@@ -317,6 +317,27 @@ impl SkinParams {
                 theme.corner_radius = r;
             }
         }
+        // Цвет текста. Внутри блока ключ пишется с заглавной: FontColor
+        if let Some(v) = self.get("FontColor").or_else(|| self.get("fontColor")) {
+            theme.text_color = Color::new(v);
+        }
+        // Цвет границ внутри блока: BorderColor
+        if let Some(v) = self.get("BorderColor").or_else(|| self.get("borderColor")) {
+            theme.node_border = Color::new(v);
+        }
+        // Цвет заливки узлов внутри блока: BackgroundColor
+        if let Some(v) = self
+            .get("BackgroundColor")
+            .or_else(|| self.get("nodeBackgroundColor"))
+        {
+            theme.node_background = Color::new(v);
+        }
+        // Толщина линий внутри блока: LineThickness
+        if let Some(v) = self.get("LineThickness") {
+            if let Ok(w) = v.parse() {
+                theme.line_width = w;
+            }
+        }
     }
 }
 

@@ -12,6 +12,7 @@ use plantuml_layout::{
 };
 use plantuml_preprocessor::{FsFileResolver, Preprocessor};
 use plantuml_renderer::{Renderer, SvgRenderer};
+use plantuml_themes::Theme;
 
 /// Выполняет полный pipeline рендеринга
 pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> {
@@ -21,8 +22,9 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
         return Err(Error::EmptySource);
     }
 
-    // 1. Препроцессинг
-    let processed = preprocess(source)?;
+    // 1. Препроцессинг. Возвращает и текст, и тему, разобранную из
+    //    `!theme` и `skinparam` — раньше она терялась в препроцессоре.
+    let (processed, theme) = preprocess(source)?;
 
     // 2. Парсинг
     let diagram = parse(&processed)?;
@@ -30,8 +32,8 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
     // 3. Layout
     let layout = layout(&diagram, options)?;
 
-    // 4. Рендеринг
-    let svg = render_svg(&layout, options)?;
+    // 4. Рендеринг с темой из исходника
+    let svg = render_svg(&layout, options, &theme)?;
 
     Ok(svg)
 }
@@ -49,7 +51,7 @@ pub fn render_pipeline_with_includes(
     }
 
     // 1. Препроцессинг с поддержкой файлов
-    let processed = preprocess_with_includes(source, base_path)?;
+    let (processed, theme) = preprocess_with_includes(source, base_path)?;
 
     // 2. Парсинг
     let diagram = parse(&processed)?;
@@ -57,24 +59,27 @@ pub fn render_pipeline_with_includes(
     // 3. Layout
     let layout = layout(&diagram, options)?;
 
-    // 4. Рендеринг
-    let svg = render_svg(&layout, options)?;
+    // 4. Рендеринг с темой из исходника
+    let svg = render_svg(&layout, options, &theme)?;
 
     Ok(svg)
 }
 
-/// Этап препроцессинга
-fn preprocess(source: &str) -> Result<String> {
-    plantuml_preprocessor::preprocess(source)
+/// Этап препроцессинга: возвращает обработанный текст и тему из исходника.
+fn preprocess(source: &str) -> Result<(String, Theme)> {
+    let preprocessor = Preprocessor::new();
+    preprocessor
+        .process_with_theme(source)
         .map_err(|e: plantuml_preprocessor::PreprocessError| Error::Preprocess(e.to_string()))
 }
 
 /// Этап препроцессинга с поддержкой !include
-fn preprocess_with_includes(source: &str, base_path: &Path) -> Result<String> {
+/// Этап препроцессинга с `!include`: возвращает текст и тему из исходника.
+fn preprocess_with_includes(source: &str, base_path: &Path) -> Result<(String, Theme)> {
     let resolver = FsFileResolver::new(base_path);
     let preprocessor = Preprocessor::with_resolver(resolver);
     preprocessor
-        .process(source)
+        .process_with_theme(source)
         .map_err(|e: plantuml_preprocessor::PreprocessError| Error::Preprocess(e.to_string()))
 }
 
@@ -189,22 +194,128 @@ fn layout(diagram: &Diagram, _options: &RenderOptions) -> Result<LayoutResult> {
 }
 
 /// Этап SVG рендеринга
-fn render_svg(layout: &LayoutResult, options: &RenderOptions) -> Result<String> {
+/// Этап SVG-рендеринга.
+///
+/// `source_theme` — тема, разобранная из самого исходника (`!theme`,
+/// `skinparam`). Она имеет приоритет над темой из `RenderOptions`: настройки
+/// внутри диаграммы в PlantUML переопределяют внешние.
+fn render_svg(
+    layout: &LayoutResult,
+    options: &RenderOptions,
+    source_theme: &Theme,
+) -> Result<String> {
     let render_options = plantuml_renderer::RenderOptions {
         xml_header: options.xml_header,
         scale: options.scale,
-        // None означает использовать PlantUML default (#FEFECE)
         background_color: options.background_color.clone(),
     };
 
+    // Тема из исходника накладывается поверх темы из опций.
+    //
+    // Сравниваем с темой по умолчанию целиком, а не по нескольким полям:
+    // иначе изменение, не попавшее в список проверяемых (например
+    // `FontColor`, влияющий на `text_color`), отбрасывалось, и `skinparam`
+    // не действовал.
+    let mut theme = options.theme.clone();
+    let default_theme = Theme::default();
+    let source_is_default = source_theme.name == default_theme.name
+        && source_theme.background_color.to_css() == default_theme.background_color.to_css()
+        && source_theme.node_background.to_css() == default_theme.node_background.to_css()
+        && source_theme.node_border.to_css() == default_theme.node_border.to_css()
+        && source_theme.text_color.to_css() == default_theme.text_color.to_css()
+        && source_theme.arrow_color.to_css() == default_theme.arrow_color.to_css()
+        && source_theme.font_family == default_theme.font_family
+        && (source_theme.font_size - default_theme.font_size).abs() < f64::EPSILON
+        && (source_theme.line_width - default_theme.line_width).abs() < f64::EPSILON
+        && (source_theme.corner_radius - default_theme.corner_radius).abs() < f64::EPSILON
+        && source_theme.shadow == default_theme.shadow
+        && source_theme.handwritten == default_theme.handwritten;
+    if !source_is_default {
+        theme = source_theme.clone();
+    }
+
     let renderer = SvgRenderer::with_options(render_options);
 
-    Ok(renderer.render(layout, &options.theme))
+    Ok(renderer.render(layout, &theme))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `skinparam` и `!theme` обязаны влиять на вывод.
+    ///
+    /// Регрессия: препроцессор возвращал только `String`, поэтому тема,
+    /// разобранная из `skinparam` и `!theme`, терялась — все варианты давали
+    /// байт-идентичный результат с базовым.
+    #[test]
+    fn test_skinparam_affects_output() {
+        let base =
+            render_pipeline("@startuml\nA -> B\n@enduml", &RenderOptions::default()).unwrap();
+
+        let cases = [
+            (
+                "monochrome",
+                "@startuml\nskinparam monochrome true\nA -> B\n@enduml",
+            ),
+            (
+                "backgroundColor",
+                "@startuml\nskinparam backgroundColor #FF0000\nA -> B\n@enduml",
+            ),
+            (
+                "defaultFontName",
+                "@startuml\nskinparam defaultFontName ComicSansMS\nA -> B\n@enduml",
+            ),
+            (
+                "FontColor в блоке",
+                "@startuml\nskinparam rectangle {\n FontColor #FF0000\n}\nA -> B\n@enduml",
+            ),
+            (
+                "BorderColor в блоке",
+                "@startuml\nskinparam rectangle {\n BorderColor #00FF00\n}\nA -> B\n@enduml",
+            ),
+            ("!theme dark", "@startuml\n!theme dark\nA -> B\n@enduml"),
+        ];
+
+        for (name, source) in cases {
+            let svg = render_pipeline(source, &RenderOptions::default())
+                .unwrap_or_else(|e| panic!("{name}: ошибка рендера: {e}"));
+            assert_ne!(
+                svg, base,
+                "{name}: вывод совпал с базовым — настройка не применилась"
+            );
+        }
+    }
+
+    /// `monochrome true` делает фон и границы чёрно-белыми.
+    #[test]
+    fn test_monochrome_applies_colors() {
+        let svg = render_pipeline(
+            "@startuml\nskinparam monochrome true\nA -> B\n@enduml",
+            &RenderOptions::default(),
+        )
+        .unwrap();
+
+        assert!(svg.contains("#FFFFFF"), "нет белого фона при monochrome");
+        assert!(svg.contains("#000000"), "нет чёрных границ при monochrome");
+    }
+
+    /// Тема из исходника переопределяет тему из опций.
+    #[test]
+    fn test_source_theme_overrides_options() {
+        let options = RenderOptions::new().with_theme(Theme::cerulean());
+        let svg = render_pipeline(
+            "@startuml\nskinparam monochrome true\nA -> B\n@enduml",
+            &options,
+        )
+        .unwrap();
+
+        // monochrome в исходнике должен победить тему cerulean из опций
+        assert!(
+            svg.contains("#FFFFFF"),
+            "тема из исходника не переопределила тему из опций"
+        );
+    }
 
     #[test]
     fn test_pipeline_basic() {
