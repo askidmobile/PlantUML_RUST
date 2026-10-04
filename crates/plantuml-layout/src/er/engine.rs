@@ -100,6 +100,13 @@ impl ErLayoutEngine {
 
             let bounds = Rect::new(x, y, size.width, size.height);
             positions.insert(entity.id.name.clone(), bounds);
+            // Связь ссылается на алиас (`user ||--o{ order`), а не на имя
+            // сущности, поэтому позиция сохраняется и под алиасом. Без этого
+            // render_relationships не находил концы и молча пропускал ВСЕ
+            // связи — на диаграмме не было ни линии, ни кардинальностей.
+            if let Some(alias) = &entity.id.alias {
+                positions.insert(alias.clone(), bounds);
+            }
 
             // Рисуем сущность
             self.render_entity(entity, &bounds, elements);
@@ -365,6 +372,42 @@ impl LayoutEngine for ErLayoutEngine {
 
 #[cfg(test)]
 mod tests {
+    /// Связь должна находить концы по алиасу.
+    ///
+    /// Регрессия: `positions` заполнялся только именами сущностей, а связь
+    /// ссылается на алиас (`user ||--o{ order`). Из-за этого
+    /// `render_relationships` не находил ни одного конца и молча пропускал
+    /// ВСЕ связи — на диаграмме не было ни линии, ни кардинальностей.
+    #[test]
+    fn test_relationships_use_alias() {
+        use plantuml_ast::er::{Cardinality, Entity, ErDiagram, ErRelationship};
+
+        let mut diagram = ErDiagram::new();
+        let mut user = Entity::new("User");
+        user.id.alias = Some("user".to_string());
+        let mut order = Entity::new("Order");
+        order.id.alias = Some("order".to_string());
+        diagram.entities.push(user);
+        diagram.entities.push(order);
+        diagram.relationships.push(ErRelationship {
+            from: "user".to_string(),
+            to: "order".to_string(),
+            from_cardinality: Cardinality::One,
+            to_cardinality: Cardinality::ZeroOrMany,
+            label: None,
+            is_identifying: true,
+        });
+
+        let result = ErLayoutEngine::new().layout(&diagram, &Default::default());
+
+        let edges: Vec<_> = result
+            .elements
+            .iter()
+            .filter(|e| matches!(e.element_type, ElementType::Edge { .. }))
+            .collect();
+        assert_eq!(edges.len(), 1, "связь потеряна: концы не найдены по алиасу");
+    }
+
     use super::*;
     use plantuml_ast::er::{Attribute, ErRelationship};
 

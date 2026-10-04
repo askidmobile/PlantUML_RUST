@@ -67,7 +67,10 @@ fn main() {
     let options = RenderOptions::default();
 
     println!("Замеры pipeline: {ITERATIONS} итераций на диаграмму\n");
-    println!("{:<26} {:>12} {:>12}", "диаграмма", "среднее, мкс", "размер, байт");
+    println!(
+        "{:<26} {:>12} {:>12}",
+        "диаграмма", "среднее, мкс", "размер, байт"
+    );
     println!("{}", "-".repeat(52));
 
     for case in CASES {
