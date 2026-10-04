@@ -204,9 +204,15 @@ impl Theme {
 }
 
 /// SkinParam параметры
+///
+/// Хранит настройки внешнего вида из `skinparam`, включая блочную форму
+/// (`skinparam rectangle { ... }`). Параметры внутри блока сохраняются с
+/// префиксом `<тип>.<ключ>` — так же, как их адресует PlantUML.
 #[derive(Debug, Clone, Default)]
 pub struct SkinParams {
     params: std::collections::HashMap<String, String>,
+    /// Тип текущего блока (`rectangle`, `sequence`, ...) либо None
+    current_block: Option<String>,
 }
 
 impl SkinParams {
@@ -220,12 +226,56 @@ impl SkinParams {
         self.params.insert(key.into(), value.into());
     }
 
+    /// Начинает блок `skinparam <section> {`
+    pub fn begin_block(&mut self, section: impl Into<String>) {
+        self.current_block = Some(section.into());
+    }
+
+    /// Завершает текущий блок
+    pub fn end_block(&mut self) {
+        self.current_block = None;
+    }
+
+    /// Открыт ли сейчас блок
+    pub fn in_block(&self) -> bool {
+        self.current_block.is_some()
+    }
+
+    /// Устанавливает параметр внутри блока.
+    ///
+    /// Сохраняется и с префиксом (`sequence.autonumber`), и без него —
+    /// чтобы `apply_to` находил настройки независимо от того, заданы они
+    /// в блоке или одной строкой.
+    pub fn set_in_block(&mut self, key: &str, value: &str) {
+        if let Some(block) = self.current_block.clone() {
+            self.params
+                .insert(format!("{block}.{key}"), value.to_string());
+        }
+        self.params.insert(key.to_string(), value.to_string());
+    }
+
     /// Получает параметр
     pub fn get(&self, key: &str) -> Option<&String> {
         self.params.get(key)
     }
 
-    /// Применяет параметры к теме
+    /// Число сохранённых параметров
+    pub fn len(&self) -> usize {
+        self.params.len()
+    }
+
+    /// Нет ли ни одного параметра
+    pub fn is_empty(&self) -> bool {
+        self.params.is_empty()
+    }
+
+    /// Применяет параметры к теме.
+    ///
+    /// Поддерживаемые ключи (в скобках — форма внутри блока):
+    /// `backgroundColor`, `defaultFontName`, `defaultFontSize`,
+    /// `handwritten`, `shadowing`, `monochrome`,
+    /// `fontColor`/`FontColor`, `linetype`, `roundCorner`/`roundcorner`,
+    /// `nodesep`, `ranksep`.
     pub fn apply_to(&self, theme: &mut Theme) {
         if let Some(v) = self.get("backgroundColor") {
             theme.background_color = Color::new(v);
@@ -244,7 +294,29 @@ impl SkinParams {
         if let Some(v) = self.get("shadowing") {
             theme.shadow = v == "true";
         }
-        // TODO: Добавить больше параметров
+        // Монохромный режим PlantUML: фон белый, границы чёрные
+        if self.get("monochrome").is_some_and(|v| v == "true") {
+            theme.background_color = Color::new("#FFFFFF");
+            theme.node_background = Color::new("#FFFFFF");
+            theme.node_border = Color::new("#000000");
+            theme.text_color = Color::new("#000000");
+            theme.arrow_color = Color::new("#000000");
+        }
+        // Толщина линий: sequenceArrowThickness / linetype
+        if let Some(v) = self
+            .get("sequenceArrowThickness")
+            .or_else(|| self.get("arrowThickness"))
+        {
+            if let Ok(w) = v.parse() {
+                theme.line_width = w;
+            }
+        }
+        // Радиус скругления углов
+        if let Some(v) = self.get("roundCorner").or_else(|| self.get("roundcorner")) {
+            if let Ok(r) = v.parse() {
+                theme.corner_radius = r;
+            }
+        }
     }
 }
 

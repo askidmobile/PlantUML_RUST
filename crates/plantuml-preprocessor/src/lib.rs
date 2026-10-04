@@ -23,6 +23,12 @@ pub use plantuml_themes::{SkinParams, Theme};
 
 use indexmap::IndexMap;
 
+/// Максимальная глубина вложенности `!include`.
+///
+/// Защищает от бесконечной рекурсии при взаимных включениях. Значение
+/// совпадает с `FsFileResolver::max_depth` по умолчанию.
+pub const MAX_INCLUDE_DEPTH: usize = 10;
+
 /// Обрабатывает PlantUML исходный код (без поддержки !include)
 ///
 /// Это удобная обёртка над `Preprocessor::new().process(source)`.
@@ -96,6 +102,15 @@ pub struct PreprocessContext {
     pub theme: Theme,
     /// SkinParam параметры
     pub skin_params: SkinParams,
+    /// Стек включаемых файлов для обнаружения циклов `!include`.
+    ///
+    /// Без него взаимные включения (a.puml → b.puml → a.puml) уходят в
+    /// бесконечную рекурсию и роняют процесс переполнением стека.
+    /// Для WASM это означает падение вкладки браузера без возможности
+    /// перехватить ошибку.
+    pub include_stack: Vec<String>,
+    /// Максимальная глубина вложенности включений
+    pub max_include_depth: usize,
 }
 
 impl Default for PreprocessContext {
@@ -109,6 +124,8 @@ impl Default for PreprocessContext {
             defining: DefiningCallable::None,
             theme: Theme::default(),
             skin_params: SkinParams::new(),
+            include_stack: Vec::new(),
+            max_include_depth: MAX_INCLUDE_DEPTH,
         }
     }
 }
@@ -245,9 +262,17 @@ impl<R: FileResolver> Preprocessor<R> {
             }
 
             // Обработка skinparam
+            //
+            // Учитываем и блочную форму: строки внутри `skinparam X { ... }`
+            // не начинаются со `skinparam`, но тоже относятся к настройкам
+            // и не должны попадать в вывод (иначе парсер получает
+            // осиротевшую `}` и падает).
             if trimmed.starts_with("skinparam ") {
                 self.handle_skinparam(trimmed, ctx);
-                // Пропускаем строку (она применена к теме)
+                continue;
+            }
+            if ctx.skin_params.in_block() {
+                self.handle_skinparam(trimmed, ctx);
                 continue;
             }
 
@@ -323,19 +348,65 @@ impl<R: FileResolver> Preprocessor<R> {
             return Ok(None);
         }
 
-        let path = path.trim_matches(|c| c == '<' || c == '>' || c == '"');
+        // ВАЖНО: угловые скобки — маркер стандартной библиотеки
+        // (`!include <C4/C4_Context>`), резолвер распознаёт их сам.
+        // Срезать их здесь нельзя, иначе stdlib-путь превращается в
+        // обычный и никогда не находится. Кавычки снимаем: это просто
+        // способ экранировать путь с пробелами.
+        let path = path.trim();
+        let normalized = if path.starts_with('<') && path.ends_with('>') {
+            // stdlib-путь: сохраняем скобки как маркер
+            path.to_string()
+        } else {
+            path.trim_matches('"').to_string()
+        };
 
-        if once && ctx.included_files.contains(&path.to_string()) {
+        // Ключ для отслеживания — без скобок и кавычек, чтобы `!include X`
+        // и `!include <X>` не считались разными файлами.
+        let key = normalized
+            .trim_matches(|c| c == '<' || c == '>' || c == '"')
+            .to_string();
+
+        if once && ctx.included_files.contains(&key) {
             return Ok(None);
         }
 
-        let content = self.resolver.read_file(path)?;
-        ctx.included_files.push(path.to_string());
+        // Защита от бесконечной рекурсии при взаимных включениях
+        // (a.puml -> b.puml -> a.puml). Без неё процесс падает
+        // переполнением стека, а в WASM это падение вкладки.
+        if ctx.include_stack.iter().any(|p| p == &key) {
+            let chain = ctx
+                .include_stack
+                .iter()
+                .map(String::as_str)
+                .chain(std::iter::once(key.as_str()))
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            return Err(PreprocessError::RecursiveInclude(format!(
+                "циклическое включение: {chain}"
+            )));
+        }
+
+        if ctx.include_stack.len() >= ctx.max_include_depth {
+            return Err(PreprocessError::RecursiveInclude(format!(
+                "превышена максимальная глубина включений ({})",
+                ctx.max_include_depth
+            )));
+        }
+
+        let content = self.resolver.read_file(&normalized)?;
+
+        ctx.included_files.push(key.clone());
+        ctx.include_stack.push(key);
 
         // Рекурсивная обработка включённого файла
-        let processed = self.process_with_context(&content, ctx)?;
+        let result = self.process_with_context(&content, ctx);
 
-        Ok(Some(processed))
+        // Снимаем со стека в любом случае, иначе ошибка в глубине
+        // оставит ложный след
+        ctx.include_stack.pop();
+
+        Ok(Some(result?))
     }
 
     /// Подставляет переменные в строку
@@ -362,11 +433,50 @@ impl<R: FileResolver> Preprocessor<R> {
     }
 
     /// Обрабатывает skinparam
+    ///
+    /// Поддерживает обе формы PlantUML:
+    /// - однострочную: `skinparam monochrome true`
+    /// - блочную: `skinparam rectangle { ... }`
+    ///
+    /// Блочная форма важна для стандартной библиотеки: C4 и другие наборы
+    /// задают внешний вид именно так. Раньше блок не распознавался, его
+    /// строки не поглощались, и во вход парсера попадал осиротевший `}`.
     fn handle_skinparam(&self, line: &str, ctx: &mut PreprocessContext) {
-        // Формат: skinparam <key> <value>
-        let rest = line.strip_prefix("skinparam ").unwrap_or("");
-        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+        // Внутри блока строки не начинаются со `skinparam`, поэтому
+        // префикс снимаем только если он есть, иначе берём строку целиком.
+        // (`strip_prefix(..).unwrap_or("")` здесь обнулил бы строку `}`.)
+        let rest = match line.strip_prefix("skinparam ") {
+            Some(after) => after.trim(),
+            None => line.trim(),
+        };
 
+        // Конец блока — проверяем до остальных форм
+        if rest == "}" {
+            ctx.skin_params.end_block();
+            return;
+        }
+
+        // Блочная форма: skinparam <тип> { ... }
+        if let Some(before_brace) = rest.strip_suffix('{') {
+            let section = before_brace.trim();
+            if !section.is_empty() {
+                ctx.skin_params.begin_block(section);
+            }
+            return;
+        }
+
+        // Строка внутри блока: `<ключ> <значение>` без префикса skinparam
+        if ctx.skin_params.in_block() && !rest.is_empty() {
+            let mut parts = rest.splitn(2, char::is_whitespace);
+            if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                ctx.skin_params.set_in_block(key.trim(), value.trim());
+                ctx.apply_skin_params();
+            }
+            return;
+        }
+
+        // Однострочная форма: skinparam <ключ> <значение>
+        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
         if parts.len() == 2 {
             let key = parts[0].trim();
             let value = parts[1].trim();
@@ -735,5 +845,146 @@ MAIN_END
         assert!(result.contains("LEVEL2_CONTENT"));
         assert!(result.contains("LEVEL1_END"));
         assert!(result.contains("MAIN_END"));
+    }
+}
+
+#[cfg(test)]
+mod include_tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Создаёт временную директорию с файлами.
+    fn tmpdir(files: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        for (name, content) in files {
+            let path = dir.path().join(name);
+            let mut f = std::fs::File::create(&path).unwrap();
+            f.write_all(content.as_bytes()).unwrap();
+        }
+        dir
+    }
+
+    #[test]
+    fn test_include_cycle_detected() {
+        let dir = tmpdir(&[
+            ("a.puml", "!include \"b.puml\"\n"),
+            ("b.puml", "!include \"a.puml\"\n"),
+        ]);
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        let err = pp
+            .process("@startuml\n!include \"a.puml\"\nA -> B\n@enduml")
+            .expect_err("циклическое включение должно давать ошибку, а не падать");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("циклическое") || msg.contains("рекурсивное"),
+            "неожиданная ошибка: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_include_self_cycle_detected() {
+        let dir = tmpdir(&[("self.puml", "!include \"self.puml\"\n")]);
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        assert!(pp
+            .process("@startuml\n!include \"self.puml\"\n@enduml")
+            .is_err());
+    }
+
+    #[test]
+    fn test_include_depth_limit() {
+        // Цепочка из 20 файлов при лимите 10 должна упасть по глубине
+        let files: Vec<(String, String)> = (0..20)
+            .map(|i| {
+                let name = format!("f{i}.puml");
+                let content = if i < 19 {
+                    format!("!include \"f{}.puml\"\n", i + 1)
+                } else {
+                    String::new()
+                };
+                (name, content)
+            })
+            .collect();
+        let refs: Vec<(&str, &str)> = files
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect();
+        let dir = tmpdir(&refs);
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        let err = pp
+            .process("@startuml\n!include \"f0.puml\"\n@enduml")
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("глубин"),
+            "неожиданная ошибка: {err}"
+        );
+    }
+
+    #[test]
+    fn test_stdlib_include_through_preprocessor() {
+        // Регрессия: раньше угловые скобки срезались в handle_include,
+        // и stdlib-путь никогда не находился.
+        //
+        // Проверяем по комментариям из stdlib-файла: директивы `!define`
+        // поглощаются препроцессором и в вывод не попадают.
+        let dir = tempfile::tempdir().unwrap();
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        let out = pp
+            .process("@startuml\n!include <C4/C4_Context>\nA -> B\n@enduml")
+            .expect("stdlib-включение должно разрешаться");
+        assert!(
+            out.contains("C4_Context.puml") || out.contains("C4 Model"),
+            "содержимое stdlib не подставлено, вывод:\n{out}"
+        );
+    }
+
+    #[test]
+    fn test_stdlib_unknown_path_is_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        assert!(
+            pp.process("@startuml\n!include <nope/nope>\nA -> B\n@enduml")
+                .is_err(),
+            "несуществующий stdlib-путь должен давать ошибку"
+        );
+    }
+
+    #[test]
+    fn test_skinparam_block_is_consumed() {
+        // Регрессия: блочный skinparam раньше не распознавался, его строки
+        // попадали в вывод, и парсер падал на осиротевшей `}`.
+        let dir = tempfile::tempdir().unwrap();
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        let out = pp
+            .process(
+                "@startuml\nskinparam rectangle {\n  FontColor #FFFFFF\n  roundCorner 8\n}\nA -> B\n@enduml",
+            )
+            .unwrap();
+        assert!(
+            !out.contains('}'),
+            "осиротевшая `}}` попала в вывод:\n{out}"
+        );
+        assert!(
+            !out.contains("roundCorner"),
+            "строка блока попала в вывод:\n{out}"
+        );
+        assert!(out.contains("A -> B"), "содержимое диаграммы потеряно");
+    }
+
+    #[test]
+    fn test_include_once_not_duplicated() {
+        // Проверяем по комментарию: `!define` поглощается препроцессором
+        // и в выводе не появляется.
+        let dir = tmpdir(&[("common.puml", "' маркер включения\n")]);
+        let pp = Preprocessor::with_resolver(FsFileResolver::new(dir.path()));
+        let out = pp
+            .process(
+                "@startuml\n!include_once \"common.puml\"\n!include_once \"common.puml\"\n@enduml",
+            )
+            .unwrap();
+        assert_eq!(
+            out.matches("маркер включения").count(),
+            1,
+            "!include_once включил файл дважды"
+        );
     }
 }
