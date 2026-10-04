@@ -251,7 +251,13 @@ impl ErLayoutEngine {
             let (from_point, to_point) =
                 self.calculate_connection_points(from_bounds, to_bounds, from_center, to_center);
 
-            // Линия связи
+            // Линия связи.
+            //
+            // Кардинальности передаются в типизированных полях
+            // ElementType::Edge, как во всех остальных движках. Раньше они
+            // шли строковыми ключами properties («from_card»/«to_card»),
+            // что расходилось с общим контрактом: рендерер читал эти ключи
+            // только в одном месте и не мог обработать их единообразно.
             let edge = LayoutElement {
                 id: format!("rel_{}", i),
                 element_type: ElementType::Edge {
@@ -259,26 +265,18 @@ impl ErLayoutEngine {
                     label: rel.label.clone(),
                     arrow_start: false,
                     arrow_end: false,
-                    dashed: false,
+                    // Идентифицирующая связь рисуется сплошной, обычная —
+                    // пунктирной (ER-нотация)
+                    dashed: !rel.is_identifying,
                     edge_type: EdgeType::Link,
-                    from_cardinality: None,
-                    to_cardinality: None,
+                    from_cardinality: Some(rel.from_cardinality.symbol().to_string()),
+                    to_cardinality: Some(rel.to_cardinality.symbol().to_string()),
                 },
                 bounds: Rect::from_points(from_point, to_point),
                 text: rel.label.clone(),
-                properties: [
-                    ("stroke".to_string(), "#181818".to_string()),
-                    (
-                        "from_card".to_string(),
-                        rel.from_cardinality.symbol().to_string(),
-                    ),
-                    (
-                        "to_card".to_string(),
-                        rel.to_cardinality.symbol().to_string(),
-                    ),
-                ]
-                .into_iter()
-                .collect(),
+                properties: [("stroke".to_string(), "#181818".to_string())]
+                    .into_iter()
+                    .collect(),
             };
             elements.push(edge);
         }
