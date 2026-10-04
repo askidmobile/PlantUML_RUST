@@ -661,21 +661,40 @@ impl SequenceLayoutEngine {
         has_autonumber: bool,
         messages_by_span: &mut std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>>,
     ) {
+        // Стек вызовов ведётся при обходе: он нужен, чтобы определить
+        // участников `return` (callee -> caller)
+        let mut call_stack: Vec<(String, String)> = Vec::new();
         for element in &diagram.elements {
-            self.collect_message_span(element, participant_order, has_autonumber, messages_by_span);
+            self.collect_message_span(
+                element,
+                participant_order,
+                has_autonumber,
+                messages_by_span,
+                &mut call_stack,
+            );
         }
     }
 
     /// Рекурсивно собирает сообщение и добавляет в группу по span
+    #[allow(clippy::too_many_arguments)]
     fn collect_message_span(
         &self,
         element: &SequenceElement,
         participant_order: &[String],
         has_autonumber: bool,
         messages_by_span: &mut std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>>,
+        call_stack: &mut Vec<(String, String)>,
     ) {
         match element {
             SequenceElement::Message(msg) => {
+                // Стек вызовов нужен, чтобы определить участников `return`
+                if msg.activate {
+                    call_stack.push((msg.from.clone(), msg.to.clone()));
+                }
+                if msg.deactivate {
+                    call_stack.pop();
+                }
+
                 let text_width = self.config.message_label_width(&msg.label);
                 let autonumber_width = if has_autonumber { 45.0 } else { 0.0 };
                 let total_width = text_width + autonumber_width;
@@ -699,14 +718,32 @@ impl SequenceLayoutEngine {
                 }
             }
             SequenceElement::Return(ret) => {
-                // Return тоже влияет на spacing
-                if let Some(label) = &ret.label {
-                    let _text_width = self.config.message_label_width(label);
-                    // Return не имеет autonumber
+                // Возврат — это сообщение от callee к caller, поэтому он
+                // влияет на spacing так же, как обычное сообщение.
+                // Участники берутся из стека вызовов. Раньше ширина текста
+                // вычислялась и отбрасывалась (`let _text_width`), из-за чего
+                // длинный текст возврата не влиял на раскладку.
+                if let Some((caller, callee)) = call_stack.pop() {
+                    let text_width = self
+                        .config
+                        .message_label_width(ret.label.as_deref().unwrap_or(""));
 
-                    // Для return нужно знать caller и callee
-                    // Но здесь у нас нет доступа к call_stack
-                    // Пока пропускаем, т.к. return обычно короче прямого сообщения
+                    let from_idx = participant_order.iter().position(|p| p == &callee);
+                    let to_idx = participant_order.iter().position(|p| p == &caller);
+
+                    if let (Some(from_idx), Some(to_idx)) = (from_idx, to_idx) {
+                        let (start, end) = if from_idx < to_idx {
+                            (from_idx, to_idx)
+                        } else {
+                            (to_idx, from_idx)
+                        };
+                        if start != end {
+                            messages_by_span
+                                .entry(end - start)
+                                .or_default()
+                                .push((start, end, text_width));
+                        }
+                    }
                 }
             }
             SequenceElement::Fragment(frag) => {
@@ -717,6 +754,7 @@ impl SequenceLayoutEngine {
                             participant_order,
                             has_autonumber,
                             messages_by_span,
+                            call_stack,
                         );
                     }
                 }
