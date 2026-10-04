@@ -209,27 +209,43 @@ pub enum Diagram {
 
 **Зависимости**: `petgraph`, `plantuml-model`.
 
-**Layout engines**:
+**Layout engines** (реальные имена из `plantuml_layout`):
 
 | Engine | Диаграммы | Алгоритм |
 |--------|-----------|----------|
-| `SequenceLayout` | Sequence | Горизонтальное размещение участников, вертикальные lifelines |
-| `HierarchicalLayout` | Class, Component, Deployment | Sugiyama algorithm |
-| `FlowchartLayout` | Activity | Topological sort + lanes |
-| `StateLayout` | State | Nested boxes |
-| `TreeLayout` | MindMap, WBS | Tidy tree layout |
-| `GridLayout` | Salt, Tables | Grid-based |
-| `TimelineLayout` | Gantt, Timing | Timeline-based |
+| `SequenceLayoutEngine` | Sequence | Двухпроходный расчёт ширин участников и spacing |
+| `ClassLayoutEngine` | Class | Sugiyama (слои, барицентр, ортогональные рёбра) |
+| `ActivityLayoutEngine` | Activity | Линейный расклад с ветвлениями и swimlane |
+| `StateLayoutEngine` | State | Уровни состояний, вложенные composite |
+| `ComponentLayoutEngine` | Component, Deployment, Archimate | Сетка |
+| `UseCaseLayoutEngine` | UseCase | Актёры слева, система справа |
+| `ObjectLayoutEngine` | Object | Сетка 4 в ряд |
+| `TimingLayoutEngine` | Timing | Временная шкала |
+| `GanttLayoutEngine` | Gantt | Диаграмма Ганта |
+| `MindMapLayoutEngine` | MindMap | Дерево вправо, двухпроходный расчёт высот |
+| `WbsLayoutEngine` | WBS | Дерево вниз |
+| `JsonLayoutEngine` | JSON | Рекурсивный расклад |
+| `YamlLayoutEngine` | YAML | Обёртка над JSON |
+| `ErLayoutEngine` | ER | Сетка 3 в ряд |
+| `NetworkLayoutEngine` | Network (nwdiag) | Полосы сетей, колонки серверов |
+| `SaltLayoutEngine` | Salt | Сеточные контейнеры |
+
+> Deployment и Archimate не имеют собственных движков — оба
+> переиспользуют `ComponentLayoutEngine` (см. `plantuml-core/src/pipeline.rs`).
 
 **Трейт**:
 ```rust
 pub trait LayoutEngine {
     type Input;
-    type Output;
-    
-    fn layout(&self, input: &Self::Input, config: &LayoutConfig) -> Self::Output;
+
+    fn layout(&self, input: &Self::Input, config: &LayoutConfig) -> LayoutResult;
 }
 ```
+
+> **Известное ограничение:** трейт реализуют 7 движков из 18, остальные
+> имеют собственные inherent-методы, и `pipeline.rs` ветвится вручную.
+> Параметр `LayoutConfig` пока игнорируется большинством реализаций.
+> См. `docs/AUDIT.md`, §4.8.
 
 ---
 
@@ -237,12 +253,11 @@ pub trait LayoutEngine {
 
 **Назначение**: Генерация визуального вывода.
 
-**Зависимости**: `svg`, `resvg`, `tiny-skia`, `fontdb`, `ab_glyph`.
+**Зависимости**: `svg`; для PNG (feature `png`) — `resvg`, `tiny-skia`, `fontdb`.
 
 **Рендереры**:
-- **SvgRenderer**: Основной рендерер в SVG
-- **PngRenderer**: SVG → PNG через resvg
-- **AsciiRenderer**: Текстовый вывод (опционально)
+- **SvgRenderer**: единственный рендерер, работает через `ElementType`
+- **PngRenderer**: растеризация готового SVG через resvg (feature `png`)
 
 **Трейт**:
 ```rust
@@ -397,14 +412,16 @@ plantuml-wasm
 
 ## Feature flags
 
+Реальные флаги (см. `crates/plantuml-core/Cargo.toml`):
+
 ```toml
 [features]
-default = ["svg"]
-svg = []                    # SVG рендеринг (всегда включён)
-png = ["resvg", "tiny-skia", "fontdb"]  # PNG рендеринг
-wasm = []                   # WASM биндинги
-all-diagrams = []           # Все типы диаграмм
-sequence = []               # Только sequence diagrams
-class = []                  # Только class diagrams
-# ... и т.д.
+default = []                # без дополнительных возможностей
+serde = ["dep:serde"]       # сериализация AST
+png = ["plantuml-renderer/png"]  # PNG через resvg + tiny-skia + fontdb
 ```
+
+> Флагов `svg`, `wasm`, `all-diagrams`, `sequence`, `class` не существует:
+> SVG-рендеринг всегда доступен, WASM собирается отдельным крейтом
+> `plantuml-wasm`, а все типы диаграмм включены всегда.
+> PNG по умолчанию **выключен** — требуется `features = ["png"]`.

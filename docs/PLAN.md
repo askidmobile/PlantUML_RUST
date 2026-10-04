@@ -27,7 +27,7 @@ plantuml-rs/
 │   ├── plantuml-parser/         # Лексер + Парсер
 │   ├── plantuml-ast/            # AST типы
 │   ├── plantuml-preprocessor/   # Препроцессор (!include, !define, etc.)
-│   ├── plantuml-model/          # Типизированные модели диаграмм
+│   ├── plantuml-model/          # Геометрические примитивы (Point, Rect, Size)
 │   ├── plantuml-layout/         # Layout engines
 │   ├── plantuml-renderer/       # SVG генерация
 │   ├── plantuml-themes/         # Темы и skinparam
@@ -89,7 +89,7 @@ plantuml-rs/
 │  │  • !define / !undef / !ifdef / !ifndef / !else / !endif             │   │
 │  │  • !function / !procedure / !return / !endfunction                  │   │
 │  │  • !$variable = value                                                │   │
-│  │  • %date() / %version() / %filename() и 50+ builtin функций         │   │
+│  │  • %date() / %version() / %filename() и 20 builtin функций          │   │
 │  │  • !theme <name>                                                     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                     │                                       │

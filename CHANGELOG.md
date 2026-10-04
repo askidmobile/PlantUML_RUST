@@ -8,16 +8,51 @@
 ## [Unreleased]
 
 ### Добавлено
-- (планируется)
+- **Golden-харнесс** (`tests/golden/`) — сверка с оригинальным PlantUML:
+  эталоны с plantuml.com, скрипт `fetch_references.py`, сравнение по
+  габаритам и сохранности подписей, модель «храповика» через `baseline.json`
+- **Многоуровневая автонумерация** — `autonumber 1.1`, `autonumber 1.1.1`
+  (грамматика, AST-поле `levels`, разбор и применение в layout)
+- Тесты на фикстурах (`tests/fixtures/`): 8 файлов, ранее не подключённых
+- Реализация стандартной библиотеки: C4, tupadr3, office, logos (48 путей)
+
+### Изменено
+- **MSRV поднят с 1.75 до 1.83** — 1.75 был недостижим: `pest 2.8.4`
+  требует 1.83, а `LazyLock` — 1.80
+- `Cargo.lock` добавлен в репозиторий: без него MSRV-гейт невоспроизводим
+- README приведён в соответствие с кодом: имя крейта `plantuml-core`
+  (а не несуществующий `plantuml-rs`), версия 0.2, сигнатура
+  `render(source, &options)`; примеры теперь компилируются
+- ARCHITECTURE.md: реальные имена layout-движков и feature-флагов
+- SYNTAX.md: реальный список тем
+- Убран неподтверждённый раздел бенчмарков (каталог `benches/` пуст)
+
+### Исправлено
+- **CI зелёный**: `cargo clippy --workspace -- -D warnings` проходил
+  с ошибкой (79 предупреждений); rustdoc падал на неэкранированных
+  скобках в док-комментариях
+- Убран `continue-on-error` у wasm-job (крейт существует и собирается)
+- mindmap: сырые указатели `*const MindMapNode` в ключах `HashMap`
+  заменены на путь от корня
+- Битые ссылки в CONTRIBUTING.md (`github.com/user/plantuml-rs`),
+  неверный тип `FileResolver` → `FsFileResolver` в SECURITY.md
+- Даты и перечисления в CHANGELOG (год, 18 типов, 6 тем)
+
+### Удалено
+- Мусор из корня: 6 PNG-файлов сравнения, `test_ref_example.rs`
+  (мёртвый файл вне workspace), осиротевший `pkg/` (3.7 МБ)
+- Мёртвый код: `struct NodeLayout`, `from_start_string`,
+  `set_start_from_string`, дублирующие ветки в state/engine.rs
 
 ---
 
-## [0.2.0] - 2025-01-03
+## [0.2.0] - 2026-01-03
 
 ### Добавлено
 - **Playground** — интерактивная веб-страница для тестирования диаграмм в браузере
-- Поддержка 18 типов диаграмм (Sequence, Class, State, Activity, Component, UseCase, Object, Timing, Gantt, MindMap, WBS, JSON, YAML, ER, Network, Salt)
-- 6 тем оформления (Default, Dark, Minimal, Sketchy, Cerulean)
+- Поддержка 18 типов диаграмм (Sequence, Class, State, Activity, Component, Deployment,
+  UseCase, Object, Timing, Gantt, MindMap, WBS, JSON, YAML, ER, Network, Salt, Archimate)
+- 6 тем оформления (Default, Classic, Dark, Minimal, Sketchy, Cerulean)
 - GitHub Pages публикация для онлайн-доступа к playground
 - GitHub Actions CI workflow
 
@@ -48,59 +83,56 @@
 
 ## Предстоящие релизы
 
-### [0.1.0] - Фаза 1 MVP (планируется)
+> Версии 0.1.0 и 0.2.0 уже выпущены (см. выше) — здесь описано только то,
+> что ещё не сделано. Актуальный разбор состояния и план работ:
+> [docs/AUDIT.md](docs/AUDIT.md).
 
-**Цель**: Sequence Diagrams + Class Diagrams
+### [0.3.0] — визуальная идентичность
 
-#### Планируется добавить
-- Препроцессор PlantUML (!include, !define, !if, etc.)
-- Парсер Sequence Diagrams
-- Парсер Class Diagrams
-- Layout engine для Sequence Diagrams
-- Layout engine для Class Diagrams (Sugiyama algorithm)
-- SVG рендеринг
-- Базовая поддержка skinparam
+**Цель**: приблизить вывод к оригинальному PlantUML (сейчас расхождение
+габаритов 7–67%, см. `tests/golden/baseline.json`).
 
----
+#### Планируется
+- Слой измерения текста реальными метриками шрифта — корневой блокер:
+  сейчас ширина считается как «число символов × константа», причём пять
+  реализаций считают байты вместо символов
+- Проброс темы и `skinparam` в рендерер (сейчас теряются в препроцессоре)
+- Согласование геометрии sequence с PlantUML (шаг сообщений, высота
+  участника, отступы, viewBox)
+- Уникальные `id` в SVG, корректные позиции строк в ошибках парсера
 
-### [0.2.0] - Фаза 2 (планируется)
+### [0.4.0] — полнота синтаксиса
 
-**Цель**: Activity + State + Component Diagrams
+**Цель**: закрыть пробелы разбора.
 
-#### Планируется добавить
-- Парсер Activity Diagrams (новый и legacy синтаксис)
-- Парсер State Diagrams
-- Парсер Component/Deployment Diagrams
-- Flowchart layout engine
-- Поддержка вложенных состояний
+#### Планируется
+- Sequence: `header`/`footer`, `hide footbox`, `group`, многострочные
+  заметки, цвет стрелок
+- Class: `note right of`, `direction`, `show`/`hide`, `enum`, `annotation`,
+  рендеринг пакетов
+- Activity: `elseif`, заметки, коннекторы, `detach`/`kill`
+- State: параллельные регионы, `entry`/`exit`/`do`
+- ER-грамматика (сейчас не работает даже базовый случай)
+- `archimate` (сейчас не парсится)
 
----
+### [0.5.0] — расширение стандартной библиотеки
 
-### [0.3.0] - Фаза 3 (планируется)
+**Цель**: покрыть крупные наборы включений.
 
-**Цель**: Остальные UML диаграммы
+#### Планируется
+- `aws`, `azure`, `kubernetes`, `material` (сейчас отсутствуют)
+- Полный набор макросов C4 (сейчас 5 из ~22)
+- Расширение `tupadr3` и `logos`
+- Каталог `skinparam` (сейчас маппится 5 ключей)
 
-#### Планируется добавить
-- Use Case Diagrams
-- Object Diagrams
-- Timing Diagrams
-- Package Diagrams
+### [1.0.0] — стабильный API
 
----
+**Цель**: публикация на crates.io.
 
-### [0.4.0] - Фаза 4 (планируется)
-
-**Цель**: Non-UML диаграммы
-
-#### Планируется добавить
-- Gantt Charts
-- MindMap
-- WBS
-- JSON/YAML визуализация
-- Network Diagrams (nwdiag)
-- Salt (Wireframe)
-- ER Diagrams
-- Archimate
+#### Планируется
+- Заморозка публичного API
+- Бенчмарки (`benches/` пока пуст)
+- CLI-интерфейс
 
 ---
 

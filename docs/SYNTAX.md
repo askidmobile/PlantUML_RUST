@@ -520,17 +520,21 @@ Alice -> Bob: Hello
 ```plantuml
 @startuml
 !theme cerulean
-' или
-!theme spacelab from https://...
 @enduml
 ```
 
-Встроенные темы:
+Встроенные темы (`plantuml-themes`):
+- `default` — тема по умолчанию
+- `classic` (алиас `plantuml`) — классическая палитра PlantUML
+- `minimal`
+- `dark`
+- `sketchy` (алиас `sketchy-outline`)
 - `cerulean`
-- `spacelab`
-- `sketchy-outline`
-- `materia`
-- И другие
+
+Полный список доступен программно: `plantuml_core::available_themes()`.
+
+> **Ограничение:** `!theme` и `skinparam` разбираются препроцессором, но пока
+> не доходят до рендерера — тема не влияет на вывод. См. `docs/AUDIT.md`, §3.2.
 
 ---
 

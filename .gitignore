@@ -30,6 +30,12 @@ tarpaulin-report.html
 /doc/
 /docs/api/
 
+# Справочник PlantUML в PDF (10.5 МБ, 88% трекаемого контента).
+# Оставлен локально, в репозитории не нужен: это внешняя документация,
+# доступная на plantuml.com/guide. Скачать:
+#   curl -o docs/PlantUML.pdf https://plantuml.com/PlantUML_Language_Reference_Guide.pdf
+/docs/PlantUML.pdf
+
 # WASM build: /pkg/ — артефакт wasm-pack в корне (не создаётся ни одним workflow).
 # Целевая директория деплоя — playground/pkg, она игнорируется через playground/.gitignore.
 /pkg/

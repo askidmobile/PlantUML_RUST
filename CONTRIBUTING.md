@@ -24,7 +24,7 @@
 
 ### Сообщить о баге
 
-1. Проверьте, что баг ещё не был зарегистрирован в [Issues](https://github.com/user/plantuml-rs/issues)
+1. Проверьте, что баг ещё не был зарегистрирован в [Issues](https://github.com/askidmobile/PlantUML_RUST/issues)
 2. Создайте новый issue с меткой `bug`
 3. Опишите:
    - Ожидаемое поведение
@@ -67,7 +67,7 @@
 ### Клонирование репозитория
 
 ```bash
-git clone https://github.com/user/plantuml-rs.git
+git clone https://github.com/askidmobile/PlantUML_RUST.git
 cd plantuml-rs
 ```
 

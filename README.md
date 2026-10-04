@@ -19,6 +19,8 @@
 - **SVG вывод** — векторная графика высокого качества
 - **PNG вывод** — растеризация через resvg/tiny-skia
 - **Все типы диаграмм** — UML и non-UML диаграммы
+- **Стандартная библиотека** — встроенные включения C4, tupadr3, office, logos (48 путей)
+- **Современный Rust** — типизированные ошибки, MSRV 1.83
 
 ## Поддерживаемые диаграммы
 
@@ -51,7 +53,14 @@
 
 ```toml
 [dependencies]
-plantuml-rs = "0.1"
+plantuml-core = "0.2"
+```
+
+Для PNG-вывода включите feature `png`:
+
+```toml
+[dependencies]
+plantuml-core = { version = "0.2", features = ["png"] }
 ```
 
 ## Использование
@@ -59,7 +68,7 @@ plantuml-rs = "0.1"
 ### Базовый пример
 
 ```rust
-use plantuml_rs::render;
+use plantuml_core::{render, RenderOptions};
 
 fn main() {
     let source = r#"
@@ -69,7 +78,7 @@ Bob --> Alice: Привет!
 @enduml
 "#;
 
-    let svg = render(source).unwrap();
+    let svg = render(source, &RenderOptions::default()).unwrap();
     println!("{}", svg);
 }
 ```
@@ -77,7 +86,7 @@ Bob --> Alice: Привет!
 ### Sequence Diagram
 
 ```rust
-use plantuml_rs::render;
+use plantuml_core::{render, RenderOptions};
 
 let source = r#"
 @startuml
@@ -105,13 +114,13 @@ end
 @enduml
 "#;
 
-let svg = render(source).unwrap();
+let svg = render(source, &RenderOptions::default()).unwrap();
 ```
 
 ### Class Diagram
 
 ```rust
-use plantuml_rs::render;
+use plantuml_core::{render, RenderOptions};
 
 let source = r#"
 @startuml
@@ -139,13 +148,13 @@ Dog ..|> Trainable
 @enduml
 "#;
 
-let svg = render(source).unwrap();
+let svg = render(source, &RenderOptions::default()).unwrap();
 ```
 
 ### WASM (в браузере)
 
 ```javascript
-import init, { render } from 'plantuml-rs';
+import init, { render } from './pkg/plantuml_wasm.js';
 
 async function main() {
     await init();
@@ -182,13 +191,9 @@ main();
 
 ## Производительность
 
-| Операция | plantuml-rs | PlantUML (Java) |
-|----------|-------------|-----------------|
-| Простая sequence | ~5ms | ~500ms |
-| Сложная class | ~20ms | ~1000ms |
-| WASM загрузка | ~50ms | N/A |
-
-*Бенчмарки проводились на M1 MacBook Pro*
+Бенчмарки пока не автоматизированы: каталог `benches/` пуст, `criterion`
+не подключён. Публиковать конкретные цифры без измерений было бы
+недобросовестно — они появятся вместе с бенчмарками.
 
 ---
 
@@ -196,7 +201,7 @@ main();
 
 ### Требования
 
-- Rust 1.75+
+- Rust 1.83+ (требование `pest 2.8.4`)
 - wasm-pack (для WASM сборки)
 
 ### Быстрый старт
@@ -275,13 +280,45 @@ crates/
 ├── plantuml-parser/     # Лексер + парсер
 ├── plantuml-ast/        # AST типы
 ├── plantuml-preprocessor/ # Препроцессор
-├── plantuml-model/      # Модели диаграмм
+├── plantuml-model/      # Геометрические примитивы (Point, Rect, Size)
 ├── plantuml-layout/     # Layout engines
 ├── plantuml-renderer/   # SVG/PNG рендеринг
 ├── plantuml-themes/     # Темы
 ├── plantuml-stdlib/     # Стандартная библиотека
 └── plantuml-wasm/       # WASM биндинги
 ```
+
+---
+
+## Верификация совместимости
+
+Заявленная цель проекта — **100% визуальная идентичность оригинальному
+PlantUML**. Это цель, а не текущее состояние, и она измеряется.
+
+Каталог `tests/golden/` содержит golden-харнесс: эталоны, снятые с
+официального сервера PlantUML, и тесты сравнения.
+
+```bash
+# Снять/обновить эталоны (нужен доступ к plantuml.com)
+python3 tests/golden/fetch_references.py
+
+# Сравнить наш рендер с эталонами
+cargo test -p plantuml-core --test golden_tests
+
+# Метрика прогресса — суммарное расхождение
+cargo test -p plantuml-core --test golden_tests golden_report -- --nocapture
+```
+
+Сравнение идёт по измеримым характеристикам (габариты, сохранность
+подписей), а не байтово: PlantUML иначе расставляет атрибуты, использует
+CSS-классы и инлайновые `<polygon>` вместо `<marker>`.
+
+Текущий уровень расхождений зафиксирован в `tests/golden/baseline.json`
+по модели «храповика»: тест падает, если расхождение **выросло**. Так
+регрессия не проходит незамеченной, а прогресс виден по уменьшению
+baseline. Подробности — в [tests/golden/README.md](tests/golden/README.md).
+
+Актуальный разбор расхождений и план их устранения: [docs/AUDIT.md](docs/AUDIT.md).
 
 ---
 
@@ -294,7 +331,8 @@ crates/
 - [x] Фаза 4: Non-UML диаграммы
 - [x] Фаза 5: WASM биндинги
 - [x] Playground с GitHub Pages
-- [ ] Визуальная верификация с оригинальным PlantUML
+- [x] Инфраструктура верификации (golden-харнесс с эталонами PlantUML)
+- [ ] Достижение визуальной идентичности с PlantUML (идёт работа)
 - [ ] Публикация на crates.io
 
 Подробный план: [docs/PLAN.md](docs/PLAN.md)
@@ -304,13 +342,14 @@ crates/
 | Компонент | Статус |
 |-----------|--------|
 | Парсинг (18 типов диаграмм) | ✅ |
-| Layout engines | ✅ |
+| Layout engines (18) | ✅ |
 | SVG рендеринг | ✅ |
-| PNG рендеринг | ✅ |
+| PNG рендеринг | ⚠️ Требует feature `png` |
 | WASM сборка | ✅ |
-| Темы (6 тем) | ✅ |
 | Препроцессор | ✅ |
-| Визуальная сверка | 🔄 В процессе |
+| Стандартная библиотека (48 путей) | ✅ |
+| Инфраструктура верификации | ✅ |
+| Визуальная идентичность PlantUML | 🔄 В работе (расхождение 7–67%) |
 
 ---
 
