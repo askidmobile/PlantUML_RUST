@@ -571,10 +571,37 @@ impl ActivityLayoutEngine {
             then_end_y = self.layout_element(elem, left_x, then_end_y, elements);
         }
 
+        // Ветки elseif: раньше они полностью игнорировались — поле
+        // `elseif_branches` не читалось нигде, поэтому `if / elseif / else`
+        // терял промежуточные ветки, а поток на диаграмме становился
+        // неверным. Размещаем их каскадом вправо-вниз между then и else.
+        let mut elseif_end_y = branch_start_y;
+        for (i, branch) in cond.elseif_branches.iter().enumerate() {
+            let branch_x = center_x + self.config.horizontal_spacing * (i as f64 + 1.0);
+
+            // Стрелка от ромба к ветке с её условием
+            self.add_arrow(
+                center_x + dw / 2.0,
+                current_y + dh / 2.0,
+                branch_x,
+                branch_start_y,
+                Some(branch.condition.clone()),
+                elements,
+            );
+
+            let mut y = branch_start_y;
+            for elem in &branch.elements {
+                y = self.layout_element(elem, branch_x, y, elements);
+            }
+            elseif_end_y = elseif_end_y.max(y);
+        }
+
         // Else branch (right) if exists
-        let mut else_end_y = branch_start_y;
+        let mut else_end_y = elseif_end_y;
         if let Some(else_branch) = &cond.else_branch {
-            let right_x = center_x + self.config.horizontal_spacing;
+            // Если есть ветки elseif, else уходит ещё правее
+            let right_x = center_x
+                + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
 
             // Стрелка от ромба вправо + вниз
             self.add_arrow(
@@ -599,7 +626,8 @@ impl ActivityLayoutEngine {
             self.add_arrow(left_x, then_end_y, center_x, merge_y, None, elements);
         }
         if cond.else_branch.is_some() && else_end_y < merge_y {
-            let right_x = center_x + self.config.horizontal_spacing;
+            let right_x = center_x
+                + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
             self.add_arrow(right_x, else_end_y, center_x, merge_y, None, elements);
         }
 
@@ -888,6 +916,47 @@ impl Default for ActivityLayoutEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plantuml_ast::activity::ElseIfBranch;
+
+    /// Ветки `elseif` должны попадать в раскладку.
+    ///
+    /// Регрессия: поле `Condition::elseif_branches` не читалось нигде,
+    /// поэтому конструкция `if / elseif / else` молча теряла промежуточные
+    /// ветки — поток на диаграмме становился неверным.
+    #[test]
+    fn test_elseif_branches_are_laid_out() {
+        let mut diagram = ActivityDiagram::new();
+        diagram.elements.push(ActivityElement::Start);
+        diagram.elements.push(ActivityElement::Condition(Condition {
+            condition: "у1".to_string(),
+            then_branch: vec![ActivityElement::Action(Action::new("шаг1"))],
+            then_label: Some("да".to_string()),
+            elseif_branches: vec![ElseIfBranch {
+                condition: "у2".to_string(),
+                elements: vec![ActivityElement::Action(Action::new("шаг2"))],
+                label: Some("может".to_string()),
+            }],
+            else_branch: Some(vec![ActivityElement::Action(Action::new("шаг3"))]),
+            else_label: Some("нет".to_string()),
+        }));
+        diagram.elements.push(ActivityElement::Stop);
+
+        let result = ActivityLayoutEngine::new().layout(&diagram);
+
+        // Текст ветки elseif должен присутствовать среди элементов
+        let has_elseif_action = result.elements.iter().any(|e| match &e.element_type {
+            ElementType::Rectangle { label, .. } => label.contains("шаг2"),
+            _ => false,
+        });
+        assert!(has_elseif_action, "ветка elseif потеряна при раскладке");
+
+        // И её метка условия — на стрелке
+        let has_elseif_label = result.elements.iter().any(|e| match &e.element_type {
+            ElementType::Edge { label, .. } => label.as_deref().is_some_and(|l| l.contains("у2")),
+            _ => false,
+        });
+        assert!(has_elseif_label, "метка ветки elseif потеряна");
+    }
     use plantuml_ast::activity::ActionStyle;
 
     #[test]
