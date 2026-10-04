@@ -492,6 +492,9 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
             && !source_lower.contains("component ")
             && !source_lower.contains("package "))
         || (source_lower.contains("box ") && source_lower.contains("end box"))
+        // `ref over ...` — ссылка на другую диаграмму, признак sequence.
+        // Без участников тип диаграммы не определялся вовсе.
+        || source_lower.contains("ref over ")
     {
         return Ok(DiagramKind::Sequence);
     }

@@ -110,7 +110,9 @@ participant_name = { quoted_string | simple_identifier }
 
 // === Create / Destroy ===
 
-create_stmt = { "create" ~ ws+ ~ participant_name }
+// PlantUML допускает обе формы: `create B` и `create participant B`.
+// Вторая раньше не разбиралась вовсе.
+create_stmt = { "create" ~ ws+ ~ (participant_type ~ ws+)? ~ participant_name }
 destroy_stmt = { "destroy" ~ ws+ ~ participant_name }
 
 // === Activate / Deactivate ===
@@ -296,7 +298,12 @@ note_body = { (!("end" ~ ws* ~ "note") ~ ANY)* }
 divider = { "==" ~ ws* ~ divider_text? ~ ws* ~ "==" }
 divider_text = { (!("==" | NEWLINE) ~ ANY)* }
 
-delay = { "..." ~ ws* ~ delay_text? ~ ws* ~ "..."? }
+// Две формы задержки: `...` (без слова delay) и `delay 10 минут`.
+// Вторая — обычная запись PlantUML, которая раньше не разбиралась.
+delay = {
+    "delay" ~ ws+ ~ delay_text
+    | "..." ~ ws* ~ delay_text? ~ ws* ~ "..."?
+}
 delay_text = { (!("..." | NEWLINE) ~ ANY)* }
 
 space = { "|||" | "||" ~ number ~ "||" }
