@@ -4,8 +4,8 @@
 
 use plantuml_ast::common::{LineStyle, Note, NotePosition};
 use plantuml_ast::sequence::{
-    Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, 
-    Message, ParticipantType, Return, SequenceDiagram, SequenceElement,
+    Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
+    ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
 };
 use plantuml_model::{Point, Rect};
 
@@ -42,7 +42,7 @@ impl SequenceLayoutEngine {
         // 1.5. Добавляем box группировки (фоновые прямоугольники)
         // Должны быть добавлены в начало, чтобы рендерились под участниками
         let box_elements = self.layout_boxes(diagram, &metrics);
-        
+
         // 2. Начальная позиция Y после блоков участников
         // Используем Y позицию из header_bounds первого участника + высота участника + отступ
         let first_participant_y = metrics
@@ -115,7 +115,12 @@ impl SequenceLayoutEngine {
 
         // Проходим по всем элементам и вычисляем максимальный выход текста за границы
         for element in &diagram.elements {
-            self.check_element_text_overflow(element, metrics, &mut max_right, &mut max_left_overflow);
+            self.check_element_text_overflow(
+                element,
+                metrics,
+                &mut max_right,
+                &mut max_left_overflow,
+            );
         }
 
         // Расширяем bounds если текст выходит за правую границу
@@ -167,7 +172,9 @@ impl SequenceLayoutEngine {
                     *max_right = max_right.max(text_end);
 
                     // Проверяем overflow влево (если сообщение идёт справа налево)
-                    let min_x = metrics.participants.values()
+                    let min_x = metrics
+                        .participants
+                        .values()
                         .map(|p| p.center_x - p.width / 2.0)
                         .fold(f64::MAX, f64::min);
                     if text_start < min_x {
@@ -178,7 +185,12 @@ impl SequenceLayoutEngine {
             SequenceElement::Fragment(frag) => {
                 for section in &frag.sections {
                     for elem in &section.elements {
-                        self.check_element_text_overflow(elem, metrics, max_right, max_left_overflow);
+                        self.check_element_text_overflow(
+                            elem,
+                            metrics,
+                            max_right,
+                            max_left_overflow,
+                        );
                     }
                 }
             }
@@ -188,7 +200,9 @@ impl SequenceLayoutEngine {
                     let text_width = self.config.message_label_width(label);
                     // Return обычно идёт справа налево, текст над стрелкой
                     // Просто добавляем к max_right для безопасности
-                    let current_max_x = metrics.participants.values()
+                    let current_max_x = metrics
+                        .participants
+                        .values()
                         .map(|p| p.center_x + p.width / 2.0)
                         .fold(f64::MIN, f64::max);
                     *max_right = max_right.max(current_max_x + text_width);
@@ -235,7 +249,7 @@ impl SequenceLayoutEngine {
 
             // Box начинается выше участников и заканчивается на footer_y + footer_height
             let box_y = 5.0; // Немного выше margin
-            // Высота будет определена позже при рендеринге (на всю высоту диаграммы)
+                             // Высота будет определена позже при рендеринге (на всю высоту диаграммы)
 
             let mut properties = std::collections::HashMap::new();
             if let Some(title) = &pbox.title {
@@ -297,7 +311,7 @@ impl SequenceLayoutEngine {
             .iter()
             .flat_map(|b| b.participants.iter().cloned())
             .collect();
-        
+
         // Если есть боксы с заголовками, сдвигаем участников вниз
         let has_box_titles = diagram.boxes.iter().any(|b| b.title.is_some());
         let participant_y = if has_box_titles {
@@ -314,10 +328,11 @@ impl SequenceLayoutEngine {
                 self.config.participant_width_for_name(display_name)
             })
             .collect();
-        
+
         // Вычисляем максимальную ширину сообщений между соседними участниками
         // Теперь с учётом реальных ширин участников
-        let spacing_map = self.calculate_participant_spacing(diagram, &participant_order, &participant_widths);
+        let spacing_map =
+            self.calculate_participant_spacing(diagram, &participant_order, &participant_widths);
 
         // Размещаем участников с вычисленными расстояниями
         let mut x = self.config.margin;
@@ -409,7 +424,7 @@ impl SequenceLayoutEngine {
     }
 
     /// Вычисляет необходимое расстояние между соседними участниками на основе длины сообщений
-    /// 
+    ///
     /// Алгоритм (см. docs/SEQUENCE_LAYOUT_ALGORITHM.md):
     /// 1. Собираем все сообщения и группируем по span (количеству сегментов)
     /// 2. Обрабатываем от коротких к длинным (span=1, затем span=2, ...)
@@ -425,41 +440,42 @@ impl SequenceLayoutEngine {
         if n < 2 {
             return std::collections::HashMap::new();
         }
-        
+
         // Инициализируем spacing минимальными значениями
         let min_spacing = 50.0;
         let mut spacing: Vec<f64> = vec![min_spacing; n - 1];
-        
+
         // Отслеживаем пары с ПРЯМЫМИ сообщениями
         let mut direct_pairs: std::collections::HashSet<usize> = std::collections::HashSet::new();
-        
+
         // Определяем есть ли autonumber
         let has_autonumber = self.diagram_has_autonumber(diagram);
-        
+
         // Собираем все сообщения и группируем по span
-        let mut messages_by_span: std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>> = 
+        let mut messages_by_span: std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>> =
             std::collections::BTreeMap::new();
-        
+
         self.collect_messages_by_span(
             diagram,
             participant_order,
             has_autonumber,
             &mut messages_by_span,
         );
-        
+
         // Обрабатываем от коротких к длинным
         for (span, messages) in messages_by_span {
             for (start_idx, end_idx, text_width) in messages {
                 // Padding для текста: 5px слева + 15px справа от наконечника
                 let required_length = text_width + 20.0;
-                
+
                 if span == 1 {
                     // Соседние участники: устанавливаем spacing напрямую
                     // Стрелка идёт от центра до центра:
                     // arrow_length = spacing + (width_start + width_end) / 2
                     // required_length <= arrow_length
                     // spacing >= required_length - (width_start + width_end) / 2
-                    let half_widths = (participant_widths[start_idx] + participant_widths[end_idx]) / 2.0;
+                    let half_widths =
+                        (participant_widths[start_idx] + participant_widths[end_idx]) / 2.0;
                     let required_spacing = (required_length - half_widths).max(min_spacing);
                     spacing[start_idx] = spacing[start_idx].max(required_spacing);
                     direct_pairs.insert(start_idx);
@@ -467,7 +483,7 @@ impl SequenceLayoutEngine {
                     // Несоседние участники: проверяем суммарную длину
                     // arrow_length = sum(spacing[i]) + сумма ширин промежуточных участников + половины крайних
                     let current_spacing_sum: f64 = (start_idx..end_idx).map(|i| spacing[i]).sum();
-                    
+
                     // Ширины промежуточных участников (от start+1 до end-1) + половины крайних
                     let half_start = participant_widths[start_idx] / 2.0;
                     let half_end = participant_widths[end_idx] / 2.0;
@@ -475,9 +491,9 @@ impl SequenceLayoutEngine {
                         .map(|i| participant_widths[i])
                         .sum();
                     let total_widths = half_start + intermediate_widths + half_end;
-                    
+
                     let current_arrow_length = current_spacing_sum + total_widths;
-                    
+
                     if current_arrow_length < required_length {
                         // Нужно увеличить. Увеличиваем ТОЛЬКО первый сегмент.
                         let deficit = required_length - current_arrow_length;
@@ -490,9 +506,10 @@ impl SequenceLayoutEngine {
                 }
             }
         }
-        
+
         // Конвертируем в HashMap с ключами "participant1_participant2"
-        let mut spacing_map: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        let mut spacing_map: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
         for i in 0..n - 1 {
             let key = format!("{}_{}", participant_order[i], participant_order[i + 1]);
             // Для пар без прямых сообщений можно использовать меньший spacing
@@ -503,10 +520,10 @@ impl SequenceLayoutEngine {
             };
             spacing_map.insert(key, final_spacing);
         }
-        
+
         spacing_map
     }
-    
+
     /// Собирает все сообщения и группирует по span (количеству сегментов)
     fn collect_messages_by_span(
         &self,
@@ -519,7 +536,7 @@ impl SequenceLayoutEngine {
             self.collect_message_span(element, participant_order, has_autonumber, messages_by_span);
         }
     }
-    
+
     /// Рекурсивно собирает сообщение и добавляет в группу по span
     fn collect_message_span(
         &self,
@@ -533,10 +550,10 @@ impl SequenceLayoutEngine {
                 let text_width = self.config.message_label_width(&msg.label);
                 let autonumber_width = if has_autonumber { 45.0 } else { 0.0 };
                 let total_width = text_width + autonumber_width;
-                
+
                 let from_idx = participant_order.iter().position(|p| p == &msg.from);
                 let to_idx = participant_order.iter().position(|p| p == &msg.to);
-                
+
                 if let (Some(from_idx), Some(to_idx)) = (from_idx, to_idx) {
                     let (start, end) = if from_idx < to_idx {
                         (from_idx, to_idx)
@@ -545,7 +562,10 @@ impl SequenceLayoutEngine {
                     };
                     let span = end - start;
                     if span > 0 {
-                        messages_by_span.entry(span).or_default().push((start, end, total_width));
+                        messages_by_span
+                            .entry(span)
+                            .or_default()
+                            .push((start, end, total_width));
                     }
                 }
             }
@@ -554,7 +574,7 @@ impl SequenceLayoutEngine {
                 if let Some(label) = &ret.label {
                     let text_width = self.config.message_label_width(label);
                     // Return не имеет autonumber
-                    
+
                     // Для return нужно знать caller и callee
                     // Но здесь у нас нет доступа к call_stack
                     // Пока пропускаем, т.к. return обычно короче прямого сообщения
@@ -563,7 +583,12 @@ impl SequenceLayoutEngine {
             SequenceElement::Fragment(frag) => {
                 for section in &frag.sections {
                     for elem in &section.elements {
-                        self.collect_message_span(elem, participant_order, has_autonumber, messages_by_span);
+                        self.collect_message_span(
+                            elem,
+                            participant_order,
+                            has_autonumber,
+                            messages_by_span,
+                        );
                     }
                 }
             }
@@ -598,7 +623,9 @@ impl SequenceLayoutEngine {
                 LayoutElement {
                     id: format!("participant_{}", id),
                     bounds: *bounds,
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Ellipse {
                         label: Some(display_name.to_string()),
                     },
                 }
@@ -608,7 +635,9 @@ impl SequenceLayoutEngine {
                 LayoutElement {
                     id: format!("participant_{}", id),
                     bounds: *bounds,
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: display_name.to_string(),
                         corner_radius: 10.0,
                     },
@@ -620,7 +649,9 @@ impl SequenceLayoutEngine {
                 LayoutElement {
                     id: format!("participant_{}", id),
                     bounds: *bounds,
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: display_name.to_string(),
                         corner_radius: 2.5, // PlantUML style
                     },
@@ -659,8 +690,7 @@ impl SequenceLayoutEngine {
                 metrics.advance_y(*height as f64);
             }
             SequenceElement::Reference(reference) => {
-                // TODO: Реализовать ref блоки
-                let _ = reference;
+                self.layout_reference(reference, metrics, elements);
             }
             SequenceElement::Autonumber(cmd) => {
                 self.process_autonumber(cmd, metrics);
@@ -677,10 +707,10 @@ impl SequenceLayoutEngine {
             AutonumberCommand::Start(params) => {
                 metrics.autonumber.enabled = true;
                 if let Some(start) = params.start {
-                    metrics.autonumber.current = start;
+                    metrics.autonumber.set_start(start);
                 } else {
                     // Если не указано, начинаем с 1
-                    metrics.autonumber.current = 1;
+                    metrics.autonumber.levels = vec![1];
                 }
                 if let Some(step) = params.step {
                     metrics.autonumber.step = step;
@@ -697,7 +727,7 @@ impl SequenceLayoutEngine {
                 // При resume можно указать новые параметры
                 if let Some(p) = params {
                     if let Some(start) = p.start {
-                        metrics.autonumber.current = start;
+                        metrics.autonumber.set_start(start);
                     }
                     if let Some(step) = p.step {
                         metrics.autonumber.step = step;
@@ -707,9 +737,13 @@ impl SequenceLayoutEngine {
                     }
                 }
             }
-            AutonumberCommand::Inc(_level) => {
-                // TODO: Поддержка многоуровневой нумерации (1.1, 1.2, etc.)
-                // Пока просто продолжаем
+            AutonumberCommand::Inc(level) => {
+                // Поддержка многоуровневой нумерации (1.1, 1.2, etc.)
+                // level = "A" -> инкремент первого уровня
+                // level = "B" -> инкремент второго уровня
+                if let Some(ch) = level.chars().next() {
+                    metrics.autonumber.increment_level(ch);
+                }
             }
         }
     }
@@ -727,7 +761,7 @@ impl SequenceLayoutEngine {
             let mut msg = Message::new(&callee, &caller, ret.label.clone().unwrap_or_default());
             msg.line_style = LineStyle::Dashed;
             msg.deactivate = true; // Return деактивирует callee
-            
+
             // Layout return message (без autonumber)
             let y = metrics.current_y;
             metrics.last_message_y = y;
@@ -758,7 +792,9 @@ impl SequenceLayoutEngine {
                     arrow_start: false,
                     arrow_end: true,
                     dashed: true,
-                    edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Association,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             };
 
@@ -776,13 +812,13 @@ impl SequenceLayoutEngine {
     ) {
         // Сначала вычисляем количество строк текста
         let line_count = msg.label.matches("\\n").count() + msg.label.matches('\n').count();
-        
+
         // Для многострочного текста нужно добавить место ПЕРЕД стрелкой
         // (текст идёт вверх от стрелки)
         if line_count > 0 {
             metrics.advance_y(line_count as f64 * self.config.line_height);
         }
-        
+
         let y = metrics.current_y;
 
         // Сохраняем Y позицию этого сообщения для последующих активаций
@@ -809,7 +845,7 @@ impl SequenceLayoutEngine {
         } else {
             None
         };
-        
+
         // Label сообщения (без номера - он будет отдельным элементом)
         let label = msg.label.clone();
 
@@ -874,8 +910,8 @@ impl SequenceLayoutEngine {
         let edge = LayoutElement {
             id: format!("msg_{}_{}", msg.from, msg.to),
             bounds,
-            text: None, 
-            properties, 
+            text: None,
+            properties,
             element_type: ElementType::Edge {
                 points,
                 label: if label.is_empty() && autonumber.is_none() {
@@ -929,7 +965,7 @@ impl SequenceLayoutEngine {
             if i > 0 {
                 // Разделитель между секциями (else):
                 // 1. Текста условия else [текст] над пунктирной линией ~18px
-                // 2. Разделительной линии ~5px  
+                // 2. Разделительной линии ~5px
                 // 3. Отступа от линии до первого сообщения следующей секции ~20px (увеличено!)
                 // Общий отступ: 18 + 5 + 20 = 43px
                 metrics.advance_y(43.0);
@@ -955,7 +991,7 @@ impl SequenceLayoutEngine {
         // Отступ внизу фрагмента (внутренний padding)
         let end_y = metrics.current_y + self.config.fragment_padding + 5.0;
         metrics.current_y = end_y;
-        
+
         // ВАЖНО: Отступ ПОСЛЕ фрагмента до следующего элемента (между фрагментами или до footer)
         // PlantUML имеет заметный отступ между фрагментами
         metrics.advance_y(15.0);
@@ -994,7 +1030,9 @@ impl SequenceLayoutEngine {
         let fragment_elem = LayoutElement {
             id: format!("fragment_{}", fragment_type_str),
             bounds: fragment_bounds,
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Fragment {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Fragment {
                 fragment_type: fragment_type_str.to_string(),
                 sections: layout_sections,
             },
@@ -1076,7 +1114,9 @@ impl SequenceLayoutEngine {
         let note_elem = LayoutElement {
             id: format!("note_{}", y as u32),
             bounds,
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: note.text.clone(),
                 corner_radius: 0.0, // Заметки обычно с прямыми углами
             },
@@ -1084,6 +1124,73 @@ impl SequenceLayoutEngine {
 
         elements.push(note_elem);
         metrics.advance_y(self.config.note_height + 10.0);
+    }
+
+    /// Размещает ref блок (ссылка на другую диаграмму)
+    /// Ref блок в PlantUML выглядит как рамка с меткой "ref" в левом верхнем углу
+    fn layout_reference(
+        &self,
+        reference: &Reference,
+        metrics: &mut DiagramMetrics,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        let y = metrics.current_y;
+
+        // Определяем границы ref блока по охваченным участникам
+        let (x, width) = if reference.participants.is_empty() {
+            // Если участники не указаны, охватываем всю диаграмму
+            (self.config.margin, metrics.max_x - self.config.margin * 2.0)
+        } else if reference.participants.len() == 1 {
+            // Один участник - центрируем вокруг него
+            let center_x = metrics
+                .participant_center_x(&reference.participants[0])
+                .unwrap_or(self.config.margin + 50.0);
+            let width = self.config.participant_spacing.max(100.0);
+            (center_x - width / 2.0, width)
+        } else {
+            // Несколько участников - от первого до последнего
+            let first_x = metrics
+                .participant_center_x(&reference.participants[0])
+                .unwrap_or(self.config.margin);
+            let last_x = metrics
+                .participant_center_x(reference.participants.last().unwrap())
+                .unwrap_or(metrics.max_x);
+            let padding = 20.0;
+            (first_x - padding, last_x - first_x + padding * 2.0)
+        };
+
+        // Высота ref блока зависит от текста
+        let text_lines = reference.text.lines().count().max(1);
+        let ref_height = self.config.fragment_header_height
+            + (text_lines as f64 * self.config.line_height)
+            + 10.0;
+
+        let bounds = Rect::new(x, y, width, ref_height);
+
+        // Создаём ref блок как фрагмент
+        let ref_elem = LayoutElement {
+            id: format!("ref_{}", y as u32),
+            bounds,
+            text: Some(reference.text.clone()),
+            properties: {
+                let mut props = std::collections::HashMap::new();
+                props.insert("type".to_string(), "ref".to_string());
+                props.insert("label".to_string(), "ref".to_string());
+                props
+            },
+            element_type: ElementType::Fragment {
+                fragment_type: "ref".to_string(),
+                sections: vec![FragmentSection {
+                    condition: Some(reference.text.clone()),
+                    start_y: y,
+                    end_y: y + ref_height,
+                    children: vec![],
+                }],
+            },
+        };
+
+        elements.push(ref_elem);
+        metrics.advance_y(ref_height + self.config.message_spacing);
     }
 
     /// Обрабатывает активацию/деактивацию
@@ -1116,7 +1223,9 @@ impl SequenceLayoutEngine {
                 metrics.max_x - self.config.margin,
                 self.config.divider_height,
             ),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text: format!("== {} ==", div.text),
                 font_size: self.config.font_size,
             },
@@ -1145,7 +1254,9 @@ impl SequenceLayoutEngine {
                 metrics.max_x - self.config.margin,
                 self.config.delay_height,
             ),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text,
                 font_size: self.config.font_size,
             },
@@ -1172,7 +1283,9 @@ impl SequenceLayoutEngine {
                     id: format!("activation_{}_{}", info.participant, i),
                     bounds: Rect::new(x, info.start_y, self.config.activation_width, height),
                     // Используем специальный тип Activation для белого фона
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Activation,
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Activation,
                 };
 
                 elements.push(activation);
@@ -1196,11 +1309,13 @@ impl SequenceLayoutEngine {
             // Lifeline начинается от нижней границы header участника
             // (учитывает box_title_height если есть боксы)
             let start_y = participant.header_bounds.y + self.config.participant_height;
-            
+
             let lifeline = LayoutElement {
                 id: format!("lifeline_{}", id),
                 bounds: Rect::new(participant.center_x - 0.5, start_y, 1.0, end_y - start_y),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
                     points: vec![
                         Point::new(participant.center_x, start_y),
                         Point::new(participant.center_x, end_y),
@@ -1208,7 +1323,7 @@ impl SequenceLayoutEngine {
                     label: None,
                     arrow_start: false,
                     arrow_end: false,
-                    dashed: true, // Lifelines всегда пунктирные
+                    dashed: true,              // Lifelines всегда пунктирные
                     edge_type: EdgeType::Link, // линия без маркеров
                     from_cardinality: None,
                     to_cardinality: None,
@@ -1226,7 +1341,7 @@ impl SequenceLayoutEngine {
         let y = metrics.current_y - 11.0;
 
         for (id, participant) in &metrics.participants {
-                let footer = LayoutElement {
+            let footer = LayoutElement {
                 id: format!("footer_{}", id),
                 bounds: Rect::new(
                     participant.center_x - participant.width / 2.0,
@@ -1234,7 +1349,9 @@ impl SequenceLayoutEngine {
                     participant.width,
                     self.config.participant_height,
                 ),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Rectangle {
                     label: participant.display_name.clone(),
                     corner_radius: 2.5, // PlantUML style
                 },

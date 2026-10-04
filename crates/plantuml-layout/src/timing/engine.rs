@@ -58,10 +58,7 @@ impl TimingLayoutEngine {
                 .get(&change.participant)
                 .map(|&i| diagram.participants[i].name.clone())
                 .unwrap_or_else(|| change.participant.clone());
-            changes_by_participant
-                .entry(key)
-                .or_default()
-                .push(change);
+            changes_by_participant.entry(key).or_default().push(change);
         }
 
         // Сортируем изменения по времени
@@ -79,7 +76,8 @@ impl TimingLayoutEngine {
         let timeline_width = time_range * self.config.time_scale;
 
         for (i, participant) in diagram.participants.iter().enumerate() {
-            let lane_y = self.config.padding + (i as f64) * (self.config.lane_height + self.config.lane_spacing);
+            let lane_y = self.config.padding
+                + (i as f64) * (self.config.lane_height + self.config.lane_spacing);
 
             // Метка участника
             let display_name = participant.alias.as_deref().unwrap_or(&participant.name);
@@ -91,7 +89,9 @@ impl TimingLayoutEngine {
                     self.config.participant_label_width - 10.0,
                     self.config.lane_height,
                 ),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
                     text: display_name.to_string(),
                     font_size: self.config.label_font_size,
                 },
@@ -137,7 +137,8 @@ impl TimingLayoutEngine {
 
         // 5. Рисуем временную ось внизу
         let axis_y = self.config.padding
-            + (diagram.participants.len() as f64) * (self.config.lane_height + self.config.lane_spacing);
+            + (diagram.participants.len() as f64)
+                * (self.config.lane_height + self.config.lane_spacing);
 
         self.draw_time_axis(
             &mut elements,
@@ -153,7 +154,9 @@ impl TimingLayoutEngine {
             elements.push(LayoutElement {
                 id: "title".to_string(),
                 bounds: Rect::new(self.config.padding, 5.0, 500.0, 20.0),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
                     text: title.clone(),
                     font_size: 14.0,
                 },
@@ -232,7 +235,9 @@ impl TimingLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("state_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x1, state_y, width, self.config.robust_state_height),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: current.state.clone(),
                         corner_radius: 0.0,
                     },
@@ -245,7 +250,9 @@ impl TimingLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("state_{}_last", participant_name),
                     bounds: Rect::new(x, state_y, 50.0, self.config.robust_state_height),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: last.state.clone(),
                         corner_radius: 0.0,
                     },
@@ -273,7 +280,9 @@ impl TimingLayoutEngine {
         elements.push(LayoutElement {
             id: format!("baseline_{}_{}", participant_name, participant_idx),
             bounds: Rect::new(start_x, line_y - 1.0, width, 2.0),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points: vec![
                     Point::new(start_x, line_y),
                     Point::new(start_x + width, line_y),
@@ -282,7 +291,9 @@ impl TimingLayoutEngine {
                 arrow_start: false,
                 arrow_end: false,
                 dashed: false,
-                edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Link,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
 
@@ -295,16 +306,17 @@ impl TimingLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("transition_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x - 1.0, line_y - 10.0, 2.0, 20.0),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
-                        points: vec![
-                            Point::new(x, line_y - 10.0),
-                            Point::new(x, line_y + 10.0),
-                        ],
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Edge {
+                        points: vec![Point::new(x, line_y - 10.0), Point::new(x, line_y + 10.0)],
                         label: None,
                         arrow_start: false,
                         arrow_end: false,
                         dashed: false,
-                        edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                        edge_type: EdgeType::Link,
+                        from_cardinality: None,
+                        to_cardinality: None,
                     },
                 });
 
@@ -312,7 +324,9 @@ impl TimingLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("state_label_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x + 5.0, line_y - 20.0, 50.0, 15.0),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
                         text: change.state.clone(),
                         font_size: self.config.label_font_size,
                     },
@@ -353,13 +367,17 @@ impl TimingLayoutEngine {
         elements.push(LayoutElement {
             id: format!("clock_{}", participant_idx),
             bounds: Rect::new(start_x, high_y, width, low_y - high_y),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points,
                 label: None,
                 arrow_start: false,
                 arrow_end: false,
                 dashed: false,
-                edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Link,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
     }
@@ -378,16 +396,17 @@ impl TimingLayoutEngine {
         elements.push(LayoutElement {
             id: "time_axis".to_string(),
             bounds: Rect::new(start_x, y, width, 2.0),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
-                points: vec![
-                    Point::new(start_x, y),
-                    Point::new(start_x + width, y),
-                ],
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
+                points: vec![Point::new(start_x, y), Point::new(start_x + width, y)],
                 label: None,
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
 
@@ -403,13 +422,17 @@ impl TimingLayoutEngine {
             elements.push(LayoutElement {
                 id: format!("tick_{}", t),
                 bounds: Rect::new(x - 0.5, y, 1.0, 5.0),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
                     points: vec![Point::new(x, y), Point::new(x, y + 5.0)],
                     label: None,
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             });
 
@@ -417,7 +440,9 @@ impl TimingLayoutEngine {
             elements.push(LayoutElement {
                 id: format!("time_label_{}", t),
                 bounds: Rect::new(x - 15.0, y + 8.0, 30.0, 15.0),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
                     text: format!("{}", t as i64),
                     font_size: self.config.time_font_size,
                 },
@@ -464,8 +489,12 @@ mod tests {
     #[test]
     fn test_layout_simple_timing() {
         let mut diagram = TimingDiagram::new();
-        diagram.participants.push(TimingParticipant::robust("Browser"));
-        diagram.participants.push(TimingParticipant::concise("Server"));
+        diagram
+            .participants
+            .push(TimingParticipant::robust("Browser"));
+        diagram
+            .participants
+            .push(TimingParticipant::concise("Server"));
 
         diagram.state_changes.push(StateChange::new(
             "Browser",
@@ -488,16 +517,12 @@ mod tests {
     #[test]
     fn test_time_range_calculation() {
         let mut diagram = TimingDiagram::new();
-        diagram.state_changes.push(StateChange::new(
-            "A",
-            TimeValue::Absolute(50.0),
-            "State1",
-        ));
-        diagram.state_changes.push(StateChange::new(
-            "A",
-            TimeValue::Absolute(200.0),
-            "State2",
-        ));
+        diagram
+            .state_changes
+            .push(StateChange::new("A", TimeValue::Absolute(50.0), "State1"));
+        diagram
+            .state_changes
+            .push(StateChange::new("A", TimeValue::Absolute(200.0), "State2"));
 
         let engine = TimingLayoutEngine::new();
         let (min, max) = engine.calculate_time_range(&diagram);

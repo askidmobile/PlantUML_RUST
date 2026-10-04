@@ -76,7 +76,8 @@ impl NetworkLayoutEngine {
 
     /// Вычисляет Y позицию для сети по индексу
     fn network_y_position(&self, index: usize) -> f64 {
-        self.config.padding + index as f64 * (self.config.network_band_height + self.config.network_spacing)
+        self.config.padding
+            + index as f64 * (self.config.network_band_height + self.config.network_spacing)
     }
 
     /// Размещает сети
@@ -91,9 +92,10 @@ impl NetworkLayoutEngine {
 
         for (net_idx, network) in diagram.networks.iter().enumerate() {
             let y = self.network_y_position(net_idx);
-            
+
             // Ширина сети зависит от количества серверов
-            let network_width = server_order.len() as f64 * (self.config.server_width + self.config.server_spacing)
+            let network_width = server_order.len() as f64
+                * (self.config.server_width + self.config.server_spacing)
                 + self.config.padding;
 
             // Фон сети
@@ -178,20 +180,16 @@ impl NetworkLayoutEngine {
 
         for (srv_idx, server_name) in server_order.iter().enumerate() {
             let x = self.server_x_position(srv_idx);
-            
+
             if let Some(net_indices) = server_networks.get(server_name) {
                 let server = server_data.get(server_name);
-                
-                for &net_idx in net_indices {
-                    let y = self.network_y_position(net_idx) 
-                        + self.config.network_header_height + 10.0;
 
-                    let server_rect = Rect::new(
-                        x,
-                        y,
-                        self.config.server_width,
-                        self.config.server_height,
-                    );
+                for &net_idx in net_indices {
+                    let y =
+                        self.network_y_position(net_idx) + self.config.network_header_height + 10.0;
+
+                    let server_rect =
+                        Rect::new(x, y, self.config.server_width, self.config.server_height);
 
                     // Иконка/форма сервера в зависимости от типа
                     let device_type = server.map(|s| s.device_type).unwrap_or(DeviceType::Server);
@@ -292,12 +290,7 @@ impl NetworkLayoutEngine {
                 text: name.to_string(),
                 font_size: self.config.font_size,
             },
-            bounds: Rect::new(
-                bounds.x + 5.0,
-                bounds.y + 5.0,
-                bounds.width - 10.0,
-                20.0,
-            ),
+            bounds: Rect::new(bounds.x + 5.0, bounds.y + 5.0, bounds.width - 10.0, 20.0),
             text: Some(name.to_string()),
             properties: [
                 ("fill".to_string(), "#000000".to_string()),
@@ -318,12 +311,7 @@ impl NetworkLayoutEngine {
                         text: addr.clone(),
                         font_size: self.config.font_size - 2.0,
                     },
-                    bounds: Rect::new(
-                        bounds.x + 5.0,
-                        bounds.y + 25.0,
-                        bounds.width - 10.0,
-                        16.0,
-                    ),
+                    bounds: Rect::new(bounds.x + 5.0, bounds.y + 25.0, bounds.width - 10.0, 16.0),
                     text: Some(addr.clone()),
                     properties: [
                         ("fill".to_string(), "#666666".to_string()),
@@ -364,7 +352,9 @@ impl NetworkLayoutEngine {
                             arrow_start: false,
                             arrow_end: false,
                             dashed: false,
-                            edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                            edge_type: EdgeType::Link,
+                            from_cardinality: None,
+                            to_cardinality: None,
                         },
                         bounds: Rect::from_points(from, to),
                         text: None,
@@ -413,13 +403,20 @@ impl NetworkLayoutEngine {
                         min_x - 10.0,
                         self.config.padding - 5.0,
                         max_x - min_x + 20.0,
-                        (diagram.networks.len() as f64) * (self.config.network_band_height + self.config.network_spacing) + 10.0,
+                        (diagram.networks.len() as f64)
+                            * (self.config.network_band_height + self.config.network_spacing)
+                            + 10.0,
                     ),
                     text: Some(group.name.clone()),
                     properties: [
-                        ("fill".to_string(), group.color.as_ref()
-                            .map(|c| c.to_css())
-                            .unwrap_or_else(|| self.config.group_bg_color.to_string())),
+                        (
+                            "fill".to_string(),
+                            group
+                                .color
+                                .as_ref()
+                                .map(|c| c.to_css())
+                                .unwrap_or_else(|| self.config.group_bg_color.to_string()),
+                        ),
                         ("stroke".to_string(), "#888888".to_string()),
                         ("stroke-dasharray".to_string(), "3,3".to_string()),
                     ]
@@ -453,12 +450,8 @@ impl LayoutEngine for NetworkLayoutEngine {
         let (width, height) = self.layout_networks(diagram, &server_order, &mut elements);
 
         // Размещаем серверы
-        let server_positions = self.layout_servers(
-            diagram,
-            &server_order,
-            &server_networks,
-            &mut elements,
-        );
+        let server_positions =
+            self.layout_servers(diagram, &server_order, &server_networks, &mut elements);
 
         // Рисуем соединительные линии
         self.render_connections(&server_positions, &mut elements);

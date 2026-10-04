@@ -59,7 +59,9 @@ impl ObjectLayoutEngine {
             elements.push(LayoutElement {
                 id: format!("object_{}", object.name),
                 bounds: bounds.clone(),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Rectangle {
                     label: display_name,
                     corner_radius: 0.0, // Объекты без скруглённых углов
                 },
@@ -78,7 +80,9 @@ impl ObjectLayoutEngine {
                         self.config.object_width - 10.0,
                         self.config.field_height,
                     ),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
                         text: field_text,
                         font_size: 12.0,
                     },
@@ -101,9 +105,10 @@ impl ObjectLayoutEngine {
 
         // 2. Добавляем связи
         for link in &diagram.links {
-            if let (Some(from_bounds), Some(to_bounds)) =
-                (object_positions.get(&link.from), object_positions.get(&link.to))
-            {
+            if let (Some(from_bounds), Some(to_bounds)) = (
+                object_positions.get(&link.from),
+                object_positions.get(&link.to),
+            ) {
                 let from_center = from_bounds.center();
                 let to_center = to_bounds.center();
 
@@ -121,7 +126,9 @@ impl ObjectLayoutEngine {
                         (end.x - start.x).abs(),
                         (end.y - start.y).abs(),
                     ),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Edge {
                         points: vec![start, end],
                         label: link.label.clone(),
                         arrow_start: matches!(

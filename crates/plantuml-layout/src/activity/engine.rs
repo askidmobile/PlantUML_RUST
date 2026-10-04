@@ -2,13 +2,29 @@
 //!
 //! Flowchart-based layout algorithm для activity diagrams.
 
+use std::collections::HashMap;
+
 use plantuml_ast::activity::{
     Action, ActivityDiagram, ActivityElement, Condition, Fork, RepeatLoop, WhileLoop,
 };
+use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
 
 use super::config::ActivityLayoutConfig;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
+
+/// Информация о swimlane для layout
+#[derive(Debug, Clone)]
+struct SwimlaneInfo {
+    /// Имя swimlane
+    name: String,
+    /// Цвет фона
+    color: Option<Color>,
+    /// Индекс (порядок появления)
+    index: usize,
+    /// X-координата центра swimlane
+    center_x: f64,
+}
 
 /// Layout engine для activity diagrams
 pub struct ActivityLayoutEngine {
@@ -31,14 +47,184 @@ impl ActivityLayoutEngine {
     /// Выполняет layout диаграммы
     pub fn layout(&self, diagram: &ActivityDiagram) -> LayoutResult {
         let mut elements = Vec::new();
-        let mut current_y = self.config.margin;
-        
-        // Центр диаграммы по X
-        let center_x = self.config.margin + self.config.action_width / 2.0;
+
+        // Собираем информацию о swimlanes
+        let swimlanes = self.collect_swimlanes(&diagram.elements);
+        let has_swimlanes = !swimlanes.is_empty();
+
+        // Начальная Y позиция (после заголовков swimlanes если есть)
+        let content_start_y = if has_swimlanes {
+            self.config.margin + self.config.swimlane_header_height
+        } else {
+            self.config.margin
+        };
+
+        let mut current_y = content_start_y;
+
+        // Текущий swimlane
+        let mut current_swimlane: Option<String> = None;
+
+        // Определяем center_x в зависимости от наличия swimlanes
+        let default_center_x = self.config.margin + self.config.action_width / 2.0;
+
+        // Храним позицию предыдущего элемента для отрисовки стрелок
+        // (center_x, bottom_y, is_start_or_action) - is_start_or_action указывает, нужна ли стрелка
+        let mut prev_element_info: Option<(f64, f64, bool)> = None;
 
         // Обрабатываем элементы последовательно
         for element in &diagram.elements {
-            current_y = self.layout_element(element, center_x, current_y, &mut elements);
+            // Обрабатываем смену swimlane
+            if let ActivityElement::SwimlaneChange(swimlane) = element {
+                current_swimlane = Some(swimlane.name.clone());
+                continue;
+            }
+
+            // Пропускаем элементы, которые не требуют layout
+            if matches!(
+                element,
+                ActivityElement::Detach
+                    | ActivityElement::Kill
+                    | ActivityElement::Note(_)
+                    | ActivityElement::Connector(_)
+            ) {
+                continue;
+            }
+
+            // Получаем center_x для текущего swimlane
+            let center_x = if let Some(ref lane_name) = current_swimlane {
+                swimlanes
+                    .get(lane_name)
+                    .map(|info| info.center_x)
+                    .unwrap_or(default_center_x)
+            } else if has_swimlanes {
+                // Если есть swimlanes но текущий не установлен, используем первый
+                swimlanes
+                    .values()
+                    .next()
+                    .map(|info| info.center_x)
+                    .unwrap_or(default_center_x)
+            } else {
+                default_center_x
+            };
+
+            // Рисуем стрелку от предыдущего элемента
+            if let Some((prev_x, prev_bottom_y, needs_arrow)) = prev_element_info {
+                if needs_arrow {
+                    if (prev_x - center_x).abs() > 1.0 {
+                        // Стрелка между разными swimlanes (с изломом)
+                        self.add_cross_swimlane_arrow(
+                            prev_x,
+                            prev_bottom_y,
+                            center_x,
+                            current_y,
+                            &mut elements,
+                        );
+                    } else {
+                        // Стрелка в том же swimlane (вертикальная)
+                        self.add_arrow(
+                            prev_x,
+                            prev_bottom_y,
+                            center_x,
+                            current_y,
+                            None,
+                            &mut elements,
+                        );
+                    }
+                }
+            }
+
+            let old_y = current_y;
+
+            // Определяем высоту элемента и нужна ли стрелка после него
+            let (element_height, needs_arrow_after) = match element {
+                ActivityElement::Start => {
+                    let r = self.config.node_radius;
+                    elements.push(LayoutElement {
+                        id: format!("start_{}", elements.len()),
+                        bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Ellipse { label: None },
+                    });
+                    (r * 2.0, true)
+                }
+                ActivityElement::Stop => {
+                    let r = self.config.node_radius;
+                    elements.push(LayoutElement {
+                        id: format!("stop_{}", elements.len()),
+                        bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Ellipse {
+                            label: Some("●".to_string()),
+                        },
+                    });
+                    (r * 2.0, false) // Stop не требует стрелки после
+                }
+                ActivityElement::End => {
+                    let r = self.config.node_radius;
+                    elements.push(LayoutElement {
+                        id: format!("end_{}", elements.len()),
+                        bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Ellipse {
+                            label: Some("●".to_string()),
+                        },
+                    });
+                    (r * 2.0, false)
+                }
+                ActivityElement::Action(action) => {
+                    let w = self.config.action_width;
+                    let h = self.config.action_height;
+                    elements.push(LayoutElement {
+                        id: format!("action_{}", elements.len()),
+                        bounds: Rect::new(center_x - w / 2.0, current_y, w, h),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Rectangle {
+                            label: action.label.clone(),
+                            corner_radius: self.config.action_corner_radius,
+                        },
+                    });
+                    (h, true)
+                }
+                // Для сложных элементов используем старые методы
+                ActivityElement::Condition(cond) => {
+                    let new_y = self.layout_condition(cond, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                ActivityElement::While(while_loop) => {
+                    let new_y = self.layout_while(while_loop, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                ActivityElement::Repeat(repeat_loop) => {
+                    let new_y = self.layout_repeat(repeat_loop, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                ActivityElement::Fork(fork) => {
+                    let new_y = self.layout_fork(fork, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                _ => (0.0, false),
+            };
+
+            current_y = old_y + element_height + self.config.vertical_spacing;
+            prev_element_info = Some((center_x, old_y + element_height, needs_arrow_after));
+        }
+
+        // Добавляем swimlane backgrounds и headers В НАЧАЛО (для правильного Z-порядка)
+        if has_swimlanes {
+            let mut swimlane_elements = Vec::new();
+            self.add_swimlane_elements(
+                &swimlanes,
+                content_start_y,
+                current_y,
+                &mut swimlane_elements,
+            );
+            // Swimlanes должны быть первыми, чтобы рендериться позади остальных элементов
+            swimlane_elements.extend(elements);
+            elements = swimlane_elements;
         }
 
         // Вычисляем bounds
@@ -55,7 +241,127 @@ impl ActivityLayoutEngine {
         result
     }
 
-    /// Располагает элемент и возвращает новую Y позицию
+    /// Собирает информацию о всех swimlanes в диаграмме
+    fn collect_swimlanes(&self, elements: &[ActivityElement]) -> HashMap<String, SwimlaneInfo> {
+        let mut swimlanes = HashMap::new();
+        let mut index = 0;
+
+        for element in elements {
+            if let ActivityElement::SwimlaneChange(swimlane) = element {
+                if !swimlanes.contains_key(&swimlane.name) {
+                    let center_x = self.config.margin
+                        + self.config.swimlane_width / 2.0
+                        + index as f64
+                            * (self.config.swimlane_width + self.config.swimlane_spacing);
+
+                    swimlanes.insert(
+                        swimlane.name.clone(),
+                        SwimlaneInfo {
+                            name: swimlane.name.clone(),
+                            color: swimlane.color.clone(),
+                            index,
+                            center_x,
+                        },
+                    );
+                    index += 1;
+                }
+            }
+        }
+
+        swimlanes
+    }
+
+    /// Добавляет элементы swimlanes (заголовки и фоны)
+    fn add_swimlane_elements(
+        &self,
+        swimlanes: &HashMap<String, SwimlaneInfo>,
+        _content_start_y: f64,
+        content_end_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        let total_height = content_end_y - self.config.margin + self.config.margin;
+
+        for info in swimlanes.values() {
+            let x = info.center_x - self.config.swimlane_width / 2.0;
+
+            // Фон swimlane (вертикальная полоса)
+            let mut props = std::collections::HashMap::new();
+            if let Some(ref color) = info.color {
+                props.insert("fill".to_string(), color.to_css());
+            } else {
+                // Чередующиеся цвета для swimlanes без явного цвета
+                let bg_color = if info.index % 2 == 0 {
+                    "#FEFECE".to_string()
+                } else {
+                    "#E2E2F0".to_string()
+                };
+                props.insert("fill".to_string(), bg_color);
+            }
+            props.insert("opacity".to_string(), "0.3".to_string());
+
+            elements.push(LayoutElement {
+                id: format!("swimlane_bg_{}", info.name),
+                bounds: Rect::new(
+                    x,
+                    self.config.margin,
+                    self.config.swimlane_width,
+                    total_height,
+                ),
+                text: None,
+                properties: props,
+                element_type: ElementType::Rectangle {
+                    label: String::new(),
+                    corner_radius: 0.0,
+                },
+            });
+
+            // Заголовок swimlane
+            let mut header_props = std::collections::HashMap::new();
+            if let Some(ref color) = info.color {
+                header_props.insert("fill".to_string(), color.to_css());
+            }
+
+            elements.push(LayoutElement {
+                id: format!("swimlane_header_{}", info.name),
+                bounds: Rect::new(
+                    x,
+                    self.config.margin,
+                    self.config.swimlane_width,
+                    self.config.swimlane_header_height,
+                ),
+                text: None,
+                properties: header_props,
+                element_type: ElementType::Rectangle {
+                    label: info.name.clone(),
+                    corner_radius: 0.0,
+                },
+            });
+
+            // Вертикальная разделительная линия справа от swimlane
+            let line_x = x + self.config.swimlane_width;
+            elements.push(LayoutElement {
+                id: format!("swimlane_divider_{}", info.name),
+                bounds: Rect::new(line_x, self.config.margin, 1.0, total_height),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
+                    points: vec![
+                        Point::new(line_x, self.config.margin),
+                        Point::new(line_x, self.config.margin + total_height),
+                    ],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: true,
+                    edge_type: EdgeType::Association,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+        }
+    }
+
+    /// Располагает элемент и возвращает новую Y позицию (со стрелками между элементами)
     fn layout_element(
         &self,
         element: &ActivityElement,
@@ -79,9 +385,7 @@ impl ActivityLayoutEngine {
             ActivityElement::Repeat(repeat_loop) => {
                 self.layout_repeat(repeat_loop, center_x, current_y, elements)
             }
-            ActivityElement::Fork(fork) => {
-                self.layout_fork(fork, center_x, current_y, elements)
-            }
+            ActivityElement::Fork(fork) => self.layout_fork(fork, center_x, current_y, elements),
             ActivityElement::Detach | ActivityElement::Kill => {
                 // Detach/Kill просто прерывают поток, не рисуем ничего
                 current_y
@@ -90,11 +394,53 @@ impl ActivityLayoutEngine {
                 // TODO: реализовать заметки
                 current_y
             }
-            ActivityElement::SwimlaneChange(_) | ActivityElement::Connector(_) => {
-                // TODO: swimlanes и коннекторы
+            ActivityElement::SwimlaneChange(_) => {
+                // Обрабатывается в основном цикле layout()
+                current_y
+            }
+            ActivityElement::Connector(_) => {
+                // TODO: коннекторы
                 current_y
             }
         }
+    }
+
+    /// Добавляет стрелку между swimlanes (с изломом)
+    fn add_cross_swimlane_arrow(
+        &self,
+        from_x: f64,
+        from_y: f64,
+        to_x: f64,
+        to_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        // Рисуем стрелку с изломом: вниз, затем горизонтально, затем вниз
+        let mid_y = from_y + self.config.vertical_spacing / 2.0;
+
+        let min_x = from_x.min(to_x);
+        let max_x = from_x.max(to_x);
+
+        elements.push(LayoutElement {
+            id: format!("cross_arrow_{}", elements.len()),
+            bounds: Rect::new(min_x, from_y, max_x - min_x, to_y - from_y),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
+                points: vec![
+                    Point::new(from_x, from_y),
+                    Point::new(from_x, mid_y),
+                    Point::new(to_x, mid_y),
+                    Point::new(to_x, to_y),
+                ],
+                label: None,
+                arrow_start: false,
+                arrow_end: true,
+                dashed: false,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
+            },
+        });
     }
 
     /// Располагает начальный узел (filled circle)
@@ -105,11 +451,13 @@ impl ActivityLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
         let r = self.config.node_radius;
-        
+
         elements.push(LayoutElement {
             id: format!("start_{}", elements.len()),
             bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse { label: None },
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Ellipse { label: None },
         });
 
         let next_y = current_y + r * 2.0 + self.config.vertical_spacing;
@@ -128,19 +476,16 @@ impl ActivityLayoutEngine {
     }
 
     /// Располагает конечный узел (filled circle with ring)
-    fn layout_stop(
-        &self,
-        center_x: f64,
-        current_y: f64,
-        elements: &mut Vec<LayoutElement>,
-    ) -> f64 {
+    fn layout_stop(&self, center_x: f64, current_y: f64, elements: &mut Vec<LayoutElement>) -> f64 {
         let r = self.config.node_radius;
-        
+
         elements.push(LayoutElement {
             id: format!("stop_{}", elements.len()),
             bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse { 
-                label: Some("●".to_string()) // Внутренний круг
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Ellipse {
+                label: Some("●".to_string()), // Внутренний круг
             },
         });
 
@@ -148,12 +493,7 @@ impl ActivityLayoutEngine {
     }
 
     /// Располагает конечный узел (альтернативный)
-    fn layout_end(
-        &self,
-        center_x: f64,
-        current_y: f64,
-        elements: &mut Vec<LayoutElement>,
-    ) -> f64 {
+    fn layout_end(&self, center_x: f64, current_y: f64, elements: &mut Vec<LayoutElement>) -> f64 {
         self.layout_stop(center_x, current_y, elements)
     }
 
@@ -171,7 +511,9 @@ impl ActivityLayoutEngine {
         elements.push(LayoutElement {
             id: format!("action_{}", elements.len()),
             bounds: Rect::new(center_x - w / 2.0, current_y, w, h),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: action.label.clone(),
                 corner_radius: self.config.action_corner_radius,
             },
@@ -200,7 +542,9 @@ impl ActivityLayoutEngine {
         elements.push(LayoutElement {
             id: format!("diamond_{}", elements.len()),
             bounds: Rect::new(center_x - dw / 2.0, current_y, dw, dh),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text: cond.condition.clone(),
                 font_size: 12.0,
             },
@@ -212,7 +556,7 @@ impl ActivityLayoutEngine {
         // Then branch (left)
         let left_x = center_x - self.config.horizontal_spacing;
         let mut then_end_y = branch_start_y;
-        
+
         // Стрелка от ромба влево + вниз
         self.add_arrow(
             center_x - dw / 2.0,
@@ -231,7 +575,7 @@ impl ActivityLayoutEngine {
         let mut else_end_y = branch_start_y;
         if let Some(else_branch) = &cond.else_branch {
             let right_x = center_x + self.config.horizontal_spacing;
-            
+
             // Стрелка от ромба вправо + вниз
             self.add_arrow(
                 center_x + dw / 2.0,
@@ -249,7 +593,7 @@ impl ActivityLayoutEngine {
 
         // Точка слияния
         let merge_y = then_end_y.max(else_end_y);
-        
+
         // Стрелки к точке слияния
         if then_end_y < merge_y {
             self.add_arrow(left_x, then_end_y, center_x, merge_y, None, elements);
@@ -277,7 +621,9 @@ impl ActivityLayoutEngine {
         elements.push(LayoutElement {
             id: format!("while_diamond_{}", elements.len()),
             bounds: Rect::new(center_x - dw / 2.0, current_y, dw, dh),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text: while_loop.condition.clone(),
                 font_size: 12.0,
             },
@@ -293,12 +639,14 @@ impl ActivityLayoutEngine {
 
         // Обратная стрелка (loop back)
         let loop_x = center_x - self.config.horizontal_spacing - 20.0;
-        
+
         // Вниз -> влево -> вверх -> вправо к ромбу
         elements.push(LayoutElement {
             id: format!("while_loop_{}", elements.len()),
             bounds: Rect::new(loop_x, current_y, center_x - loop_x, body_end_y - current_y),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points: vec![
                     Point::new(center_x, body_end_y - self.config.vertical_spacing),
                     Point::new(loop_x, body_end_y - self.config.vertical_spacing),
@@ -309,7 +657,9 @@ impl ActivityLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
 
@@ -350,7 +700,9 @@ impl ActivityLayoutEngine {
         elements.push(LayoutElement {
             id: format!("repeat_diamond_{}", elements.len()),
             bounds: Rect::new(center_x - dw / 2.0, body_end_y, dw, dh),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text: repeat_loop.condition.clone(),
                 font_size: 12.0,
             },
@@ -358,11 +710,18 @@ impl ActivityLayoutEngine {
 
         // Обратная стрелка
         let loop_x = center_x + self.config.horizontal_spacing + 20.0;
-        
+
         elements.push(LayoutElement {
             id: format!("repeat_loop_{}", elements.len()),
-            bounds: Rect::new(center_x, body_start_y, loop_x - center_x, body_end_y - body_start_y + dh),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            bounds: Rect::new(
+                center_x,
+                body_start_y,
+                loop_x - center_x,
+                body_end_y - body_start_y + dh,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points: vec![
                     Point::new(center_x + dw / 2.0, body_end_y + dh / 2.0),
                     Point::new(loop_x, body_end_y + dh / 2.0),
@@ -373,7 +732,9 @@ impl ActivityLayoutEngine {
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
 
@@ -394,19 +755,16 @@ impl ActivityLayoutEngine {
         }
 
         // Fork bar
-        let total_width = (num_branches as f64 - 1.0) * self.config.horizontal_spacing + 
-                          self.config.action_width;
+        let total_width =
+            (num_branches as f64 - 1.0) * self.config.horizontal_spacing + self.config.action_width;
         let fork_bar_x = center_x - total_width / 2.0;
 
         elements.push(LayoutElement {
             id: format!("fork_bar_{}", elements.len()),
-            bounds: Rect::new(
-                fork_bar_x,
-                current_y,
-                total_width,
-                self.config.bar_height,
-            ),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(fork_bar_x, current_y, total_width, self.config.bar_height),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: String::new(),
                 corner_radius: 0.0,
             },
@@ -449,16 +807,13 @@ impl ActivityLayoutEngine {
 
         // Join bar
         let join_y = max_branch_end_y;
-        
+
         elements.push(LayoutElement {
             id: format!("join_bar_{}", elements.len()),
-            bounds: Rect::new(
-                fork_bar_x,
-                join_y,
-                total_width,
-                self.config.bar_height,
-            ),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(fork_bar_x, join_y, total_width, self.config.bar_height),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: String::new(),
                 corner_radius: 0.0,
             },
@@ -502,14 +857,23 @@ impl ActivityLayoutEngine {
 
         elements.push(LayoutElement {
             id: format!("arrow_{}", elements.len()),
-            bounds: Rect::new(min_x, min_y, (max_x - min_x).max(1.0), (max_y - min_y).max(1.0)),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            bounds: Rect::new(
+                min_x,
+                min_y,
+                (max_x - min_x).max(1.0),
+                (max_y - min_y).max(1.0),
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points: vec![Point::new(x1, y1), Point::new(x2, y2)],
                 label,
                 arrow_start: false,
                 arrow_end: true,
                 dashed: false,
-                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         });
     }

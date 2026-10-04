@@ -43,14 +43,14 @@ impl MindMapLayoutEngine {
         if let Some(root) = &diagram.root {
             // Первый проход: вычисляем высоту каждого поддерева
             let subtree_heights = self.calculate_all_subtree_heights(root);
-            
+
             // Общая высота дерева
             let total_height = self.get_subtree_height(root, &subtree_heights);
-            
+
             // Корень размещается слева, вертикально по центру
             let root_x = self.config.padding;
             let root_y = self.config.padding + total_height / 2.0 - self.config.node_height / 2.0;
-            
+
             // Layout всего дерева рекурсивно
             self.layout_node(
                 root,
@@ -70,7 +70,10 @@ impl MindMapLayoutEngine {
     }
 
     /// Вычисляет высоту поддерева для каждого узла
-    fn calculate_all_subtree_heights(&self, root: &MindMapNode) -> HashMap<*const MindMapNode, f64> {
+    fn calculate_all_subtree_heights(
+        &self,
+        root: &MindMapNode,
+    ) -> HashMap<*const MindMapNode, f64> {
         let mut heights = HashMap::new();
         self.calculate_subtree_height_recursive(root, &mut heights);
         heights
@@ -95,15 +98,21 @@ impl MindMapLayoutEngine {
             .sum();
         let spacing = (node.children.len() - 1) as f64 * self.config.sibling_spacing;
         let total = children_total + spacing;
-        
+
         // Высота поддерева = max(высота узла, высота детей)
         let height = total.max(self.config.node_height);
         heights.insert(node as *const _, height);
         height
     }
 
-    fn get_subtree_height(&self, node: &MindMapNode, heights: &HashMap<*const MindMapNode, f64>) -> f64 {
-        *heights.get(&(node as *const _)).unwrap_or(&self.config.node_height)
+    fn get_subtree_height(
+        &self,
+        node: &MindMapNode,
+        heights: &HashMap<*const MindMapNode, f64>,
+    ) -> f64 {
+        *heights
+            .get(&(node as *const _))
+            .unwrap_or(&self.config.node_height)
     }
 
     /// Размещает узел и его детей
@@ -120,7 +129,7 @@ impl MindMapLayoutEngine {
         // Создаём узел
         let node_width = self.calculate_node_width(&node.text);
         let node_rect = Rect::new(x, y, node_width, self.config.node_height);
-        
+
         let node_id = elements.len();
         elements.push(self.create_node_element(node, &node_rect, node_id));
 
@@ -139,10 +148,10 @@ impl MindMapLayoutEngine {
 
             for child in &node.children {
                 let child_height = self.get_subtree_height(child, subtree_heights);
-                
+
                 // Y позиция ребёнка — в центре его поддерева
                 let child_y = current_y + child_height / 2.0 - self.config.node_height / 2.0;
-                
+
                 self.layout_node(
                     child,
                     child_x,
@@ -168,12 +177,7 @@ impl MindMapLayoutEngine {
     }
 
     /// Создаёт элемент для узла
-    fn create_node_element(
-        &self,
-        node: &MindMapNode,
-        rect: &Rect,
-        id: usize,
-    ) -> LayoutElement {
+    fn create_node_element(&self, node: &MindMapNode, rect: &Rect, id: usize) -> LayoutElement {
         let element_type = match node.style {
             NodeStyle::Box => ElementType::Rectangle {
                 label: node.text.clone(),
@@ -216,19 +220,16 @@ impl MindMapLayoutEngine {
     /// Создаёт элемент соединения (кривая Безье)
     fn create_connection(&self, from: Point, to: Point, id: usize) -> LayoutElement {
         let mut properties = HashMap::new();
-        
+
         // Контрольные точки для плавной кривой
         // PlantUML стиль: горизонтальный выход, потом изгиб к цели
         let ctrl_offset = (to.x - from.x).abs() * 0.4;
         let ctrl1_x = from.x + ctrl_offset;
         let ctrl2_x = to.x - ctrl_offset;
-        
+
         let path = format!(
             "M{},{} C{},{} {},{} {},{}",
-            from.x, from.y,
-            ctrl1_x, from.y,
-            ctrl2_x, to.y,
-            to.x, to.y
+            from.x, from.y, ctrl1_x, from.y, ctrl2_x, to.y, to.x, to.y
         );
         properties.insert("path".to_string(), path);
 

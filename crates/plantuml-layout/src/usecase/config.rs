@@ -27,11 +27,11 @@ impl Default for UseCaseLayoutConfig {
     fn default() -> Self {
         Self {
             margin: 20.0,
-            usecase_width: 160.0,    // Wider for longer text
-            usecase_height: 40.0,    // PlantUML style
-            actor_width: 40.0,       // Narrow actor
-            actor_height: 70.0,      // Stick figure height
-            vertical_spacing: 25.0,  // Compact
+            usecase_width: 160.0,     // Wider for longer text
+            usecase_height: 40.0,     // PlantUML style
+            actor_width: 40.0,        // Narrow actor
+            actor_height: 70.0,       // Stick figure height
+            vertical_spacing: 25.0,   // Compact
             horizontal_spacing: 80.0, // Increased for actor labels
             package_padding: 25.0,
             package_header_height: 30.0,

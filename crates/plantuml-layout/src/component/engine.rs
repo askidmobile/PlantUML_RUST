@@ -47,13 +47,13 @@ impl ComponentLayoutEngine {
                 + row as f64 * (self.config.component_height + self.config.vertical_spacing);
 
             let (elem, bounds) = self.create_component_element(comp, x, y);
-            
+
             // Сохраняем позицию по имени и алиасу
             component_positions.insert(comp.name.clone(), bounds.clone());
             if let Some(alias) = &comp.alias {
                 component_positions.insert(alias.clone(), bounds.clone());
             }
-            
+
             elements.push(elem);
         }
 
@@ -101,7 +101,12 @@ impl ComponentLayoutEngine {
 
     /// Создаёт элемент компонента
     fn create_component_element(&self, comp: &Component, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(x, y, self.config.component_width, self.config.component_height);
+        let bounds = Rect::new(
+            x,
+            y,
+            self.config.component_width,
+            self.config.component_height,
+        );
 
         let elem = match comp.component_type {
             ComponentType::Database => self.create_database_element(&comp.name, x, y),
@@ -121,8 +126,15 @@ impl ComponentLayoutEngine {
     fn create_standard_component_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("component_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("⬡ {}", name), // Добавляем иконку компонента
                 corner_radius: self.config.corner_radius,
             },
@@ -133,8 +145,15 @@ impl ComponentLayoutEngine {
     fn create_database_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("database_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("🛢 {}", name),
                 corner_radius: self.config.corner_radius,
             },
@@ -151,7 +170,9 @@ impl ComponentLayoutEngine {
                 self.config.component_width * 1.2,
                 self.config.component_height,
             ),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("☁ {}", name),
                 corner_radius: self.config.component_height / 2.0,
             },
@@ -164,7 +185,9 @@ impl ComponentLayoutEngine {
         LayoutElement {
             id: format!("interface_{}", name.replace(' ', "_")),
             bounds: Rect::new(x, y, r * 2.0, r * 2.0),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Ellipse {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Ellipse {
                 label: Some(name.to_string()),
             },
         }
@@ -174,8 +197,15 @@ impl ComponentLayoutEngine {
     fn create_queue_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("queue_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("⟿ {}", name),
                 corner_radius: self.config.component_height / 4.0,
             },
@@ -186,8 +216,15 @@ impl ComponentLayoutEngine {
     fn create_node_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("node_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("⬢ {}", name),
                 corner_radius: 0.0, // Node — с углами
             },
@@ -198,8 +235,15 @@ impl ComponentLayoutEngine {
     fn create_folder_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("folder_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
                 label: format!("📁 {}", name),
                 corner_radius: self.config.corner_radius,
             },
@@ -210,8 +254,15 @@ impl ComponentLayoutEngine {
     fn create_actor_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         LayoutElement {
             id: format!("actor_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, self.config.component_width * 0.6, self.config.component_height),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+            bounds: Rect::new(
+                x,
+                y,
+                self.config.component_width * 0.6,
+                self.config.component_height,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
                 text: format!("👤\n{}", name),
                 font_size: 12.0,
             },
@@ -239,9 +290,12 @@ impl ComponentLayoutEngine {
             max_row = max_row.max(row);
             max_col = max_col.max(col);
 
-            let comp_x = x + self.config.package_padding
+            let comp_x = x
+                + self.config.package_padding
                 + col as f64 * (self.config.component_width + self.config.horizontal_spacing / 2.0);
-            let comp_y = y + self.config.package_header_height + self.config.package_padding
+            let comp_y = y
+                + self.config.package_header_height
+                + self.config.package_padding
                 + row as f64 * (self.config.component_height + self.config.vertical_spacing / 2.0);
 
             let (elem, bounds) = self.create_component_element(comp, comp_x, comp_y);
@@ -270,7 +324,9 @@ impl ComponentLayoutEngine {
         let pkg_elem = LayoutElement {
             id: format!("package_{}", pkg.name.replace(' ', "_")),
             bounds: pkg_bounds.clone(),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Group {
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Group {
                 label: Some(pkg.name.clone()),
                 children: Vec::new(),
             },
@@ -304,14 +360,23 @@ impl ComponentLayoutEngine {
                 conn.from.replace(' ', "_"),
                 conn.to.replace(' ', "_")
             ),
-            bounds: Rect::new(min_x, min_y, (max_x - min_x).max(1.0), (max_y - min_y).max(1.0)),
-            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+            bounds: Rect::new(
+                min_x,
+                min_y,
+                (max_x - min_x).max(1.0),
+                (max_y - min_y).max(1.0),
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
                 points: vec![start, end],
                 label: conn.label.clone(),
                 arrow_start: false,
                 arrow_end: true,
                 dashed: conn.dashed,
-                edge_type: EdgeType::Association, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
             },
         })
     }

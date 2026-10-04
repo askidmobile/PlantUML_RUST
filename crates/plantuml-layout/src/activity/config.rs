@@ -27,6 +27,12 @@ pub struct ActivityLayoutConfig {
     pub action_corner_radius: f64,
     /// Размер стрелки
     pub arrow_size: f64,
+    /// Ширина swimlane
+    pub swimlane_width: f64,
+    /// Высота заголовка swimlane
+    pub swimlane_header_height: f64,
+    /// Отступ между swimlanes
+    pub swimlane_spacing: f64,
 }
 
 impl Default for ActivityLayoutConfig {
@@ -44,6 +50,9 @@ impl Default for ActivityLayoutConfig {
             bar_width: 50.0,
             action_corner_radius: 10.0,
             arrow_size: 8.0,
+            swimlane_width: 180.0,
+            swimlane_header_height: 30.0,
+            swimlane_spacing: 10.0,
         }
     }
 }

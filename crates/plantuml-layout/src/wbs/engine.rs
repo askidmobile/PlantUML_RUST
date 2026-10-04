@@ -41,7 +41,7 @@ impl WbsLayoutEngine {
             // Второй проход: располагаем узлы
             let start_x = self.config.padding;
             let start_y = self.config.padding;
-            
+
             self.layout_node(root, start_x, start_y, &subtree_widths, &mut elements);
         }
 
@@ -126,8 +126,10 @@ impl WbsLayoutEngine {
 
                 // Рисуем связь от родителя к ребёнку
                 let child_node_width = self.calculate_node_width(&child.text);
-                let child_center_x = child_x + (child_subtree_width - child_node_width) / 2.0 + child_node_width / 2.0;
-                
+                let child_center_x = child_x
+                    + (child_subtree_width - child_node_width) / 2.0
+                    + child_node_width / 2.0;
+
                 elements.push(self.create_connection(
                     node_rect.bottom_center(),
                     Point::new(child_center_x, child_y),
@@ -185,15 +187,12 @@ impl WbsLayoutEngine {
     /// Создаёт элемент соединения
     fn create_connection(&self, from: Point, to: Point, id: usize) -> LayoutElement {
         let mut properties = HashMap::new();
-        
+
         // Рисуем прямую вертикальную линию с изломом
         let mid_y = (from.y + to.y) / 2.0;
         let path = format!(
             "M{},{} L{},{} L{},{} L{},{}",
-            from.x, from.y,
-            from.x, mid_y,
-            to.x, mid_y,
-            to.x, to.y
+            from.x, from.y, from.x, mid_y, to.x, mid_y, to.x, to.y
         );
         properties.insert("path".to_string(), path);
 

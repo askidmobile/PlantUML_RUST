@@ -56,8 +56,9 @@ impl Node {
         // Ширина: max(имя класса, поля, методы)
         // Добавляем место для иконки класса (~30px)
         let icon_width = 30.0;
-        let name_width =
-            classifier.id.name.len() as f64 * config.char_width + icon_width + config.class_padding * 2.0;
+        let name_width = classifier.id.name.len() as f64 * config.char_width
+            + icon_width
+            + config.class_padding * 2.0;
 
         let field_max_width = classifier
             .fields
@@ -91,12 +92,15 @@ impl Node {
 
         // Добавляем место для иконки видимости (~15px)
         let visibility_icon_width = 15.0;
-        let content_width = field_max_width.max(method_max_width) + visibility_icon_width + config.class_padding * 2.0;
+        let content_width = field_max_width.max(method_max_width)
+            + visibility_icon_width
+            + config.class_padding * 2.0;
         let width = name_width.max(content_width).max(config.min_class_width);
 
         // Высота: заголовок + поля + методы
         // Заголовок включает: иконку + стереотип (если есть) + имя класса
-        let has_stereotype = classifier.classifier_type != plantuml_ast::class::ClassifierType::Class;
+        let has_stereotype =
+            classifier.classifier_type != plantuml_ast::class::ClassifierType::Class;
         let header_height = if has_stereotype {
             // Стереотип + имя = больше высоты
             config.class_header_height + 12.0

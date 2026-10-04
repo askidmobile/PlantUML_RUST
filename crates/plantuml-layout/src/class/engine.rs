@@ -4,7 +4,10 @@ use plantuml_ast::class::{ClassDiagram, ClassifierType, RelationshipType};
 use plantuml_model::{Point, Rect};
 
 use crate::traits::LayoutEngine;
-use crate::{ClassMember, ClassifierKind, EdgeType, ElementType, LayoutConfig, LayoutElement, LayoutResult, MemberVisibility};
+use crate::{
+    ClassMember, ClassifierKind, EdgeType, ElementType, LayoutConfig, LayoutElement, LayoutResult,
+    MemberVisibility,
+};
 
 use super::config::ClassLayoutConfig;
 use super::graph::Graph;
@@ -221,11 +224,8 @@ impl ClassLayoutEngine {
         };
 
         // Вычисляем точки соединения (передаём тип связи для правильного выбора грани)
-        let (start_point, end_point) = self.calculate_connection_points(
-            visual_from, 
-            visual_to, 
-            edge.relationship_type
-        );
+        let (start_point, end_point) =
+            self.calculate_connection_points(visual_from, visual_to, edge.relationship_type);
 
         // Создаём путь с ортогональными линиями
         let points = self.create_orthogonal_path(start_point, end_point, visual_from, visual_to);
@@ -354,7 +354,7 @@ impl ClassLayoutEngine {
         // Для вертикального наследования (потомок снизу, родитель сверху):
         // start = верх потомка, end = низ родителя
         // Линия: вверх от потомка → горизонтально → вниз к родителю
-        
+
         // Вычисляем Y для горизонтального сегмента
         // Это должно быть между нижней гранью родителя и верхней гранью потомка
         let mid_y = if dy < 0.0 {

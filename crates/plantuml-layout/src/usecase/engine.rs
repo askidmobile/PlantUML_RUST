@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use plantuml_ast::common::Direction;
-use plantuml_ast::usecase::{UseCaseDiagram, UseCaseRelationship, UseCaseRelationType};
+use plantuml_ast::usecase::{UseCaseDiagram, UseCaseRelationType, UseCaseRelationship};
 use plantuml_model::{Point, Rect};
 
 use super::config::UseCaseLayoutConfig;
@@ -39,23 +39,25 @@ impl UseCaseLayoutEngine {
 
         // Вычисляем максимальную ширину имён актёров для правильного позиционирования
         // Кириллица занимает примерно 9 пикселей на символ (font-size 14)
-        let max_actor_label_width = diagram.actors.iter()
+        let max_actor_label_width = diagram
+            .actors
+            .iter()
             .map(|a| a.name.chars().count() as f64 * 9.0)
             .fold(0.0f64, f64::max);
-        
+
         // Минимальная ширина для актёра с его label
         let actor_total_width = self.config.actor_width.max(max_actor_label_width);
-        
+
         // Позиция актёров - центрируем по ширине их label
         let actors_x = self.config.margin + actor_total_width / 2.0;
 
         // Собираем все use cases (из packages и верхнего уровня)
         let mut all_usecases: Vec<(&str, Option<&str>)> = Vec::new();
-        
+
         for uc in &diagram.use_cases {
             all_usecases.push((&uc.name, uc.alias.as_deref()));
         }
-        
+
         for pkg in &diagram.packages {
             for uc in &pkg.use_cases {
                 all_usecases.push((&uc.name, uc.alias.as_deref()));
@@ -64,10 +66,13 @@ impl UseCaseLayoutEngine {
 
         // Вычисляем размеры системы/rectangle
         let num_usecases = all_usecases.len().max(1);
-        let system_inner_height = num_usecases as f64 * (self.config.usecase_height + self.config.vertical_spacing);
-        let system_height = system_inner_height + self.config.package_header_height + self.config.package_padding * 2.0;
+        let system_inner_height =
+            num_usecases as f64 * (self.config.usecase_height + self.config.vertical_spacing);
+        let system_height = system_inner_height
+            + self.config.package_header_height
+            + self.config.package_padding * 2.0;
         let system_width = self.config.usecase_width + self.config.package_padding * 2.0 + 40.0;
-        
+
         // Позиция системы (справа от актёров с учётом их label)
         let system_x = self.config.margin + actor_total_width + self.config.horizontal_spacing;
         let system_y = self.config.margin;
@@ -86,19 +91,19 @@ impl UseCaseLayoutEngine {
             bounds: system_bounds.clone(),
             text: None,
             properties: std::collections::HashMap::new(),
-            element_type: ElementType::System {
-                title: system_name,
-            },
+            element_type: ElementType::System { title: system_name },
         };
         elements.push(system_elem);
 
         // Размещаем use cases внутри системы (вертикально по центру)
         let usecases_x = system_x + (system_width - self.config.usecase_width) / 2.0;
-        let usecases_start_y = system_y + self.config.package_header_height + self.config.package_padding;
+        let usecases_start_y =
+            system_y + self.config.package_header_height + self.config.package_padding;
 
         for (i, (name, alias)) in all_usecases.iter().enumerate() {
-            let y = usecases_start_y + i as f64 * (self.config.usecase_height + self.config.vertical_spacing);
-            
+            let y = usecases_start_y
+                + i as f64 * (self.config.usecase_height + self.config.vertical_spacing);
+
             let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
             element_positions.insert(name.to_string(), bounds.clone());
             if let Some(a) = alias {
@@ -112,29 +117,49 @@ impl UseCaseLayoutEngine {
         let mut actor_usecases: HashMap<String, Vec<String>> = HashMap::new();
         for rel in &diagram.relationships {
             // Проверяем, является ли from актёром
-            if diagram.actors.iter().any(|a| a.name == rel.from || a.alias.as_deref() == Some(&rel.from)) {
-                actor_usecases.entry(rel.from.clone()).or_default().push(rel.to.clone());
+            if diagram
+                .actors
+                .iter()
+                .any(|a| a.name == rel.from || a.alias.as_deref() == Some(&rel.from))
+            {
+                actor_usecases
+                    .entry(rel.from.clone())
+                    .or_default()
+                    .push(rel.to.clone());
             }
             // Проверяем, является ли to актёром
-            if diagram.actors.iter().any(|a| a.name == rel.to || a.alias.as_deref() == Some(&rel.to)) {
-                actor_usecases.entry(rel.to.clone()).or_default().push(rel.from.clone());
+            if diagram
+                .actors
+                .iter()
+                .any(|a| a.name == rel.to || a.alias.as_deref() == Some(&rel.to))
+            {
+                actor_usecases
+                    .entry(rel.to.clone())
+                    .or_default()
+                    .push(rel.from.clone());
             }
         }
 
         // Размещаем актёров слева (actors_x уже вычислен выше с учётом ширины label)
         for actor in &diagram.actors {
             let actor_id = actor.alias.as_ref().unwrap_or(&actor.name);
-            
+
             // Вычисляем среднюю Y позицию use cases, с которыми связан актёр
-            let connected_usecases = actor_usecases.get(actor_id).or_else(|| actor_usecases.get(&actor.name));
-            
+            let connected_usecases = actor_usecases
+                .get(actor_id)
+                .or_else(|| actor_usecases.get(&actor.name));
+
             let y = if let Some(ucs) = connected_usecases {
                 if !ucs.is_empty() {
-                    let total_y: f64 = ucs.iter()
+                    let total_y: f64 = ucs
+                        .iter()
                         .filter_map(|uc_name| element_positions.get(uc_name))
                         .map(|rect| rect.y + rect.height / 2.0)
                         .sum();
-                    let count = ucs.iter().filter(|uc| element_positions.contains_key(*uc)).count();
+                    let count = ucs
+                        .iter()
+                        .filter(|uc| element_positions.contains_key(*uc))
+                        .count();
                     if count > 0 {
                         total_y / count as f64 - self.config.actor_height / 2.0
                     } else {
@@ -239,7 +264,12 @@ impl UseCaseLayoutEngine {
                 rel.from.replace(' ', "_"),
                 rel.to.replace(' ', "_")
             ),
-            bounds: Rect::new(min_x, min_y, (max_x - min_x).max(1.0), (max_y - min_y).max(1.0)),
+            bounds: Rect::new(
+                min_x,
+                min_y,
+                (max_x - min_x).max(1.0),
+                (max_y - min_y).max(1.0),
+            ),
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Edge {

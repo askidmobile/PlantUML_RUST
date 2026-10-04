@@ -296,7 +296,12 @@ impl LayoutEngine for JsonLayoutEngine {
         let mut elements = Vec::new();
 
         if let Some(root) = &diagram.root {
-            self.layout_node(root, self.config.padding, self.config.padding, &mut elements);
+            self.layout_node(
+                root,
+                self.config.padding,
+                self.config.padding,
+                &mut elements,
+            );
         }
 
         let mut result = LayoutResult {

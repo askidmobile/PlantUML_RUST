@@ -32,37 +32,130 @@ pub struct ActivationInfo {
     pub level: u32,
 }
 
-/// Состояние autonumber
-#[derive(Debug, Clone, Default)]
+/// Состояние autonumber (поддержка multi-level: 1.1.1)
+#[derive(Debug, Clone)]
 pub struct AutonumberState {
     /// Включена ли автонумерация
     pub enabled: bool,
-    /// Текущий номер
-    pub current: u32,
-    /// Шаг нумерации
+    /// Уровни нумерации (например: [1, 2, 3] -> "1.2.3")
+    pub levels: Vec<u32>,
+    /// Шаг нумерации для последнего уровня
     pub step: u32,
     /// Формат нумерации (например: "[00]", "<b>[0]</b>")
     pub format: Option<String>,
 }
 
-impl AutonumberState {
-    /// Возвращает следующий номер и увеличивает счётчик
-    pub fn next(&mut self) -> String {
-        let num = self.current;
-        self.current += self.step;
+impl Default for AutonumberState {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            levels: vec![1], // По умолчанию один уровень, начинаем с 1
+            step: 1,
+            format: None,
+        }
+    }
+}
 
+impl AutonumberState {
+    /// Создаёт состояние с начальными уровнями из строки "1.2.3"
+    pub fn from_start_string(start: &str) -> Self {
+        let levels: Vec<u32> = start.split('.').filter_map(|s| s.parse().ok()).collect();
+
+        Self {
+            enabled: true,
+            levels: if levels.is_empty() { vec![1] } else { levels },
+            step: 1,
+            format: None,
+        }
+    }
+
+    /// Устанавливает начальное значение (может быть multi-level: "1.2.3" или простое число)
+    pub fn set_start(&mut self, start: u32) {
+        // Простое число устанавливает только первый уровень
+        self.levels = vec![start];
+    }
+
+    /// Устанавливает начальное значение из строки (может быть "1.2.3")
+    pub fn set_start_from_string(&mut self, start: &str) {
+        let levels: Vec<u32> = start.split('.').filter_map(|s| s.parse().ok()).collect();
+        if !levels.is_empty() {
+            self.levels = levels;
+        }
+    }
+
+    /// Инкрементирует указанный уровень и сбрасывает нижние уровни
+    /// level: 'A' = первый уровень, 'B' = второй, 'C' = третий, ...
+    ///
+    /// Если указан уровень, которого нет, автоматически добавляется ещё один уровень
+    /// для создания multi-level нумерации. Например:
+    /// - levels = [2], inc A → levels = [3, 1] (добавляем уровень для осмысленного multi-level)
+    pub fn increment_level(&mut self, level: char) {
+        let level_idx = (level.to_ascii_uppercase() as usize).saturating_sub('A' as usize);
+
+        // Если указан уровень A (первый), и у нас только один уровень,
+        // добавляем второй уровень для multi-level нумерации
+        if level_idx == 0 && self.levels.len() == 1 {
+            self.levels.push(1);
+        }
+
+        // Расширяем вектор если нужно
+        while self.levels.len() <= level_idx {
+            self.levels.push(1);
+        }
+
+        // Инкрементируем указанный уровень
+        self.levels[level_idx] += 1;
+
+        // Сбрасываем все нижние уровни на 1
+        for i in (level_idx + 1)..self.levels.len() {
+            self.levels[i] = 1;
+        }
+    }
+
+    /// Возвращает текущий номер и увеличивает последний уровень на step
+    pub fn next(&mut self) -> String {
+        // Формируем строку номера
+        let num_str = self.format_number();
+
+        // Инкрементируем последний уровень
+        if let Some(last) = self.levels.last_mut() {
+            *last += self.step;
+        }
+
+        // Применяем формат если есть
         if let Some(fmt) = &self.format {
-            // Простая замена: 0 -> число, 00 -> с ведущими нулями
-            if fmt.contains("00") {
-                fmt.replace("00", &format!("{:02}", num))
-            } else if fmt.contains('0') {
-                fmt.replace('0', &num.to_string())
-            } else {
-                // Если формат не содержит 0, просто добавляем номер в начало
-                format!("{}{}", num, fmt)
-            }
+            self.apply_format(fmt, &num_str)
         } else {
-            num.to_string()
+            num_str
+        }
+    }
+
+    /// Форматирует текущий номер (например: "1.2.3")
+    fn format_number(&self) -> String {
+        self.levels
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(".")
+    }
+
+    /// Применяет формат к номеру
+    fn apply_format(&self, fmt: &str, num_str: &str) -> String {
+        // Простая замена: 0 -> число
+        if fmt.contains("00") {
+            // Для multi-level берём последний уровень для форматирования с нулями
+            let last = self
+                .levels
+                .last()
+                .copied()
+                .unwrap_or(1)
+                .saturating_sub(self.step);
+            fmt.replace("00", &format!("{:02}", last))
+        } else if fmt.contains('0') {
+            fmt.replace('0', num_str)
+        } else {
+            // Если формат не содержит 0, добавляем номер в начало
+            format!("{}{}", num_str, fmt)
         }
     }
 }
@@ -230,5 +323,152 @@ impl DiagramMetrics {
 impl Default for DiagramMetrics {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_autonumber_simple() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+
+        assert_eq!(state.next(), "1");
+        assert_eq!(state.next(), "2");
+        assert_eq!(state.next(), "3");
+    }
+
+    #[test]
+    fn test_autonumber_with_step() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.step = 5;
+
+        assert_eq!(state.next(), "1");
+        assert_eq!(state.next(), "6");
+        assert_eq!(state.next(), "11");
+    }
+
+    #[test]
+    fn test_autonumber_multilevel_basic() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![1, 1]; // Начинаем с 1.1
+
+        assert_eq!(state.next(), "1.1");
+        assert_eq!(state.next(), "1.2");
+        assert_eq!(state.next(), "1.3");
+    }
+
+    #[test]
+    fn test_autonumber_multilevel_three_levels() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![1, 1, 1]; // Начинаем с 1.1.1
+
+        assert_eq!(state.next(), "1.1.1");
+        assert_eq!(state.next(), "1.1.2");
+        assert_eq!(state.next(), "1.1.3");
+    }
+
+    #[test]
+    fn test_autonumber_increment_level_a() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![1, 3]; // 1.3
+
+        state.increment_level('A'); // Инкремент первого уровня
+
+        assert_eq!(state.levels, vec![2, 1]); // 2.1 (первый +1, второй сброшен)
+    }
+
+    #[test]
+    fn test_autonumber_increment_level_b() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![1, 1, 5]; // 1.1.5
+
+        state.increment_level('B'); // Инкремент второго уровня
+
+        assert_eq!(state.levels, vec![1, 2, 1]); // 1.2.1 (второй +1, третий сброшен)
+    }
+
+    #[test]
+    fn test_autonumber_full_scenario() {
+        // Симуляция PlantUML сценария:
+        // autonumber 1.1.1
+        // Alice -> Bob: msg1   ' 1.1.1
+        // Alice -> Bob: msg2   ' 1.1.2
+        // autonumber inc A
+        // Alice -> Bob: msg3   ' 2.1.1
+        // autonumber inc B
+        // Alice -> Bob: msg4   ' 2.2.1
+
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![1, 1, 1];
+
+        assert_eq!(state.next(), "1.1.1");
+        assert_eq!(state.next(), "1.1.2");
+
+        state.increment_level('A'); // autonumber inc A
+        assert_eq!(state.next(), "2.1.1");
+
+        state.increment_level('B'); // autonumber inc B
+        assert_eq!(state.next(), "2.2.1");
+    }
+
+    #[test]
+    fn test_autonumber_with_format() {
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.format = Some("[0]".to_string());
+
+        assert_eq!(state.next(), "[1]");
+        assert_eq!(state.next(), "[2]");
+    }
+
+    #[test]
+    fn test_autonumber_set_start() {
+        let mut state = AutonumberState::default();
+        state.set_start(10);
+
+        assert_eq!(state.levels, vec![10]);
+    }
+
+    #[test]
+    fn test_autonumber_inc_a_creates_multilevel() {
+        // Когда autonumber начинается с простого числа и вызывается inc A,
+        // автоматически создаётся второй уровень для multi-level нумерации
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+        state.levels = vec![2]; // Простое состояние после пары next()
+
+        state.increment_level('A');
+
+        // Должен добавить второй уровень и инкрементировать первый
+        assert_eq!(state.levels, vec![3, 1]); // 3.1
+    }
+
+    #[test]
+    fn test_autonumber_simple_then_inc() {
+        // Реальный сценарий: autonumber, несколько сообщений, затем inc A
+        let mut state = AutonumberState::default();
+        state.enabled = true;
+
+        assert_eq!(state.next(), "1"); // levels: [1] -> [2]
+        assert_eq!(state.next(), "2"); // levels: [2] -> [3]
+
+        // Теперь levels = [3]
+        state.increment_level('A'); // autonumber inc A -> [4, 1]
+
+        assert_eq!(state.next(), "4.1"); // levels: [4, 1] -> [4, 2]
+        assert_eq!(state.next(), "4.2"); // levels: [4, 2] -> [4, 3]
+
+        state.increment_level('A'); // autonumber inc A again -> [5, 1]
+
+        assert_eq!(state.next(), "5.1");
     }
 }

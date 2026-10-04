@@ -71,16 +71,22 @@ impl ZLayer {
             ElementType::ParticipantBox => ZLayer::Background,
             ElementType::Activation => ZLayer::Activation,
             // Lifeline: пунктирная линия без стрелок
-            ElementType::Edge { dashed: true, arrow_end: false, arrow_start: false, .. } 
-                if element.id.starts_with("lifeline_") => ZLayer::Lifeline,
+            ElementType::Edge {
+                dashed: true,
+                arrow_end: false,
+                arrow_start: false,
+                ..
+            } if element.id.starts_with("lifeline_") => ZLayer::Lifeline,
             // Обычные сообщения (edges)
             ElementType::Edge { .. } => ZLayer::Message,
             // Fragment
             ElementType::Fragment { .. } => ZLayer::FragmentFrame,
             // Участники (header и footer)
-            ElementType::Rectangle { .. } 
-                if element.id.starts_with("participant_") || element.id.starts_with("footer_") 
-                => ZLayer::Participant,
+            ElementType::Rectangle { .. }
+                if element.id.starts_with("participant_") || element.id.starts_with("footer_") =>
+            {
+                ZLayer::Participant
+            }
             // Заметки
             ElementType::Rectangle { .. } if element.id.starts_with("note_") => ZLayer::Note,
             // Текст
@@ -283,10 +289,10 @@ impl ClassMember {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MemberVisibility {
     #[default]
-    Public,      // +
-    Private,     // -
-    Protected,   // #
-    Package,     // ~
+    Public, // +
+    Private,   // -
+    Protected, // #
+    Package,   // ~
 }
 
 impl MemberVisibility {

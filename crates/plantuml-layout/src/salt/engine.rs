@@ -187,7 +187,13 @@ impl SaltLayoutEngine {
     }
 
     /// Рендерит текст
-    fn render_text(&mut self, text: &str, x: f64, y: f64, elements: &mut Vec<LayoutElement>) -> (f64, f64) {
+    fn render_text(
+        &mut self,
+        text: &str,
+        x: f64,
+        y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> (f64, f64) {
         let width = text.len() as f64 * 8.0 + self.config.cell_padding;
         let height = self.config.row_height;
 
@@ -522,28 +528,25 @@ impl SaltLayoutEngine {
         let line = LayoutElement {
             id: self.next_id("separator"),
             element_type: ElementType::Edge {
-                points: vec![
-                    Point::new(x, y + 10.0),
-                    Point::new(x + width, y + 10.0),
-                ],
+                points: vec![Point::new(x, y + 10.0), Point::new(x + width, y + 10.0)],
                 label: None,
                 arrow_start: false,
                 arrow_end: false,
                 dashed: dasharray.is_some(),
-                edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                edge_type: EdgeType::Link,
+                from_cardinality: None,
+                to_cardinality: None,
             },
             bounds: Rect::new(x, y, width, 20.0),
             text: None,
-            properties: [
-                ("stroke".to_string(), self.config.border_color.to_string()),
-            ]
-            .into_iter()
-            .chain(
-                dasharray
-                    .map(|d| ("stroke-dasharray".to_string(), d.to_string()))
-                    .into_iter(),
-            )
-            .collect(),
+            properties: [("stroke".to_string(), self.config.border_color.to_string())]
+                .into_iter()
+                .chain(
+                    dasharray
+                        .map(|d| ("stroke-dasharray".to_string(), d.to_string()))
+                        .into_iter(),
+                )
+                .collect(),
         };
         elements.push(line);
 
@@ -552,23 +555,20 @@ impl SaltLayoutEngine {
             let line2 = LayoutElement {
                 id: self.next_id("separator2"),
                 element_type: ElementType::Edge {
-                    points: vec![
-                        Point::new(x, y + 14.0),
-                        Point::new(x + width, y + 14.0),
-                    ],
+                    points: vec![Point::new(x, y + 14.0), Point::new(x + width, y + 14.0)],
                     label: None,
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
                 bounds: Rect::new(x, y, width, 20.0),
                 text: None,
-                properties: [
-                    ("stroke".to_string(), self.config.border_color.to_string()),
-                ]
-                .into_iter()
-                .collect(),
+                properties: [("stroke".to_string(), self.config.border_color.to_string())]
+                    .into_iter()
+                    .collect(),
             };
             elements.push(line2);
         }
@@ -658,12 +658,7 @@ impl SaltLayoutEngine {
                 properties: [
                     (
                         "fill".to_string(),
-                        if is_selected {
-                            "#FFFFFF"
-                        } else {
-                            "#E0E0E0"
-                        }
-                        .to_string(),
+                        if is_selected { "#FFFFFF" } else { "#E0E0E0" }.to_string(),
                     ),
                     ("stroke".to_string(), self.config.border_color.to_string()),
                 ]
@@ -705,7 +700,10 @@ impl SaltLayoutEngine {
         let menu_height = 22.0;
 
         // Фон меню
-        let total_width = items.iter().map(|i| i.text.len() as f64 * 8.0 + 20.0).sum::<f64>();
+        let total_width = items
+            .iter()
+            .map(|i| i.text.len() as f64 * 8.0 + 20.0)
+            .sum::<f64>();
         let bg = LayoutElement {
             id: self.next_id("menu_bg"),
             element_type: ElementType::Rectangle {
@@ -761,8 +759,13 @@ impl SaltLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
         let title_height = 20.0;
-        let (content_width, content_height) =
-            self.render_widget(content, x + 5.0, y + title_height + 5.0, available_width - 10.0, elements);
+        let (content_width, content_height) = self.render_widget(
+            content,
+            x + 5.0,
+            y + title_height + 5.0,
+            available_width - 10.0,
+            elements,
+        );
 
         let total_width = content_width + 10.0;
         let total_height = content_height + title_height + 10.0;
@@ -819,9 +822,8 @@ impl SaltLayoutEngine {
         let scrollbar_size = 15.0;
 
         let content_width = match scrollbar {
-            plantuml_ast::salt::ScrollbarType::Vertical | plantuml_ast::salt::ScrollbarType::Both => {
-                available_width - scrollbar_size
-            }
+            plantuml_ast::salt::ScrollbarType::Vertical
+            | plantuml_ast::salt::ScrollbarType::Both => available_width - scrollbar_size,
             _ => available_width,
         };
 
@@ -873,13 +875,19 @@ impl SaltLayoutEngine {
             elements.push(scrollbar_elem);
         }
 
-        let total_width = w + if matches!(scrollbar, plantuml_ast::salt::ScrollbarType::Vertical | plantuml_ast::salt::ScrollbarType::Both) {
+        let total_width = w + if matches!(
+            scrollbar,
+            plantuml_ast::salt::ScrollbarType::Vertical | plantuml_ast::salt::ScrollbarType::Both
+        ) {
             scrollbar_size
         } else {
             0.0
         };
 
-        let total_height = h + if matches!(scrollbar, plantuml_ast::salt::ScrollbarType::Horizontal | plantuml_ast::salt::ScrollbarType::Both) {
+        let total_height = h + if matches!(
+            scrollbar,
+            plantuml_ast::salt::ScrollbarType::Horizontal | plantuml_ast::salt::ScrollbarType::Both
+        ) {
             scrollbar_size
         } else {
             0.0

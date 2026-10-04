@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use plantuml_ast::er::{ErDiagram, Entity};
+use plantuml_ast::er::{Entity, ErDiagram};
 use plantuml_model::{Point, Rect, Size};
 
 use crate::er::config::ErLayoutConfig;
@@ -32,9 +32,10 @@ impl ErLayoutEngine {
 
     /// Вычисляет размер сущности
     fn calculate_entity_size(&self, entity: &Entity) -> Size {
-        let width = self.config.min_entity_width.max(
-            entity.id.name.len() as f64 * 9.0 + self.config.entity_padding * 2.0,
-        );
+        let width = self
+            .config
+            .min_entity_width
+            .max(entity.id.name.len() as f64 * 9.0 + self.config.entity_padding * 2.0);
 
         // Находим максимальную ширину атрибута
         let max_attr_width = entity
@@ -42,7 +43,11 @@ impl ErLayoutEngine {
             .iter()
             .map(|a| {
                 let type_str = a.data_type.as_deref().unwrap_or("");
-                let stereo_str = a.stereotype.as_deref().map(|s| format!(" <<{}>>", s)).unwrap_or_default();
+                let stereo_str = a
+                    .stereotype
+                    .as_deref()
+                    .map(|s| format!(" <<{}>>", s))
+                    .unwrap_or_default();
                 (a.name.len() + type_str.len() + stereo_str.len() + 3) as f64 * 7.5
             })
             .fold(0.0, f64::max);
@@ -96,12 +101,7 @@ impl ErLayoutEngine {
     }
 
     /// Рендерит одну сущность
-    fn render_entity(
-        &self,
-        entity: &Entity,
-        bounds: &Rect,
-        elements: &mut Vec<LayoutElement>,
-    ) {
+    fn render_entity(&self, entity: &Entity, bounds: &Rect, elements: &mut Vec<LayoutElement>) {
         let entity_id = &entity.id.name;
 
         // Фон сущности
@@ -251,7 +251,9 @@ impl ErLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
                 bounds: Rect::from_points(from_point, to_point),
                 text: rel.label.clone(),

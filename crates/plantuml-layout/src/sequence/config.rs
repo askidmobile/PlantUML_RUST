@@ -40,23 +40,23 @@ pub struct SequenceLayoutConfig {
 impl Default for SequenceLayoutConfig {
     fn default() -> Self {
         Self {
-            // PlantUML стиль: более компактные размеры
-            participant_spacing: 50.0,    // дефолт для пар без сообщений
-            message_spacing: 28.0,        // PlantUML ~28px между однострочными сообщениями
-            participant_width: 50.0,      // уменьшено (было 80) - PlantUML адаптивный
-            participant_height: 30.0,     // уменьшено (было 40)
-            activation_width: 10.0,       // уменьшено (было 12)
-            fragment_padding: 10.0,       // уменьшено (было 15)
-            fragment_header_height: 22.0, // уменьшено (было 25)
-            divider_height: 25.0,         // уменьшено (было 30)
-            delay_height: 20.0,           // уменьшено (было 25)
-            note_height: 30.0,            // уменьшено (было 35)
-            note_width: 100.0,            // уменьшено (было 120)
-            margin: 15.0,                 // уменьшено (было 20)
+            // PlantUML стиль: значения приближены к оригинальному PlantUML
+            participant_spacing: 80.0, // расстояние между участниками (PlantUML ~80-100)
+            message_spacing: 35.0,     // PlantUML ~35px между сообщениями
+            participant_width: 50.0,   // базовая ширина (расширяется по тексту)
+            participant_height: 35.0,  // высота box участника (PlantUML ~35)
+            activation_width: 10.0,    // ширина блока активации
+            fragment_padding: 10.0,    // отступ внутри фрагментов
+            fragment_header_height: 22.0, // высота заголовка фрагмента
+            divider_height: 25.0,      // высота разделителя
+            delay_height: 20.0,        // высота задержки
+            note_height: 30.0,         // высота заметки
+            note_width: 100.0,         // ширина заметки
+            margin: 20.0,              // отступ от края диаграммы (PlantUML ~20)
             font_size: 13.0,
-            char_width: 7.0,
-            line_height: 16.0, // уменьшено (было 18)
-            box_title_height: 30.0, // высота для заголовка бокса (отступ от верха box до участников)
+            char_width: 7.5,        // немного шире для кириллицы
+            line_height: 18.0,      // высота строки (PlantUML ~18)
+            box_title_height: 30.0, // высота заголовка бокса
         }
     }
 }
@@ -76,7 +76,7 @@ impl SequenceLayoutConfig {
 
     /// Вычисляет ширину участника с учётом имени
     pub fn participant_width_for_name(&self, name: &str) -> f64 {
-        let text_width = self.text_width(name) + 20.0; // padding
+        let text_width = self.text_width(name) + 30.0; // padding увеличен (было 20)
         self.participant_width.max(text_width)
     }
 

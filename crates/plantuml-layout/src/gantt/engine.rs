@@ -58,7 +58,11 @@ impl GanttLayoutEngine {
             timeline_start_x,
             &project_start,
             total_days,
-            &diagram.closed_days.iter().map(|c| c.day).collect::<Vec<_>>(),
+            &diagram
+                .closed_days
+                .iter()
+                .map(|c| c.day)
+                .collect::<Vec<_>>(),
         );
 
         // 2. Рисуем сетку
@@ -68,7 +72,11 @@ impl GanttLayoutEngine {
             timeline_width,
             diagram.tasks.len(),
             total_days,
-            &diagram.closed_days.iter().map(|c| c.day).collect::<Vec<_>>(),
+            &diagram
+                .closed_days
+                .iter()
+                .map(|c| c.day)
+                .collect::<Vec<_>>(),
         );
 
         // 3. Рисуем задачи
@@ -86,7 +94,9 @@ impl GanttLayoutEngine {
                     self.config.task_label_width - 10.0,
                     self.config.row_height,
                 ),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
                     text: task.name.clone(),
                     font_size: self.config.label_font_size,
                 },
@@ -102,7 +112,9 @@ impl GanttLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("task_bar_{}", i),
                     bounds: Rect::new(bar_x, bar_y, bar_width.max(5.0), self.config.bar_height),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 3.0,
                     },
@@ -114,13 +126,10 @@ impl GanttLayoutEngine {
                     if progress_width > 0.0 {
                         elements.push(LayoutElement {
                             id: format!("task_progress_{}", i),
-                            bounds: Rect::new(
-                                bar_x,
-                                bar_y,
-                                progress_width,
-                                self.config.bar_height,
-                            ),
-                            text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                            bounds: Rect::new(bar_x, bar_y, progress_width, self.config.bar_height),
+                            text: None,
+                            properties: std::collections::HashMap::new(),
+                            element_type: ElementType::Rectangle {
                                 label: String::new(),
                                 corner_radius: 3.0,
                             },
@@ -137,7 +146,8 @@ impl GanttLayoutEngine {
             // Простая логика: разделитель после каждой группы задач
             let sep_y = self.config.padding
                 + self.config.header_height
-                + ((separator_offset + i) as f64) * (self.config.row_height + self.config.row_spacing)
+                + ((separator_offset + i) as f64)
+                    * (self.config.row_height + self.config.row_spacing)
                 - self.config.row_spacing / 2.0;
 
             elements.push(LayoutElement {
@@ -148,7 +158,9 @@ impl GanttLayoutEngine {
                     timeline_start_x + timeline_width - self.config.padding,
                     2.0,
                 ),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
                     points: vec![
                         Point::new(self.config.padding, sep_y),
                         Point::new(timeline_start_x + timeline_width, sep_y),
@@ -157,7 +169,9 @@ impl GanttLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: true,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             });
         }
@@ -167,7 +181,9 @@ impl GanttLayoutEngine {
             elements.push(LayoutElement {
                 id: "title".to_string(),
                 bounds: Rect::new(self.config.padding, 5.0, 500.0, 20.0),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
                     text: title.clone(),
                     font_size: 14.0,
                 },
@@ -201,33 +217,37 @@ impl GanttLayoutEngine {
         for task in &diagram.tasks {
             let start_day = match &task.start {
                 TaskStart::AfterPrevious => current_day,
-                TaskStart::After(ref id) => {
-                    positions.get(id).map(|(_, end)| *end).unwrap_or(current_day)
-                }
+                TaskStart::After(ref id) => positions
+                    .get(id)
+                    .map(|(_, end)| *end)
+                    .unwrap_or(current_day),
                 TaskStart::AtDate(_) => current_day, // Упрощение
-                TaskStart::With(ref id) => {
-                    positions.get(id).map(|(start, _)| *start).unwrap_or(current_day)
-                }
-                TaskStart::AtEnd(ref id) => {
-                    positions.get(id).map(|(_, end)| *end).unwrap_or(current_day)
-                }
+                TaskStart::With(ref id) => positions
+                    .get(id)
+                    .map(|(start, _)| *start)
+                    .unwrap_or(current_day),
+                TaskStart::AtEnd(ref id) => positions
+                    .get(id)
+                    .map(|(_, end)| *end)
+                    .unwrap_or(current_day),
             };
 
             let duration = match &task.duration {
                 TaskDuration::Days(d) => *d,
                 TaskDuration::Weeks(w) => w * 7,
                 TaskDuration::Until(_) => 5, // Упрощение
-                TaskDuration::EndsAt(ref id) => {
-                    positions.get(id).map(|(_, end)| end.saturating_sub(start_day)).unwrap_or(5)
-                }
+                TaskDuration::EndsAt(ref id) => positions
+                    .get(id)
+                    .map(|(_, end)| end.saturating_sub(start_day))
+                    .unwrap_or(5),
             };
 
             let end_day = start_day + duration;
-            
+
             let task_id = task.id.clone().unwrap_or_else(|| task.name.clone());
             positions.insert(task_id, (start_day, end_day));
             positions.insert(task.name.clone(), (start_day, end_day));
-            
+
             current_day = end_day;
         }
 
@@ -268,7 +288,9 @@ impl GanttLayoutEngine {
                 elements.push(LayoutElement {
                     id: format!("date_{}", day),
                     bounds: Rect::new(x, header_y + 20.0, self.config.day_width * 5.0, 15.0),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Text {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
                         text: format!("{}", date_day),
                         font_size: self.config.date_font_size,
                     },
@@ -285,7 +307,9 @@ impl GanttLayoutEngine {
                         self.config.day_width,
                         1000.0, // Высокое значение, будет обрезано
                     ),
-                    text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Rectangle {
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 0.0,
                     },
@@ -312,13 +336,17 @@ impl GanttLayoutEngine {
             elements.push(LayoutElement {
                 id: format!("grid_h_{}", i),
                 bounds: Rect::new(start_x, y, width, 1.0),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
                     points: vec![Point::new(start_x, y), Point::new(start_x + width, y)],
                     label: None,
                     arrow_start: false,
                     arrow_end: false,
                     dashed: false,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             });
         }
@@ -326,12 +354,15 @@ impl GanttLayoutEngine {
         // Вертикальные линии (каждую неделю)
         for day in (0..=total_days).step_by(7) {
             let x = start_x + (day as f64) * self.config.day_width;
-            let grid_height = (num_tasks as f64) * (self.config.row_height + self.config.row_spacing);
+            let grid_height =
+                (num_tasks as f64) * (self.config.row_height + self.config.row_spacing);
 
             elements.push(LayoutElement {
                 id: format!("grid_v_{}", day),
                 bounds: Rect::new(x, grid_start_y, 1.0, grid_height),
-                text: None, properties: std::collections::HashMap::new(), element_type: ElementType::Edge {
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
                     points: vec![
                         Point::new(x, grid_start_y),
                         Point::new(x, grid_start_y + grid_height),
@@ -340,7 +371,9 @@ impl GanttLayoutEngine {
                     arrow_start: false,
                     arrow_end: false,
                     dashed: true,
-                    edge_type: EdgeType::Link, from_cardinality: None, to_cardinality: None,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             });
         }
@@ -375,9 +408,11 @@ mod tests {
     fn test_task_position_calculation() {
         let mut diagram = GanttDiagram::new();
         diagram.tasks.push(GanttTask::new("Task 1").lasts_days(5));
-        diagram
-            .tasks
-            .push(GanttTask::new("Task 2").lasts_days(3).starts_after("Task 1"));
+        diagram.tasks.push(
+            GanttTask::new("Task 2")
+                .lasts_days(3)
+                .starts_after("Task 1"),
+        );
 
         let engine = GanttLayoutEngine::new();
         let positions = engine.calculate_task_positions(&diagram, &GanttDate::new(2024, 1, 1));
