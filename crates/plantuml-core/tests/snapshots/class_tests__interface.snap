@@ -4,7 +4,7 @@ assertion_line: 80
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" height="312" preserveAspectRatio="none" version="1.1" viewBox="15 15 210.0724 312" width="210.0724" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" height="248.891" preserveAspectRatio="none" version="1.1" viewBox="2 2 184.0724 248.891" width="184.0724" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -23,45 +23,45 @@ expression: svg
 </marker>
 </defs>
 <g id="Serializable">
-<rect fill="#F1F1F1" height="82" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="160.0724" x="20" y="20"/>
-<ellipse cx="36" cy="36" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="40" textLength="3.719">
+<rect fill="#F1F1F1" height="76.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="160.0724" x="7" y="7"/>
+<ellipse cx="23" cy="23" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="23" y="27" textLength="3.719">
 I
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="10" x="52" y="35" textLength="56.746">
+<text fill="#000000" font-family="sans-serif" font-size="10" x="39" y="22" textLength="56.746">
 «interface»
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="52" y="51" textLength="85.7">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="39" y="38" textLength="85.7">
 Serializable
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="179.0724" y1="58" y2="58"/>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="179.0724" y1="63" y2="63"/>
-<ellipse cx="28" cy="76" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="80" textLength="127.338">
+<line stroke="#181818" stroke-width="0.5" x1="8" x2="166.0724" y1="45" y2="45"/>
+<line stroke="#181818" stroke-width="0.5" x1="8" x2="166.0724" y1="50" y2="50"/>
+<ellipse cx="15" cy="63" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="23" y="67" textLength="127.338">
 serialize(): String
 </text>
 </g>
 <g id="User">
-<rect fill="#F1F1F1" height="100" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="160.0724" x="20" y="182"/>
-<ellipse cx="36" cy="198" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="202" textLength="7.572">
+<rect fill="#F1F1F1" height="88.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="160.0724" x="7" y="143.297"/>
+<ellipse cx="23" cy="159.297" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="23" y="163.297" textLength="7.572">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="52" y="201" textLength="31.646">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="39" y="162.297" textLength="31.646">
 User
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="179.0724" y1="208" y2="208"/>
-<ellipse cx="28" cy="221" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="225" textLength="92.298">
+<line stroke="#181818" stroke-width="0.5" x1="8" x2="166.0724" y1="169.297" y2="169.297"/>
+<ellipse cx="15" cy="182.297" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="23" y="186.297" textLength="92.298">
 name: String
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="21" x2="179.0724" y1="229" y2="229"/>
-<ellipse cx="28" cy="242" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="246" textLength="127.338">
+<line stroke="#181818" stroke-width="0.5" x1="8" x2="166.0724" y1="190.297" y2="190.297"/>
+<ellipse cx="15" cy="203.297" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="23" y="207.297" textLength="127.338">
 serialize(): String
 </text>
 </g>
 <g id="edge_Serializable_User">
-<path d="M100.0362,182 L100.0362,102" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M87.0362,143.297 L87.0362,83.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
 </g>
 </svg>

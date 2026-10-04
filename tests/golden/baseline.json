@@ -1,6 +1,6 @@
 {
   "activity_basic": { "width_diff": 55.0, "height_diff": 63.0, "missing_texts": 0 },
-  "class_inheritance": { "width_diff": 57.6, "height_diff": 60.0, "missing_texts": 0 },
+  "class_inheritance": { "width_diff": 16.8, "height_diff": 2.6, "missing_texts": 0 },
   "component_basic": { "width_diff": 3.2, "height_diff": 6.1, "missing_texts": 0 },
   "deployment_basic": { "width_diff": 37.0, "height_diff": 27.6, "missing_texts": 1 },
   "er_basic": { "width_diff": 30.7, "height_diff": 15.0, "missing_texts": 1 },
