@@ -25,9 +25,9 @@
   },
   "er_basic": {
     "plantuml_version": "1.2026.9beta4",
-    "source_sha256": "3c74a530f744b1b86da27096820250530e9120bfa408b0bf0f0681453f8e65ac",
-    "svg_bytes": "3489",
-    "svg_sha256": "706e6878452a0b1d2c37f3d903579ba3f25e20573fa91c6610f21cba8eb548ee"
+    "source_sha256": "e8b99c317ee0de66416ab54971db3c1574fdf6f948d0fc911cd3545c1cb04b1b",
+    "svg_bytes": "3654",
+    "svg_sha256": "c33639116b79b8446a760b52e5c07117c8342c33dc1b693aea0e85a055163831"
   },
   "gantt_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -57,7 +57,7 @@
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "bb065be1f8c190de67a1d8132d8e4abdf7745eb59595df278fb22ca0b1e059d6",
     "svg_bytes": "1859",
-    "svg_sha256": "183b036749de601cecb5ff076a953e52b3992eaadae4f6742c0ee27de9cc6a13"
+    "svg_sha256": "77f61dc25fb4ba37f0ede284b8ecdcb1342bb96e6873d42425ffe0b8661b22db"
   },
   "salt_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -98,8 +98,8 @@
   "timing_basic": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "3c6d7d6366c20a98d91103f4c9fffbc454ff9886b2778647241f4912343ef400",
-    "svg_bytes": "3390",
-    "svg_sha256": "6f67947bb18057bc4b972f1046862c24ddf4aaa97edf75c9bcdfa587e2ee0e2e"
+    "svg_bytes": "3598",
+    "svg_sha256": "807a1cf75093b2937619ebfe952d1b0425d7628ac3081f587d7d06b9dd824e93"
   },
   "usecase_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -110,8 +110,8 @@
   "wbs_basic": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "c54e4be0e446aa75190cdaaf1dfca8d7f879ff233df71310cb1c36ded8d44802",
-    "svg_bytes": "2335",
-    "svg_sha256": "f0a044dad43b96629581ff8a7ec908c618a6aa48d29fdfb8cd9c922905bf1d0e"
+    "svg_bytes": "2652",
+    "svg_sha256": "9de3159570c3dda99fbd661af1074ea9288114d67c6d0f52ce0ee822c7991480"
   },
   "yaml_basic": {
     "plantuml_version": "1.2026.9beta4",

@@ -35,7 +35,10 @@ impl ComponentLayoutEngine {
 
         // Сначала располагаем компоненты в grid-layout
         let components: Vec<&Component> = diagram.components.iter().collect();
-        let num_cols = ((components.len() as f64).sqrt().ceil() as usize).max(1);
+        // PlantUML размещает компоненты вертикально (в эталоне три
+        // компонента стоят на x=7 друг под другом). Раньше использовалась
+        // сетка по sqrt(n), дававшая 2-3 колонки и широкую низкую диаграмму.
+        let num_cols = 1;
 
         for (i, comp) in components.iter().enumerate() {
             let row = i / num_cols;

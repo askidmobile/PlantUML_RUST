@@ -1,11 +1,11 @@
 @startuml
-entity "Пользователь" as user {
+entity "User" as user {
   *id : int
   --
   name : string
 }
 
-entity "Заказ" as order {
+entity "Order" as order {
   *id : int
 }
 

@@ -29,10 +29,15 @@ impl Default for ComponentLayoutConfig {
     fn default() -> Self {
         Self {
             margin: 30.0,
-            component_width: 140.0,
-            component_height: 60.0,
-            vertical_spacing: 50.0,
-            horizontal_spacing: 60.0,
+            // Размеры измерены по эталону PlantUML
+            // (tests/golden/reference/component_basic.svg): компонент 40x40,
+            // шаг по вертикали 112 (40 + отступ 72), подпись рисуется над
+            // фигурой. Раньше было 140x60, из-за чего диаграмма получалась
+            // широкой и низкой: 410x240 против эталонных 62x295.
+            component_width: 40.0,
+            component_height: 40.0,
+            vertical_spacing: 32.0,
+            horizontal_spacing: 30.0,
             interface_radius: 10.0,
             package_padding: 20.0,
             package_header_height: 25.0,

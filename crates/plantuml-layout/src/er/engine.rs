@@ -78,8 +78,11 @@ impl ErLayoutEngine {
     ) -> HashMap<String, Rect> {
         let mut positions: HashMap<String, Rect> = HashMap::new();
 
-        // Простой grid layout: размещаем сущности в ряд
-        let entities_per_row = 3;
+        // PlantUML размещает сущности ER вертикально: в эталоне обе сущности
+        // стоят на x=7 (er_basic: 54x208 при высоте 208). Раньше использовалась
+        // сетка по 3 в ряд, из-за чего диаграмма получалась широкой и низкой
+        // (410x114 против 54x208).
+        let entities_per_row = 1;
         let mut x = self.config.padding;
         let mut y = self.config.padding;
         let mut row_height = 0.0_f64;
