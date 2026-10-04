@@ -72,6 +72,18 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Option<ActivityElement>
             parse_note(pair).map(ActivityElement::Note)
         }
         Rule::break_stmt => Some(ActivityElement::Detach), // break как detach
+        // `-> метка;` — безусловный переход. В AST нет отдельного варианта
+        // для переходов (goto/label), а визуально такой переход — обычное
+        // действие с текстом метки, поэтому представляем его Action'ом.
+        // Раньше строка не разбиралась вовсе.
+        Rule::arrow_label_stmt => Some(ActivityElement::Action(Action::new(
+            pair.as_str()
+                .trim()
+                .trim_start_matches("->")
+                .trim()
+                .trim_end_matches(';')
+                .trim(),
+        ))),
         _ => None,
     }
 }

@@ -32,6 +32,8 @@ statement = _{
     | note_stmt
     | floating_note
     | backward_stmt
+    // Безусловный переход на метку: `-> метка;`
+    | arrow_label_stmt
     | break_stmt
     | goto_stmt
     | label_stmt
@@ -229,6 +231,12 @@ connector_stmt = { "(" ~ connector_name ~ ")" }
 connector_name = { (!")" ~ ANY)+ }
 
 goto_stmt = { "goto" ~ ws+ ~ simple_identifier }
+
+// Безусловный переход: `-> метка;`
+//
+// Отличается от `action` (`:текст;`) отсутствием ведущего двоеточия.
+// Раньше такая строка не разбиралась вовсе.
+arrow_label_stmt = { "->" ~ ws* ~ simple_identifier ~ ws* ~ ";" }
 label_stmt = { "label" ~ ws+ ~ simple_identifier }
 
 break_stmt = { "break" ~ !ASCII_ALPHANUMERIC }

@@ -426,12 +426,23 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Er);
     }
 
-    // Class Diagram
-    if source_lower.contains("class ")
-        || source_lower.contains("interface ")
-        || source_lower.contains("abstract class")
-        || source_lower.contains("<|--")
-        || source_lower.contains("..|>")
+    // Class Diagram.
+    //
+    // `usecase` проверяется РАНЬШЕ: стрелка обобщения `<|--` есть и в
+    // class-, и в usecase-диаграммах, и раньше она уводила usecase в
+    // class-парсер, который не знает ключевого слова `usecase` — разбор
+    // падал на первой же строке. Явный признак `usecase`/`actor` важнее
+    // стрелки.
+    let has_usecase_marker = source_lower.contains("usecase ")
+        || source_lower.contains("(usecase)")
+        || source_lower.contains("actor ");
+
+    if !has_usecase_marker
+        && (source_lower.contains("class ")
+            || source_lower.contains("interface ")
+            || source_lower.contains("abstract class")
+            || source_lower.contains("<|--")
+            || source_lower.contains("..|>"))
     {
         return Ok(DiagramKind::Class);
     }
@@ -710,6 +721,36 @@ participant A
             comp.components.len(),
             2,
             "не все элементы archimate разобраны"
+        );
+    }
+
+    /// Стрелка обобщения в usecase-диаграмме не уводит её в class-парсер.
+    ///
+    /// Регрессия: `<|--` проверялась раньше `usecase`, поэтому диаграмма
+    /// с `usecase UC1` + `UC1 <|-- UC2` распознавалась как Class, и разбор
+    /// падал на ключевом слове `usecase`.
+    #[test]
+    fn test_usecase_with_generalization_is_usecase() {
+        let cases = [
+            "@startuml\nusecase UC1\nusecase UC2\nUC1 <|-- UC2\n@enduml",
+            "@startuml\nusecase \"Первый\" as UC1\nusecase \"Второй\" as UC2\nUC1 <|-- UC2\n@enduml",
+            "@startuml\nactor A\nusecase UC\nA <|-- UC\n@enduml",
+        ];
+        for source in cases {
+            let diagram = parse(source).expect("диаграмма должна разбираться");
+            assert_eq!(
+                diagram.diagram_type(),
+                plantuml_ast::diagram::DiagramType::UseCase,
+                "usecase со стрелкой обобщения — это UseCase: {source}"
+            );
+        }
+
+        // А без usecase/actor та же стрелка остаётся признаком class
+        let class = parse("@startuml\nclass A\nclass B\nA <|-- B\n@enduml")
+            .expect("class должен разбираться");
+        assert_eq!(
+            class.diagram_type(),
+            plantuml_ast::diagram::DiagramType::Class
         );
     }
 
