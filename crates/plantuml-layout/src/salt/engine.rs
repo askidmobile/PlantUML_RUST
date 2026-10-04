@@ -518,7 +518,10 @@ impl SaltLayoutEngine {
     ) -> (f64, f64) {
         let dasharray = match sep_type {
             SeparatorType::Dotted => Some("2,2"),
-            SeparatorType::Wavy => Some("4,2"),
+            // Волнистый разделитель в PlantUML — волнистая линия, а не
+            // пунктир. Пунктир оставлен как приближение, но с более
+            // характерным для «волны» шагом.
+            SeparatorType::Wavy => Some("2,2"),
             SeparatorType::Single => None,
             SeparatorType::Double => None,
         };
@@ -581,6 +584,10 @@ impl SaltLayoutEngine {
         let mut current_y = y;
         let mut max_width = 0.0_f64;
 
+        /// `is_last` — последний ли это ребёнок у родителя.
+        ///
+        /// Раньше префикс всегда был `├─`, поэтому последний ребёнок
+        /// выглядел так же, как промежуточные; в PlantUML он получает `└─`.
         fn render_node(
             engine: &mut SaltLayoutEngine,
             node: &plantuml_ast::salt::TreeNode,
@@ -588,11 +595,20 @@ impl SaltLayoutEngine {
             y: &mut f64,
             max_width: &mut f64,
             elements: &mut Vec<LayoutElement>,
+            is_last: bool,
         ) {
             let indent = node.level as f64 * 20.0;
 
             if !node.text.is_empty() {
-                let prefix = if node.level > 0 { "├─ " } else { "" };
+                let prefix = if node.level > 0 {
+                    if is_last {
+                        "└─ "
+                    } else {
+                        "├─ "
+                    }
+                } else {
+                    ""
+                };
                 let text = format!("{}{}", prefix, node.text);
                 let width = engine.config.text.width(&text, engine.config.font_size) + indent;
 
@@ -614,12 +630,21 @@ impl SaltLayoutEngine {
                 *y += 20.0;
             }
 
-            for child in &node.children {
-                render_node(engine, child, x, y, max_width, elements);
+            let last_index = node.children.len().saturating_sub(1);
+            for (i, child) in node.children.iter().enumerate() {
+                render_node(engine, child, x, y, max_width, elements, i == last_index);
             }
         }
 
-        render_node(self, node, x, &mut current_y, &mut max_width, elements);
+        render_node(
+            self,
+            node,
+            x,
+            &mut current_y,
+            &mut max_width,
+            elements,
+            true,
+        );
 
         (max_width, current_y - y)
     }
