@@ -1,5 +1,13 @@
 //! Конфигурация layout для Sequence Diagrams
 
+use crate::text::TextMeasurer;
+
+/// Внутренний отступ бокса участника с каждой стороны.
+///
+/// Измерено по эталону PlantUML: `textLength="33.667"` при `width="47.667"`,
+/// то есть (47.667 − 33.667) / 2 = 7.
+pub const PARTICIPANT_PADDING: f64 = 7.0;
+
 /// Конфигурация layout sequence diagram
 #[derive(Debug, Clone)]
 pub struct SequenceLayoutConfig {
@@ -29,8 +37,8 @@ pub struct SequenceLayoutConfig {
     pub margin: f64,
     /// Размер шрифта
     pub font_size: f64,
-    /// Примерная ширина символа (для расчёта ширины текста)
-    pub char_width: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
     /// Высота строки текста
     pub line_height: f64,
     /// Высота заголовка бокса (participant box)
@@ -40,22 +48,30 @@ pub struct SequenceLayoutConfig {
 impl Default for SequenceLayoutConfig {
     fn default() -> Self {
         Self {
-            // PlantUML стиль: значения приближены к оригинальному PlantUML
-            participant_spacing: 80.0, // расстояние между участниками (PlantUML ~80-100)
-            message_spacing: 35.0,     // PlantUML ~35px между сообщениями
-            participant_width: 50.0,   // базовая ширина (расширяется по тексту)
-            participant_height: 35.0,  // высота box участника (PlantUML ~35)
-            activation_width: 10.0,    // ширина блока активации
-            fragment_padding: 10.0,    // отступ внутри фрагментов
+            // Значения измерены по эталону PlantUML 1.2026.9beta4
+            // (tests/golden/reference/sequence_simple.svg).
+            // Раньше стояли «примерно» подобранные числа, дававшие
+            // расхождение габаритов на 10–15%.
+            participant_spacing: 80.0, // минимальное расстояние между участниками
+            // Шаг между сообщениями: в эталоне Y сообщений 70.43 и 99.563,
+            // разница 29.133
+            message_spacing: 29.133,
+            // Базовая ширина; расширяется по тексту
+            participant_width: 50.0,
+            // Высота бокса участника: в эталоне height="30.297"
+            participant_height: 30.297,
+            activation_width: 10.0,       // ширина блока активации
+            fragment_padding: 10.0,       // отступ внутри фрагментов
             fragment_header_height: 22.0, // высота заголовка фрагмента
-            divider_height: 25.0,      // высота разделителя
-            delay_height: 20.0,        // высота задержки
-            note_height: 30.0,         // высота заметки
-            note_width: 100.0,         // ширина заметки
-            margin: 20.0,              // отступ от края диаграммы (PlantUML ~20)
+            divider_height: 25.0,         // высота разделителя
+            delay_height: 20.0,           // высота задержки
+            note_height: 30.0,            // высота заметки
+            note_width: 100.0,            // ширина заметки
+            // Отступ от края: в эталоне участник стоит на x=10, y=10
+            margin: 10.0,
             font_size: 13.0,
-            char_width: 7.5,        // немного шире для кириллицы
-            line_height: 18.0,      // высота строки (PlantUML ~18)
+            text: TextMeasurer::default(),
+            line_height: 18.0,      // высота строки
             box_title_height: 30.0, // высота заголовка бокса
         }
     }
@@ -67,16 +83,17 @@ impl SequenceLayoutConfig {
         Self::default()
     }
 
-    /// Вычисляет примерную ширину текста (с учётом Unicode)
+    /// Ширина текста через общий измеритель.
     pub fn text_width(&self, text: &str) -> f64 {
-        // Считаем символы, а не байты (для корректной работы с кириллицей)
-        let char_count = text.chars().count();
-        char_count as f64 * self.char_width
+        self.text.width(text, self.font_size)
     }
 
-    /// Вычисляет ширину участника с учётом имени
+    /// Ширина участника с учётом имени.
+    ///
+    /// В эталоне PlantUML: textLength="33.667" при width="47.667", то есть
+    /// по 7px внутреннего отступа с каждой стороны.
     pub fn participant_width_for_name(&self, name: &str) -> f64 {
-        let text_width = self.text_width(name) + 30.0; // padding увеличен (было 20)
+        let text_width = self.text_width(name) + PARTICIPANT_PADDING * 2.0;
         self.participant_width.max(text_width)
     }
 
