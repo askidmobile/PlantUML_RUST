@@ -27,21 +27,21 @@ expression: svg
 </g>
 <g id="composite_Active">
 <rect fill="#E2E2F0" height="182" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="177" x="6" y="87"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="94.5" y="104" textLength="43.29">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="94.5" y="104" textLength="47.621">
 Active
 </text>
 <line stroke="#181818" stroke-width="1" x1="6" x2="183" y1="117" y2="117"/>
 </g>
 <g id="Active_inner_state_Processing">
 <rect fill="#F1F1F1" height="35" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="90" x="49.5" y="138"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="94.5" y="156.1485" textLength="67.34">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="94.5" y="156.1485" textLength="78.728">
 Processing
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="49.5" x2="139.5" y1="164.297" y2="164.297"/>
 </g>
 <g id="Active_inner_state_Waiting">
 <rect fill="#F1F1F1" height="35" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="90" x="49.5" y="213"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="94.5" y="231.1485" textLength="47.138">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="94.5" y="231.1485" textLength="55.734">
 Waiting
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="49.5" x2="139.5" y1="239.297" y2="239.297"/>

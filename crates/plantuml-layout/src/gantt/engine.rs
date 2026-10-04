@@ -4,6 +4,9 @@
 
 use std::collections::HashMap;
 
+/// Отступ подписи задачи от левого края полосы (из measured по эталону).
+const GANTT_LABEL_INSET: f64 = 4.0;
+
 /// Ширина колонки таблицы задач.
 ///
 /// Измерено по эталону PlantUML: колонки Start, End и Duration начинаются
@@ -194,6 +197,38 @@ impl GanttLayoutEngine {
                     element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 3.0,
+                    },
+                });
+
+                // Подпись задачи: PlantUML рисует её ВНУТРИ полосы, сразу
+                // за её левым краем (эталон: полоса начинается на 138.069,
+                // подпись — на 142.069). Раньше подпись выводилась отдельной
+                // колонкой слева, а при добавлении таблицы Start/End/Duration
+                // пропала вовсе.
+                // Подпись помещается внутрь полосы, только если там есть
+                // место. Иначе PlantUML выносит её ВПРАВО за полосу:
+                // в эталоне полоса «Тестирование» шириной 76 при подписи
+                // 81.136, поэтому подпись стоит на x=698.069 при правом крае
+                // полосы 694.069. Именно эта подпись и определяет ширину
+                // диаграммы (800 против 690 без неё).
+                let label_width = self
+                    .config
+                    .text
+                    .width(&task.name, self.config.date_font_size);
+                let label_x = if label_width + GANTT_LABEL_INSET <= bar_width {
+                    bar_x + GANTT_LABEL_INSET
+                } else {
+                    bar_x + bar_width + GANTT_LABEL_INSET
+                };
+
+                elements.push(LayoutElement {
+                    id: format!("task_label_{}", i),
+                    bounds: Rect::new(label_x, bar_y, label_width, self.config.bar_height),
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
+                        text: task.name.clone(),
+                        font_size: self.config.date_font_size,
                     },
                 });
 

@@ -1675,22 +1675,18 @@ const STATE_HEADER_HEIGHT: f64 = 26.297;
 /// Цвет тела класса в эталоне PlantUML.
 const CLASS_BODY_FILL: &str = "#F1F1F1";
 
-/// Средняя ширина символа в долях от размера шрифта.
-///
-/// Согласована с `plantuml_layout::text::TextMeasurer`: PlantUML при
-/// font-size 14 для текста `Alice` пишет `textLength="33.667"`, то есть
-/// 0.481 em на символ.
-const AVG_CHAR_EM: f64 = 0.481;
-
 /// Округляет до трёх знаков: PlantUML пишет `33.667`, а не `33.6670001`.
 fn round3(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
 /// Оценивает ширину текста в пикселях (для атрибута `textLength`).
+///
+/// Используется тот же измеритель, что и в layout-движках. Раньше здесь
+/// была своя константа 0.481 em на любой символ, из-за чего `textLength`
+/// в готовом SVG расходился с ширинами, по которым строилась раскладка.
 fn measure_text(text: &str, font_size: f64) -> f64 {
-    // Считаем символы, а не байты — иначе кириллица даёт удвоенную ширину
-    text.chars().count() as f64 * font_size * AVG_CHAR_EM
+    plantuml_layout::text::TextMeasurer::default().width(text, font_size)
 }
 
 /// Извлекает значение `font-size` из строки тега.

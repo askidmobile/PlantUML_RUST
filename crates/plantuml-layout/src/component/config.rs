@@ -27,6 +27,8 @@ pub struct ComponentLayoutConfig {
     pub icon_size: f64,
     /// Измеритель текста (считает символы, а не байты)
     pub text: TextMeasurer,
+    /// Размер шрифта подписей (в эталоне 14).
+    pub font_size: f64,
 }
 
 impl Default for ComponentLayoutConfig {
@@ -57,6 +59,7 @@ impl Default for ComponentLayoutConfig {
             corner_radius: 5.0,
             icon_size: 16.0,
             text: TextMeasurer::default(),
+            font_size: 14.0,
         }
     }
 }

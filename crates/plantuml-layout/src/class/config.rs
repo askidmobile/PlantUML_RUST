@@ -36,7 +36,9 @@ impl Default for ClassLayoutConfig {
             // встречаются 68–80px для коротких имён. Константа 120
             // перебивала измерение и делала все классы одинаково широкими.
             min_class_width: 40.0,
-            min_class_height: 60.0,
+            // Высота класса измерена по эталону class_inheritance: 64.297
+            // при заголовке и одной строке содержимого.
+            min_class_height: 64.297,
             class_header_height: 30.0,
             line_height: 20.0,
             class_padding: 10.0,

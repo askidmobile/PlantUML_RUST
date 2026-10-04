@@ -27,14 +27,14 @@ expression: svg
 </g>
 <g id="state_Active">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="63.552" x="62.001999999999995" y="87"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="93.77799999999999" y="105.1485" textLength="40.404">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="93.77799999999999" y="105.1485" textLength="44.446">
 Active
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="62.001999999999995" x2="125.554" y1="113.297" y2="113.297"/>
 </g>
 <g id="state_Inactive">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="75.556" x="6" y="198"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="43.778" y="216.1485" textLength="53.872">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="43.778" y="216.1485" textLength="57.887">
 Inactive
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="6" x2="81.556" y1="224.297" y2="224.297"/>
@@ -48,19 +48,19 @@ Inactive
 </g>
 <g id="trans_Active_Inactive">
 <path d="M81.0676,137 L58.8892,198" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="end" x="64.19624" y="161.4" textLength="43.771">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="end" x="64.19624" y="161.4" textLength="51.557">
 timeout
 </text>
 </g>
 <g id="trans_Inactive_Active">
 <path d="M81.556,223 L187.558,223 L187.558,112 L125.554,112" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="86.556" y="218" textLength="37.518">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="86.556" y="218" textLength="49.68">
 resume
 </text>
 </g>
 <g id="trans_Active_final">
 <path d="M93.77799999999999,137 L171.55599999999998,198" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="132.8892" y="161.4" textLength="31.265">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="132.8892" y="161.4" textLength="35.857">
 close
 </text>
 </g>

@@ -7,6 +7,17 @@ use std::collections::HashMap;
 use plantuml_ast::class::{ClassDiagram, Classifier, Relationship, RelationshipType};
 use plantuml_model::Size;
 
+/// Добавка к ширине строки имени: иконка класса слева и отступ справа.
+///
+/// Измерено по эталону class_inheritance: «Dog» 28.232 → 68.3,
+/// «Animal» 48.446 → 80.446.
+const CLASS_NAME_EXTRA: f64 = 32.0;
+
+/// Добавка к ширине строки содержимого (поля и методы).
+///
+/// Измерено по эталону: «bark()» 42.253 → 68.25, «meow()» 53.19 → 79.19.
+const CLASS_CONTENT_EXTRA: f64 = 26.0;
+
 use super::config::ClassLayoutConfig;
 
 /// Узел графа (класс/интерфейс)
@@ -55,12 +66,11 @@ impl Node {
     fn calculate_size(classifier: &Classifier, config: &ClassLayoutConfig) -> Size {
         // Ширина: max(имя класса, поля, методы)
         // Добавляем место для иконки класса (~30px)
-        let icon_width = 30.0;
-        // Измеряем по символам: str::len() для кириллицы даёт число байт
-        // (вдвое больше символов) и завышал ширину русских имён
-        let name_width = config.text.width(&classifier.id.name, config.font_size)
-            + icon_width
-            + config.class_padding * 2.0;
+        // Ширина строки имени: измерено по эталону — ширина имени плюс 32
+        // («Dog» 28.232 → 68.3; «Animal» 48.446 → 80.446). Добавка вмещает
+        // иконку класса слева и отступ справа.
+        let name_width =
+            config.text.width(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
 
         let field_max_width = classifier
             .fields
@@ -92,11 +102,11 @@ impl Node {
             .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
 
-        // Добавляем место для иконки видимости (~15px)
-        let visibility_icon_width = 15.0;
-        let content_width = field_max_width.max(method_max_width)
-            + visibility_icon_width
-            + config.class_padding * 2.0;
+        // Ширина строки = отступ под иконку видимости + сам текст + правый
+        // отступ. Измерено по эталону class_inheritance:
+        //   «Dog»  ширина 68.3 при «bark()» 42.253
+        //   «Cat»  ширина 79.2 при «meow()» 53.19
+        let content_width = field_max_width.max(method_max_width) + CLASS_CONTENT_EXTRA;
         let width = name_width.max(content_width).max(config.min_class_width);
 
         // Высота: заголовок + поля + методы

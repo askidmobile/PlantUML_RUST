@@ -30,37 +30,37 @@ expression: svg
 </g>
 <g id="msg_Alice_Bob">
 <path d="M35,70.297 L135,70.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="65.297" textLength="31.265">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="65.297" textLength="32.635">
 Hello
 </text>
 </g>
 <g id="msg_Bob_Alice">
 <path d="M135,99.42999999999999 L35,99.42999999999999" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="94.42999999999999" textLength="12.506">
+<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="94.42999999999999" textLength="12.165">
 Hi
 </text>
 </g>
 <g id="participant_Alice">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="10"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="25.1485" textLength="33.67">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="25.1485" textLength="34.908">
 Alice
 </text>
 </g>
 <g id="participant_Bob">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="110" y="10"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="25.1485" textLength="20.202">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="25.1485" textLength="26.585">
 Bob
 </text>
 </g>
 <g id="footer_Alice">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="117.42999999999999"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="132.5785" textLength="33.67">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="132.5785" textLength="34.908">
 Alice
 </text>
 </g>
 <g id="footer_Bob">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="110" y="117.42999999999999"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="132.5785" textLength="20.202">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="132.5785" textLength="26.585">
 Bob
 </text>
 </g>
