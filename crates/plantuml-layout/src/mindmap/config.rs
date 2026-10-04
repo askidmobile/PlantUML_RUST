@@ -26,12 +26,16 @@ pub struct MindMapLayoutConfig {
 impl Default for MindMapLayoutConfig {
     fn default() -> Self {
         Self {
-            padding: 20.0,
-            level_spacing: 80.0,
-            sibling_spacing: 20.0,
-            min_node_width: 80.0,
-            node_height: 30.0,
-            node_padding_x: 12.0,
+            // Значения измерены по эталону PlantUML
+            // (tests/golden/reference/mindmap_basic.svg, латинские подписи):
+            // высота узла 36.297, шаг между уровнями ~130, отступ от края 10.
+            // Раньше стояли 80/20/30, из-за чего диаграмма была заметно шире.
+            padding: 10.0,
+            level_spacing: 68.0,
+            sibling_spacing: 28.0,
+            min_node_width: 68.0,
+            node_height: 36.297,
+            node_padding_x: 10.0,
             node_padding_y: 6.0,
             font_size: 13.0,
             corner_radius: 5.0,

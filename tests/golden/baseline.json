@@ -3,10 +3,10 @@
   "class_inheritance": { "width_diff": 65.0, "height_diff": 60.0, "missing_texts": 0 },
   "component_basic": { "width_diff": 48.0, "height_diff": 41.0, "missing_texts": 0 },
   "deployment_basic": { "width_diff": 75.0, "height_diff": 36.0, "missing_texts": 1 },
-  "er_basic": { "width_diff": 53.0, "height_diff": 10.0, "missing_texts": 1 },
+  "er_basic": { "width_diff": 95.0, "height_diff": 28.0, "missing_texts": 1 },
   "gantt_basic": { "width_diff": 93.0, "height_diff": 26.0, "missing_texts": 36 },
   "json_basic": { "width_diff": 22.0, "height_diff": 163.0, "missing_texts": 9 },
-  "mindmap_basic": { "width_diff": 296.6, "height_diff": 9.0, "missing_texts": 0 },
+  "mindmap_basic": { "width_diff": 50.8, "height_diff": 13.2, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 213.0, "height_diff": 41.0, "missing_texts": 2 },
   "object_basic": { "width_diff": 212.0, "height_diff": 100.0, "missing_texts": 1 },
   "salt_basic": { "width_diff": 47.5, "height_diff": 71.0, "missing_texts": 0 },
@@ -17,6 +17,6 @@
   "state_simple": { "width_diff": 14.0, "height_diff": 112.0, "missing_texts": 0 },
   "timing_basic": { "width_diff": 256.0, "height_diff": 18.0, "missing_texts": 2 },
   "usecase_basic": { "width_diff": 137.8, "height_diff": 143.7, "missing_texts": 0 },
-  "wbs_basic": { "width_diff": 17.9, "height_diff": 14.0, "missing_texts": 0 },
+  "wbs_basic": { "width_diff": 195.9, "height_diff": 29.0, "missing_texts": 0 },
   "yaml_basic": { "width_diff": 42.5, "height_diff": 88.0, "missing_texts": 6 }
 }

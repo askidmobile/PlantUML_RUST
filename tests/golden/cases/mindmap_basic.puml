@@ -1,9 +1,9 @@
 @startmindmap
-* Проект
-** Планирование
-*** Сроки
-*** Бюджет
-** Реализация
-*** Код
-*** Тесты
+* Project
+** Planning
+*** Timeline
+*** Budget
+** Implementation
+*** Code
+*** Tests
 @endmindmap
