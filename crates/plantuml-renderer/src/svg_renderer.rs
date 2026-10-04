@@ -495,10 +495,14 @@ impl SvgRenderer {
         theme: &Theme,
         mut group: Group,
     ) -> Group {
-        let corner_radius = 10.0;
-        let header_height = 25.0;
+        // Параметры по эталону PlantUML: rx/ry = 12.5, толщина границы 0.5,
+        // разделитель на 26.3px от верха, имя без жирного начертания.
+        // Раньше было rx=10, толщина 1, заголовок 25 и жирное имя.
+        let corner_radius = 12.5;
+        let header_height = STATE_HEADER_HEIGHT;
 
-        // 1. Основной прямоугольник со скруглёнными углами
+        // 1. Основной прямоугольник со скруглёнными углами.
+        // Заливка в эталоне — #F1F1F1, а не цвет фона узлов темы.
         let rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
@@ -506,9 +510,9 @@ impl SvgRenderer {
             .set("height", bounds.height)
             .set("rx", corner_radius)
             .set("ry", corner_radius)
-            .set("fill", theme.node_background.to_css())
+            .set("fill", CLASS_BODY_FILL)
             .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1);
+            .set("stroke-width", 0.5);
 
         group = group.add(rect);
 
@@ -521,7 +525,6 @@ impl SvgRenderer {
             .set("dominant-baseline", "middle")
             .set("font-family", theme.font_family.as_str())
             .set("font-size", theme.font_size)
-            .set("font-weight", "bold")
             .set("fill", theme.text_color.to_css());
 
         group = group.add(name_text);
@@ -1664,6 +1667,10 @@ impl Renderer for SvgRenderer {
         annotate_text_length(&svg)
     }
 }
+
+/// Высота заголовка состояния: в эталоне разделитель на 113.297 при
+/// верхней границе 87, то есть 26.297.
+const STATE_HEADER_HEIGHT: f64 = 26.297;
 
 /// Цвет тела класса в эталоне PlantUML.
 const CLASS_BODY_FILL: &str = "#F1F1F1";
