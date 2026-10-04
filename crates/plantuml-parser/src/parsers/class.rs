@@ -78,7 +78,8 @@ fn process_rule(
             }
         }
         Rule::interface_decl => {
-            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::Interface) {
+            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::Interface)
+            {
                 let class_name = result.classifier.id.name.clone();
                 add_classifier(result.classifier, diagram, package_stack);
                 // Интерфейсы тоже могут наследовать от других интерфейсов
@@ -97,7 +98,9 @@ fn process_rule(
             }
         }
         Rule::abstract_decl => {
-            if let Some(result) = parse_class_decl_with_inheritance(pair, ClassifierType::AbstractClass) {
+            if let Some(result) =
+                parse_class_decl_with_inheritance(pair, ClassifierType::AbstractClass)
+            {
                 let class_name = result.classifier.id.name.clone();
                 add_classifier(result.classifier, diagram, package_stack);
                 if let Some(parent) = result.extends {

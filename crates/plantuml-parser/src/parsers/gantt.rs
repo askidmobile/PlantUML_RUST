@@ -161,10 +161,7 @@ fn parse_holiday(pair: pest::iterators::Pair<Rule>) -> Option<Holiday> {
         }
     }
 
-    date.map(|d| Holiday {
-        date: d,
-        name,
-    })
+    date.map(|d| Holiday { date: d, name })
 }
 
 /// Парсит задачу
@@ -291,7 +288,7 @@ fn parse_lasts_modifier(pair: pest::iterators::Pair<Rule>) -> TaskDuration {
 /// Парсит starts modifier
 fn parse_starts_modifier(pair: pest::iterators::Pair<Rule>) -> TaskStart {
     let text = pair.as_str();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::date_value => {
@@ -447,7 +444,10 @@ fn extract_task_ref(pair: pest::iterators::Pair<Rule>) -> Option<String> {
 }
 
 fn extract_task_ref_inner(pair: pest::iterators::Pair<Rule>) -> String {
-    let fallback = pair.as_str().trim_matches(|c| c == '[' || c == ']').to_string();
+    let fallback = pair
+        .as_str()
+        .trim_matches(|c| c == '[' || c == ']')
+        .to_string();
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::task_ref_inner {
             return inner.as_str().trim().to_string();

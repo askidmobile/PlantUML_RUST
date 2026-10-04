@@ -14,13 +14,13 @@ pub mod er;
 pub mod gantt;
 pub mod json;
 pub mod mindmap;
+pub mod network;
 pub mod object;
+pub mod salt;
 pub mod sequence;
 pub mod state;
 pub mod timing;
 pub mod usecase;
-pub mod network;
-pub mod salt;
 pub mod wbs;
 pub mod yaml;
 

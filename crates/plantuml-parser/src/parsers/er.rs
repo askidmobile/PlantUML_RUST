@@ -69,8 +69,10 @@ fn parse_entity(pair: pest::iterators::Pair<Rule>) -> crate::Result<Entity> {
             }
             Rule::color_spec => {
                 if let Some(color) = inner.into_inner().next() {
-                    entity.background_color =
-                        Some(plantuml_ast::common::Color::from_hex(format!("#{}", color.as_str())));
+                    entity.background_color = Some(plantuml_ast::common::Color::from_hex(format!(
+                        "#{}",
+                        color.as_str()
+                    )));
                 }
             }
             Rule::entity_member => {

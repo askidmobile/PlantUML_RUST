@@ -382,7 +382,11 @@ impl AutonumberStart {
 
     /// Создаёт параметры со всеми значениями
     pub fn new(start: Option<u32>, step: Option<u32>, format: Option<String>) -> Self {
-        Self { start, step, format }
+        Self {
+            start,
+            step,
+            format,
+        }
     }
 }
 

@@ -100,7 +100,6 @@ impl GanttDate {
             None
         }
     }
-
 }
 
 impl std::fmt::Display for GanttDate {
@@ -368,8 +367,7 @@ mod tests {
 
     #[test]
     fn test_task_dependencies() {
-        let task = GanttTask::new("Implementation")
-            .starts_after("T1");
+        let task = GanttTask::new("Implementation").starts_after("T1");
 
         assert!(matches!(task.start, TaskStart::After(ref id) if id == "T1"));
     }

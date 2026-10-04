@@ -116,12 +116,12 @@ impl Color {
     pub fn parse(s: impl Into<String>) -> Self {
         let s = s.into();
         let trimmed = s.trim_start_matches('#');
-        
+
         // Если после удаления # остались только hex символы и длина 3, 6 или 8 - это hex
-        let is_hex = trimmed.len() >= 3 
-            && trimmed.len() <= 8 
+        let is_hex = trimmed.len() >= 3
+            && trimmed.len() <= 8
             && trimmed.chars().all(|c| c.is_ascii_hexdigit());
-        
+
         if is_hex {
             Self::Hex(trimmed.to_string())
         } else {
@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(Color::parse("#FFF").to_css(), "#FFF");
         assert_eq!(Color::parse("ABC").to_css(), "#ABC");
         assert_eq!(Color::parse("#AABBCCDD").to_css(), "#AABBCCDD");
-        
+
         // Именованные цвета
         assert_eq!(Color::parse("red").to_css(), "red");
         assert_eq!(Color::parse("#red").to_css(), "red");

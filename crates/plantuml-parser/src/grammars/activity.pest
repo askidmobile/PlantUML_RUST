@@ -200,9 +200,13 @@ case_clause = {
 }
 
 // === Swimlanes ===
+// Поддерживаемые синтаксисы:
+// |name|           - простой swimlane
+// |#color|name|    - swimlane с цветом (три |)
 
 swimlane_stmt = {
-    "|" ~ swimlane_color? ~ swimlane_name ~ "|"
+    "|" ~ swimlane_color ~ "|" ~ swimlane_name ~ "|" |
+    "|" ~ swimlane_name ~ "|"
 }
 
 swimlane_color = { color }
@@ -276,8 +280,9 @@ identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }
 
-color = { "#" ~ hex_color }
+color = { "#" ~ (hex_color | named_color) }
 hex_color = @{ ASCII_HEX_DIGIT{3,8} }
+named_color = @{ ASCII_ALPHA+ }
 
 rest_of_line = { (!NEWLINE ~ ANY)* }
 

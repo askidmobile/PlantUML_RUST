@@ -9,7 +9,7 @@ use plantuml_ast::common::{Color, LineStyle, Note, NotePosition, Stereotype};
 use plantuml_ast::sequence::{
     Activation, ActivationType, ArrowType, AutonumberCommand, AutonumberStart, Delay, Divider,
     Fragment, FragmentSection, FragmentType, Message, Participant, ParticipantBox, ParticipantType,
-    Return, SequenceDiagram, SequenceElement,
+    Reference, Return, SequenceDiagram, SequenceElement,
 };
 
 use crate::{ParseError, Result};
@@ -19,7 +19,12 @@ use crate::{ParseError, Result};
 pub struct SequenceParser;
 
 /// Состояние стека фрагментов: (тип, условие фрагмента, текущее условие секции, секции)
-type FragmentStackEntry = (FragmentType, Option<String>, Option<String>, Vec<FragmentSection>);
+type FragmentStackEntry = (
+    FragmentType,
+    Option<String>,
+    Option<String>,
+    Vec<FragmentSection>,
+);
 
 /// Состояние текущего box: (title, color, participants)
 type BoxState = (Option<String>, Option<Color>, Vec<String>);
@@ -80,7 +85,10 @@ fn process_rule(
             if let Some(participant) = parse_participant(pair) {
                 // Если внутри box, запоминаем участника
                 if let Some((_, _, ref mut participants)) = current_box {
-                    let name = participant.id.alias.clone()
+                    let name = participant
+                        .id
+                        .alias
+                        .clone()
                         .unwrap_or_else(|| participant.id.name.clone());
                     participants.push(name);
                 }
@@ -237,6 +245,16 @@ fn process_rule(
                 current_section_elements.push(element);
             }
         }
+        Rule::ref_stmt => {
+            if let Some(reference) = parse_ref_stmt(pair) {
+                let element = SequenceElement::Reference(reference);
+                if fragment_stack.is_empty() {
+                    diagram.add_element(element);
+                } else {
+                    current_section_elements.push(element);
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -332,11 +350,12 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
 
 /// Парсит сообщение
 fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
-    let mut from = String::new();
-    let mut to = String::new();
+    let mut first_participant = String::new();
+    let mut second_participant = String::new();
     let mut label = String::new();
     let mut line_style = LineStyle::Solid;
     let mut arrow_type = ArrowType::Normal;
+    let mut is_arrow_left = false; // Флаг для стрелки налево (<--, <-, etc.)
     let mut activate = false;
     let mut deactivate = false;
     let mut create = false;
@@ -347,16 +366,17 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
         match inner.as_rule() {
             Rule::participant_ref => {
                 let name = inner.as_str().to_string();
-                if from.is_empty() {
-                    from = name;
+                if first_participant.is_empty() {
+                    first_participant = name;
                 } else {
-                    to = name;
+                    second_participant = name;
                 }
             }
             Rule::arrow => {
-                let (style, atype) = parse_arrow(inner);
+                let (style, atype, is_left) = parse_arrow(inner);
                 line_style = style;
                 arrow_type = atype;
+                is_arrow_left = is_left;
             }
             Rule::target_activation => {
                 let (act, deact, crt, dst, color) = parse_target_activation(inner);
@@ -373,9 +393,17 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
         }
     }
 
-    if from.is_empty() || to.is_empty() {
+    if first_participant.is_empty() || second_participant.is_empty() {
         return None;
     }
+
+    // Если стрелка налево (<--, <-, etc.), меняем направление:
+    // "Alice <-- Bob" означает стрелку от Bob к Alice
+    let (from, to) = if is_arrow_left {
+        (second_participant, first_participant)
+    } else {
+        (first_participant, second_participant)
+    };
 
     let mut message = Message::new(from, to, label);
     message.line_style = line_style;
@@ -384,7 +412,7 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
     message.deactivate = deactivate;
     message.create = create;
     message.destroy = destroy;
-    
+
     // Если есть цвет активации, сохраняем его в сообщении
     // (пока используем поле color, которое уже есть)
     if activation_color.is_some() {
@@ -396,7 +424,9 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
 
 /// Парсит target_activation (++, --, **, !!, --++ и т.д.)
 /// Возвращает: (activate, deactivate, create, destroy, color)
-fn parse_target_activation(pair: pest::iterators::Pair<Rule>) -> (bool, bool, bool, bool, Option<Color>) {
+fn parse_target_activation(
+    pair: pest::iterators::Pair<Rule>,
+) -> (bool, bool, bool, bool, Option<Color>) {
     let mut activate = false;
     let mut deactivate = false;
     let mut create = false;
@@ -429,8 +459,17 @@ fn parse_target_activation(pair: pest::iterators::Pair<Rule>) -> (bool, bool, bo
 }
 
 /// Парсит стрелку
-fn parse_arrow(pair: pest::iterators::Pair<Rule>) -> (LineStyle, ArrowType) {
+/// Возвращает: (стиль линии, тип стрелки, is_arrow_left)
+fn parse_arrow(pair: pest::iterators::Pair<Rule>) -> (LineStyle, ArrowType, bool) {
     let arrow_str = pair.as_str();
+
+    // Определяем направление стрелки
+    // Стрелка налево начинается с < (например: <-, <--, <<-)
+    let is_arrow_left = arrow_str.starts_with('<')
+        || arrow_str.starts_with("o-")
+        || arrow_str.starts_with("x-")
+        || arrow_str.starts_with("\\\\-")
+        || arrow_str.starts_with("//-");
 
     // Определяем стиль линии
     // В PlantUML:
@@ -445,19 +484,19 @@ fn parse_arrow(pair: pest::iterators::Pair<Rule>) -> (LineStyle, ArrowType) {
         };
 
     // Определяем тип стрелки
-    let arrow_type = if arrow_str.contains(">>") {
+    let arrow_type = if arrow_str.contains(">>") || arrow_str.contains("<<") {
         ArrowType::Thin
     } else if arrow_str.contains("\\\\") || arrow_str.contains("//") {
         ArrowType::HalfTop
-    } else if arrow_str.ends_with("o") || arrow_str.contains(">o") {
+    } else if arrow_str.ends_with("o") || arrow_str.contains(">o") || arrow_str.starts_with("o") {
         ArrowType::Circle
-    } else if arrow_str.ends_with("x") || arrow_str.contains(">x") {
+    } else if arrow_str.ends_with("x") || arrow_str.contains(">x") || arrow_str.starts_with("x") {
         ArrowType::Cross
     } else {
         ArrowType::Normal
     };
 
-    (line_style, arrow_type)
+    (line_style, arrow_type, is_arrow_left)
 }
 
 /// Парсит начало фрагмента
@@ -689,18 +728,18 @@ fn parse_box_start(pair: pest::iterators::Pair<Rule>) -> (Option<String>, Option
 /// - autonumber inc A              - инкремент уровня
 fn parse_autonumber(pair: pest::iterators::Pair<Rule>) -> Option<AutonumberCommand> {
     let text = pair.as_str();
-    
+
     // Проверяем специальные команды
     if text.contains("stop") {
         return Some(AutonumberCommand::Stop);
     }
-    
+
     if text.contains("resume") {
         // Парсим параметры после resume
         let params = parse_autonumber_params_from_inner(pair);
         return Some(AutonumberCommand::Resume(params));
     }
-    
+
     if text.contains(" inc ") {
         // autonumber inc <level>
         for inner in pair.into_inner() {
@@ -710,19 +749,21 @@ fn parse_autonumber(pair: pest::iterators::Pair<Rule>) -> Option<AutonumberComma
         }
         return None;
     }
-    
+
     // Обычный autonumber [start] [step] [format]
     let params = parse_autonumber_params_from_inner(pair);
     Some(AutonumberCommand::Start(params.unwrap_or_default()))
 }
 
 /// Парсит параметры autonumber из inner rules
-fn parse_autonumber_params_from_inner(pair: pest::iterators::Pair<Rule>) -> Option<AutonumberStart> {
+fn parse_autonumber_params_from_inner(
+    pair: pest::iterators::Pair<Rule>,
+) -> Option<AutonumberStart> {
     let mut start: Option<u32> = None;
     let mut step: Option<u32> = None;
     let mut format: Option<String> = None;
     let mut has_params = false;
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::autonumber_params => {
@@ -750,7 +791,7 @@ fn parse_autonumber_params_from_inner(pair: pest::iterators::Pair<Rule>) -> Opti
             _ => {}
         }
     }
-    
+
     if has_params || start.is_some() || format.is_some() {
         Some(AutonumberStart::new(start, step, format))
     } else {
@@ -761,7 +802,7 @@ fn parse_autonumber_params_from_inner(pair: pest::iterators::Pair<Rule>) -> Opti
 /// Парсит return statement
 fn parse_return(pair: pest::iterators::Pair<Rule>) -> Return {
     let mut label: Option<String> = None;
-    
+
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::message_text {
             let text = inner.as_str().trim();
@@ -770,8 +811,40 @@ fn parse_return(pair: pest::iterators::Pair<Rule>) -> Return {
             }
         }
     }
-    
+
     Return { label }
+}
+
+/// Парсит ref statement (ссылку на другую диаграмму)
+/// Поддерживает:
+/// - ref over Alice, Bob: See other diagram
+/// - ref over Alice, Bob
+///     text
+///   end ref
+fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
+    let mut participants: Vec<String> = Vec::new();
+    let mut text = String::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier_list => {
+                for id in inner.into_inner() {
+                    match id.as_rule() {
+                        Rule::identifier | Rule::simple_identifier => {
+                            participants.push(id.as_str().to_string());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Rule::ref_text | Rule::ref_body => {
+                text = inner.as_str().trim().to_string();
+            }
+            _ => {}
+        }
+    }
+
+    Some(Reference { text, participants })
 }
 
 #[cfg(test)]
@@ -1090,7 +1163,11 @@ Alice -> Alice: Test
 
         let diagram = result.unwrap();
         assert_eq!(diagram.boxes.len(), 1, "Expected 1 box");
-        assert_eq!(diagram.boxes[0].participants.len(), 1, "Expected 1 participant in box");
+        assert_eq!(
+            diagram.boxes[0].participants.len(),
+            1,
+            "Expected 1 participant in box"
+        );
     }
 
     #[test]
@@ -1333,16 +1410,14 @@ Alice -> Bob: second
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[0] {
-            SequenceElement::Autonumber(cmd) => {
-                match cmd {
-                    AutonumberCommand::Start(params) => {
-                        assert!(params.start.is_none() || params.start == Some(1));
-                    }
-                    _ => panic!("Expected AutonumberCommand::Start"),
+            SequenceElement::Autonumber(cmd) => match cmd {
+                AutonumberCommand::Start(params) => {
+                    assert!(params.start.is_none() || params.start == Some(1));
                 }
-            }
+                _ => panic!("Expected AutonumberCommand::Start"),
+            },
             _ => panic!("Expected Autonumber element"),
         }
     }
@@ -1358,7 +1433,7 @@ Alice -> Bob: message
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[0] {
             SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
                 assert_eq!(params.start, Some(10));
@@ -1378,7 +1453,7 @@ Alice -> Bob: message
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[0] {
             SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
                 assert_eq!(params.start, Some(10));
@@ -1399,7 +1474,7 @@ Alice -> Bob: message
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[0] {
             SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
                 assert_eq!(params.format, Some("[00]".to_string()));
@@ -1419,7 +1494,7 @@ Alice -> Bob: message
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[0] {
             SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
                 assert_eq!(params.start, Some(10));
@@ -1443,7 +1518,7 @@ Alice -> Bob: second
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         // Ищем autonumber stop
         let mut found_stop = false;
         for element in &diagram.elements {
@@ -1470,7 +1545,7 @@ Alice -> Bob: third
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         // Ищем autonumber resume
         let mut found_resume = false;
         for element in &diagram.elements {
@@ -1495,7 +1570,7 @@ return response
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[1] {
             SequenceElement::Return(ret) => {
                 assert_eq!(ret.label, Some("response".to_string()));
@@ -1515,7 +1590,7 @@ return
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         match &diagram.elements[1] {
             SequenceElement::Return(ret) => {
                 assert!(ret.label.is_none());
@@ -1549,7 +1624,7 @@ autonumber resume
         assert!(result.is_ok(), "Parse error: {:?}", result.err());
 
         let diagram = result.unwrap();
-        
+
         // Проверяем наличие всех типов элементов
         let mut has_autonumber_start = false;
         let mut has_autonumber_stop = false;
@@ -1582,5 +1657,57 @@ autonumber resume
         assert!(has_autonumber_resume, "Expected autonumber resume");
         assert!(has_return, "Expected return statements");
         assert_eq!(return_count, 2, "Expected 2 return statements");
+    }
+
+    // ============== Тесты для ref ==============
+
+    #[test]
+    fn test_parse_ref_over_single_line() {
+        let source = r#"@startuml
+Alice -> Bob: Request
+ref over Bob, Carol: See Other Diagram
+Bob -> Carol: Process
+@enduml"#;
+
+        let result = parse_sequence(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+
+        // Должен быть: Message, Reference, Message
+        let mut found_ref = false;
+        for element in &diagram.elements {
+            if let SequenceElement::Reference(ref_elem) = element {
+                found_ref = true;
+                assert_eq!(ref_elem.text, "See Other Diagram");
+                assert!(ref_elem.participants.contains(&"Bob".to_string()));
+                assert!(ref_elem.participants.contains(&"Carol".to_string()));
+            }
+        }
+        assert!(found_ref, "Expected Reference element");
+    }
+
+    #[test]
+    fn test_parse_ref_over_one_participant() {
+        let source = r#"@startuml
+Alice -> Bob: Hello
+ref over Bob: Internal processing
+Bob --> Alice: Done
+@enduml"#;
+
+        let result = parse_sequence(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+
+        let mut found_ref = false;
+        for element in &diagram.elements {
+            if let SequenceElement::Reference(ref_elem) = element {
+                found_ref = true;
+                assert_eq!(ref_elem.participants.len(), 1);
+                assert_eq!(ref_elem.participants[0], "Bob");
+            }
+        }
+        assert!(found_ref, "Expected Reference element");
     }
 }

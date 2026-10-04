@@ -7,8 +7,7 @@ use pest_derive::Parser;
 
 use plantuml_ast::common::{Direction, Note, NotePosition, Stereotype};
 use plantuml_ast::usecase::{
-    UseCase, UseCaseActor, UseCaseDiagram, UseCasePackage, UseCaseRelationType,
-    UseCaseRelationship,
+    UseCase, UseCaseActor, UseCaseDiagram, UseCasePackage, UseCaseRelationType, UseCaseRelationship,
 };
 
 use crate::{ParseError, Result};
@@ -19,10 +18,11 @@ pub struct UseCaseParser;
 
 /// Парсит use case diagram из исходного кода
 pub fn parse_usecase(source: &str) -> Result<UseCaseDiagram> {
-    let pairs = UseCaseParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-        line: e.line().to_string().parse().unwrap_or(0),
-        message: e.to_string(),
-    })?;
+    let pairs =
+        UseCaseParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
+            line: e.line().to_string().parse().unwrap_or(0),
+            message: e.to_string(),
+        })?;
 
     let mut diagram = UseCaseDiagram::new();
 

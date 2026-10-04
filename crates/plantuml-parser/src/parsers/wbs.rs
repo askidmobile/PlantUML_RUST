@@ -17,8 +17,8 @@ struct WbsParser;
 
 /// Парсит WBS диаграмму из исходного кода
 pub fn parse_wbs(source: &str) -> crate::Result<WbsDiagram> {
-    let pairs = WbsParser::parse(Rule::wbs, source)
-        .map_err(|e| ParseError::GrammarError(e.to_string()))?;
+    let pairs =
+        WbsParser::parse(Rule::wbs, source).map_err(|e| ParseError::GrammarError(e.to_string()))?;
 
     let mut diagram = WbsDiagram::new();
     let mut node_stack: Vec<WbsNode> = Vec::new();

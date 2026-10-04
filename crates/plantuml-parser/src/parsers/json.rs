@@ -105,14 +105,14 @@ fn parse_json_value(
 fn parse_json_member(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNode> {
     let mut inner = pair.into_inner();
 
-    let key_pair = inner.next().ok_or_else(|| {
-        ParseError::GrammarError("Ожидался ключ в JSON объекте".to_string())
-    })?;
+    let key_pair = inner
+        .next()
+        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в JSON объекте".to_string()))?;
     let key = parse_json_string(key_pair.as_str());
 
-    let value_pair = inner.next().ok_or_else(|| {
-        ParseError::GrammarError("Ожидалось значение в JSON объекте".to_string())
-    })?;
+    let value_pair = inner
+        .next()
+        .ok_or_else(|| ParseError::GrammarError("Ожидалось значение в JSON объекте".to_string()))?;
 
     parse_json_value(Some(key), value_pair)
 }

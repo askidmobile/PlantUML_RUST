@@ -18,7 +18,7 @@ struct NetworkParser;
 pub fn parse_network(source: &str) -> crate::Result<NetworkDiagram> {
     // Извлекаем содержимое nwdiag блока
     let nwdiag_content = extract_nwdiag_content(source)?;
-    
+
     let pairs = NetworkParser::parse(Rule::network_diagram, &nwdiag_content)
         .map_err(|e| ParseError::GrammarError(format!("Ошибка парсинга Network: {}", e)))?;
 
@@ -41,7 +41,7 @@ pub fn parse_network(source: &str) -> crate::Result<NetworkDiagram> {
 fn extract_nwdiag_content(source: &str) -> crate::Result<String> {
     // Удаляем @startuml/@enduml и извлекаем содержимое
     let source = source.trim();
-    
+
     // Проверяем наличие @startuml
     let content = if source.starts_with("@startuml") {
         let end_idx = source.rfind("@enduml").unwrap_or(source.len());
@@ -50,12 +50,15 @@ fn extract_nwdiag_content(source: &str) -> crate::Result<String> {
     } else {
         source
     };
-    
+
     Ok(content.trim().to_string())
 }
 
 /// Парсит блок nwdiag
-fn parse_nwdiag_block(pair: pest::iterators::Pair<Rule>, diagram: &mut NetworkDiagram) -> crate::Result<()> {
+fn parse_nwdiag_block(
+    pair: pest::iterators::Pair<Rule>,
+    diagram: &mut NetworkDiagram,
+) -> crate::Result<()> {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::diagram_content {
             for element in inner.into_inner() {
@@ -171,7 +174,10 @@ fn parse_server_definition(pair: pest::iterators::Pair<Rule>) -> crate::Result<S
 }
 
 /// Парсит атрибуты сервера
-fn parse_server_attributes(pair: pest::iterators::Pair<Rule>, server: &mut Server) -> crate::Result<()> {
+fn parse_server_attributes(
+    pair: pest::iterators::Pair<Rule>,
+    server: &mut Server,
+) -> crate::Result<()> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::address_attr => {
@@ -342,7 +348,13 @@ nwdiag {
 @enduml"#;
 
         let diagram = parse_network(source).unwrap();
-        assert_eq!(diagram.networks[0].members[0].device_type, DeviceType::Firewall);
-        assert_eq!(diagram.networks[0].members[1].device_type, DeviceType::Router);
+        assert_eq!(
+            diagram.networks[0].members[0].device_type,
+            DeviceType::Firewall
+        );
+        assert_eq!(
+            diagram.networks[0].members[1].device_type,
+            DeviceType::Router
+        );
     }
 }

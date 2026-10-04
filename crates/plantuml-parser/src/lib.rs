@@ -13,8 +13,8 @@ pub mod parsers;
 pub use error::ParseError;
 pub use parsers::{
     parse_activity, parse_class, parse_component, parse_er, parse_gantt, parse_json, parse_mindmap,
-    parse_network, parse_object, parse_salt, parse_sequence, parse_state, parse_timing, parse_usecase,
-    parse_wbs, parse_yaml,
+    parse_network, parse_object, parse_salt, parse_sequence, parse_state, parse_timing,
+    parse_usecase, parse_wbs, parse_yaml,
 };
 pub use plantuml_ast::Diagram;
 
@@ -112,7 +112,11 @@ fn has_component_bracket_pattern(source: &str) -> bool {
                 let trimmed = content.trim();
                 if !trimmed.is_empty()
                     && !trimmed.chars().all(|c| c.is_ascii_digit())
-                    && trimmed.chars().next().map(|c| c.is_alphabetic()).unwrap_or(false)
+                    && trimmed
+                        .chars()
+                        .next()
+                        .map(|c| c.is_alphabetic())
+                        .unwrap_or(false)
                 {
                     return true;
                 }
@@ -165,7 +169,7 @@ fn has_paren_usecase_pattern(source: &str) -> bool {
     let chars: Vec<char> = source.chars().collect();
     let len = chars.len();
     let mut i = 0;
-    
+
     while i < len {
         if chars[i] == '(' {
             // Ищем закрывающую скобку
@@ -182,13 +186,15 @@ fn has_paren_usecase_pattern(source: &str) -> bool {
                     ""
                 };
                 let after = if j + 5 < len {
-                    source.get(j+1..j+5).unwrap_or("")
+                    source.get(j + 1..j + 5).unwrap_or("")
                 } else {
-                    source.get(j+1..).unwrap_or("")
+                    source.get(j + 1..).unwrap_or("")
                 };
-                
-                if before.contains("-->") || before.contains("->")
-                    || after.contains("-->") || after.contains("->")
+
+                if before.contains("-->")
+                    || before.contains("->")
+                    || after.contains("-->")
+                    || after.contains("->")
                 {
                     return true;
                 }
@@ -204,7 +210,9 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     let source_lower = source.to_lowercase();
 
     // Salt Diagram — проверяем по @startsalt или salt keyword
-    if source_lower.contains("@startsalt") || (source_lower.contains("salt") && source_lower.contains("{")) {
+    if source_lower.contains("@startsalt")
+        || (source_lower.contains("salt") && source_lower.contains("{"))
+    {
         return Ok(DiagramKind::Salt);
     }
 
@@ -383,10 +391,7 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     }
 
     // Sequence Diagram — остальные случаи со стрелками
-    if source_lower.contains("-->")
-        || source_lower.contains("->>")
-        || source_lower.contains("->")
-    {
+    if source_lower.contains("-->") || source_lower.contains("->>") || source_lower.contains("->") {
         return Ok(DiagramKind::Sequence);
     }
 
@@ -518,10 +523,16 @@ mod tests {
     #[test]
     fn test_detect_deployment() {
         let source = "@startuml\nnode \"Web Server\" {\n    [Apache]\n}\n@enduml";
-        assert_eq!(detect_diagram_type(source).unwrap(), DiagramKind::Deployment);
+        assert_eq!(
+            detect_diagram_type(source).unwrap(),
+            DiagramKind::Deployment
+        );
 
         let source2 = "@startuml\ndevice Mobile\n@enduml";
-        assert_eq!(detect_diagram_type(source2).unwrap(), DiagramKind::Deployment);
+        assert_eq!(
+            detect_diagram_type(source2).unwrap(),
+            DiagramKind::Deployment
+        );
     }
 
     #[test]

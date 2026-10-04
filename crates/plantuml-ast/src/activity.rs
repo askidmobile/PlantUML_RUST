@@ -44,7 +44,7 @@ pub enum ActivityElement {
     /// Заметка
     Note(Note),
     /// Переход в swimlane
-    SwimlaneChange(String),
+    SwimlaneChange(Swimlane),
     /// Соединитель
     Connector(String),
     /// Detach

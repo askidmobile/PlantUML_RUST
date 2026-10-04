@@ -65,9 +65,15 @@ pub enum SaltWidget {
     /// Меню {*}
     Menu { items: Vec<MenuItem> },
     /// Группа с заголовком {^"title"}
-    GroupBox { title: String, content: Box<SaltWidget> },
+    GroupBox {
+        title: String,
+        content: Box<SaltWidget>,
+    },
     /// Скроллируемая область {S}, {SI}, {S-}
-    ScrollArea { content: Box<SaltWidget>, scrollbar: ScrollbarType },
+    ScrollArea {
+        content: Box<SaltWidget>,
+        scrollbar: ScrollbarType,
+    },
     /// Пустая ячейка (.)
     Empty,
     /// Ячейка span (*)

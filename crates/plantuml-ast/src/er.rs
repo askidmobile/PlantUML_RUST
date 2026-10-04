@@ -96,12 +96,18 @@ impl Entity {
 
     /// Возвращает первичные ключи
     pub fn primary_keys(&self) -> Vec<&Attribute> {
-        self.attributes.iter().filter(|a| a.is_primary_key).collect()
+        self.attributes
+            .iter()
+            .filter(|a| a.is_primary_key)
+            .collect()
     }
 
     /// Возвращает внешние ключи
     pub fn foreign_keys(&self) -> Vec<&Attribute> {
-        self.attributes.iter().filter(|a| a.is_foreign_key).collect()
+        self.attributes
+            .iter()
+            .filter(|a| a.is_foreign_key)
+            .collect()
     }
 
     /// Устанавливает слабую сущность
@@ -279,8 +285,6 @@ impl Cardinality {
         matches!(self, Self::Many | Self::ZeroOrMany | Self::OneOrMany)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

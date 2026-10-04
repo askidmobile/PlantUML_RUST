@@ -122,9 +122,9 @@ fn parse_yaml_value(
 fn parse_yaml_mapping_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNode> {
     let mut inner = pair.into_inner();
 
-    let key_pair = inner.next().ok_or_else(|| {
-        ParseError::GrammarError("Ожидался ключ в YAML mapping".to_string())
-    })?;
+    let key_pair = inner
+        .next()
+        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в YAML mapping".to_string()))?;
     let key = key_pair.as_str().to_string();
 
     // Значение может отсутствовать (будет null)
@@ -139,9 +139,9 @@ fn parse_yaml_mapping_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<
 fn parse_yaml_inline_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNode> {
     let mut inner = pair.into_inner();
 
-    let key_pair = inner.next().ok_or_else(|| {
-        ParseError::GrammarError("Ожидался ключ в YAML inline entry".to_string())
-    })?;
+    let key_pair = inner
+        .next()
+        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в YAML inline entry".to_string()))?;
     let key = key_pair.as_str().to_string();
 
     let value_pair = inner.next().ok_or_else(|| {

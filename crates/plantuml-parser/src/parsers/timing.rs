@@ -17,12 +17,11 @@ pub struct TimingParser;
 
 /// Парсит timing diagram из исходного кода
 pub fn parse_timing(source: &str) -> Result<TimingDiagram> {
-    let pairs = TimingParser::parse(Rule::diagram, source).map_err(|e| {
-        ParseError::SyntaxError {
+    let pairs =
+        TimingParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
             line: e.line().to_string().parse().unwrap_or(0),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     let mut diagram = TimingDiagram::new();
     let mut current_time: Option<TimeValue> = None;
@@ -345,9 +344,15 @@ S is Processing
         assert_eq!(diagram.participants.len(), 2);
         assert_eq!(diagram.participants[0].name, "Web Browser");
         assert_eq!(diagram.participants[0].alias, Some("WB".to_string()));
-        assert_eq!(diagram.participants[0].participant_type, ParticipantType::Robust);
+        assert_eq!(
+            diagram.participants[0].participant_type,
+            ParticipantType::Robust
+        );
         assert_eq!(diagram.participants[1].name, "Server");
-        assert_eq!(diagram.participants[1].participant_type, ParticipantType::Concise);
+        assert_eq!(
+            diagram.participants[1].participant_type,
+            ParticipantType::Concise
+        );
 
         assert_eq!(diagram.state_changes.len(), 4);
     }
@@ -371,8 +376,14 @@ D is 1
 
         let diagram = parse_timing(source).unwrap();
         assert_eq!(diagram.participants.len(), 2);
-        assert_eq!(diagram.participants[0].participant_type, ParticipantType::Clock);
-        assert_eq!(diagram.participants[1].participant_type, ParticipantType::Binary);
+        assert_eq!(
+            diagram.participants[0].participant_type,
+            ParticipantType::Clock
+        );
+        assert_eq!(
+            diagram.participants[1].participant_type,
+            ParticipantType::Binary
+        );
     }
 
     #[test]
@@ -389,7 +400,10 @@ S is Low
 "#;
 
         let diagram = parse_timing(source).unwrap();
-        assert_eq!(diagram.metadata.title, Some("Timing Diagram Example".to_string()));
+        assert_eq!(
+            diagram.metadata.title,
+            Some("Timing Diagram Example".to_string())
+        );
     }
 
     #[test]

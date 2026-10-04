@@ -108,7 +108,12 @@ impl MindMapNode {
         if self.children.is_empty() {
             1
         } else {
-            1 + self.children.iter().map(|c| c.max_depth()).max().unwrap_or(0)
+            1 + self
+                .children
+                .iter()
+                .map(|c| c.max_depth())
+                .max()
+                .unwrap_or(0)
         }
     }
 

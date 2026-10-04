@@ -16,12 +16,11 @@ pub struct ObjectParser;
 
 /// Парсит object diagram из исходного кода
 pub fn parse_object(source: &str) -> Result<ObjectDiagram> {
-    let pairs = ObjectParser::parse(Rule::diagram, source).map_err(|e| {
-        ParseError::SyntaxError {
+    let pairs =
+        ObjectParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
             line: e.line().to_string().parse().unwrap_or(0),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     let mut diagram = ObjectDiagram::new();
 

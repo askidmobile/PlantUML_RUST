@@ -5,8 +5,8 @@
 use pest::Parser;
 use pest_derive::Parser;
 
-use plantuml_ast::state::{State, StateDiagram, StateType, Transition};
 use plantuml_ast::common::{Note, NotePosition};
+use plantuml_ast::state::{State, StateDiagram, StateType, Transition};
 
 use crate::{ParseError, Result};
 
@@ -16,11 +16,10 @@ pub struct StateParser;
 
 /// Парсит state diagram из исходного кода
 pub fn parse_state(source: &str) -> Result<StateDiagram> {
-    let pairs =
-        StateParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-            line: e.line().to_string().parse().unwrap_or(0),
-            message: e.to_string(),
-        })?;
+    let pairs = StateParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
+        line: e.line().to_string().parse().unwrap_or(0),
+        message: e.to_string(),
+    })?;
 
     let mut diagram = StateDiagram::new();
 
@@ -181,7 +180,7 @@ fn parse_state_simple(pair: pest::iterators::Pair<Rule>) -> Option<State> {
 /// Парсит алиас состояния (Name : description)
 fn parse_state_alias(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     let mut parts: Vec<&str> = Vec::new();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::simple_identifier => {
@@ -301,7 +300,9 @@ fn extract_transition_endpoint(pair: pest::iterators::Pair<Rule>) -> String {
 }
 
 /// Извлекает компоненты метки перехода
-fn extract_transition_label(pair: pest::iterators::Pair<Rule>) -> (Option<String>, Option<String>, Option<String>) {
+fn extract_transition_label(
+    pair: pest::iterators::Pair<Rule>,
+) -> (Option<String>, Option<String>, Option<String>) {
     let mut event: Option<String> = None;
     let mut guard: Option<String> = None;
     let mut action: Option<String> = None;
@@ -424,7 +425,7 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
 /// Извлекает имя из state_name_part
 fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
     let text = pair.as_str().trim().to_string();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::quoted_string => {
@@ -436,7 +437,7 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
             _ => {}
         }
     }
-    
+
     text
 }
 
@@ -489,13 +490,13 @@ State2 --> [*]
 
         let diagram = parse_state(source).unwrap();
         assert_eq!(diagram.transitions.len(), 3);
-        
+
         assert_eq!(diagram.transitions[0].from, "[*]");
         assert_eq!(diagram.transitions[0].to, "State1");
-        
+
         assert_eq!(diagram.transitions[1].from, "State1");
         assert_eq!(diagram.transitions[1].to, "State2");
-        
+
         assert_eq!(diagram.transitions[2].from, "State2");
         assert_eq!(diagram.transitions[2].to, "[*]");
     }
@@ -512,10 +513,10 @@ Inactive --> [*]
 
         let diagram = parse_state(source).unwrap();
         assert_eq!(diagram.transitions.len(), 3);
-        
+
         // Первый переход
         assert_eq!(diagram.transitions[0].event, Some("start".to_string()));
-        
+
         // Второй переход с guard и action
         assert_eq!(diagram.transitions[1].from, "Active");
         assert_eq!(diagram.transitions[1].to, "Inactive");
@@ -536,10 +537,10 @@ state Processing
 
         let diagram = parse_state(source).unwrap();
         assert_eq!(diagram.states.len(), 2);
-        
+
         assert_eq!(diagram.states[0].name, "Long State Name");
         assert_eq!(diagram.states[0].alias, Some("LSN".to_string()));
-        
+
         assert_eq!(diagram.states[1].name, "Processing");
     }
 
@@ -557,7 +558,7 @@ state Composite {
 
         let diagram = parse_state(source).unwrap();
         assert_eq!(diagram.states.len(), 1);
-        
+
         let composite = &diagram.states[0];
         assert_eq!(composite.name, "Composite");
         assert_eq!(composite.state_type, StateType::Composite);
@@ -576,7 +577,7 @@ choice1 --> State2 : [condition2]
 "#;
 
         let diagram = parse_state(source).unwrap();
-        
+
         let choice = diagram.states.iter().find(|s| s.name == "choice1");
         assert!(choice.is_some());
         assert_eq!(choice.unwrap().state_type, StateType::Choice);
@@ -598,11 +599,11 @@ join1 --> [*]
 "#;
 
         let diagram = parse_state(source).unwrap();
-        
+
         let fork = diagram.states.iter().find(|s| s.name == "fork1");
         assert!(fork.is_some());
         assert_eq!(fork.unwrap().state_type, StateType::Fork);
-        
+
         let join = diagram.states.iter().find(|s| s.name == "join1");
         assert!(join.is_some());
         assert_eq!(join.unwrap().state_type, StateType::Join);

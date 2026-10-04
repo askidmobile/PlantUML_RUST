@@ -212,8 +212,14 @@ mod tests {
 
     #[test]
     fn test_link_type_from_arrow() {
-        assert_eq!(ObjectLinkType::from_arrow("-->"), ObjectLinkType::Association);
+        assert_eq!(
+            ObjectLinkType::from_arrow("-->"),
+            ObjectLinkType::Association
+        );
         assert_eq!(ObjectLinkType::from_arrow("--"), ObjectLinkType::Link);
-        assert_eq!(ObjectLinkType::from_arrow("..>"), ObjectLinkType::Dependency);
+        assert_eq!(
+            ObjectLinkType::from_arrow("..>"),
+            ObjectLinkType::Dependency
+        );
     }
 }

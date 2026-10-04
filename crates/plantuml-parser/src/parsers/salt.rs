@@ -54,7 +54,7 @@ fn extract_salt_content(source: &str) -> crate::Result<String> {
         let end_idx = source.rfind("@enduml").unwrap_or(source.len());
         let start_idx = source.find('\n').map(|i| i + 1).unwrap_or(9);
         let content = &source[start_idx..end_idx];
-        
+
         // Убираем ключевое слово salt если есть
         let content = content.trim();
         if content.starts_with("salt") {
@@ -184,7 +184,9 @@ fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option
         }
         Rule::button => {
             if let Some(content) = pair.into_inner().next() {
-                return Ok(Some(SaltWidget::Button(content.as_str().trim().to_string())));
+                return Ok(Some(SaltWidget::Button(
+                    content.as_str().trim().to_string(),
+                )));
             }
         }
         Rule::textfield => {
@@ -254,8 +256,6 @@ fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option
     }
     Ok(None)
 }
-
-
 
 /// Парсит содержимое дерева
 fn parse_tree_content(container: &Container) -> SaltWidget {

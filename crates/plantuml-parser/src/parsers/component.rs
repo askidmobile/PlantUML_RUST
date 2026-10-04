@@ -5,10 +5,10 @@
 use pest::Parser;
 use pest_derive::Parser;
 
+use plantuml_ast::common::{Color, Note, NotePosition, Stereotype};
 use plantuml_ast::component::{
     Component, ComponentDiagram, ComponentPackage, ComponentType, Connection, PackageType,
 };
-use plantuml_ast::common::{Color, Note, NotePosition, Stereotype};
 
 use crate::{ParseError, Result};
 
@@ -18,12 +18,11 @@ pub struct ComponentParser;
 
 /// Парсит component diagram из исходного кода
 pub fn parse_component(source: &str) -> Result<ComponentDiagram> {
-    let pairs = ComponentParser::parse(Rule::diagram, source).map_err(|e| {
-        ParseError::SyntaxError {
+    let pairs =
+        ComponentParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
             line: e.line().to_string().parse().unwrap_or(0),
             message: e.to_string(),
-        }
-    })?;
+        })?;
 
     let mut diagram = ComponentDiagram::new();
 
@@ -84,9 +83,7 @@ fn parse_component_def(pair: pest::iterators::Pair<Rule>) -> Option<Component> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::component_keyword
-            | Rule::container_keyword
-            | Rule::non_container_keyword => {
+            Rule::component_keyword | Rule::container_keyword | Rule::non_container_keyword => {
                 component_type = parse_component_type(inner.as_str());
             }
             Rule::component_name => {
@@ -490,10 +487,16 @@ cloud AWS
         assert_eq!(diagram.components.len(), 3);
 
         assert_eq!(diagram.components[0].name, "API");
-        assert_eq!(diagram.components[0].component_type, ComponentType::Component);
+        assert_eq!(
+            diagram.components[0].component_type,
+            ComponentType::Component
+        );
 
         assert_eq!(diagram.components[1].name, "MySQL");
-        assert_eq!(diagram.components[1].component_type, ComponentType::Database);
+        assert_eq!(
+            diagram.components[1].component_type,
+            ComponentType::Database
+        );
 
         assert_eq!(diagram.components[2].name, "AWS");
         assert_eq!(diagram.components[2].component_type, ComponentType::Cloud);
@@ -611,8 +614,16 @@ node "Outer" {
         let diagram = parse_component(source).unwrap();
         assert_eq!(diagram.packages.len(), 1, "Should have 1 outer package");
         assert_eq!(diagram.packages[0].name, "Outer");
-        assert_eq!(diagram.packages[0].packages.len(), 1, "Should have 1 nested package");
+        assert_eq!(
+            diagram.packages[0].packages.len(),
+            1,
+            "Should have 1 nested package"
+        );
         assert_eq!(diagram.packages[0].packages[0].name, "Inner");
-        assert_eq!(diagram.packages[0].packages[0].components.len(), 1, "Should have 1 component");
+        assert_eq!(
+            diagram.packages[0].packages[0].components.len(),
+            1,
+            "Should have 1 component"
+        );
     }
 }

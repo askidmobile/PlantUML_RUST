@@ -6,8 +6,8 @@ use pest::Parser;
 use pest_derive::Parser;
 
 use plantuml_ast::activity::{
-    Action, ActionStyle, ActivityDiagram, ActivityElement, Condition, ElseIfBranch, Fork,
-    JoinType, RepeatLoop, WhileLoop,
+    Action, ActionStyle, ActivityDiagram, ActivityElement, Condition, ElseIfBranch, Fork, JoinType,
+    RepeatLoop, Swimlane, WhileLoop,
 };
 use plantuml_ast::common::{Color, Note, NotePosition};
 
@@ -68,7 +68,7 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Option<ActivityElement>
         Rule::while_stmt => parse_while_stmt(pair).map(ActivityElement::While),
         Rule::repeat_stmt => parse_repeat_stmt(pair).map(ActivityElement::Repeat),
         Rule::fork_stmt => parse_fork_stmt(pair).map(ActivityElement::Fork),
-        Rule::swimlane_stmt => parse_swimlane(pair).map(|s| ActivityElement::SwimlaneChange(s)),
+        Rule::swimlane_stmt => parse_swimlane(pair).map(ActivityElement::SwimlaneChange),
         Rule::connector_stmt => parse_connector(pair).map(ActivityElement::Connector),
         Rule::note_stmt | Rule::note_inline | Rule::note_multiline => {
             parse_note(pair).map(ActivityElement::Note)
@@ -336,13 +336,36 @@ fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Fork> {
 }
 
 /// Парсит swimlane
-fn parse_swimlane(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+/// Поддерживает синтаксис: |name| или |#color|name|
+fn parse_swimlane(pair: pest::iterators::Pair<Rule>) -> Option<Swimlane> {
+    let mut name = String::new();
+    let mut color: Option<Color> = None;
+
     for inner in pair.into_inner() {
-        if inner.as_rule() == Rule::swimlane_name {
-            return Some(inner.as_str().trim().to_string());
+        match inner.as_rule() {
+            Rule::swimlane_name => {
+                name = inner.as_str().trim().to_string();
+            }
+            Rule::swimlane_color => {
+                // swimlane_color содержит color внутри
+                for color_inner in inner.into_inner() {
+                    if color_inner.as_rule() == Rule::color {
+                        color = parse_color(color_inner);
+                    }
+                }
+            }
+            Rule::color => {
+                color = parse_color(inner);
+            }
+            _ => {}
         }
     }
-    None
+
+    if name.is_empty() {
+        return None;
+    }
+
+    Some(Swimlane { name, color })
 }
 
 /// Парсит коннектор
@@ -403,18 +426,28 @@ fn extract_label(pair: pest::iterators::Pair<Rule>) -> String {
 }
 
 /// Парсит цвет
+/// Поддерживает: #RRGGBB, #RGB, #NamedColor
 fn parse_color(pair: pest::iterators::Pair<Rule>) -> Option<Color> {
     // Сначала попробуем распарсить весь текст как цвет
     let text = pair.as_str();
-    if let Some(hex) = text.strip_prefix('#') {
-        return Some(Color::from_hex(hex));
+
+    // Если начинается с #, используем Color::parse который понимает и hex и named
+    if text.starts_with('#') {
+        return Some(Color::parse(text));
     }
-    
-    // Попробуем найти hex_color внутри
+
+    // Попробуем найти hex_color или named_color внутри
     for inner in pair.into_inner() {
-        if inner.as_rule() == Rule::hex_color {
-            let hex = inner.as_str();
-            return Some(Color::from_hex(hex));
+        match inner.as_rule() {
+            Rule::hex_color => {
+                let hex = inner.as_str();
+                return Some(Color::from_hex(hex));
+            }
+            Rule::named_color => {
+                let name = inner.as_str();
+                return Some(Color::named(name));
+            }
+            _ => {}
         }
     }
     None
@@ -462,9 +495,10 @@ stop
         let diagram = parse_activity(source).unwrap();
 
         // Находим условие
-        let condition = diagram.elements.iter().find(|e| {
-            matches!(e, ActivityElement::Condition(_))
-        });
+        let condition = diagram
+            .elements
+            .iter()
+            .find(|e| matches!(e, ActivityElement::Condition(_)));
         assert!(condition.is_some());
 
         if let Some(ActivityElement::Condition(cond)) = condition {
@@ -488,9 +522,10 @@ stop
 
         let diagram = parse_activity(source).unwrap();
 
-        let while_loop = diagram.elements.iter().find(|e| {
-            matches!(e, ActivityElement::While(_))
-        });
+        let while_loop = diagram
+            .elements
+            .iter()
+            .find(|e| matches!(e, ActivityElement::While(_)));
         assert!(while_loop.is_some());
 
         if let Some(ActivityElement::While(w)) = while_loop {
@@ -515,9 +550,10 @@ stop
 
         let diagram = parse_activity(source).unwrap();
 
-        let fork = diagram.elements.iter().find(|e| {
-            matches!(e, ActivityElement::Fork(_))
-        });
+        let fork = diagram
+            .elements
+            .iter()
+            .find(|e| matches!(e, ActivityElement::Fork(_)));
         assert!(fork.is_some());
 
         if let Some(ActivityElement::Fork(f)) = fork {
@@ -541,10 +577,68 @@ stop
 
         let diagram = parse_activity(source).unwrap();
 
-        let swimlanes: Vec<_> = diagram.elements.iter().filter(|e| {
-            matches!(e, ActivityElement::SwimlaneChange(_))
-        }).collect();
+        let swimlanes: Vec<_> = diagram
+            .elements
+            .iter()
+            .filter_map(|e| {
+                if let ActivityElement::SwimlaneChange(s) = e {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
         assert_eq!(swimlanes.len(), 2);
+        assert_eq!(swimlanes[0].name, "Swimlane1");
+        assert_eq!(swimlanes[1].name, "Swimlane2");
+    }
+
+    #[test]
+    fn test_parse_swimlane_with_color() {
+        let source = r#"
+@startuml
+|Swimlane1|
+start
+:action;
+|#AntiqueWhite|Swimlane2|
+:another action;
+|#FF0000|Swimlane3|
+:third action;
+stop
+@enduml
+"#;
+
+        let diagram = parse_activity(source).unwrap();
+
+        let swimlanes: Vec<_> = diagram
+            .elements
+            .iter()
+            .filter_map(|e| {
+                if let ActivityElement::SwimlaneChange(s) = e {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert_eq!(swimlanes.len(), 3);
+        assert_eq!(swimlanes[0].name, "Swimlane1");
+        assert!(swimlanes[0].color.is_none());
+
+        assert_eq!(swimlanes[1].name, "Swimlane2");
+        assert!(swimlanes[1].color.is_some(), "Expected color for Swimlane2");
+        // Проверяем, что цвет правильно распарсен как именованный
+        assert_eq!(
+            swimlanes[1].color.as_ref().unwrap().to_css(),
+            "AntiqueWhite"
+        );
+
+        assert_eq!(swimlanes[2].name, "Swimlane3");
+        assert!(swimlanes[2].color.is_some(), "Expected color for Swimlane3");
+        // Проверяем, что hex цвет правильно распарсен
+        assert_eq!(swimlanes[2].color.as_ref().unwrap().to_css(), "#FF0000");
     }
 
     #[test]
@@ -561,9 +655,10 @@ stop
 
         let diagram = parse_activity(source).unwrap();
 
-        let repeat = diagram.elements.iter().find(|e| {
-            matches!(e, ActivityElement::Repeat(_))
-        });
+        let repeat = diagram
+            .elements
+            .iter()
+            .find(|e| matches!(e, ActivityElement::Repeat(_)));
         assert!(repeat.is_some());
     }
 }
