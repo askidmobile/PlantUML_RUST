@@ -11,7 +11,6 @@ categories = ["parsing"]
 
 [dependencies]
 plantuml-ast = { workspace = true }
-logos = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
 thiserror = { workspace = true }

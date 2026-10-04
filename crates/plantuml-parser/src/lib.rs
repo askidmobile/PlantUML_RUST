@@ -7,7 +7,6 @@
 //! 2. Парсер (pest) — PEG грамматики для структуры
 
 pub mod error;
-pub mod lexer;
 pub mod parsers;
 
 pub use error::ParseError;
