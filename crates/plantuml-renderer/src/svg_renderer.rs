@@ -47,7 +47,13 @@ impl SvgRenderer {
         let width = (bounds.width + margin * 2.0) * self.options.scale;
         let height = (bounds.height + margin * 2.0) * self.options.scale;
 
+        // Набор атрибутов повторяет PlantUML: он важен для потребителей,
+        // разбирающих вывод (contentStyleType), и для корректного
+        // масштабирования (preserveAspectRatio, zoomAndPan).
         let mut doc = Document::new()
+            .set("xmlns", "http://www.w3.org/2000/svg")
+            .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
+            .set("version", "1.1")
             .set("width", width)
             .set("height", height)
             .set(
@@ -59,7 +65,9 @@ impl SvgRenderer {
                     bounds.height + margin * 2.0,
                 ),
             )
-            .set("xmlns", "http://www.w3.org/2000/svg");
+            .set("zoomAndPan", "magnify")
+            .set("preserveAspectRatio", "none")
+            .set("contentStyleType", "text/css");
 
         // PlantUML по умолчанию НЕ добавляет фон и рамку вокруг диаграммы
         // Фон добавляется только если явно указан через skinparam backgroundColor
@@ -1636,12 +1644,99 @@ impl Renderer for SvgRenderer {
             doc = doc.add(rendered);
         }
 
-        if self.options.xml_header {
+        let svg = if self.options.xml_header {
             format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}", doc)
         } else {
             doc.to_string()
-        }
+        };
+
+        // PlantUML проставляет textLength каждому текстовому узлу — это
+        // ширина строки в метриках шрифта. Атрибут добавляется одной
+        // постобработкой, а не в каждом из методов отрисовки текста:
+        // так его невозможно забыть при добавлении нового метода.
+        annotate_text_length(&svg)
     }
+}
+
+/// Средняя ширина символа в долях от размера шрифта.
+///
+/// Согласована с `plantuml_layout::text::TextMeasurer`: PlantUML при
+/// font-size 14 для текста `Alice` пишет `textLength="33.667"`, то есть
+/// 0.481 em на символ.
+const AVG_CHAR_EM: f64 = 0.481;
+
+/// Округляет до трёх знаков: PlantUML пишет `33.667`, а не `33.6670001`.
+fn round3(value: f64) -> f64 {
+    (value * 1000.0).round() / 1000.0
+}
+
+/// Оценивает ширину текста в пикселях (для атрибута `textLength`).
+fn measure_text(text: &str, font_size: f64) -> f64 {
+    // Считаем символы, а не байты — иначе кириллица даёт удвоенную ширину
+    text.chars().count() as f64 * font_size * AVG_CHAR_EM
+}
+
+/// Извлекает значение `font-size` из строки тега.
+fn extract_font_size(tag: &str) -> Option<f64> {
+    let marker = "font-size=\"";
+    let start = tag.find(marker)? + marker.len();
+    let rest = &tag[start..];
+    let end = rest.find('"')?;
+    rest[..end].parse().ok()
+}
+
+/// Добавляет атрибут `textLength` каждому текстовому узлу, где его нет.
+///
+/// PlantUML проставляет его всегда: это ширина строки в метриках шрифта.
+/// Разбор разметки простым поиском достаточен, потому что рендерер сам
+/// формирует теги `<text>` и не вставляет экранированные `>` в атрибуты.
+fn annotate_text_length(svg: &str) -> String {
+    let mut out = String::with_capacity(svg.len() + svg.len() / 20);
+    let mut rest = svg;
+
+    while let Some(open) = rest.find("<text") {
+        out.push_str(&rest[..open]);
+        let after = &rest[open..];
+
+        let Some(tag_end) = after.find('>') else {
+            out.push_str(after);
+            return out;
+        };
+        let tag = &after[..tag_end];
+
+        // Уже есть — оставляем как есть
+        if tag.contains("textLength") {
+            out.push_str(&after[..=tag_end]);
+            rest = &after[tag_end + 1..];
+            continue;
+        }
+
+        let content_start = tag_end + 1;
+        let content = &after[content_start..];
+        let Some(close) = content.find("</text>") else {
+            out.push_str(after);
+            return out;
+        };
+
+        let label = content[..close].trim();
+        let font_size = extract_font_size(tag).unwrap_or(13.0);
+        // Многострочный текст: берём самую длинную строку
+        let measured = label
+            .lines()
+            .map(|line| measure_text(line, font_size))
+            .fold(0.0_f64, f64::max);
+
+        out.push_str(tag);
+        out.push_str(&format!(" textLength=\"{}\"", round3(measured)));
+        out.push('>');
+        out.push_str(&content[..close]);
+        out.push_str("</text>");
+
+        rest = &content[close + "</text>".len()..];
+    }
+
+    out.push_str(rest);
+    out
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ assertion_line: 56
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="270" viewBox="15 15 269.008 270" width="269.008" xmlns="http://www.w3.org/2000/svg">
+<svg contentStyleType="text/css" height="270" preserveAspectRatio="none" version="1.1" viewBox="15 15 269.008 270" width="269.008" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -25,48 +25,48 @@ expression: svg
 <g id="Animal">
 <rect fill="#E2E2F0" height="70" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="88.21944" x="85.39427999999998" y="20"/>
 <ellipse cx="101.39427999999998" cy="36" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="101.39427999999998" y="40">
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="101.39427999999998" y="40" textLength="5.772">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="117.39427999999998" y="39">
+<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="117.39427999999998" y="39" textLength="40.404">
 Animal
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="86.39427999999998" x2="172.61372" y1="46" y2="46"/>
 <line stroke="#181818" stroke-width="0.5" x1="86.39427999999998" x2="172.61372" y1="51" y2="51"/>
 <ellipse cx="93.39427999999998" cy="64" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="101.39427999999998" y="68">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="101.39427999999998" y="68" textLength="33.67">
 eat()
 </text>
 </g>
 <g id="Dog">
 <rect fill="#E2E2F0" height="70" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="82.13799999999999" x="20" y="170"/>
 <ellipse cx="36" cy="186" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="190">
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="190" textLength="5.772">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="52" y="189">
+<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="52" y="189" textLength="20.202">
 Dog
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="21" x2="101.13799999999999" y1="196" y2="196"/>
 <line stroke="#181818" stroke-width="0.5" x1="21" x2="101.13799999999999" y1="201" y2="201"/>
 <ellipse cx="28" cy="214" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="218">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="36" y="218" textLength="40.404">
 bark()
 </text>
 </g>
 <g id="Cat">
 <rect fill="#E2E2F0" height="70" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="86.87" x="152.13799999999998" y="170"/>
 <ellipse cx="168.13799999999998" cy="186" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="168.13799999999998" y="190">
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="168.13799999999998" y="190" textLength="5.772">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="184.13799999999998" y="189">
+<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="184.13799999999998" y="189" textLength="20.202">
 Cat
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="153.13799999999998" x2="238.00799999999998" y1="196" y2="196"/>
 <line stroke="#181818" stroke-width="0.5" x1="153.13799999999998" x2="238.00799999999998" y1="201" y2="201"/>
 <ellipse cx="160.13799999999998" cy="214" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="168.13799999999998" y="218">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="168.13799999999998" y="218" textLength="40.404">
 meow()
 </text>
 </g>

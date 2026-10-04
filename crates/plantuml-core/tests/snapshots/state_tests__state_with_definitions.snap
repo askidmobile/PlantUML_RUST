@@ -4,7 +4,7 @@ assertion_line: 50
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="460" viewBox="25 25 295 460" width="295" xmlns="http://www.w3.org/2000/svg">
+<svg contentStyleType="text/css" height="460" preserveAspectRatio="none" version="1.1" viewBox="25 25 295 460" width="295" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -27,21 +27,21 @@ expression: svg
 </g>
 <g id="composite_Active">
 <rect fill="#E2E2F0" height="230" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="225" x="30" y="110"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="142.5" y="127">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="142.5" y="127" textLength="43.29">
 Active
 </text>
 <line stroke="#181818" stroke-width="1" x1="30" x2="255" y1="140" y2="140"/>
 </g>
 <g id="Active_inner_state_Processing">
 <rect fill="#E2E2F0" height="35" rx="10" ry="10" stroke="#181818" stroke-width="1" width="90" x="97.5" y="185"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="142.5" y="202.5">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="142.5" y="202.5" textLength="67.34">
 Processing
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="97.5" x2="187.5" y1="210" y2="210"/>
 </g>
 <g id="Active_inner_state_Waiting">
 <rect fill="#E2E2F0" height="35" rx="10" ry="10" stroke="#181818" stroke-width="1" width="90" x="97.5" y="260"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="142.5" y="277.5">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle" x="142.5" y="277.5" textLength="47.138">
 Waiting
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="97.5" x2="187.5" y1="285" y2="285"/>
