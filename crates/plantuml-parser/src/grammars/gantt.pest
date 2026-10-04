@@ -104,7 +104,9 @@ task_name = {
 
 task_name_inner = { (!"]" ~ ANY)+ }
 
-task_modifiers = { (ws+ ~ task_modifier)* }
+// Модификаторы могут соединяться союзом `and`:
+//   [T1] starts 2024-02-01 and lasts 3 days
+task_modifiers = { (ws+ ~ ("and" ~ ws+)? ~ task_modifier)* }
 
 task_modifier = {
     alias_modifier
