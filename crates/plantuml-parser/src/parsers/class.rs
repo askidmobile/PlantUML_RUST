@@ -11,7 +11,8 @@ use plantuml_ast::class::{
 };
 use plantuml_ast::common::{Color, LineStyle, Stereotype};
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/class.pest"]
@@ -19,10 +20,8 @@ pub struct ClassParser;
 
 /// Парсит class diagram из исходного кода
 pub fn parse_class(source: &str) -> Result<ClassDiagram> {
-    let pairs = ClassParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-        line: e.line().to_string().parse().unwrap_or(0),
-        message: e.to_string(),
-    })?;
+    let pairs = ClassParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = ClassDiagram::new();
     let mut package_stack: Vec<Package> = Vec::new();

@@ -8,7 +8,8 @@ use pest_derive::Parser;
 use plantuml_ast::common::{Note, NotePosition};
 use plantuml_ast::state::{State, StateDiagram, StateType, Transition};
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/state.pest"]
@@ -16,10 +17,8 @@ pub struct StateParser;
 
 /// Парсит state diagram из исходного кода
 pub fn parse_state(source: &str) -> Result<StateDiagram> {
-    let pairs = StateParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-        line: e.line().to_string().parse().unwrap_or(0),
-        message: e.to_string(),
-    })?;
+    let pairs = StateParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = StateDiagram::new();
 

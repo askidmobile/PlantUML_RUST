@@ -10,7 +10,8 @@ use plantuml_ast::gantt::{
     Holiday, MilestoneTime, TaskDuration, TaskStart, Weekday,
 };
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/gantt.pest"]
@@ -18,10 +19,8 @@ pub struct GanttParser;
 
 /// Парсит gantt diagram из исходного кода
 pub fn parse_gantt(source: &str) -> Result<GanttDiagram> {
-    let pairs = GanttParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-        line: e.line().to_string().parse().unwrap_or(0),
-        message: e.to_string(),
-    })?;
+    let pairs = GanttParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = GanttDiagram::new();
     let mut last_task_id: Option<String> = None;

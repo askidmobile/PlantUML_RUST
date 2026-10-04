@@ -10,7 +10,8 @@ use plantuml_ast::component::{
     Component, ComponentDiagram, ComponentPackage, ComponentType, Connection, PackageType,
 };
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/component.pest"]
@@ -18,11 +19,8 @@ pub struct ComponentParser;
 
 /// Парсит component diagram из исходного кода
 pub fn parse_component(source: &str) -> Result<ComponentDiagram> {
-    let pairs =
-        ComponentParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-            line: e.line().to_string().parse().unwrap_or(0),
-            message: e.to_string(),
-        })?;
+    let pairs = ComponentParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = ComponentDiagram::new();
 

@@ -1,5 +1,6 @@
 ---
 source: crates/plantuml-core/tests/sequence_tests.rs
+assertion_line: 67
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,7 +31,7 @@ expression: svg
 Process
 </text>
 </g>
-<g id="msg_Server_Server">
+<g id="msg_Server_Server_2">
 <path d="M57.5,115 L99.5,115 L99.5,128 L57.5,128" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="62.5" y="110">
 Validate

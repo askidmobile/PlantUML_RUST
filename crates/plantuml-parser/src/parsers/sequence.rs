@@ -12,7 +12,8 @@ use plantuml_ast::sequence::{
     Reference, Return, SequenceDiagram, SequenceElement,
 };
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/sequence.pest"]
@@ -31,11 +32,8 @@ type BoxState = (Option<String>, Option<Color>, Vec<String>);
 
 /// Парсит sequence diagram из исходного кода
 pub fn parse_sequence(source: &str) -> Result<SequenceDiagram> {
-    let pairs =
-        SequenceParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-            line: e.line().to_string().parse().unwrap_or(0),
-            message: e.to_string(),
-        })?;
+    let pairs = SequenceParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = SequenceDiagram::new();
     let mut fragment_stack: Vec<FragmentStackEntry> = Vec::new();

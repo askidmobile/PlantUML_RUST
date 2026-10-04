@@ -617,6 +617,49 @@ fn parse_archimate_diagram(source: &str) -> Result<Diagram> {
 mod tests {
     use super::*;
 
+    /// Позиция ошибки в `SyntaxError` должна быть настоящей, а не нулём.
+    ///
+    /// Регрессия: раньше все парсеры делали
+    /// `line: e.line().to_string().parse().unwrap_or(0)`, но `pest::Error::line()`
+    /// возвращает ТЕКСТ строки, а не номер, поэтому поле всегда было нулевым.
+    #[test]
+    fn test_syntax_error_reports_real_line() {
+        let cases = [
+            // (исходник, ожидаемая строка)
+            (
+                "@startuml
+participant A
+participant B
+garbage line here
+@enduml
+",
+                4,
+            ),
+            (
+                "@startuml
+garbage here
+participant A
+@enduml",
+                2,
+            ),
+        ];
+
+        for (source, expected) in cases {
+            match parse(source) {
+                Err(ParseError::SyntaxError { line, .. }) => {
+                    assert_eq!(
+                        line,
+                        expected,
+                        "неверная строка ошибки для:\n{source}\nсообщение: {}",
+                        parse(source).unwrap_err()
+                    );
+                }
+                Err(other) => panic!("ожидалась SyntaxError, получено: {other}"),
+                Ok(_) => panic!("ожидалась ошибка, но разбор прошёл:\n{source}"),
+            }
+        }
+    }
+
     #[test]
     fn test_detect_sequence() {
         let source = "@startuml\nAlice -> Bob: Hello\n@enduml";

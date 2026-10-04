@@ -10,7 +10,8 @@ use plantuml_ast::usecase::{
     UseCase, UseCaseActor, UseCaseDiagram, UseCasePackage, UseCaseRelationType, UseCaseRelationship,
 };
 
-use crate::{ParseError, Result};
+use crate::error::syntax_error_from_pest;
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "grammars/usecase.pest"]
@@ -18,11 +19,8 @@ pub struct UseCaseParser;
 
 /// Парсит use case diagram из исходного кода
 pub fn parse_usecase(source: &str) -> Result<UseCaseDiagram> {
-    let pairs =
-        UseCaseParser::parse(Rule::diagram, source).map_err(|e| ParseError::SyntaxError {
-            line: e.line().to_string().parse().unwrap_or(0),
-            message: e.to_string(),
-        })?;
+    let pairs = UseCaseParser::parse(Rule::diagram, source)
+        .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = UseCaseDiagram::new();
 

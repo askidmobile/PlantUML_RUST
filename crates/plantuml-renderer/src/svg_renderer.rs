@@ -175,7 +175,15 @@ impl SvgRenderer {
 
     /// Рендерит элемент
     fn render_element(&self, element: &LayoutElement, theme: &Theme) -> Group {
-        let mut group = Group::new().set("id", element.id.as_str());
+        self.render_element_with_id(element, theme, &element.id)
+    }
+
+    /// Рендерит элемент с заданным идентификатором.
+    ///
+    /// Отдельный метод нужен, чтобы `render` мог подставить уникальный id,
+    /// не изменяя сам элемент layout.
+    fn render_element_with_id(&self, element: &LayoutElement, theme: &Theme, id: &str) -> Group {
+        let mut group = Group::new().set("id", id);
 
         match &element.element_type {
             ElementType::Rectangle {
@@ -1499,8 +1507,27 @@ impl Renderer for SvgRenderer {
         let mut sorted_elements: Vec<_> = layout.elements.iter().collect();
         sorted_elements.sort_by_key(|e| ZLayer::from_element(e));
 
+        // Уникализируем идентификаторы.
+        //
+        // Layout-движки формируют id из статических частей без счётчика
+        // (`msg_Alice_Bob`, `edge_User_Order`, `trans_A_B`), поэтому два
+        // сообщения между одной парой участников дают одинаковые id.
+        // В SVG атрибут id обязан быть уникальным: дубликаты — невалидный
+        // документ, ломающий селекторы, якоря и `<use>`.
+        let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+
         for element in sorted_elements {
-            let rendered = self.render_element(element, theme);
+            let unique_id = {
+                let base = element.id.as_str();
+                let counter = seen.entry(base).or_insert(0);
+                *counter += 1;
+                if *counter == 1 {
+                    base.to_string()
+                } else {
+                    format!("{base}_{counter}")
+                }
+            };
+            let rendered = self.render_element_with_id(element, theme, &unique_id);
             doc = doc.add(rendered);
         }
 
