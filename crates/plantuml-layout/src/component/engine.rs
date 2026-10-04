@@ -139,7 +139,7 @@ impl ComponentLayoutEngine {
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Rectangle {
-                label: format!("⬡ {}", name), // Добавляем иконку компонента
+                label: name.to_string(), // Добавляем иконку компонента
                 corner_radius: self.config.corner_radius,
             },
         }
@@ -157,9 +157,11 @@ impl ComponentLayoutEngine {
             ),
             text: None,
             properties: std::collections::HashMap::new(),
-            element_type: ElementType::Rectangle {
-                label: format!("🛢 {}", name),
-                corner_radius: self.config.corner_radius,
+            // База данных рисуется цилиндром, а не эмодзи: символ 🛢
+            // зависит от наличия шрифта в системе и визуально не совпадает
+            // с оригиналом PlantUML
+            element_type: ElementType::Database {
+                label: name.to_string(),
             },
         }
     }
@@ -177,7 +179,7 @@ impl ComponentLayoutEngine {
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Rectangle {
-                label: format!("☁ {}", name),
+                label: name.to_string(),
                 corner_radius: self.config.component_height / 2.0,
             },
         }
@@ -210,7 +212,7 @@ impl ComponentLayoutEngine {
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Rectangle {
-                label: format!("⟿ {}", name),
+                label: name.to_string(),
                 corner_radius: self.config.component_height / 4.0,
             },
         }
@@ -229,7 +231,7 @@ impl ComponentLayoutEngine {
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Rectangle {
-                label: format!("⬢ {}", name),
+                label: name.to_string(),
                 corner_radius: 0.0, // Node — с углами
             },
         }
@@ -248,7 +250,7 @@ impl ComponentLayoutEngine {
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Rectangle {
-                label: format!("📁 {}", name),
+                label: name.to_string(),
                 corner_radius: self.config.corner_radius,
             },
         }
@@ -266,9 +268,9 @@ impl ComponentLayoutEngine {
             ),
             text: None,
             properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text: format!("👤\n{}", name),
-                font_size: 12.0,
+            // Актёр — стик-фигура, а не эмодзи
+            element_type: ElementType::Actor {
+                label: name.to_string(),
             },
         }
     }

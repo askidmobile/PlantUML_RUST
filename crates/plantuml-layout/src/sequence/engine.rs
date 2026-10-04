@@ -733,27 +733,30 @@ impl SequenceLayoutEngine {
     ) -> LayoutElement {
         match participant_type {
             ParticipantType::Actor => {
-                // Actor рисуется как человечек (для упрощения - эллипс)
+                // Актёр рисуется как стик-фигура (человечек), а не эллипс:
+                // в PlantUML это отдельная форма, и рендерер её уже умеет
+                // (ElementType::Actor). Ранее здесь стоял эллипс «для
+                // упрощения», что визуально не соответствовало оригиналу.
                 LayoutElement {
                     id: format!("participant_{}", id),
                     bounds: *bounds,
                     text: None,
                     properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Ellipse {
-                        label: Some(display_name.to_string()),
+                    element_type: ElementType::Actor {
+                        label: display_name.to_string(),
                     },
                 }
             }
             ParticipantType::Database => {
-                // Database можно нарисовать как цилиндр (упрощённо - прямоугольник с особым стилем)
+                // База данных в PlantUML — цилиндр, а не прямоугольник
+                // со скруглёнными углами
                 LayoutElement {
                     id: format!("participant_{}", id),
                     bounds: *bounds,
                     text: None,
                     properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Rectangle {
+                    element_type: ElementType::Database {
                         label: display_name.to_string(),
-                        corner_radius: 10.0,
                     },
                 }
             }

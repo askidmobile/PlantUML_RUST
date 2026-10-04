@@ -232,6 +232,9 @@ impl SvgRenderer {
             ElementType::Actor { label } => {
                 group = self.render_actor(&element.bounds, label, theme, group);
             }
+            ElementType::Database { label } => {
+                group = self.render_database(&element.bounds, label, theme, group);
+            }
             ElementType::System { title } => {
                 group = self.render_system(&element.bounds, title, theme, group);
             }
@@ -676,6 +679,86 @@ impl SvgRenderer {
     }
 
     /// Рендерит систему/пакет (rectangle с заголовком сверху) для UseCase диаграмм
+    /// Рендерит базу данных как цилиндр.
+    ///
+    /// PlantUML рисует `database` цилиндром: верхний и нижний эллипсы
+    /// соединены вертикальными боками. Раньше использовался прямоугольник
+    /// со скруглёнными углами, а в component-движке — эмодзи 🛢.
+    fn render_database(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        // Радиус вертикального «полуэллипса» крышки
+        let cap_ry = (bounds.height * 0.12).clamp(3.0, 12.0);
+        let rx = bounds.width / 2.0;
+        let cx = bounds.x + rx;
+
+        let fill = theme.node_background.to_css();
+        let stroke = theme.node_border.to_css();
+
+        // Боковые линии между крышками
+        let left = svg::node::element::Line::new()
+            .set("x1", bounds.x)
+            .set("y1", bounds.y + cap_ry)
+            .set("x2", bounds.x)
+            .set("y2", bounds.y + bounds.height - cap_ry)
+            .set("stroke", stroke.clone())
+            .set("stroke-width", 1);
+        let right = svg::node::element::Line::new()
+            .set("x1", bounds.x + bounds.width)
+            .set("y1", bounds.y + cap_ry)
+            .set("x2", bounds.x + bounds.width)
+            .set("y2", bounds.y + bounds.height - cap_ry)
+            .set("stroke", stroke.clone())
+            .set("stroke-width", 1);
+        group = group.add(left).add(right);
+
+        // Нижняя крышка (видна частично)
+        let bottom = svg::node::element::Ellipse::new()
+            .set("cx", cx)
+            .set("cy", bounds.y + bounds.height - cap_ry)
+            .set("rx", rx)
+            .set("ry", cap_ry)
+            .set("fill", fill.clone())
+            .set("stroke", stroke.clone())
+            .set("stroke-width", 1);
+        group = group.add(bottom);
+
+        // Тело цилиндра — прямоугольник без границ по бокам крышек
+        let body = Rectangle::new()
+            .set("x", bounds.x)
+            .set("y", bounds.y + cap_ry)
+            .set("width", bounds.width)
+            .set("height", bounds.height - cap_ry * 2.0)
+            .set("fill", fill.clone())
+            .set("stroke", "none");
+        group = group.add(body);
+
+        // Верхняя крышка
+        let top = svg::node::element::Ellipse::new()
+            .set("cx", cx)
+            .set("cy", bounds.y + cap_ry)
+            .set("rx", rx)
+            .set("ry", cap_ry)
+            .set("fill", fill)
+            .set("stroke", stroke)
+            .set("stroke-width", 1);
+        group = group.add(top);
+
+        // Подпись
+        let text = svg::node::element::Text::new(label)
+            .set("x", cx)
+            .set("y", bounds.y + bounds.height / 2.0 + theme.font_size / 3.0)
+            .set("text-anchor", "middle")
+            .set("font-family", theme.font_family.as_str())
+            .set("font-size", theme.font_size)
+            .set("fill", theme.text_color.to_css());
+        group.add(text)
+    }
+
     fn render_system(&self, bounds: &Rect, title: &str, theme: &Theme, mut group: Group) -> Group {
         let header_height = 25.0;
 
