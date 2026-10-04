@@ -76,11 +76,14 @@ cargo test -p plantuml-core --test golden_tests golden_report -- --nocapture
 
 | Кейс | PlantUML | наш | Δ width | Δ height |
 |------|----------|-----|---------|----------|
-| class_inheritance | 204x210 | 340x270 | 136.0 | 60.0 |
-| sequence_fragments | 199x252 | 215x325 | 16.0 | 73.0 |
-| sequence_notes | 221x194 | 274x209 | 52.8 | 15.0 |
-| sequence_participants | 603x337 | 778x274 | 174.5 | 63.0 |
-| sequence_simple | 306x218 | 338x239 | 32.5 | 21.0 |
+| class_inheritance | 204x210 | 269x270 | 65.0 | 60.0 |
+| sequence_fragments | 199x252 | 183x298 | 16.5 | 46.0 |
+| sequence_notes | 221x194 | 255x188 | 34.0 | 6.1 |
+| sequence_participants | 603x337 | 625x235 | 21.8 | 101.7 |
+| sequence_simple | 306x218 | 281x206 | 24.6 | 11.9 |
 | state_simple | 226x278 | 240x390 | 14.0 | 112.0 |
+
+Суммарное расхождение по ширине — 175.9px на 6 кейсов (было 425.8px).
+Пересчитать: `cargo test -p plantuml-core --test golden_tests golden_report -- --nocapture`.
 
 Все эталоны сняты PlantUML **1.2026.9beta4**.
