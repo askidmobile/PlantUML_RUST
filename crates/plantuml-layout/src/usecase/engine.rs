@@ -10,6 +10,15 @@ use plantuml_ast::usecase::{UseCaseDiagram, UseCaseRelationType, UseCaseRelation
 use plantuml_model::{Point, Rect};
 
 use super::config::UseCaseLayoutConfig;
+
+/// Базовая ширина эллипса use case, измеренная по эталону PlantUML.
+const USE_CASE_BASE_WIDTH: f64 = 55.1;
+/// Прибавка к ширине на каждый символ подписи.
+const USE_CASE_CHAR_WIDTH: f64 = 6.48;
+/// Базовая высота эллипса use case.
+const USE_CASE_BASE_HEIGHT: f64 = 21.4;
+/// Прибавка к высоте на каждый символ подписи.
+const USE_CASE_CHAR_HEIGHT: f64 = 0.95;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для use case diagrams
@@ -64,45 +73,73 @@ impl UseCaseLayoutEngine {
             }
         }
 
-        // Вычисляем размеры системы/rectangle
-        let num_usecases = all_usecases.len().max(1);
-        let system_inner_height =
-            num_usecases as f64 * (self.config.usecase_height + self.config.vertical_spacing);
-        let system_height = system_inner_height
-            + self.config.package_header_height
-            + self.config.package_padding * 2.0;
-        let system_width = self.config.usecase_width + self.config.package_padding * 2.0 + 40.0;
+        // Наибольшая ширина эллипса среди use case: по ней выравнивается
+        // вся группа, как в PlantUML.
+        let max_usecase_width = all_usecases
+            .iter()
+            .map(|(name, _)| self.usecase_natural_size(name).0)
+            .fold(0.0_f64, f64::max)
+            .max(self.config.usecase_width.min(60.0));
 
-        // Позиция системы (справа от актёров с учётом их label)
+        // Вычисляем размеры области use case
+        let num_usecases = all_usecases.len().max(1);
+        let usecase_row = |name: &str| self.usecase_natural_size(name).1;
+        let inner_height: f64 = all_usecases
+            .iter()
+            .map(|(name, _)| usecase_row(name))
+            .sum::<f64>()
+            + (num_usecases.saturating_sub(1)) as f64 * self.config.vertical_spacing;
+
+        // Рамка системы рисуется ТОЛЬКО если в диаграмме есть package.
+        // В эталоне PlantUML при отсутствии package рамки нет вовсе
+        // (usecase_basic: ни одного прямоугольника).
+        let has_package = !diagram.packages.is_empty();
+
+        let (system_width, system_height) = if has_package {
+            (
+                max_usecase_width + self.config.package_padding * 2.0 + 40.0,
+                inner_height
+                    + self.config.package_header_height
+                    + self.config.package_padding * 2.0,
+            )
+        } else {
+            // Без package размеры области совпадают с содержимым
+            (max_usecase_width, inner_height)
+        };
+
+        // Позиция области (справа от актёров с учётом их label)
         let system_x = self.config.margin + actor_total_width + self.config.horizontal_spacing;
         let system_y = self.config.margin;
 
-        // Если есть packages, создаём System элемент
-        let system_name = if !diagram.packages.is_empty() {
-            diagram.packages[0].name.clone()
-        } else {
-            "System".to_string()
-        };
+        if has_package {
+            let system_name = diagram.packages[0].name.clone();
+            let system_bounds = Rect::new(system_x, system_y, system_width, system_height);
+            elements.push(LayoutElement {
+                id: format!("system_{}", system_name.replace(' ', "_")),
+                bounds: system_bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::System { title: system_name },
+            });
+        }
 
-        // Создаём rectangle системы
-        let system_bounds = Rect::new(system_x, system_y, system_width, system_height);
-        let system_elem = LayoutElement {
-            id: format!("system_{}", system_name.replace(' ', "_")),
-            bounds: system_bounds,
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::System { title: system_name },
-        };
-        elements.push(system_elem);
+        // Use case выравниваются по центру области
+        let usecases_x = system_x + (system_width - max_usecase_width) / 2.0;
+        let usecases_start_y = system_y
+            + if has_package {
+                self.config.package_header_height + self.config.package_padding
+            } else {
+                0.0
+            };
 
-        // Размещаем use cases внутри системы (вертикально по центру)
-        let usecases_x = system_x + (system_width - self.config.usecase_width) / 2.0;
-        let usecases_start_y =
-            system_y + self.config.package_header_height + self.config.package_padding;
-
+        // Шаг между use case считается по их фактическим высотам, а не по
+        // конфигу: высота эллипса зависит от длины подписи (см.
+        // usecase_natural_size). Иначе длинные подписи наезжают друг на друга.
+        let mut current_y = usecases_start_y;
         for (i, (name, alias)) in all_usecases.iter().enumerate() {
-            let y = usecases_start_y
-                + i as f64 * (self.config.usecase_height + self.config.vertical_spacing);
+            let y = current_y;
+            current_y += self.usecase_natural_size(name).1 + self.config.vertical_spacing;
+            let _ = i;
 
             let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
             element_positions.insert(name.to_string(), bounds);
@@ -237,8 +274,33 @@ impl UseCaseLayoutEngine {
     }
 
     /// Создаёт элемент use case (эллипс)
+    /// Натуральный размер эллипса use case (ширина, высота).
+    ///
+    /// Измерено по эталону PlantUML: «Оформить заказ» (15 символов) —
+    /// 152.26 x 35.25, «Оплатить» (8 символов) — 106.92 x 29.05. Отсюда
+    /// ширина ≈ 55.1 + 6.48 * n, высота ≈ 21.4 + 0.95 * n.
+    fn usecase_natural_size(&self, name: &str) -> (f64, f64) {
+        let chars = name.chars().count() as f64;
+        (
+            USE_CASE_BASE_WIDTH + USE_CASE_CHAR_WIDTH * chars,
+            USE_CASE_BASE_HEIGHT + USE_CASE_CHAR_HEIGHT * chars,
+        )
+    }
+
     fn create_usecase_element(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(x, y, self.config.usecase_width, self.config.usecase_height);
+        // Размер эллипса PlantUML зависит от длины подписи. Измерено
+        // по эталону (tests/golden/reference/usecase_basic.svg):
+        //   «Оформить заказ» (15 символов) — 152.26 x 35.25
+        //   «Оплатить»        (8 символов) — 106.92 x 29.05
+        // Отсюда ширина ≈ 55.1 + 6.48 * n, высота ≈ 21.4 + 0.95 * n.
+        // Раньше размер был фиксированным (160x40), из-за чего диаграмма
+        // получалась шире эталона независимо от подписей.
+        let chars = name.chars().count() as f64;
+        let width = (USE_CASE_BASE_WIDTH + USE_CASE_CHAR_WIDTH * chars)
+            .max(self.config.usecase_width.min(60.0));
+        let height = (USE_CASE_BASE_HEIGHT + USE_CASE_CHAR_HEIGHT * chars)
+            .max(self.config.usecase_height.min(24.0));
+        let bounds = Rect::new(x, y, width, height);
 
         (
             LayoutElement {
