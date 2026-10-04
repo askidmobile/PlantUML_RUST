@@ -9,6 +9,12 @@ use crate::{
 };
 use plantuml_themes::Theme;
 
+/// Цвет рамки фрагмента (alt/opt/loop) в эталоне PlantUML.
+const FRAGMENT_BORDER: &str = "#000";
+
+/// Цвет заливки заголовка фрагмента в эталоне PlantUML.
+const FRAGMENT_HEADER_FILL: &str = "#EEE";
+
 /// SVG рендерер
 pub struct SvgRenderer {
     options: RenderOptions,
@@ -1199,23 +1205,32 @@ impl SvgRenderer {
     ) -> Group {
         // 1. СПЛОШНАЯ рамка фрагмента (как в PlantUML)
         // PlantUML использует более толстую рамку для фрагментов (1.5px)
+        // В эталоне PlantUML рамка фрагмента чёрная (#000), а не цвет
+        // границ темы (#181818)
         let rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
             .set("width", bounds.width)
             .set("height", bounds.height)
             .set("fill", "none")
-            .set("stroke", theme.node_border.to_css())
+            .set("stroke", FRAGMENT_BORDER)
             .set("stroke-width", 1.5);
 
         group = group.add(rect);
 
-        // 2. Пятиугольный заголовок (pentagon) в левом верхнем углу
-        // Размеры: ширина ~50px для "alt", высота ~20px
+        // 2. Пятиугольный заголовок (pentagon) в левом верхнем углу.
+        // Геометрия по эталону: высота 17.133, зазубрина 10.
         let label_text = fragment_type;
-        let label_width = (label_text.len() as f64 * 8.0 + 16.0).max(40.0);
-        let label_height = 20.0;
-        let notch_size = 8.0; // размер "зазубрины" пятиугольника
+        let label_width = {
+            // Считаем символы, а не байты: тип фрагмента всегда латиница,
+            // но правило общее. Оценка ширины текста — 0.481em, как в layout
+            let measured = label_text.chars().count() as f64 * theme.font_size * 0.481;
+            // В эталоне заголовок «alt» занимает 64.44px при тексте 19.44px,
+            // то есть отступы по ~22px с каждой стороны
+            (measured + 45.0).max(40.0)
+        };
+        let label_height = 17.133;
+        let notch_size = 10.0; // размер «зазубрины» пятиугольника
 
         // Пятиугольник: верхний левый угол рамки -> вправо -> вниз с зазубриной -> влево -> вверх
         let pentagon_path = format!(
@@ -1232,10 +1247,11 @@ impl SvgRenderer {
             bounds.y + label_height, // нижний левый
         );
 
+        // Заливка заголовка в эталоне — светло-серая #EEE
         let pentagon = Path::new()
             .set("d", pentagon_path)
-            .set("fill", theme.node_background.to_css())
-            .set("stroke", theme.node_border.to_css())
+            .set("fill", FRAGMENT_HEADER_FILL)
+            .set("stroke", FRAGMENT_BORDER)
             .set("stroke-width", 1.5);
 
         group = group.add(pentagon);
@@ -1292,22 +1308,28 @@ impl SvgRenderer {
                     .set("fill", "none")
                     .set("stroke", theme.node_border.to_css())
                     .set("stroke-width", 1)
-                    .set("stroke-dasharray", "5,3");
+                    // В эталоне PlantUML разделитель else — пунктир 2,2,
+                    // а не 5,3
+                    .set("stroke-dasharray", "2,2");
 
                 group = group.add(separator_line);
 
-                // Текст условия else слева, НАД линией (с достаточным отступом)
+                // Текст условия else слева, ПОД линией.
+                // В эталоне PlantUML линия на y=139.695, текст на y=151.906,
+                // то есть на ~12px ниже. Раньше текст рисовался над линией.
                 let else_label = if let Some(cond) = &section.condition {
-                    format!("[{}]", cond)
+                    format!("[{cond}]")
                 } else {
                     "[else]".to_string()
                 };
 
                 let else_text = svg::node::element::Text::new(else_label)
                     .set("x", bounds.x + 5.0)
-                    .set("y", separator_y - 5.0) // текст над линией
+                    .set("y", separator_y + 12.0)
                     .set("font-family", theme.font_family.as_str())
-                    .set("font-size", theme.font_size - 1.0)
+                    // В эталоне размер 11 и жирный
+                    .set("font-size", theme.font_size - 2.0)
+                    .set("font-weight", "bold")
                     .set("fill", theme.text_color.to_css());
 
                 group = group.add(else_text);

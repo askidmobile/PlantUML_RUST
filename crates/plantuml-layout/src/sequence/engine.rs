@@ -17,6 +17,9 @@ const SELF_MESSAGE_LOOP_HEIGHT: f64 = 13.0;
 /// Отступ от петли self-message до текста сообщения.
 const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 
+/// Цвет фона заметки в PlantUML.
+const NOTE_BACKGROUND: &str = "#FEFFDD";
+
 /// Отступ от последнего сообщения до нижнего блока участника (footer).
 ///
 /// Измерено по эталону PlantUML: последнее сообщение на y=157.828,
@@ -1240,11 +1243,17 @@ impl SequenceLayoutEngine {
 
         let bounds = Rect::new(x, y, self.config.note_width, self.config.note_height);
 
+        // Цвет заметки в PlantUML — светло-жёлтый (#FEFFDD).
+        // Раньше заливка бралась из темы (серо-голубая #E2E2F0), из-за чего
+        // заметка визуально не отличалась от участников.
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("fill".to_string(), NOTE_BACKGROUND.to_string());
+
         let note_elem = LayoutElement {
             id: format!("note_{}", y as u32),
             bounds,
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties,
             element_type: ElementType::Rectangle {
                 label: note.text.clone(),
                 corner_radius: 0.0, // Заметки обычно с прямыми углами
