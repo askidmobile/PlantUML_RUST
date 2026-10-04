@@ -33,6 +33,21 @@ impl TimingLayoutEngine {
     pub fn layout(&self, diagram: &TimingDiagram) -> LayoutResult {
         let mut elements = Vec::new();
 
+        // 0. Нормализуем именованные моменты времени в числовые.
+        //    Делается один раз здесь, чтобы не протаскивать карту имён
+        //    через все методы отрисовки. Раньше `TimeValue::Named` давал 0,
+        //    из-за чего все именованные моменты схлопывались в одну точку.
+        let named = Self::named_times(diagram);
+        let mut diagram = diagram.clone();
+        for change in &mut diagram.state_changes {
+            if let TimeValue::Named(name) = &change.time {
+                if let Some(value) = named.get(name) {
+                    change.time = TimeValue::Absolute(*value);
+                }
+            }
+        }
+        let diagram = &diagram;
+
         // 1. Собираем все времена для определения масштаба
         let (min_time, max_time) = self.calculate_time_range(diagram);
         let time_range = (max_time - min_time).max(100.0);
@@ -169,6 +184,38 @@ impl TimingLayoutEngine {
         };
         result.calculate_bounds();
         result
+    }
+
+    /// Сопоставляет именованные моменты времени числовым позициям.
+    ///
+    /// PlantUML позволяет задавать моменты именами, а не числами. Раньше
+    /// `TimeValue::Named` возвращал 0 (`as_f64`), поэтому все именованные
+    /// моменты схлопывались в одну точку и диаграмма получалась пустой.
+    ///
+    /// Имена нумеруются в порядке появления: первое получает 0, второе — 1
+    /// и так далее. Этого достаточно для относительного расположения
+    /// состояний.
+    fn named_times(diagram: &TimingDiagram) -> std::collections::HashMap<String, f64> {
+        let mut map = std::collections::HashMap::new();
+        let mut next = 0.0_f64;
+
+        let register = |value: &TimeValue,
+                        map: &mut std::collections::HashMap<String, f64>,
+                        next: &mut f64| {
+            if let TimeValue::Named(name) = value {
+                map.entry(name.clone()).or_insert_with(|| {
+                    let v = *next;
+                    *next += 1.0;
+                    v
+                });
+            }
+        };
+
+        for change in &diagram.state_changes {
+            register(&change.time, &mut map, &mut next);
+        }
+
+        map
     }
 
     /// Вычисляет диапазон времени
