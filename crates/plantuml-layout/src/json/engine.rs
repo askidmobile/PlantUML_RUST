@@ -4,31 +4,16 @@
 //! Объекты и массивы отображаются как контейнеры с заголовками.
 
 use plantuml_ast::json::{JsonDiagram, JsonNode, JsonValue};
-use plantuml_model::{Rect, Size};
+use plantuml_model::{Point, Rect, Size};
 
 use crate::json::config::JsonLayoutConfig;
 use crate::traits::{LayoutEngine, LayoutResult};
-use crate::{ElementType, LayoutConfig, LayoutElement};
+use crate::{EdgeType, ElementType, LayoutConfig, LayoutElement};
 
 /// Layout engine для JSON диаграмм
-/// Синтаксис отображения структуры.
-///
-/// YAML-диаграммы используют тот же движок, что и JSON, но нотация
-/// отличается: в YAML нет фигурных скобок и запятых, вложенность задаётся
-/// отступами, а элементы списка начинаются с `-`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Notation {
-    /// JSON: `{`, `}`, `[`, `]`
-    #[default]
-    Json,
-    /// YAML: без скобок, список через `- `
-    Yaml,
-}
-
 /// Layout engine для JSON/YAML диаграмм
 pub struct JsonLayoutEngine {
     config: JsonLayoutConfig,
-    notation: Notation,
 }
 
 impl JsonLayoutEngine {
@@ -36,293 +21,251 @@ impl JsonLayoutEngine {
     pub fn new() -> Self {
         Self {
             config: JsonLayoutConfig::default(),
-            notation: Notation::Json,
-        }
-    }
-
-    /// Создаёт движок с заданной нотацией (JSON или YAML)
-    pub fn with_notation(notation: Notation) -> Self {
-        Self {
-            config: JsonLayoutConfig::default(),
-            notation,
         }
     }
 
     /// Создаёт engine с указанной конфигурацией
     pub fn with_config(config: JsonLayoutConfig) -> Self {
-        Self {
-            config,
-            notation: Notation::Json,
-        }
+        Self { config }
     }
 
-    /// Создаёт engine с конфигурацией и нотацией
-    pub fn with_config_and_notation(config: JsonLayoutConfig, notation: Notation) -> Self {
-        Self { config, notation }
-    }
-
-    /// Вычисляет layout для JSON узла
-    fn layout_node(
+    /// Рисует узел как двухколоночную таблицу.
+    ///
+    /// Значения-контейнеры (объект, массив) выносятся отдельной таблицей
+    /// вправо от строки своего ключа — так делает PlantUML.
+    fn layout_table(
         &self,
         node: &JsonNode,
         x: f64,
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> Size {
-        match &node.value {
-            JsonValue::Object(children) => self.layout_object(node, children, x, y, elements),
-            JsonValue::Array(items) => self.layout_array(node, items, x, y, elements),
-            _ => self.layout_primitive(node, x, y, elements),
-        }
-    }
-
-    /// Layout для объекта
-    fn layout_object(
-        &self,
-        node: &JsonNode,
-        children: &[JsonNode],
-        x: f64,
-        y: f64,
-        elements: &mut Vec<LayoutElement>,
-    ) -> Size {
-        let header_height = self.config.line_height;
-        let mut content_height = 0.0;
-        let mut max_width = self.config.min_key_width * 2.0;
-
-        // Заголовок объекта
-        let header_text = match (&node.key, self.notation) {
-            // YAML: `key:` без фигурной скобки, вложенность — отступом
-            (Some(key), Notation::Yaml) => format!("{key}:"),
-            (None, Notation::Yaml) => String::new(),
-            (Some(key), Notation::Json) => format!("{key}: {{"),
-            (None, Notation::Json) => "{".to_string(),
-        };
-
-        // Layout дочерних элементов
-        let content_x = x + self.config.indent;
-        let mut content_y = y + header_height;
-
-        for child in children {
-            let child_size = self.layout_node(child, content_x, content_y, elements);
-            content_height += child_size.height;
-            max_width = max_width.max(child_size.width + self.config.indent);
-            content_y += child_size.height;
+        let entries = self.table_entries(node);
+        if entries.is_empty() {
+            return Size::new(0.0, 0.0);
         }
 
-        // Закрывающая скобка
-        content_height += self.config.line_height;
+        // Ширина колонок: измерено по эталону — максимум по колонке плюс 10
+        let key_width = entries
+            .iter()
+            .filter_map(|(key, _)| key.as_deref())
+            .map(|key| self.config.text.width(key, self.config.font_size))
+            .fold(0.0_f64, f64::max)
+            + TABLE_CELL_PADDING;
 
-        let total_height = header_height + content_height;
-        let total_width = max_width + self.config.indent;
+        let value_width = entries
+            .iter()
+            .filter_map(|(_, value)| self.scalar_text(value))
+            .map(|text| self.config.text.width(&text, self.config.font_size))
+            .fold(0.0_f64, f64::max)
+            + TABLE_CELL_PADDING;
 
-        // Фон объекта
-        let bg_element = LayoutElement {
-            id: format!("json_obj_{}", elements.len()),
-            element_type: ElementType::RoundedRectangle,
-            bounds: Rect::new(x, y, total_width, total_height),
-            text: None,
-            properties: [
-                ("fill".to_string(), self.config.object_bg_color.to_string()),
-                ("stroke".to_string(), "#A0A0A0".to_string()),
-                ("rx".to_string(), self.config.corner_radius.to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        };
-        elements.push(bg_element);
+        let row_height = self.config.line_height;
+        let rows = entries.len() as f64;
 
-        // Заголовок
-        let header_element = LayoutElement {
-            id: format!("json_header_{}", elements.len()),
-            element_type: ElementType::Text {
-                text: header_text,
-                font_size: self.config.font_size,
-            },
-            bounds: Rect::new(x + 5.0, y, total_width - 10.0, header_height),
-            text: None,
-            properties: [
-                ("fill".to_string(), self.config.key_color.to_string()),
-                ("font-weight".to_string(), "bold".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        };
-        elements.push(header_element);
-
-        // Закрывающая скобка. В YAML её нет: вложенность задаётся отступами.
-        if self.notation == Notation::Json {
-            let close_element = LayoutElement {
-                id: format!("json_close_{}", elements.len()),
-                element_type: ElementType::Text {
-                    text: "}".to_string(),
-                    font_size: self.config.font_size,
-                },
-                bounds: Rect::new(
-                    x + 5.0,
-                    y + total_height - self.config.line_height,
-                    20.0,
-                    self.config.line_height,
-                ),
-                text: None,
-                properties: [("fill".to_string(), "#000000".to_string())]
-                    .into_iter()
-                    .collect(),
-            };
-            elements.push(close_element);
-        }
-
-        Size::new(total_width, total_height)
-    }
-
-    /// Layout для массива
-    fn layout_array(
-        &self,
-        node: &JsonNode,
-        items: &[JsonNode],
-        x: f64,
-        y: f64,
-        elements: &mut Vec<LayoutElement>,
-    ) -> Size {
-        let header_height = self.config.line_height;
-        let mut content_height = 0.0;
-        let mut max_width = self.config.min_key_width * 2.0;
-
-        // Заголовок массива
-        let header_text = match (&node.key, self.notation) {
-            // YAML: `key:` без квадратной скобки, элементы пойдут через `- `
-            (Some(key), Notation::Yaml) => format!("{key}:"),
-            (None, Notation::Yaml) => String::new(),
-            (Some(key), Notation::Json) => format!("{key}: ["),
-            (None, Notation::Json) => "[".to_string(),
-        };
-
-        // Layout элементов массива
-        let content_x = x + self.config.indent;
-        let mut content_y = y + header_height;
-
-        for (i, item) in items.iter().enumerate() {
-            // Для примитивов в массиве показываем индекс
-            let item_with_index = if item.value.is_primitive() {
-                let mut indexed = item.clone();
-                indexed.key = Some(format!("[{}]", i));
-                indexed
-            } else {
-                item.clone()
-            };
-
-            let child_size = self.layout_node(&item_with_index, content_x, content_y, elements);
-            content_height += child_size.height;
-            max_width = max_width.max(child_size.width + self.config.indent);
-            content_y += child_size.height;
-        }
-
-        // Закрывающая скобка
-        content_height += self.config.line_height;
-
-        let total_height = header_height + content_height;
-        let total_width = max_width + self.config.indent;
-
-        // Фон массива
-        let bg_element = LayoutElement {
-            id: format!("json_arr_{}", elements.len()),
-            element_type: ElementType::RoundedRectangle,
-            bounds: Rect::new(x, y, total_width, total_height),
-            text: None,
-            properties: [
-                ("fill".to_string(), self.config.array_bg_color.to_string()),
-                ("stroke".to_string(), "#A0A0A0".to_string()),
-                ("rx".to_string(), self.config.corner_radius.to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        };
-        elements.push(bg_element);
-
-        // Заголовок
-        let header_element = LayoutElement {
-            id: format!("json_header_{}", elements.len()),
-            element_type: ElementType::Text {
-                text: header_text,
-                font_size: self.config.font_size,
-            },
-            bounds: Rect::new(x + 5.0, y, total_width - 10.0, header_height),
-            text: None,
-            properties: [
-                ("fill".to_string(), self.config.key_color.to_string()),
-                ("font-weight".to_string(), "bold".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        };
-        elements.push(header_element);
-
-        // Закрывающая скобка. В YAML её нет.
-        if self.notation == Notation::Json {
-            let close_element = LayoutElement {
-                id: format!("json_close_{}", elements.len()),
-                element_type: ElementType::Text {
-                    text: "]".to_string(),
-                    font_size: self.config.font_size,
-                },
-                bounds: Rect::new(
-                    x + 5.0,
-                    y + total_height - self.config.line_height,
-                    20.0,
-                    self.config.line_height,
-                ),
-                text: None,
-                properties: [("fill".to_string(), "#000000".to_string())]
-                    .into_iter()
-                    .collect(),
-            };
-            elements.push(close_element);
-        }
-
-        Size::new(total_width, total_height)
-    }
-
-    /// Layout для примитивного значения
-    fn layout_primitive(
-        &self,
-        node: &JsonNode,
-        x: f64,
-        y: f64,
-        elements: &mut Vec<LayoutElement>,
-    ) -> Size {
-        let (value_text, color) = match &node.value {
-            JsonValue::String(s) => (format!("\"{}\"", s), self.config.string_color),
-            JsonValue::Number(n) => (format!("{}", n), self.config.number_color),
-            JsonValue::Boolean(b) => (format!("{}", b), self.config.keyword_color),
-            JsonValue::Null => ("null".to_string(), self.config.keyword_color),
-            _ => unreachable!(),
-        };
-
-        let display_text = if let Some(key) = &node.key {
-            format!("{}: {}", key, value_text)
+        // Если ключей нет (массив), вторая колонка занимает в��ё место
+        let (key_width, value_width) = if key_width <= TABLE_CELL_PADDING {
+            (0.0, value_width.max(self.config.min_key_width))
         } else {
-            value_text
+            (key_width, value_width)
         };
 
-        let text_width = self.config.text.width(&display_text, self.config.font_size) + 20.0;
-        let width = text_width.max(self.config.min_key_width);
+        let total_width = key_width + value_width;
+        let total_height = rows * row_height;
 
-        let element = LayoutElement {
-            id: format!("json_val_{}", elements.len()),
-            element_type: ElementType::Text {
-                text: display_text,
-                font_size: self.config.font_size,
-            },
-            bounds: Rect::new(x, y, width, self.config.line_height),
-            text: None,
-            properties: [("fill".to_string(), color.to_string())]
+        // Фон и рамка
+        for (id, fill, stroke) in [
+            (
+                "json_table_bg",
+                self.config.object_bg_color,
+                self.config.object_bg_color,
+            ),
+            ("json_table_border", "none", "#000000"),
+        ] {
+            elements.push(LayoutElement {
+                id: format!("{}_{}", id, elements.len()),
+                element_type: ElementType::RoundedRectangle,
+                bounds: Rect::new(x, y, total_width, total_height),
+                text: None,
+                properties: [
+                    ("fill".to_string(), fill.to_string()),
+                    ("stroke".to_string(), stroke.to_string()),
+                    ("stroke-width".to_string(), "1.5".to_string()),
+                    ("rx".to_string(), TABLE_CORNER_RADIUS.to_string()),
+                ]
                 .into_iter()
                 .collect(),
-        };
-        elements.push(element);
+            });
+        }
 
-        Size::new(width, self.config.line_height)
+        // Строки
+        for (row, (key, value)) in entries.iter().enumerate() {
+            let row_y = y + row as f64 * row_height;
+            let baseline = row_y + row_height - TABLE_BASELINE_GAP;
+
+            if let Some(key) = key {
+                elements.push(LayoutElement {
+                    id: format!("json_key_{}", elements.len()),
+                    element_type: ElementType::Text {
+                        text: key.clone(),
+                        font_size: self.config.font_size,
+                    },
+                    bounds: Rect::new(x + TABLE_CELL_PADDING / 2.0, row_y, key_width, row_height),
+                    text: None,
+                    properties: [
+                        ("fill".to_string(), self.config.key_color.to_string()),
+                        ("font-weight".to_string(), "700".to_string()),
+                        ("baseline".to_string(), baseline.to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                });
+
+                // Вертикальный разделитель колонок
+                elements.push(LayoutElement {
+                    id: format!("json_col_sep_{}", elements.len()),
+                    element_type: ElementType::Edge {
+                        points: vec![
+                            Point::new(x + key_width, row_y),
+                            Point::new(x + key_width, row_y + row_height),
+                        ],
+                        label: None,
+                        arrow_start: false,
+                        arrow_end: false,
+                        dashed: false,
+                        edge_type: EdgeType::Link,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                    },
+                    bounds: Rect::new(x + key_width, row_y, 0.0, row_height),
+                    text: None,
+                    properties: [
+                        ("stroke".to_string(), "#000000".to_string()),
+                        ("stroke-width".to_string(), "1".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                });
+            }
+
+            if let Some(text) = self.scalar_text(value) {
+                elements.push(LayoutElement {
+                    id: format!("json_value_{}", elements.len()),
+                    element_type: ElementType::Text {
+                        text,
+                        font_size: self.config.font_size,
+                    },
+                    bounds: Rect::new(
+                        x + key_width + TABLE_CELL_PADDING / 2.0,
+                        row_y,
+                        value_width,
+                        row_height,
+                    ),
+                    text: None,
+                    properties: [("fill".to_string(), "#000000".to_string())]
+                        .into_iter()
+                        .collect(),
+                });
+            } else {
+                // Контейнер выносится отдельной таблицей вправо
+                let nested_x = x + total_width + TABLE_NESTED_GAP;
+                let nested_y = row_y + row_height / 2.0;
+                let child = match value {
+                    JsonValue::Object(children) => Some(JsonNode {
+                        key: None,
+                        value: JsonValue::Object(children.clone()),
+                        collapsed: false,
+                        highlighted: false,
+                    }),
+                    JsonValue::Array(items) => Some(JsonNode {
+                        key: None,
+                        value: JsonValue::Array(items.clone()),
+                        collapsed: false,
+                        highlighted: false,
+                    }),
+                    _ => None,
+                };
+                if let Some(child) = child {
+                    self.layout_table(&child, nested_x, nested_y, elements);
+                }
+            }
+
+            // Горизонтальный разделитель (кроме последней строки)
+            if row + 1 < entries.len() {
+                elements.push(LayoutElement {
+                    id: format!("json_row_sep_{}", elements.len()),
+                    element_type: ElementType::Edge {
+                        points: vec![
+                            Point::new(x, row_y + row_height),
+                            Point::new(x + total_width, row_y + row_height),
+                        ],
+                        label: None,
+                        arrow_start: false,
+                        arrow_end: false,
+                        dashed: false,
+                        edge_type: EdgeType::Link,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                    },
+                    bounds: Rect::new(x, row_y + row_height, total_width, 0.0),
+                    text: None,
+                    properties: [
+                        ("stroke".to_string(), "#000000".to_string()),
+                        ("stroke-width".to_string(), "1".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                });
+            }
+        }
+
+        Size::new(total_width, total_height)
+    }
+
+    /// Строки таблицы: пары «ключ — значение».
+    fn table_entries(&self, node: &JsonNode) -> Vec<(Option<String>, JsonValue)> {
+        match &node.value {
+            JsonValue::Object(children) => children
+                .iter()
+                .map(|child| (child.key.clone(), child.value.clone()))
+                .collect(),
+            JsonValue::Array(items) => items
+                .iter()
+                .map(|item| (None, item.value.clone()))
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Текстовое представление скалярного значения.
+    ///
+    /// Для контейнеров возвращает `None` — они рисуются отдельной таблицей.
+    fn scalar_text(&self, value: &JsonValue) -> Option<String> {
+        match value {
+            JsonValue::String(s) => Some(s.clone()),
+            JsonValue::Number(n) => Some(format!("{n}")),
+            JsonValue::Boolean(b) => Some(if *b {
+                "☑ true".to_string()
+            } else {
+                "☐ false".to_string()
+            }),
+            JsonValue::Null => Some(String::new()),
+            JsonValue::Object(_) | JsonValue::Array(_) => None,
+        }
     }
 }
+
+/// Внутренний отступ ячейки таблицы.
+const TABLE_CELL_PADDING: f64 = 10.0;
+
+/// Скругление рамки таблицы (измерено по эталону).
+const TABLE_CORNER_RADIUS: f64 = 5.0;
+
+/// Расстояние от базовой ли��ии текста до низа строки.
+const TABLE_BASELINE_GAP: f64 = 5.302;
+
+/// Зазор между основной таблицей и таблицей вложенного значения.
+const TABLE_NESTED_GAP: f64 = 36.554;
 
 impl Default for JsonLayoutEngine {
     fn default() -> Self {
@@ -337,7 +280,12 @@ impl LayoutEngine for JsonLayoutEngine {
         let mut elements = Vec::new();
 
         if let Some(root) = &diagram.root {
-            self.layout_node(
+            // PlantUML выводит JSON и YAML двухколоночной таблицей: ключ слева
+            // (жирным), значение справа, строки разделены горизонтальными
+            // линиями, между колонками — вертикальная. Раньше движок рисовал
+            // вложенные блоки со скобками, поэтому высота диаграммы расходилась
+            // с эталоном почти вдвое.
+            self.layout_table(
                 root,
                 self.config.padding,
                 self.config.padding,
@@ -351,10 +299,7 @@ impl LayoutEngine for JsonLayoutEngine {
         };
         result.calculate_bounds();
 
-        // Добавляем padding
-        result.bounds.width += self.config.padding * 2.0;
-        result.bounds.height += self.config.padding * 2.0;
-
+        // Таблица уже включает отступы, поэтому padding не добавляется повторно
         result
     }
 }

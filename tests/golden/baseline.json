@@ -5,7 +5,7 @@
   "deployment_basic": { "width_diff": 37.0, "height_diff": 26.3, "missing_texts": 1 },
   "er_basic": { "width_diff": 30.7, "height_diff": 15.0, "missing_texts": 1 },
   "gantt_basic": { "width_diff": 27.9, "height_diff": 22.0, "missing_texts": 2 },
-  "json_basic": { "width_diff": 22.0, "height_diff": 129.7, "missing_texts": 9 },
+  "json_basic": { "width_diff": 24.4, "height_diff": 1.7, "missing_texts": 0 },
   "mindmap_basic": { "width_diff": 5.8, "height_diff": 10.8, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 23.0, "height_diff": 29.0, "missing_texts": 2 },
   "object_basic": { "width_diff": 10.9, "height_diff": 10.0, "missing_texts": 1 },
@@ -18,5 +18,5 @@
   "timing_basic": { "width_diff": 1.0, "height_diff": 18.0, "missing_texts": 2 },
   "usecase_basic": { "width_diff": 3.8, "height_diff": 36.3, "missing_texts": 0 },
   "wbs_basic": { "width_diff": 7.2, "height_diff": 34.0, "missing_texts": 0 },
-  "yaml_basic": { "width_diff": 65.5, "height_diff": 69.5, "missing_texts": 6 }
+  "yaml_basic": { "width_diff": 17.1, "height_diff": 11.1, "missing_texts": 1 }
 }

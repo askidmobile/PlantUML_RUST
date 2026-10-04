@@ -5,7 +5,7 @@
 use plantuml_ast::json::JsonDiagram;
 use plantuml_ast::yaml::YamlDiagram;
 
-use crate::json::{JsonLayoutConfig, JsonLayoutEngine, Notation};
+use crate::json::{JsonLayoutConfig, JsonLayoutEngine};
 use crate::traits::{LayoutEngine, LayoutResult};
 use crate::LayoutConfig;
 
@@ -18,17 +18,16 @@ impl YamlLayoutEngine {
     /// Создаёт новый engine с конфигурацией по умолчанию
     pub fn new() -> Self {
         Self {
-            // YAML рисуется без фигурных и квадратных скобок: раньше движок
-            // переиспользовал JSON-нотацию и YAML-диаграмма показывала
-            // JSON-синтаксис (`key: {`), что не соответствует оригиналу.
-            json_engine: JsonLayoutEngine::with_notation(Notation::Yaml),
+            // YAML и JSON в PlantUML выводятся одной и той же двухколоночной
+            // таблицей, поэтому отдельная нотация больше не нужна.
+            json_engine: JsonLayoutEngine::new(),
         }
     }
 
     /// Создаёт engine с указанной конфигурацией
     pub fn with_config(config: JsonLayoutConfig) -> Self {
         Self {
-            json_engine: JsonLayoutEngine::with_config_and_notation(config, Notation::Yaml),
+            json_engine: JsonLayoutEngine::with_config(config),
         }
     }
 }
