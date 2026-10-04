@@ -250,9 +250,22 @@ cardinality_value = @{ (!"\"" ~ ANY)+ }
 // ..> использование (use)
 // --  связь (association)
 
+// Между сторонами стрелки может стоять стиль линии: `-[#red]->`,
+// `-[dashed]->`, `-[bold]->`. Раньше такие связи не разбирались вовсе.
+// Стиль линии может стоять ВНУТРИ стрелки: базовая `-->` превращается в
+// `-[#red]->` (стиль после первой чёрточки) или `--[#red]>` (после всей
+// линии). Поэтому после стиля допускается остаток линии до наконечника.
 relationship_arrow = {
-    arrow_left_side ~ arrow_line ~ arrow_right_side
+    arrow_left_side ~ arrow_line ~ arrow_style ~ arrow_rest? ~ arrow_right_side
+    | arrow_left_side ~ arrow_line ~ arrow_right_side
 }
+
+// Остаток линии после вставленного стиля (`-[#red]->`).
+arrow_rest = @{ ("-" | ".")+ }
+
+// `[#red]`, `[dashed]`, `[bold]`, `[#red,dashed]` и их комбинации.
+arrow_style = { "[" ~ arrow_style_body ~ "]" }
+arrow_style_body = @{ (!("]" | NEWLINE) ~ ANY)+ }
 
 arrow_left_side = {
     "<|" | "<" | "*" | "o" | "#" | "x" | "}" | "+" | "^" | ""
