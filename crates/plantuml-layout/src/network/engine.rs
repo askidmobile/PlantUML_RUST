@@ -84,7 +84,11 @@ impl NetworkLayoutEngine {
     /// Вычисляет Y позицию для сети по индексу
     fn network_y_position(&self, index: usize) -> f64 {
         self.config.padding
-            + index as f64 * (self.config.network_band_height + self.config.network_spacing)
+            + index as f64
+                * (self.config.network_band_height
+                    + self.config.server_top_offset
+                    + self.config.server_height
+                    + self.config.network_spacing)
     }
 
     /// Размещает сети
@@ -158,7 +162,10 @@ impl NetworkLayoutEngine {
             elements.push(network_label);
 
             max_width = max_width.max(network_width + self.config.padding * 2.0);
-            total_height = y + self.config.network_band_height;
+            total_height = y
+                + self.config.network_band_height
+                + self.config.server_top_offset
+                + self.config.server_height;
         }
 
         (max_width, total_height + self.config.padding)
