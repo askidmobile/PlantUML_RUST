@@ -1,0 +1,15 @@
+@startuml
+participant User
+participant Server
+
+User -> Server: Запрос
+activate Server
+
+alt Успешно
+    Server --> User: Токен
+else Ошибка
+    Server --> User: Ошибка 401
+end
+
+deactivate Server
+@enduml

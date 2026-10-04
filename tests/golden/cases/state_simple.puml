@@ -1,0 +1,6 @@
+@startuml
+[*] --> Active
+Active --> Inactive : timeout
+Inactive --> Active : resume
+Active --> [*] : close
+@enduml

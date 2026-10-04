@@ -1,0 +1,5 @@
+@startuml
+Alice -> Bob: Запрос
+note right of Bob: Обработка
+Bob --> Alice: Ответ
+@enduml

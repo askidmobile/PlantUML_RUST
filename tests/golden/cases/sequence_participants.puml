@@ -1,0 +1,14 @@
+@startuml
+participant Participant
+actor Actor
+boundary Boundary
+control Control
+entity Entity
+database Database
+
+Participant -> Actor: сообщение
+Actor -> Boundary: сообщение
+Boundary -> Control: сообщение
+Control -> Entity: сообщение
+Entity -> Database: сообщение
+@enduml

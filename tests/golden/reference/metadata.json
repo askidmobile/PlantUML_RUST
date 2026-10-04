@@ -1,0 +1,38 @@
+{
+  "class_inheritance": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "76df6d8eeb3e6f4f3320eceebd1c637fe724ef252fa6458d183255ab49ff3994",
+    "svg_bytes": "5586",
+    "svg_sha256": "97e8c64d6e9e41c90e937ec199dfdd13cad91dcac94290f3369f73f9f9b08384"
+  },
+  "sequence_fragments": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c2255df27bab1aa0c87b7fa64336ed913bb074c3c3ae143618bd037dc2ce908a",
+    "svg_bytes": "3985",
+    "svg_sha256": "e7e112453aae66ce8cf8e318e1682f6a5bb9a70b13b4ee63e1ce0ec3b76c3618"
+  },
+  "sequence_notes": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d41e6c248b7689bdbd3bb8eac31c279ff9ce9926b6a6cc8610b3e6f5349544e5",
+    "svg_bytes": "2953",
+    "svg_sha256": "34398236d755fb0283c9b41c4d752c079727a938d14eaf82fad1d5a0c595e34b"
+  },
+  "sequence_participants": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ab445e913d2c388dfe25c128633e10b783d9da2dcdbef3290a3a080263bb8665",
+    "svg_bytes": "8092",
+    "svg_sha256": "4a41c6915bc40c3a2d1592598425c7905f127905581a2efea12c568f138f80bf"
+  },
+  "sequence_simple": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3d69686b72944c72dca07e8358d9d7544986d9aecc994f7e31707b6d8587324e",
+    "svg_bytes": "3415",
+    "svg_sha256": "e48906f8a0533540d8a99777105c3d4dcf32e3af18eaa4ef5fadbaf9cfe2c8d6"
+  },
+  "state_simple": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "69b0669fb4948bc64867fef3cc0bcab5c804e34fbdd8c6bfe897566d4187ef47",
+    "svg_bytes": "3991",
+    "svg_sha256": "4b35ceff856e36c481e1ab81d171165925873f052d87dd090c583b3db6ffc3ef"
+  }
+}
