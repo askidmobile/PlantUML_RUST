@@ -12,6 +12,12 @@ use plantuml_model::{Point, Rect};
 
 use super::config::ActivityLayoutConfig;
 
+/// Цвет заметки в PlantUML — светло-жёлтый.
+const ACTIVITY_NOTE_BACKGROUND: &str = "#FEFFDD";
+
+/// Зазор между потоком и заметкой.
+const ACTIVITY_NOTE_GAP: f64 = 10.0;
+
 /// Добавка к ширине действия: вмещает внутренние отступы.
 ///
 /// Измерено по эталону activity_basic: «Первый шаг» 76.822 → 96.8,
@@ -88,10 +94,7 @@ impl ActivityLayoutEngine {
             // Пропускаем элементы, которые не требуют layout
             if matches!(
                 element,
-                ActivityElement::Detach
-                    | ActivityElement::Kill
-                    | ActivityElement::Note(_)
-                    | ActivityElement::Connector(_)
+                ActivityElement::Detach | ActivityElement::Kill | ActivityElement::Connector(_)
             ) {
                 continue;
             }
@@ -153,6 +156,31 @@ impl ActivityLayoutEngine {
                         element_type: ElementType::Ellipse { label: None },
                     });
                     (r * 2.0, true)
+                }
+                ActivityElement::Note(note) => {
+                    // Заметка рисуется справа от потока, светло-жёлтым
+                    // (#FEFFDD) — как в PlantUML. Раньше здесь не было ветки
+                    // вовсе, и заметка не попадала в вывод.
+                    let width = self.config.text.width(&note.text, self.config.font_size)
+                        + ACTION_TEXT_PADDING;
+                    let x = center_x + self.config.action_width / 2.0 + ACTIVITY_NOTE_GAP;
+
+                    let mut properties = std::collections::HashMap::new();
+                    properties.insert("fill".to_string(), ACTIVITY_NOTE_BACKGROUND.to_string());
+
+                    elements.push(LayoutElement {
+                        id: format!("note_{}", elements.len()),
+                        bounds: Rect::new(x, current_y, width, self.config.action_height),
+                        text: None,
+                        properties,
+                        element_type: ElementType::Rectangle {
+                            label: note.text.clone(),
+                            corner_radius: 0.0,
+                        },
+                    });
+
+                    // Заметка не прерывает поток: стрелка после неё не нужна
+                    (self.config.action_height, false)
                 }
                 ActivityElement::Stop => {
                     let r = self.config.node_radius;
@@ -400,9 +428,29 @@ impl ActivityLayoutEngine {
                 // Detach/Kill просто прерывают поток, не рисуем ничего
                 current_y
             }
-            ActivityElement::Note(_) => {
-                // TODO: реализовать заметки
-                current_y
+            ActivityElement::Note(note) => {
+                // Заметка рисуется справа от потока, светло-жёлтым (#FEFFDD) —
+                // как в PlantUML. Раньше здесь стояла заглушка `TODO`,
+                // и заметка не появлялась в выводе вовсе.
+                let width =
+                    self.config.text.width(&note.text, self.config.font_size) + ACTION_TEXT_PADDING;
+                let x = center_x + self.config.action_width / 2.0 + ACTIVITY_NOTE_GAP;
+
+                let mut properties = std::collections::HashMap::new();
+                properties.insert("fill".to_string(), ACTIVITY_NOTE_BACKGROUND.to_string());
+
+                elements.push(LayoutElement {
+                    id: format!("note_{}", elements.len()),
+                    bounds: Rect::new(x, current_y, width, self.config.action_height),
+                    text: None,
+                    properties,
+                    element_type: ElementType::Rectangle {
+                        label: note.text.clone(),
+                        corner_radius: 0.0,
+                    },
+                });
+
+                current_y + self.config.action_height + self.config.vertical_spacing
             }
             ActivityElement::SwimlaneChange(_) => {
                 // Обрабатывается в основном цикле layout()

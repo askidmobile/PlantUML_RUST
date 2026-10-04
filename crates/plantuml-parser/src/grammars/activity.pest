@@ -243,9 +243,12 @@ break_stmt = { "break" ~ !ASCII_ALPHANUMERIC }
 
 // === Заметки ===
 
+// Порядок важен: многострочная форма проверяется ПЕРВОЙ, иначе
+// `note right` без двоеточия перехватывается однострочным правилом,
+// и следующая строка с текстом оказывается неожиданной.
 note_stmt = {
-    note_inline
-    | note_multiline
+    note_multiline
+    | note_inline
     | note_floating
 }
 
@@ -259,8 +262,11 @@ note_multiline = {
     "end" ~ ws* ~ "note"
 }
 
+// Две формы: `floating note right : текст` и `note "текст" as N`.
+// Вторая — обычная запись PlantUML, которая раньше не разбиралась.
 note_floating = {
-    "floating" ~ ws+ ~ "note" ~ ws+ ~ note_position ~ ws* ~ (":" ~ ws* ~ note_text)?
+    "note" ~ ws+ ~ quoted_string ~ ws+ ~ "as" ~ ws+ ~ simple_identifier
+    | "floating" ~ ws+ ~ "note" ~ ws+ ~ note_position ~ ws* ~ (":" ~ ws* ~ note_text)?
 }
 
 floating_note = {
