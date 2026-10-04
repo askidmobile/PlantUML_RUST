@@ -158,12 +158,15 @@ impl GanttLayoutEngine {
                 ];
 
                 for (col, text) in cells.iter().enumerate() {
+                    // Ширина колонки — по фактическому тексту, а не фиксированная:
+                    // в эталоне «Duration» шире «End».
+                    let cell_w = self.config.text.width(text, self.config.label_font_size) + 6.0;
                     elements.push(LayoutElement {
                         id: format!("task_cell_{}_{}", i, col),
                         bounds: Rect::new(
                             self.config.padding + col as f64 * col_width,
                             row_y,
-                            col_width - 10.0,
+                            cell_w,
                             self.config.row_height,
                         ),
                         text: None,

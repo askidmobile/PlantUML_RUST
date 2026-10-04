@@ -1,5 +1,7 @@
 //! Конфигурация layout для Gantt Diagrams
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация layout для Gantt Diagrams
 #[derive(Debug, Clone)]
 pub struct GanttLayoutConfig {
@@ -19,6 +21,8 @@ pub struct GanttLayoutConfig {
     pub header_height: f64,
     /// Размер шрифта меток
     pub label_font_size: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
     /// Размер шрифта дат
     pub date_font_size: f64,
 }
@@ -27,7 +31,10 @@ impl Default for GanttLayoutConfig {
     fn default() -> Self {
         Self {
             padding: 20.0,
-            task_label_width: 150.0,
+            // Измерено по эталону PlantUML: первая полоса задачи
+            // начинается на x=138.069 при padding 5, то есть ширина блока
+            // подписи 133.07. Раньше стояло 150.0.
+            task_label_width: 133.07,
             row_height: 30.0,
             bar_height: 20.0,
             row_spacing: 5.0,
@@ -39,6 +46,7 @@ impl Default for GanttLayoutConfig {
             header_height: 40.0,
             label_font_size: 12.0,
             date_font_size: 10.0,
+            text: TextMeasurer::default(),
         }
     }
 }
