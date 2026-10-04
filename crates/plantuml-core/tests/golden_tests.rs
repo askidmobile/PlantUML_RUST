@@ -122,7 +122,6 @@ impl Comparison {
     fn height_diff(&self) -> f64 {
         (self.ours.height - self.reference.height).abs()
     }
-
 }
 
 /// Зафиксированный уровень расхождений для одного кейса.
