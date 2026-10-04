@@ -1,10 +1,15 @@
 //! Layout engine для Object Diagrams
 //!
-//! Конвертирует ObjectDiagram в структуру для рендеринга,
-//! используя простой горизонтальный layout.
+//! Конвертирует ObjectDiagram в структуру для рендеринга.
+//! PlantUML размещает объекты вертикально.
 
 use plantuml_ast::object::{ObjectDiagram, ObjectLinkType};
 use plantuml_model::{Point, Rect};
+
+/// Базовая ширина объекта, измеренная по эталону PlantUML.
+const OBJECT_BASE_WIDTH: f64 = 12.41;
+/// Прибавка к ширине объекта на каждый символ имени.
+const OBJECT_CHAR_WIDTH: f64 = 8.724;
 
 use super::ObjectLayoutConfig;
 use crate::traits::LayoutResult;
@@ -35,7 +40,11 @@ impl ObjectLayoutEngine {
             std::collections::HashMap::new();
 
         // 1. Размещаем объекты в сетке
-        let objects_per_row = 4;
+        // PlantUML размещает объекты вертикально: в эталоне object_basic
+        // (138x170) оба объекта стоят на разных y (7 и 120.29), а не в ряд.
+        // Раньше использовалась сетка по 4 в ряд, из-за чего диаграмма
+        // получалась широкой и низкой (350x70 против 138x170).
+        let objects_per_row = 1;
         let mut x = self.config.padding;
         let mut y = self.config.padding;
         let mut row_max_height = 0.0f64;
@@ -51,8 +60,14 @@ impl ObjectLayoutEngine {
             // Определяем заголовок (с подчёркиванием как в UML)
             let display_name = object.display_name();
 
+            // Ширина объекта зависит от длины имени: измерено по эталону
+            // («Пользователь», 12 символов — 117.1; «Заказ», 5 — 56.034),
+            // отсюда ширина ≈ 12.41 + 8.724 * n.
+            let obj_width =
+                OBJECT_BASE_WIDTH + OBJECT_CHAR_WIDTH * display_name.chars().count() as f64;
+
             // Создаём bounds
-            let bounds = Rect::new(x, y, self.config.object_width, object_height);
+            let bounds = Rect::new(x, y, obj_width, object_height);
             object_positions.insert(object.name.clone(), bounds);
 
             // Создаём element для объекта
