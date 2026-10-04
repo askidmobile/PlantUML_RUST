@@ -310,12 +310,14 @@ impl SvgRenderer {
                 group = self.render_activation(&element.bounds, theme, group);
             }
             ElementType::RoundedRectangle => {
-                // Рендерим как прямоугольник со скруглёнными углами
+                // Рендерим как прямоугольник со скруглёнными углами.
+                // Радиус берётся из темы (`skinparam roundcorner`), а не из
+                // литерала: иначе настройка темы игнорировалась.
                 let label = element.text.as_deref().unwrap_or("");
                 group = self.render_rectangle(
                     &element.bounds,
                     label,
-                    8.0,
+                    theme.corner_radius,
                     theme,
                     group,
                     &element.properties,
@@ -381,7 +383,16 @@ impl SvgRenderer {
         // Получаем прозрачность из properties
         let opacity = properties.get("opacity").map(|s| s.as_str());
 
-        // PlantUML использует stroke-width: 0.5 для участников
+        // Радиус скругления может быть задан явно в properties: так делает
+        // таблица JSON/YAML (rx = 5). Раньше свойство не читалось, и таблица
+        // рисовалась с радиусом темы.
+        let corner_radius = properties
+            .get("rx")
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(corner_radius);
+
+        // Толщина границы берётся из темы (`skinparam linetype`), значение
+        // по умолчанию 0.5 совпадает с PlantUML для участников.
         let mut rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
@@ -391,7 +402,7 @@ impl SvgRenderer {
             .set("ry", corner_radius)
             .set("fill", fill_color)
             .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 0.5);
+            .set("stroke-width", theme.line_width * 0.5);
 
         if let Some(op) = opacity {
             rect = rect.set("fill-opacity", op);
@@ -399,8 +410,25 @@ impl SvgRenderer {
 
         group = group.add(rect);
 
+        // Тень: `skinparam shadowing true`. PlantUML рисует смещённый
+        // прямоугольник под фигурой.
+        if theme.shadow {
+            group = group.add(
+                Rectangle::new()
+                    .set("x", bounds.x + SHADOW_OFFSET)
+                    .set("y", bounds.y + SHADOW_OFFSET)
+                    .set("width", bounds.width)
+                    .set("height", bounds.height)
+                    .set("rx", corner_radius)
+                    .set("ry", corner_radius)
+                    .set("fill", "#000000")
+                    .set("fill-opacity", 0.2)
+                    .set("stroke", "none"),
+            );
+        }
+
         // Текст по центру
-        let text = svg::node::element::Text::new(label)
+        let mut text = svg::node::element::Text::new(label)
             .set("x", bounds.x + bounds.width / 2.0)
             .set("y", bounds.y + bounds.height / 2.0)
             .set("text-anchor", "middle")
@@ -408,6 +436,12 @@ impl SvgRenderer {
             .set("font-family", theme.font_family.as_str())
             .set("font-size", theme.font_size)
             .set("fill", theme.text_color.to_css());
+
+        // Рукописный стиль: `skinparam handwritten true`. PlantUML рисует
+        // текст слегка наклонным.
+        if theme.handwritten {
+            text = text.set("font-style", "italic");
+        }
 
         group.add(text)
     }
@@ -1699,6 +1733,9 @@ impl Renderer for SvgRenderer {
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
+
+/// Смещение тени от фигуры (`skinparam shadowing true`).
+const SHADOW_OFFSET: f64 = 3.0;
 
 /// Цвет тела класса в эталоне PlantUML.
 const CLASS_BODY_FILL: &str = "#F1F1F1";
