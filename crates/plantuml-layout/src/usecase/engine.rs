@@ -19,6 +19,11 @@ const USE_CASE_CHAR_WIDTH: f64 = 6.48;
 const USE_CASE_BASE_HEIGHT: f64 = 21.4;
 /// Прибавка к высоте на каждый символ подписи.
 const USE_CASE_CHAR_HEIGHT: f64 = 0.95;
+/// Зазор между подписью актёра и первым вариантом использования.
+///
+/// Измерено по эталону usecase_basic: подпись актёра на y=78.495,
+/// верх первого эллипса — 141.8.
+const ACTOR_LABEL_GAP: f64 = 55.0;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для use case diagrams
@@ -107,9 +112,14 @@ impl UseCaseLayoutEngine {
             (max_usecase_width, inner_height)
         };
 
-        // Позиция области (справа от актёров с учётом их label)
-        let system_x = self.config.margin + actor_total_width + self.config.horizontal_spacing;
-        let system_y = self.config.margin;
+        // PlantUML размещает актёров СВЕРХУ, а варианты использования —
+        // вертикально ПОД ними (эталон usecase_basic: актёр на y=6..64,
+        // первый use case на y=141.8, второй на y=237.06).
+        // Раньше актёр стоял слева, а use case — справа, из-за чего
+        // диаграмма была широкой и низкой (310x136 против 172x280).
+        let layout_width = max_usecase_width.max(actor_total_width);
+        let system_x = self.config.margin + (layout_width - system_width) / 2.0;
+        let system_y = self.config.margin + self.config.actor_height + ACTOR_LABEL_GAP;
 
         if has_package {
             let system_name = diagram.packages[0].name.clone();
@@ -149,34 +159,6 @@ impl UseCaseLayoutEngine {
             elements.push(elem);
         }
 
-        // Группируем актёров по их связям с use cases
-        // Находим какие актёры связаны с какими use cases
-        let mut actor_usecases: HashMap<String, Vec<String>> = HashMap::new();
-        for rel in &diagram.relationships {
-            // Проверяем, является ли from актёром
-            if diagram
-                .actors
-                .iter()
-                .any(|a| a.name == rel.from || a.alias.as_deref() == Some(&rel.from))
-            {
-                actor_usecases
-                    .entry(rel.from.clone())
-                    .or_default()
-                    .push(rel.to.clone());
-            }
-            // Проверяем, является ли to актёром
-            if diagram
-                .actors
-                .iter()
-                .any(|a| a.name == rel.to || a.alias.as_deref() == Some(&rel.to))
-            {
-                actor_usecases
-                    .entry(rel.to.clone())
-                    .or_default()
-                    .push(rel.from.clone());
-            }
-        }
-
         // Размещаем актёров слева.
         //
         // Несколько актёров могут получить одинаковую Y (если связаны с
@@ -185,37 +167,14 @@ impl UseCaseLayoutEngine {
         // накладывались друг на друга. Теперь при совпадении Y актёр
         // сдвигается по X на ширину блока.
         let mut occupied: Vec<(f64, f64)> = Vec::new(); // (y, x)
-        for actor in &diagram.actors {
-            let actor_id = actor.alias.as_ref().unwrap_or(&actor.name);
-
+        for (actor_index, actor) in diagram.actors.iter().enumerate() {
             // Вычисляем среднюю Y позицию use cases, с которыми связан актёр
-            let connected_usecases = actor_usecases
-                .get(actor_id)
-                .or_else(|| actor_usecases.get(&actor.name));
-
-            let y = if let Some(ucs) = connected_usecases {
-                if !ucs.is_empty() {
-                    let total_y: f64 = ucs
-                        .iter()
-                        .filter_map(|uc_name| element_positions.get(uc_name))
-                        .map(|rect| rect.y + rect.height / 2.0)
-                        .sum();
-                    let count = ucs
-                        .iter()
-                        .filter(|uc| element_positions.contains_key(*uc))
-                        .count();
-                    if count > 0 {
-                        total_y / count as f64 - self.config.actor_height / 2.0
-                    } else {
-                        self.config.margin
-                    }
-                } else {
-                    self.config.margin
-                }
-            } else {
-                // Если актёр не связан ни с чем, размещаем внизу
-                system_y + system_height / 2.0 - self.config.actor_height / 2.0
-            };
+            // Актёры ставятся СВЕРХУ, над всеми вариантами использования:
+            // в эталоне usecase_basic актёр занимает y=6..64, а первый
+            // эллипс начинается на y=141.8. Раньше актёр выравнивался по
+            // средней Y связанных use case, из-за чего оказывался между
+            // ними и диаграмма теряла вертикальный порядок.
+            let y = self.config.margin + actor_index as f64 * (self.config.actor_height + 10.0);
 
             // Ищем свободную позицию по X среди актёров с такой же Y
             let mut actor_x = actors_x;
