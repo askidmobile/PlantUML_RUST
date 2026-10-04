@@ -4,8 +4,8 @@ use svg::node::element::{Definitions, Group, Marker, Path, Rectangle};
 use svg::Document;
 
 use crate::{
-    ClassMember, ClassifierKind, EdgeType, ElementType, FragmentSection, LayoutElement, LayoutResult, 
-    MemberVisibility, Point, Rect, RenderOptions, Renderer, ZLayer,
+    ClassMember, ClassifierKind, EdgeType, ElementType, FragmentSection, LayoutElement,
+    LayoutResult, MemberVisibility, Point, Rect, RenderOptions, Renderer, ZLayer,
 };
 use plantuml_themes::Theme;
 
@@ -182,7 +182,14 @@ impl SvgRenderer {
                 label,
                 corner_radius,
             } => {
-                group = self.render_rectangle(&element.bounds, label, *corner_radius, theme, group);
+                group = self.render_rectangle(
+                    &element.bounds,
+                    label,
+                    *corner_radius,
+                    theme,
+                    group,
+                    &element.properties,
+                );
             }
             ElementType::Ellipse { label } => {
                 group = self.render_ellipse(&element.bounds, label.as_deref(), theme, group);
@@ -194,10 +201,25 @@ impl SvgRenderer {
                 group = self.render_final_state(&element.bounds, theme, group);
             }
             ElementType::State { name, description } => {
-                group = self.render_uml_state(&element.bounds, name, description.as_deref(), theme, group);
+                group = self.render_uml_state(
+                    &element.bounds,
+                    name,
+                    description.as_deref(),
+                    theme,
+                    group,
+                );
             }
-            ElementType::CompositeState { name, header_height } => {
-                group = self.render_composite_state(&element.bounds, name, *header_height, theme, group);
+            ElementType::CompositeState {
+                name,
+                header_height,
+            } => {
+                group = self.render_composite_state(
+                    &element.bounds,
+                    name,
+                    *header_height,
+                    theme,
+                    group,
+                );
             }
             ElementType::Actor { label } => {
                 group = self.render_actor(&element.bounds, label, theme, group);
@@ -250,7 +272,14 @@ impl SvgRenderer {
             ElementType::RoundedRectangle => {
                 // Рендерим как прямоугольник со скруглёнными углами
                 let label = element.text.as_deref().unwrap_or("");
-                group = self.render_rectangle(&element.bounds, label, 8.0, theme, group);
+                group = self.render_rectangle(
+                    &element.bounds,
+                    label,
+                    8.0,
+                    theme,
+                    group,
+                    &element.properties,
+                );
             }
             ElementType::Path => {
                 // Рендерим SVG path (для кривых Безье)
@@ -300,18 +329,33 @@ impl SvgRenderer {
         corner_radius: f64,
         theme: &Theme,
         mut group: Group,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
+        // Получаем цвет заливки из properties или используем тему
+        let default_fill = theme.node_background.to_css();
+        let fill_color = properties
+            .get("fill")
+            .map(|s| s.as_str())
+            .unwrap_or(default_fill.as_str());
+
+        // Получаем прозрачность из properties
+        let opacity = properties.get("opacity").map(|s| s.as_str());
+
         // PlantUML использует stroke-width: 0.5 для участников
-        let rect = Rectangle::new()
+        let mut rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
             .set("width", bounds.width)
             .set("height", bounds.height)
             .set("rx", corner_radius)
             .set("ry", corner_radius)
-            .set("fill", theme.node_background.to_css())
+            .set("fill", fill_color)
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 0.5);
+
+        if let Some(op) = opacity {
+            rect = rect.set("fill-opacity", op);
+        }
 
         group = group.add(rect);
 
@@ -369,12 +413,7 @@ impl SvgRenderer {
     }
 
     /// Рендерит UML Initial State (чёрный заполненный круг)
-    fn render_initial_state(
-        &self,
-        bounds: &Rect,
-        theme: &Theme,
-        group: Group,
-    ) -> Group {
+    fn render_initial_state(&self, bounds: &Rect, theme: &Theme, group: Group) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let cy = bounds.y + bounds.height / 2.0;
         let r = bounds.width.min(bounds.height) / 2.0;
@@ -392,12 +431,7 @@ impl SvgRenderer {
     }
 
     /// Рендерит UML Final State (bullseye: внешний круг + внутренний заполненный круг)
-    fn render_final_state(
-        &self,
-        bounds: &Rect,
-        theme: &Theme,
-        mut group: Group,
-    ) -> Group {
+    fn render_final_state(&self, bounds: &Rect, theme: &Theme, mut group: Group) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let cy = bounds.y + bounds.height / 2.0;
         let outer_r = bounds.width.min(bounds.height) / 2.0;
@@ -438,7 +472,7 @@ impl SvgRenderer {
     ) -> Group {
         let corner_radius = 10.0;
         let header_height = 25.0;
-        
+
         // 1. Основной прямоугольник со скруглёнными углами
         let rect = Rectangle::new()
             .set("x", bounds.x)
@@ -505,7 +539,7 @@ impl SvgRenderer {
         mut group: Group,
     ) -> Group {
         let corner_radius = 10.0;
-        
+
         // 1. Основной прямоугольник контейнера со скруглёнными углами
         let rect = Rectangle::new()
             .set("x", bounds.x)
@@ -550,30 +584,24 @@ impl SvgRenderer {
     }
 
     /// Рендерит актёра (stick figure) для UseCase диаграмм
-    fn render_actor(
-        &self,
-        bounds: &Rect,
-        label: &str,
-        theme: &Theme,
-        mut group: Group,
-    ) -> Group {
+    fn render_actor(&self, bounds: &Rect, label: &str, theme: &Theme, mut group: Group) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let top_y = bounds.y;
-        
+
         // Размеры stick figure
         let head_radius = 8.0;
         let body_length = 20.0;
         let arm_width = 18.0;
         let leg_length = 15.0;
         let leg_spread = 10.0;
-        
+
         // Позиции
         let head_cy = top_y + head_radius + 2.0;
         let neck_y = head_cy + head_radius;
         let waist_y = neck_y + body_length;
         let arms_y = neck_y + body_length * 0.3;
         let feet_y = waist_y + leg_length;
-        
+
         // 1. Голова (круг)
         let head = svg::node::element::Ellipse::new()
             .set("cx", cx)
@@ -584,7 +612,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1.5);
         group = group.add(head);
-        
+
         // 2. Тело (вертикальная линия)
         let body = svg::node::element::Line::new()
             .set("x1", cx)
@@ -594,7 +622,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1.5);
         group = group.add(body);
-        
+
         // 3. Руки (горизонтальная линия)
         let arms = svg::node::element::Line::new()
             .set("x1", cx - arm_width / 2.0)
@@ -604,7 +632,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1.5);
         group = group.add(arms);
-        
+
         // 4. Левая нога
         let left_leg = svg::node::element::Line::new()
             .set("x1", cx)
@@ -614,7 +642,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1.5);
         group = group.add(left_leg);
-        
+
         // 5. Правая нога
         let right_leg = svg::node::element::Line::new()
             .set("x1", cx)
@@ -624,7 +652,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1.5);
         group = group.add(right_leg);
-        
+
         // 6. Текст имени под человечком
         let text_y = feet_y + 15.0;
         let text = svg::node::element::Text::new(label)
@@ -635,20 +663,14 @@ impl SvgRenderer {
             .set("font-size", theme.font_size)
             .set("fill", theme.text_color.to_css());
         group = group.add(text);
-        
+
         group
     }
 
     /// Рендерит систему/пакет (rectangle с заголовком сверху) для UseCase диаграмм
-    fn render_system(
-        &self,
-        bounds: &Rect,
-        title: &str,
-        theme: &Theme,
-        mut group: Group,
-    ) -> Group {
+    fn render_system(&self, bounds: &Rect, title: &str, theme: &Theme, mut group: Group) -> Group {
         let header_height = 25.0;
-        
+
         // 1. Основной прямоугольник системы
         let rect = Rectangle::new()
             .set("x", bounds.x)
@@ -659,7 +681,7 @@ impl SvgRenderer {
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 1);
         group = group.add(rect);
-        
+
         // 2. Заголовок сверху по центру
         let title_text = svg::node::element::Text::new(title)
             .set("x", bounds.x + bounds.width / 2.0)
@@ -670,7 +692,7 @@ impl SvgRenderer {
             .set("font-weight", "bold")
             .set("fill", theme.text_color.to_css());
         group = group.add(title_text);
-        
+
         group
     }
 
@@ -707,7 +729,7 @@ impl SvgRenderer {
             // points[1] = right top
             // points[2] = right bottom
             // points[3] = end (lifeline, bottom)
-            // 
+            //
             // PlantUML SVG:
             // line 1: x1=28.8 → x2=70.8, y=67.4 (горизонтальная вправо)
             // line 2: x=70.8, y1=67.4 → y2=80.4 (вертикальная вниз)
@@ -738,7 +760,7 @@ impl SvgRenderer {
         // PlantUML использует stroke-width: 0.5 для lifelines, 1 для сообщений
         // Определяем по наличию стрелки - если есть стрелка, это сообщение
         let stroke_width = if arrow_end || arrow_start { 1.0 } else { 0.5 };
-        
+
         let mut path = Path::new()
             .set("d", d)
             .set("fill", "none")
@@ -749,7 +771,11 @@ impl SvgRenderer {
         // PlantUML использует stroke-dasharray: 5,5 для lifelines, 2,2 для dashed сообщений
         if dashed {
             // Для lifelines (без стрелок) используем 5,5, для dashed сообщений - 2,2
-            let dash_pattern = if arrow_end || arrow_start { "2,2" } else { "5,5" };
+            let dash_pattern = if arrow_end || arrow_start {
+                "2,2"
+            } else {
+                "5,5"
+            };
             path = path.set("stroke-dasharray", dash_pattern);
         }
 
@@ -785,11 +811,11 @@ impl SvgRenderer {
             // Определяем тип линии
             let dx = points[points.len() - 1].x - points[0].x;
             let dy = points[points.len() - 1].y - points[0].y;
-            
+
             let is_vertical = points.len() == 2 && dy.abs() > dx.abs() * 3.0;
             let is_horizontal = points.len() == 2 && dx.abs() > dy.abs() * 3.0;
             let is_diagonal = points.len() == 2 && !is_vertical && !is_horizontal;
-            
+
             // Позиция текста зависит от типа линии
             let (base_x, text_y, anchor) = if is_self_message {
                 // PlantUML: для self-message текст НАД верхней линией петли
@@ -801,9 +827,9 @@ impl SvgRenderer {
                 // Структура: start_h -> corner1 -> corner2 -> end_h
                 // points[0]: начало горизонтального сегмента
                 // points[1]: угол (конец первого горизонтального сегмента)
-                // points[2]: угол (начало последнего горизонтального сегмента)  
+                // points[2]: угол (начало последнего горизонтального сегмента)
                 // points[3]: конец горизонтального сегмента
-                
+
                 // Метка располагается на ПЕРВОМ горизонтальном сегменте (исходящем),
                 // справа от точки выхода, на уровне Y этого сегмента
                 let text_x = points[0].x + 5.0; // справа от точки выхода
@@ -812,12 +838,12 @@ impl SvgRenderer {
             } else if is_diagonal {
                 // Диагональная линия (state diagrams): текст РЯДОМ с линией
                 // PlantUML style: текст размещается вдоль стрелки, с внешней стороны
-                
+
                 // Позиция вдоль линии (40% от начала для лучшего разделения расходящихся стрелок)
                 let t = 0.40;
                 let text_x = points[0].x + dx * t;
                 let text_y = points[0].y + dy * t;
-                
+
                 // Смещаем текст в сторону от линии (перпендикулярно, на ВНЕШНЮЮ сторону)
                 // Для расходящихся из одной точки стрелок:
                 // - Линия влево-вниз — текст СЛЕВА от линии
@@ -855,12 +881,12 @@ impl SvgRenderer {
             // PlantUML не использует белый фон для текста — текст просто над стрелкой
             // PlantUML использует font-size 13 для сообщений
             let font_size = 13.0;
-            
+
             // Вычисляем позицию для текста (учитывая autonumber)
             let text_x = if let Some(num_text) = autonumber {
                 // Рендерим autonumber отдельно
                 // Номер уже отформатирован (например "[01]" или "1." в зависимости от формата)
-                
+
                 // Autonumber слева
                 let autonumber_element = svg::node::element::Text::new(num_text)
                     .set("x", base_x)
@@ -871,7 +897,7 @@ impl SvgRenderer {
                     .set("font-size", font_size)
                     .set("fill", theme.text_color.to_css());
                 group = group.add(autonumber_element);
-                
+
                 // Вычисляем ширину autonumber для смещения текста
                 // PlantUML: ~7px на символ + небольшой отступ 3px
                 let num_width = num_text.len() as f64 * 7.0 + 3.0;
@@ -879,13 +905,12 @@ impl SvgRenderer {
             } else {
                 base_x
             };
-            
+
             // Рендерим текст сообщения (если есть)
             if let Some(label) = label {
                 // Поддержка многострочного текста через \n
-                group = self.render_multiline_text(
-                    text_x, text_y, label, anchor, font_size, theme, group
-                );
+                group = self
+                    .render_multiline_text(text_x, text_y, label, anchor, font_size, theme, group);
             }
         }
 
@@ -896,10 +921,10 @@ impl SvgRenderer {
             let font_size = 13.0; // PlantUML использует 13px
             let horizontal_offset = 10.0; // отступ слева от линии
             let vertical_offset = 12.0; // отступ от точки соединения вниз/вверх
-            
+
             // Определяем, это вертикальная линия
             let is_vertical = (points[1].y - points[0].y).abs() > (points[1].x - points[0].x).abs();
-            
+
             // Кардинальность у начальной точки (from)
             if let Some(card) = from_cardinality {
                 let p = &points[0];
@@ -920,7 +945,7 @@ impl SvgRenderer {
                     .set("fill", theme.text_color.to_css());
                 group = group.add(text_elem);
             }
-            
+
             // Кардинальность у конечной точки (to)
             if let Some(card) = to_cardinality {
                 let p = &points[points.len() - 1];
@@ -981,7 +1006,7 @@ impl SvgRenderer {
         // Конвертируем escape-последовательность \n в реальные переносы строк
         let processed_label = label.replace("\\n", "\n");
         let lines: Vec<&str> = processed_label.split('\n').collect();
-        
+
         if lines.len() == 1 {
             // Одна строка — простой текст
             let text = svg::node::element::Text::new(label)
@@ -998,10 +1023,10 @@ impl SvgRenderer {
             // PlantUML: последняя строка на y (ближе к стрелке), предыдущие строки ВВЕРХ
             // Так текст располагается над стрелкой, и не наезжает на неё
             let line_height = font_size + 2.0;
-            
+
             // Начинаем с верхней строки (которая будет самой верхней визуально)
             let top_y = y - (lines.len() as f64 - 1.0) * line_height;
-            
+
             let mut text_element = svg::node::element::Text::new("")
                 .set("x", x)
                 .set("text-anchor", anchor)
@@ -1009,17 +1034,17 @@ impl SvgRenderer {
                 .set("font-family", theme.font_family.as_str())
                 .set("font-size", font_size)
                 .set("fill", theme.text_color.to_css());
-            
+
             for (i, line) in lines.iter().enumerate() {
                 let tspan = svg::node::element::TSpan::new(*line)
                     .set("x", x)
                     .set("y", top_y + (i as f64) * line_height);
                 text_element = text_element.add(tspan);
             }
-            
+
             group = group.add(text_element);
         }
-        
+
         group
     }
 
@@ -1217,7 +1242,7 @@ impl SvgRenderer {
     ) -> Group {
         // Фоновый цвет (по умолчанию светло-серый)
         let fill_color = color.unwrap_or("#EEEEEE");
-        
+
         // Основной прямоугольник
         let rect = Rectangle::new()
             .set("x", bounds.x)
@@ -1277,7 +1302,7 @@ impl SvgRenderer {
         let padding = 5.0;
         let line_height = 16.0;
         let icon_size = 11.0; // радиус иконки класса
-        
+
         // 1. Рамка класса
         let rect = Rectangle::new()
             .set("x", bounds.x)
@@ -1297,12 +1322,12 @@ impl SvgRenderer {
         let icon_x = bounds.x + padding + icon_size;
         let icon_y = current_y + icon_size;
         let (icon_fill, icon_letter) = match classifier_type {
-            ClassifierKind::Class => ("#ADD1B2", "C"),         // зелёный
-            ClassifierKind::Interface => ("#B4A7E5", "I"),     // фиолетовый
+            ClassifierKind::Class => ("#ADD1B2", "C"),     // зелёный
+            ClassifierKind::Interface => ("#B4A7E5", "I"), // фиолетовый
             ClassifierKind::AbstractClass => ("#A9DCDF", "A"), // голубой
-            ClassifierKind::Enum => ("#EB937F", "E"),          // оранжевый
-            ClassifierKind::Annotation => ("#FFDD8C", "@"),    // жёлтый
-            ClassifierKind::Entity => ("#CCCCCC", "E"),        // серый
+            ClassifierKind::Enum => ("#EB937F", "E"),      // оранжевый
+            ClassifierKind::Annotation => ("#FFDD8C", "@"), // жёлтый
+            ClassifierKind::Entity => ("#CCCCCC", "E"),    // серый
         };
 
         // Круг иконки
@@ -1418,10 +1443,10 @@ impl SvgRenderer {
 
         // Иконка видимости (цветной кружок)
         let (fill_color, stroke_color) = match member.visibility {
-            MemberVisibility::Public => ("#84BE84", "#038048"),     // зелёный
-            MemberVisibility::Private => ("#C82829", "#C80000"),    // красный  
-            MemberVisibility::Protected => ("#FFCC00", "#B38600"),  // жёлтый
-            MemberVisibility::Package => ("#66CCFF", "#0099CC"),    // голубой
+            MemberVisibility::Public => ("#84BE84", "#038048"), // зелёный
+            MemberVisibility::Private => ("#C82829", "#C80000"), // красный
+            MemberVisibility::Protected => ("#FFCC00", "#B38600"), // жёлтый
+            MemberVisibility::Package => ("#66CCFF", "#0099CC"), // голубой
         };
 
         let icon = svg::node::element::Ellipse::new()

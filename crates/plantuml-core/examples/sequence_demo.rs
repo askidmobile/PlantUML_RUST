@@ -139,10 +139,7 @@ autonumber resume
     match render(box_source, &options) {
         Ok(svg) => {
             fs::write("output_boxes.svg", &svg).expect("Не удалось записать файл");
-            println!(
-                "✓ Диаграмма с boxes: output_boxes.svg ({} байт)",
-                svg.len()
-            );
+            println!("✓ Диаграмма с boxes: output_boxes.svg ({} байт)", svg.len());
         }
         Err(e) => println!("✗ Ошибка boxes: {}", e),
     }
@@ -157,6 +154,57 @@ autonumber resume
             );
         }
         Err(e) => println!("✗ Ошибка autonumber: {}", e),
+    }
+
+    // 6. Диаграмма с ref блоками
+    let ref_source = r#"@startuml
+participant Alice
+participant Bob
+participant Carol
+
+Alice -> Bob: Request
+
+ref over Bob, Carol: See Other Diagram
+
+Bob -> Carol: Process
+Carol --> Bob: Done
+
+Bob --> Alice: Response
+@enduml"#;
+
+    match render(ref_source, &options) {
+        Ok(svg) => {
+            fs::write("output_ref.svg", &svg).expect("Не удалось записать файл");
+            println!("✓ Диаграмма с ref: output_ref.svg ({} байт)", svg.len());
+        }
+        Err(e) => println!("✗ Ошибка ref: {}", e),
+    }
+
+    // 7. Диаграмма с multi-level autonumber
+    let multilevel_source = r#"@startuml
+autonumber
+participant Alice
+participant Bob
+participant Carol
+
+Alice -> Bob: First message
+Alice -> Bob: Second message
+autonumber inc A
+Alice -> Carol: Third message (level A incremented)
+Alice -> Carol: Fourth message
+autonumber inc A
+Bob -> Carol: Fifth message (level A incremented again)
+@enduml"#;
+
+    match render(multilevel_source, &options) {
+        Ok(svg) => {
+            fs::write("output_multilevel.svg", &svg).expect("Не удалось записать файл");
+            println!(
+                "✓ Диаграмма с multi-level autonumber: output_multilevel.svg ({} байт)",
+                svg.len()
+            );
+        }
+        Err(e) => println!("✗ Ошибка multi-level: {}", e),
     }
 
     println!("\nГотово! Откройте SVG файлы в браузере для просмотра.");

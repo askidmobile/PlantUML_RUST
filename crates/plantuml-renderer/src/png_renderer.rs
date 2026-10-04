@@ -116,8 +116,7 @@ impl PngRenderer {
         }
 
         // Создаём трансформацию масштаба
-        let transform =
-            tiny_skia::Transform::from_scale(self.options.scale, self.options.scale);
+        let transform = tiny_skia::Transform::from_scale(self.options.scale, self.options.scale);
 
         // Рендерим
         resvg::render(&tree, transform, &mut pixmap.as_mut());

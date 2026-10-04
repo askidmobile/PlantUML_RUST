@@ -86,7 +86,7 @@ stop
 
     for (name, source) in examples {
         println!("Рендеринг: {}", name);
-        
+
         match render(source, &options) {
             Ok(svg) => {
                 let path = format!("{}/{}.svg", output_dir, name);
