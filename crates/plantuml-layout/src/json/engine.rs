@@ -63,9 +63,14 @@ impl JsonLayoutEngine {
         let row_height = self.config.line_height;
         let rows = entries.len() as f64;
 
-        // Если ключей нет (массив), вторая колонка занимает в��ё место
+        // Если ключей нет (массив), таблица состоит из одной колонки.
+        //
+        // Ширина определяется содержимым: в эталоне таблица вложенного
+        // массива со значениями «a» и «b» занимает 18.887, то есть по одному
+        // символу плюс 10. Раньше подставлялся min_key_width (60), из-за чего
+        // вложенная таблица оказывалась втрое шире эталонной.
         let (key_width, value_width) = if key_width <= TABLE_CELL_PADDING {
-            (0.0, value_width.max(self.config.min_key_width))
+            (0.0, value_width)
         } else {
             (key_width, value_width)
         };

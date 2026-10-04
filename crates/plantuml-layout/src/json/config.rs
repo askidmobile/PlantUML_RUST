@@ -35,7 +35,8 @@ pub struct JsonLayoutConfig {
 impl Default for JsonLayoutConfig {
     fn default() -> Self {
         Self {
-            padding: 20.0,
+            // Измерено по эталону: таблица начинается на x=10, y=10.
+            padding: 10.0,
             indent: 20.0,
             // Измерено по эталону PlantUML
             // (tests/golden/reference/json_basic.svg): строки идут с шагом
@@ -43,7 +44,8 @@ impl Default for JsonLayoutConfig {
             // 103 при четырёх строках. Раньше стояло 24.0.
             line_height: 20.297,
             min_key_width: 60.0,
-            font_size: 13.0,
+            // В эталоне весь текст таблицы набран размером 14.
+            font_size: 14.0,
             text: TextMeasurer::default(),
             corner_radius: 3.0,
             object_bg_color: "#FEFECE",
