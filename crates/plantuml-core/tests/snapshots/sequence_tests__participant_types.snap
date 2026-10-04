@@ -4,7 +4,7 @@ assertion_line: 49
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg height="206.126" viewBox="5 5 260 206.126" width="260" xmlns="http://www.w3.org/2000/svg">
+<svg height="205.993" viewBox="5 5 260 205.993" width="260" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -23,13 +23,13 @@ expression: svg
 </marker>
 </defs>
 <g id="lifeline_User">
-<path d="M35,40.297 L35,175.829" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M35,40.297 L35,175.696" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="lifeline_Admin">
-<path d="M135,40.297 L135,175.829" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M135,40.297 L135,175.696" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="lifeline_DB">
-<path d="M235,40.297 L235,175.829" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M235,40.297 L235,175.696" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="participant_Admin">
 <ellipse cx="135" cy="25.1485" fill="#E2E2F0" rx="25" ry="15.1485" stroke="#181818" stroke-width="1"/>
@@ -74,20 +74,20 @@ DB
 </text>
 </g>
 <g id="footer_User">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="175.829"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="190.97750000000002">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="175.696"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="190.8445">
 User
 </text>
 </g>
 <g id="footer_Admin">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="110" y="175.829"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="190.97750000000002">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="110" y="175.696"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="135" y="190.8445">
 Admin
 </text>
 </g>
 <g id="footer_DB">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="210" y="175.829"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="235" y="190.97750000000002">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="210" y="175.696"/>
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="235" y="190.8445">
 DB
 </text>
 </g>

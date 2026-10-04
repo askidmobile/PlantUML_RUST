@@ -3,6 +3,25 @@
 //! Реализация алгоритма размещения элементов sequence diagram.
 
 use plantuml_ast::common::{LineStyle, Note, NotePosition};
+
+/// Ширина петли self-message в пикселях.
+///
+/// По эталону PlantUML. Используется и при построении геометрии, и при
+/// проверке переполнения текста — раньше эти два места использовали разные
+/// значения (42.0 и 40.0).
+const SELF_MESSAGE_LOOP_WIDTH: f64 = 42.0;
+
+/// Высота петли self-message в пикселях.
+const SELF_MESSAGE_LOOP_HEIGHT: f64 = 13.0;
+
+/// Отступ от петли self-message до текста сообщения.
+const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
+
+/// Отступ от последнего сообщения до нижнего блока участника (footer).
+///
+/// Измерено по эталону PlantUML: последнее сообщение на y=157.828,
+/// footer на y=175.828, разница ровно 18px.
+const FOOTER_GAP: f64 = 18.0;
 use plantuml_ast::sequence::{
     Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
     ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
@@ -71,7 +90,7 @@ impl SequenceLayoutEngine {
         self.add_participant_footers(&metrics, &mut elements);
 
         // 8. Вычисляем финальную высоту диаграммы (footer_y + footer_height + margin)
-        let footer_y = metrics.current_y - 11.0;
+        let footer_y = metrics.current_y + FOOTER_GAP - self.config.message_spacing;
         let total_height = footer_y + self.config.participant_height + self.config.margin;
 
         // 9. Обновляем высоту box элементов
@@ -150,12 +169,17 @@ impl SequenceLayoutEngine {
                 let is_self_message = msg.from == msg.to;
 
                 if is_self_message {
-                    // Self-message: текст справа от петли
+                    // Self-message: текст справа от петли.
+                    // Берём те же константы, что и при построении геометрии:
+                    // раньше здесь стояло 40.0 против 42.0 в отрисовке, из-за
+                    // чего проверка переполнения и фактическая петля
+                    // расходились на 2px.
                     if let Some(pm) = metrics.participants.get(&msg.from) {
-                        let loop_width = 40.0;
-                        let text_offset = 5.0; // отступ от петли до текста
                         let text_width = self.config.message_label_width(&msg.label);
-                        let right_edge = pm.center_x + loop_width + text_offset + text_width;
+                        let right_edge = pm.center_x
+                            + SELF_MESSAGE_LOOP_WIDTH
+                            + SELF_MESSAGE_TEXT_GAP
+                            + text_width;
                         *max_right = max_right.max(right_edge);
                     }
                 } else {
@@ -865,11 +889,11 @@ impl SequenceLayoutEngine {
         };
 
         let points = if is_self_message {
-            // Self-message в стиле PlantUML:
-            // PlantUML: ширина петли ~42px, высота ~13px
-            // Линии: горизонтальная → вертикальная → горизонтальная обратно
-            let loop_width = 42.0;
-            let loop_height = 13.0;
+            // Self-message в стиле PlantUML: горизонтальная линия, вертикальная
+            // вниз и обратно. Размеры петли вынесены в константы модуля, чтобы
+            // проверка переполнения и отрисовка не расходились.
+            let loop_width = SELF_MESSAGE_LOOP_WIDTH;
+            let loop_height = SELF_MESSAGE_LOOP_HEIGHT;
             vec![
                 Point::new(from_x, y),
                 Point::new(from_x + loop_width, y),
@@ -885,10 +909,9 @@ impl SequenceLayoutEngine {
 
         // Вычисляем bounds с учётом текста
         let bounds = if is_self_message {
-            // Для self-message bounds включает текст над петлёй и саму петлю
-            // PlantUML: ширина петли ~42px, высота ~13px
-            let loop_width: f64 = 42.0;
-            let loop_height: f64 = 13.0;
+            // Bounds включает текст над петлёй и саму петлю
+            let loop_width = SELF_MESSAGE_LOOP_WIDTH;
+            let loop_height = SELF_MESSAGE_LOOP_HEIGHT;
             // Текст над петлёй - нужна ширина текста или петли (что больше)
             let total_width = loop_width.max(label_width);
             Rect::new(
@@ -1321,7 +1344,7 @@ impl SequenceLayoutEngine {
         // Нужно: last_message_y + 17 = footer_y
         // last_message_y = current_y - message_spacing (приблизительно)
         // Используем: current_y - message_spacing + 17 ≈ current_y - 11
-        let footer_y = metrics.current_y - 11.0;
+        let footer_y = metrics.current_y + FOOTER_GAP - self.config.message_spacing;
         let end_y = footer_y;
 
         for (id, participant) in &metrics.participants {
@@ -1357,7 +1380,7 @@ impl SequenceLayoutEngine {
         // PlantUML: отступ от последней стрелки до footer ~17px
         // current_y уже включает message_spacing после последнего сообщения
         // Компенсируем: current_y - message_spacing + 17 ≈ current_y - 11
-        let y = metrics.current_y - 11.0;
+        let y = metrics.current_y + FOOTER_GAP - self.config.message_spacing;
 
         for (id, participant) in &metrics.participants {
             let footer = LayoutElement {

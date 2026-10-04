@@ -1,8 +1,8 @@
 {
   "class_inheritance": { "width_diff": 65.0, "height_diff": 60.0, "missing_texts": 0 },
-  "sequence_fragments": { "width_diff": 16.5, "height_diff": 46.0, "missing_texts": 0 },
-  "sequence_notes": { "width_diff": 34.0, "height_diff": 6.1, "missing_texts": 0 },
-  "sequence_participants": { "width_diff": 21.8, "height_diff": 101.7, "missing_texts": 0 },
-  "sequence_simple": { "width_diff": 24.6, "height_diff": 11.9, "missing_texts": 0 },
+  "sequence_fragments": { "width_diff": 16.5, "height_diff": 45.9, "missing_texts": 0 },
+  "sequence_notes": { "width_diff": 34.0, "height_diff": 6.3, "missing_texts": 0 },
+  "sequence_participants": { "width_diff": 21.8, "height_diff": 101.9, "missing_texts": 0 },
+  "sequence_simple": { "width_diff": 24.6, "height_diff": 12.0, "missing_texts": 0 },
   "state_simple": { "width_diff": 14.0, "height_diff": 112.0, "missing_texts": 0 }
 }
