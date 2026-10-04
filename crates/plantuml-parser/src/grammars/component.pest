@@ -207,10 +207,30 @@ connection_to = { connection_end }
 interface_ref = { "()" ~ ws* ~ simple_identifier | "(" ~ simple_identifier ~ ")" }
 
 // Стрелки
+// Между сторонами стрелки может стоять стиль линии: `-[#red]->`,
+// `-[dashed]->`. Раньше такие связи не разбирались вовсе.
 arrow = {
-    arrow_dashed
+    arrow_style_before_line
+    | arrow_dashed
     | arrow_solid
+    // Простая ассоциация со стилем, но без наконечника: `A -- B`, `A -[#red]- B`.
+    | ("-" | ".")+ ~ arrow_style ~ ("-" | ".")*
+    // Ассоциация без наконечника и без стиля: `A -- B`.
+    | ("-" | "."){1,3}
 }
+
+// `A -[#red]-> B`: стиль после первой чёрточки, затем остаток линии.
+arrow_style_before_line = {
+    // `--[#red]>` — стиль после всей линии
+    ("-" | ".")+ ~ arrow_style ~ ("-" | ".")* ~ arrow_direction? ~ arrow_head
+    // `-[#red]->` — стиль после первой чёрточки
+    | "-" ~ arrow_style ~ ("-" | ".")+ ~ arrow_direction? ~ arrow_head
+    // `-down->` — направление без стиля
+    | "-" ~ arrow_direction ~ ("-" | ".")* ~ arrow_head
+}
+
+arrow_head = { ">" | "<" | "|>" | "<|" | "*" | "o" }
+arrow_style = { "[" ~ (!("]" | NEWLINE) ~ ANY)+ ~ "]" }
 
 arrow_solid = { 
     "-->" 
