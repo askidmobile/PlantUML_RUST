@@ -25,8 +25,46 @@ statement = _{
     | abstract_decl
     | enum_decl
     | annotation_decl
+    | note_stmt
     | relationship
 }
+
+// === Заметки ===
+// В PlantUML заметки есть у всех UML-диаграмм. Раньше класс их не знал
+// вовсе, и `note right of A : текст` не разбирался.
+
+// Порядок важен: многострочная форма проверяется ПЕРВОЙ, иначе
+// `note right of A` без двоеточия перехватывается однострочным правилом,
+// и следующая строка с текстом оказывается неожиданной.
+note_stmt = {
+    note_multiline
+    | note_on_element
+    | note_floating
+}
+
+// note right of A : text
+note_on_element = {
+    "note" ~ ws+ ~ note_position ~ ws+ ~ "of" ~ ws+ ~ note_target ~ ws* ~ (":" ~ ws* ~ note_text)?
+}
+
+// note "text" as alias
+note_floating = {
+    "note" ~ ws+ ~ quoted_string ~ ws+ ~ "as" ~ ws+ ~ identifier
+}
+
+// note right of A
+//   многострочный текст
+// end note
+note_multiline = {
+    "note" ~ ws+ ~ note_position ~ ws* ~ ("of" ~ ws+ ~ note_target)? ~ NEWLINE ~
+    note_body ~
+    "end" ~ ws+ ~ "note"
+}
+
+note_target = { quoted_string | qualified_name }
+note_position = { "left" | "right" | "top" | "bottom" }
+note_text = { (!NEWLINE ~ ANY)* }
+note_body = { (!("end" ~ ws+ ~ "note") ~ ANY)* }
 
 // === Комментарии ===
 

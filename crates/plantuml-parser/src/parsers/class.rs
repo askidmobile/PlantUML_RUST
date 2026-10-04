@@ -9,7 +9,7 @@ use plantuml_ast::class::{
     ClassDiagram, Classifier, ClassifierType, Member, Package, Relationship, RelationshipType,
     Visibility,
 };
-use plantuml_ast::common::{Color, LineStyle, Stereotype};
+use plantuml_ast::common::{Color, LineStyle, Note, NotePosition, Stereotype};
 
 use crate::error::syntax_error_from_pest;
 use crate::Result;
@@ -141,6 +141,14 @@ fn process_rule(
         Rule::relationship => {
             if let Some(rel) = parse_relationship(pair) {
                 diagram.add_relationship(rel);
+            }
+        }
+        Rule::note_stmt => {
+            // Заметки class-диаграмм. Грамматика их знала и раньше
+            // принимала, но парсер не обрабатывал — заметка молча терялась,
+            // и в выводе не было ни текста, ни рамки.
+            if let Some(note) = parse_note(pair) {
+                diagram.notes.push(note);
             }
         }
         Rule::package_start => {
@@ -474,6 +482,80 @@ fn parse_visibility(s: &str) -> Visibility {
 }
 
 /// Парсит отношение
+/// Разбирает заметку class-диаграммы.
+///
+/// Поддерживаются те же три формы, что и в component-грамматике:
+/// `note right of A : текст`, `note "текст" as N` и многострочная
+/// `note right of A ... end note`.
+fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
+    let mut position = NotePosition::Right;
+    let mut text = String::new();
+    let mut anchors = Vec::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::note_on_element | Rule::note_multiline => {
+                for n in inner.into_inner() {
+                    match n.as_rule() {
+                        Rule::note_position => {
+                            position = parse_note_position(n.as_str());
+                        }
+                        Rule::note_target => {
+                            let target = n.as_str().trim().trim_matches('"').to_string();
+                            if !target.is_empty() {
+                                anchors.push(target);
+                            }
+                        }
+                        Rule::note_text | Rule::note_body => {
+                            text = n.as_str().trim().to_string();
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Rule::note_floating => {
+                for n in inner.into_inner() {
+                    match n.as_rule() {
+                        Rule::quoted_string => {
+                            text = n.as_str().trim().trim_matches('"').to_string();
+                        }
+                        // Идентификатор — имя заметки (`note "текст" as N`).
+                        // Оно попадает в anchors: так заметку можно привязать
+                        // к элементу по имени.
+                        Rule::identifier if !text.is_empty() => {
+                            anchors.push(n.as_str().to_string());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if text.is_empty() {
+        return None;
+    }
+
+    Some(Note {
+        text,
+        position,
+        anchors,
+        background_color: None,
+    })
+}
+
+/// Разбирает позицию заметки.
+fn parse_note_position(s: &str) -> NotePosition {
+    match s.to_lowercase().as_str() {
+        "left" => NotePosition::Left,
+        "right" => NotePosition::Right,
+        "top" => NotePosition::Top,
+        "bottom" => NotePosition::Bottom,
+        _ => NotePosition::Right,
+    }
+}
+
 fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship> {
     let mut from = String::new();
     let mut to = String::new();
@@ -663,6 +745,35 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Заметки class-диаграмм разбираются.
+    ///
+    /// Регрессия: грамматика принимала `note`, но парсер его не
+    /// обрабатывал, поэтому заметка молча терялась — ни текста, ни рамки
+    /// в выводе не было.
+    #[test]
+    fn test_parse_class_notes() {
+        let cases = [
+            (
+                "@startuml\nclass A\nnote right of A : пояснение\n@enduml",
+                "пояснение",
+            ),
+            (
+                "@startuml\nclass A\nnote left of A : слева\n@enduml",
+                "слева",
+            ),
+            (
+                "@startuml\nclass A\nnote right of A\n  строка\nend note\n@enduml",
+                "строка",
+            ),
+        ];
+
+        for (source, expected_text) in cases {
+            let diagram = parse_class(source).expect("заметка должна разбираться");
+            assert_eq!(diagram.notes.len(), 1, "заметка потеряна: {source}");
+            assert_eq!(diagram.notes[0].text, expected_text);
+        }
+    }
 
     #[test]
     fn test_parse_simple_class() {

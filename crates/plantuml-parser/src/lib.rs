@@ -470,8 +470,16 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
             && !has_paren_usecase_pattern(&source_lower))
         || source_lower.contains("boundary ")
         || source_lower.contains("control ")
-        || source_lower.contains("collections ")
-        || source_lower.contains("queue ")
+        // `queue` есть и в sequence, и в component. Если в исходнике есть
+        // `component`, это component-диаграмма: раньше она уходила в sequence,
+        // и разбор падал на `component A`.
+        || (source_lower.contains("queue ")
+            && !source_lower.contains("component ")
+            && !source_lower.contains("package "))
+        // `collections` — то же самое: есть и в sequence, и в component.
+        || (source_lower.contains("collections ")
+            && !source_lower.contains("component ")
+            && !source_lower.contains("package "))
         || (source_lower.contains("box ") && source_lower.contains("end box"))
     {
         return Ok(DiagramKind::Sequence);
@@ -702,6 +710,36 @@ participant A
             comp.components.len(),
             2,
             "не все элементы archimate разобраны"
+        );
+    }
+
+    /// `queue` и `collections` есть и в sequence, и в component.
+    ///
+    /// Регрессия: при наличии `component` диаграмма всё равно уходила
+    /// в sequence-парсер, который не знает ключевого слова `component`,
+    /// и разбор падал на первой же такой строке.
+    #[test]
+    fn test_queue_with_component_is_component() {
+        let cases = [
+            "@startuml\nqueue Очередь\ncomponent A\n@enduml",
+            "@startuml\ncomponent A\nqueue Очередь\n@enduml",
+            "@startuml\ncollections Коллекция\ncomponent A\n@enduml",
+        ];
+        for source in cases {
+            let diagram = parse(source).expect("диаграмма должна разбираться");
+            assert_eq!(
+                diagram.diagram_type(),
+                plantuml_ast::diagram::DiagramType::Component,
+                "queue/collections вместе с component — это Component-диаграмма"
+            );
+        }
+
+        // А без component — sequence
+        let sequence = parse("@startuml\nqueue Очередь\nAlice -> Очередь\n@enduml")
+            .expect("sequence с queue должен разбираться");
+        assert_eq!(
+            sequence.diagram_type(),
+            plantuml_ast::diagram::DiagramType::Sequence
         );
     }
 

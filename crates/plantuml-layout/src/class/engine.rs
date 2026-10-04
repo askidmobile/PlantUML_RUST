@@ -10,6 +10,18 @@ use crate::{
 };
 
 use super::config::ClassLayoutConfig;
+
+/// Цвет заметки в PlantUML — светло-жёлтый.
+const CLASS_NOTE_BACKGROUND: &str = "#FEFFDD";
+
+/// Ширина заметки.
+const CLASS_NOTE_WIDTH: f64 = 100.0;
+
+/// Высота заметки.
+const CLASS_NOTE_HEIGHT: f64 = 30.0;
+
+/// Зазор между заметкой и элементом, к которому она привязана.
+const CLASS_NOTE_GAP: f64 = 10.0;
 use super::graph::Graph;
 use super::sugiyama::SugiyamaLayout;
 
@@ -72,6 +84,11 @@ impl ClassLayoutEngine {
             elements.push(edge_element);
         }
 
+        // Заметки. Раньше поле `ClassDiagram::notes` не читалось нигде:
+        // грамматика заметки принимала, парсер их разбирал, а в раскладку
+        // они не попадали, и в выводе не было ни текста, ни рамки.
+        self.layout_notes(diagram, &mut elements);
+
         let mut result = LayoutResult {
             elements,
             bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
@@ -84,6 +101,79 @@ impl ClassLayoutEngine {
         result.bounds.height += self.config.margin * 2.0;
 
         result
+    }
+
+    /// Размещает заметки диаграммы.
+    ///
+    /// Заметка привязывается к элементу через `anchors`: если якорь указан,
+    /// заметка ставится рядом с ним, иначе — под диаграммой. Цвет в PlantUML
+    /// светло-жёлтый (#FEFFDD).
+    fn layout_notes(&self, diagram: &ClassDiagram, elements: &mut Vec<LayoutElement>) {
+        if diagram.notes.is_empty() {
+            return;
+        }
+
+        // Находим нижнюю границу уже разложенных элементов: заметки без
+        // якоря ставятся под ними.
+        let mut bottom = 0.0_f64;
+        let mut right = 0.0_f64;
+        for element in elements.iter() {
+            bottom = bottom.max(element.bounds.y + element.bounds.height);
+            right = right.max(element.bounds.x + element.bounds.width);
+        }
+
+        for (index, note) in diagram.notes.iter().enumerate() {
+            // Ищем элемент, к которому привязана заметка
+            let anchor = note.anchors.first().and_then(|name| {
+                elements
+                    .iter()
+                    .find(|e| e.id == format!("class_{name}") || e.id == format!("package_{name}"))
+            });
+
+            let (x, y) = match anchor {
+                Some(anchor) => {
+                    let b = &anchor.bounds;
+                    match note.position {
+                        plantuml_ast::common::NotePosition::Left => {
+                            (b.x - CLASS_NOTE_WIDTH - CLASS_NOTE_GAP, b.y)
+                        }
+                        plantuml_ast::common::NotePosition::Right => {
+                            (b.x + b.width + CLASS_NOTE_GAP, b.y)
+                        }
+                        plantuml_ast::common::NotePosition::Top => {
+                            (b.x, b.y - CLASS_NOTE_HEIGHT - CLASS_NOTE_GAP)
+                        }
+                        plantuml_ast::common::NotePosition::Bottom => {
+                            (b.x, b.y + b.height + CLASS_NOTE_GAP)
+                        }
+                        // `note over A` — заметка поверх элемента
+                        plantuml_ast::common::NotePosition::Over => (b.x, b.y),
+                    }
+                }
+                // Без якоря — под диаграммой, с отступом
+                None => (
+                    0.0,
+                    bottom + CLASS_NOTE_GAP + index as f64 * (CLASS_NOTE_HEIGHT + CLASS_NOTE_GAP),
+                ),
+            };
+
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("fill".to_string(), CLASS_NOTE_BACKGROUND.to_string());
+
+            elements.push(LayoutElement {
+                id: format!("note_{index}"),
+                bounds: Rect::new(x, y, CLASS_NOTE_WIDTH, CLASS_NOTE_HEIGHT),
+                text: None,
+                properties,
+                element_type: ElementType::Rectangle {
+                    label: note.text.clone(),
+                    corner_radius: 0.0,
+                },
+            });
+
+            // Заметка не должна вылезать за правый край диаграммы
+            let _ = right;
+        }
     }
 
     /// Ищет classifier в пакетах рекурсивно
