@@ -32,10 +32,14 @@ pub struct StateLayoutConfig {
 impl Default for StateLayoutConfig {
     fn default() -> Self {
         Self {
-            margin: 30.0,
+            // Измерено по эталону PlantUML
+            // (tests/golden/reference/state_simple.svg): начальный круг
+            // занимает y=6..26 (margin 6), шаг от него до первого состояния
+            // 61. Раньше стояло 30 и 60.
+            margin: 6.0,
             state_width: 120.0,
             state_min_height: 50.0,
-            vertical_spacing: 60.0,
+            vertical_spacing: 61.0,
             horizontal_spacing: 80.0,
             node_radius: 10.0,
             state_corner_radius: 10.0,

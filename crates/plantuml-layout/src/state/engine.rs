@@ -4,6 +4,11 @@
 //! Поддерживает вложенные (composite) состояния.
 
 use indexmap::{IndexMap, IndexSet};
+
+/// Базовая ширина состояния, измеренная по эталону PlantUML.
+const STATE_BASE_WIDTH: f64 = 27.54;
+/// Прибавка к ширине состояния на каждый символ имени.
+const STATE_CHAR_WIDTH: f64 = 6.002;
 use plantuml_ast::state::{State, StateDiagram, StateType};
 use plantuml_model::{Point, Rect};
 
@@ -181,7 +186,7 @@ impl StateLayoutEngine {
                         } else if name == INITIAL_STATE_ID || name == FINAL_STATE_ID {
                             self.config.node_radius * 2.0
                         } else {
-                            self.config.state_width
+                            self.state_natural_width(name)
                         }
                     })
                     .sum::<f64>()
@@ -771,8 +776,24 @@ impl StateLayoutEngine {
         }
 
         if has_final {
-            let max_level = levels.values().max().copied().unwrap_or(0);
-            levels.insert(FINAL_STATE_ID.to_string(), max_level + 1);
+            // Конечное состояние ставится на уровень своего предшественника
+            // плюс один, а НЕ под всеми состояниями.
+            //
+            // Регрессия: раньше брался max_level + 1, поэтому при
+            //     Active --> Inactive
+            //     Active --> [*]
+            // конечный круг оказывался на отдельном уровне ниже «Inactive»,
+            // и диаграмма вырастала по высоте (380 против 278 в эталоне).
+            // В PlantUML он стоит рядом с «Inactive» (оба — на уровне 2).
+            let final_level = transitions
+                .iter()
+                .filter(|(_, to, _)| to == FINAL_STATE_ID)
+                .filter_map(|(from, _, _)| levels.get(from))
+                .map(|level| level + 1)
+                .max()
+                .unwrap_or_else(|| levels.values().max().copied().unwrap_or(0) + 1);
+
+            levels.insert(FINAL_STATE_ID.to_string(), final_level);
         }
 
         for state in all_states {
@@ -889,9 +910,28 @@ impl StateLayoutEngine {
         )
     }
 
+    /// Ширина состояния по длине имени.
+    ///
+    /// Измерено по эталону PlantUML
+    /// (tests/golden/reference/state_simple.svg): «Active» (6 символов) —
+    /// 63.552, «Inactive» (8) — 75.556. Отсюда ширина ≈ 27.54 + 6.002 * n.
+    /// Раньше ширина была фиксированной (120), из-за чего диаграмма
+    /// получалась заметно шире эталона.
+    fn state_natural_width(&self, name: &str) -> f64 {
+        let chars = name.chars().count() as f64;
+        let width = STATE_BASE_WIDTH + STATE_CHAR_WIDTH * chars;
+        // Для очень коротких имён не даём фигуре выродиться
+        width.max(self.config.state_min_height)
+    }
+
     /// Создаёт простое состояние
     fn create_simple_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(x, y, self.config.state_width, self.config.state_min_height);
+        let bounds = Rect::new(
+            x,
+            y,
+            self.state_natural_width(name),
+            self.config.state_min_height,
+        );
 
         (
             LayoutElement {
