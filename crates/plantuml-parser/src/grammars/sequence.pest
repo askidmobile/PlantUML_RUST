@@ -17,6 +17,9 @@ statement = _{
     | title_stmt
     | header_stmt
     | footer_stmt
+    | legend_stmt
+    | mainframe_stmt
+    | newpage_stmt
     | hide_stmt
     | autonumber
     | participant_decl   // Объявления участников - раньше message
@@ -49,6 +52,17 @@ comment = { "'" ~ (!NEWLINE ~ ANY)* }
 title_stmt = { "title" ~ ws+ ~ rest_of_line }
 header_stmt = { "header" ~ ws+ ~ rest_of_line }
 footer_stmt = { "footer" ~ ws+ ~ rest_of_line }
+
+// Легенда: многострочный блок между `legend` и `endlegend`.
+// В PlantUML есть также формы legend left/right/center — они тоже
+// принимаются, так как текст всё равно берётся до `endlegend`.
+legend_stmt = { "legend" ~ rest_of_line? ~ NEWLINE ~ (!("endlegend") ~ ANY)* ~ "endlegend" }
+
+// Рамка вокруг диаграммы: `mainframe Заголовок`
+mainframe_stmt = { "mainframe" ~ rest_of_line? }
+
+// Разрыв страницы: `newpage` с необязательным заголовком
+newpage_stmt = { "newpage" ~ rest_of_line? }
 // hide footbox — скрыть нижние блоки участников
 hide_stmt = { "hide" ~ ws+ ~ ("footbox" | "footbox!") }
 
@@ -137,6 +151,10 @@ message = {
 // Также может включать цвет: ++ #FFBBBB
 target_activation = {
     source_deactivation? ~ target_action ~ (ws* ~ color)?
+    // Только деактивация: `A -> B-- : текст`. `--` стоит сразу после имени
+    // получателя и означает «деактивировать», без последующего действия.
+    // Раньше такая форма не разбиралась вовсе.
+    | source_deactivation ~ (ws* ~ color)?
 }
 
 // Деактивация отправителя (--) перед действием над получателем

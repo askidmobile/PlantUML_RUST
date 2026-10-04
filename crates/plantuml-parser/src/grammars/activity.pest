@@ -29,6 +29,10 @@ statement = _{
     | partition_stmt
     | swimlane_stmt
     | connector_stmt
+    // Разделитель `== текст ==`. В PlantUML он визуально разбивает поток
+    // на разделы. Раньше правило отсутствовало, и такая строка не
+    // разбиралась вовсе.
+    | divider
     | note_stmt
     | floating_note
     | backward_stmt
@@ -226,6 +230,13 @@ partition_name = { quoted_string | simple_identifier }
 partition_color = { ws+ ~ color }
 
 // === Коннекторы и метки ===
+
+// Разделитель разделов: `== текст ==` или просто `==`.
+divider = {
+    ("-" | "="){2,} ~ ws* ~ divider_text ~ ws* ~ ("-" | "="){2,}
+    | ("-" | "="){2,}
+}
+divider_text = { (!("=" | "-" | NEWLINE) ~ ANY)+ }
 
 connector_stmt = { "(" ~ connector_name ~ ")" }
 connector_name = { (!")" ~ ANY)+ }
