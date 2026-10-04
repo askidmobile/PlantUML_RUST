@@ -28,3 +28,7 @@ png = ["plantuml-renderer/png"]
 
 [dev-dependencies]
 insta.workspace = true
+
+[[bench]]
+name = "pipeline"
+harness = false
