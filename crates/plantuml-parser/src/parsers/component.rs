@@ -37,12 +37,70 @@ pub fn parse_component(source: &str) -> Result<ComponentDiagram> {
     Ok(diagram)
 }
 
+/// Разбирает `archimate #Layer "Name" as alias`.
+///
+/// Слой Archimate определяет и цвет заливки, и стереотип элемента.
+fn parse_archimate_def(pair: pest::iterators::Pair<Rule>) -> Option<Component> {
+    use plantuml_ast::common::Color;
+
+    let mut name = String::new();
+    let mut alias = None;
+    let mut layer = None;
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::archimate_layer => {
+                // Убираем ведущий '#'
+                layer = Some(inner.as_str().trim_start_matches('#').to_string());
+            }
+            Rule::quoted_string => {
+                name = inner.as_str().trim_matches('"').to_string();
+            }
+            Rule::identifier => {
+                alias = Some(inner.as_str().to_string());
+            }
+            _ => {}
+        }
+    }
+
+    if name.is_empty() {
+        return None;
+    }
+
+    // Цвета слоёв Archimate по документации PlantUML
+    let (color, stereotype) = match layer.as_deref() {
+        Some("Business") => ("#FFFFCC", "business"),
+        Some("Application") => ("#CCFFFF", "application"),
+        Some("Technology") => ("#CCFFCC", "technology"),
+        Some("Motivation") => ("#CCCCFF", "motivation"),
+        Some("Strategy") => ("#FFCCFF", "strategy"),
+        Some("Physical") => ("#FFEECC", "physical"),
+        Some("Implementation") => ("#FFCCCC", "implementation"),
+        _ => ("#FFFFFF", "archimate"),
+    };
+
+    let mut component = Component::new(name);
+    component.alias = alias;
+    component.color = Some(Color::from_hex(color));
+    component.stereotype = Some(plantuml_ast::common::Stereotype::new(stereotype));
+    Some(component)
+}
+
 /// Парсит тело диаграммы
 fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut ComponentDiagram) {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::component_def => {
                 if let Some(comp) = parse_component_def(inner) {
+                    diagram.components.push(comp);
+                }
+            }
+            Rule::archimate_def => {
+                // Archimate-элемент: слой (#Business, #Application, ...)
+                // задаёт цвет и стереотип. Ранее правило разбиралось
+                // грамматикой, но здесь не обрабатывалось, поэтому
+                // диаграмма получалась пустой.
+                if let Some(comp) = parse_archimate_def(inner) {
                     diagram.components.push(comp);
                 }
             }

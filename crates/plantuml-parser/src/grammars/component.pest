@@ -22,10 +22,23 @@ statement = _{
     | package_def
     | nested_package_def
     | interface_def
+    | archimate_def
     | connection
     | component_def
     | note_stmt
 }
+
+// === Archimate ===
+// archimate #Layer "Name" as alias
+// Слой задаёт цвет и стереотип элемента; поддерживаемые слои PlantUML:
+// Business, Application, Technology, Motivation, Strategy, Physical,
+// Implementation.
+archimate_def = {
+    "archimate" ~ ws+ ~ archimate_layer ~ ws+ ~ quoted_string ~
+    (ws+ ~ "as" ~ ws+ ~ identifier)?
+}
+
+archimate_layer = @{ "#" ~ (ASCII_ALPHA)+ }
 
 // === Комментарии ===
 

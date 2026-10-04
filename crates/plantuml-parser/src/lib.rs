@@ -673,6 +673,31 @@ participant A
         }
     }
 
+    /// Archimate-диаграмма разбирается.
+    ///
+    /// Регрессия: тип определялся, но парсер делегировал разбор
+    /// component-грамматике, которая не знает конструкцию
+    /// `archimate #Layer "Name" as alias`, поэтому диаграмма не строилась.
+    #[test]
+    fn test_parse_archimate() {
+        let source = "@startuml\narchimate #Business \"Actor\" as a\narchimate #Application \"Service\" as s\na --> s\n@enduml";
+        let diagram = parse(source).expect("archimate должен разбираться");
+        assert_eq!(
+            diagram.diagram_type(),
+            plantuml_ast::diagram::DiagramType::Archimate
+        );
+
+        // Оба элемента и связь должны присутствовать
+        let Diagram::Archimate(comp) = &diagram else {
+            panic!("ожидалась Archimate-диаграмма");
+        };
+        assert_eq!(
+            comp.components.len(),
+            2,
+            "не все элементы archimate разобраны"
+        );
+    }
+
     #[test]
     fn test_detect_sequence() {
         let source = "@startuml\nAlice -> Bob: Hello\n@enduml";

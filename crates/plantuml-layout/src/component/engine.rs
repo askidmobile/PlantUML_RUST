@@ -116,7 +116,7 @@ impl ComponentLayoutEngine {
             ComponentType::Node => self.create_node_element(&comp.name, x, y),
             ComponentType::Folder => self.create_folder_element(&comp.name, x, y),
             ComponentType::Actor => self.create_actor_element(&comp.name, x, y),
-            _ => self.create_standard_component_element(&comp.name, x, y),
+            _ => self.create_standard_component_element(comp, x, y),
         };
 
         // Границы берём у фактически созданного элемента, а не назначаем
@@ -127,7 +127,17 @@ impl ComponentLayoutEngine {
     }
 
     /// Создаёт стандартный компонент
-    fn create_standard_component_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
+    fn create_standard_component_element(&self, comp: &Component, x: f64, y: f64) -> LayoutElement {
+        let name = &comp.name;
+        let mut properties = std::collections::HashMap::new();
+
+        // Цвет элемента, если он задан (например, слоем Archimate).
+        // Раньше поле `color` не читалось вовсе, поэтому archimate-элементы
+        // всех слоёв выглядели одинаково белыми.
+        if let Some(color) = &comp.color {
+            properties.insert("fill".to_string(), color.to_css());
+        }
+
         LayoutElement {
             id: format!("component_{}", name.replace(' ', "_")),
             bounds: Rect::new(
@@ -137,9 +147,9 @@ impl ComponentLayoutEngine {
                 self.config.component_height,
             ),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties,
             element_type: ElementType::Rectangle {
-                label: name.to_string(), // Добавляем иконку компонента
+                label: name.to_string(),
                 corner_radius: self.config.corner_radius,
             },
         }
