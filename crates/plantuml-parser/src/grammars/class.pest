@@ -25,6 +25,8 @@ statement = _{
     | abstract_decl
     | enum_decl
     | direction_stmt
+    | scale_stmt
+    | language_stmt
     | annotation_decl
     | note_stmt
     | relationship
@@ -109,6 +111,7 @@ class_decl = {
     (ws* ~ extends_clause)? ~
     (ws* ~ implements_clause)? ~
     (ws+ ~ color)? ~
+    (ws* ~ link_part)? ~
     (ws* ~ class_body)?
 }
 
@@ -145,6 +148,12 @@ annotation_decl = {
 }
 
 class_name = { quoted_string | qualified_name }
+
+// Гиперссылка на элементе: `class A [[http://example.com]]`.
+// PlantUML оборачивает элемент в <a>, а без этого правила строка не
+// разбиралась вовсе.
+link_part = { "[[" ~ link_url ~ "]]" }
+link_url = { (!("]]") ~ ANY)+ }
 qualified_name = @{ identifier ~ ("." ~ identifier)* }
 
 generic_params = { "<" ~ generic_type ~ ("," ~ ws* ~ generic_type)* ~ ">" }
@@ -294,3 +303,10 @@ NEWLINE = _{ "\r\n" | "\n" | "\r" }
 // такие строки не разбирались вовсе.
 direction_stmt = { direction_kind ~ ws+ ~ "direction" }
 direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }
+
+// Масштаб диаграммы: `scale 2`, `scale 1.5`, `scale 200 width`.
+// В sequence и class правила не было вовсе.
+scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
+
+// Язык подписей: `language ru`, `language en`.
+language_stmt = { "language" ~ ws+ ~ identifier }

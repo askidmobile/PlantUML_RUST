@@ -18,6 +18,8 @@ statement = _{
     | header_stmt
     | footer_stmt
     | direction_stmt
+    | scale_stmt
+    | language_stmt
     | legend_stmt
     | mainframe_stmt
     | newpage_stmt
@@ -417,3 +419,10 @@ NEWLINE = _{ "\r\n" | "\n" | "\r" }
 // такие строки не разбирались вовсе.
 direction_stmt = { direction_kind ~ ws+ ~ "direction" }
 direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }
+
+// Масштаб диаграммы: `scale 2`, `scale 1.5`, `scale 200 width`.
+// В sequence и class правила не было вовсе.
+scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
+
+// Язык подписей: `language ru`, `language en`.
+language_stmt = { "language" ~ ws+ ~ simple_identifier }
