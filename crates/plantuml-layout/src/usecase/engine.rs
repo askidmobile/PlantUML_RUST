@@ -140,7 +140,14 @@ impl UseCaseLayoutEngine {
             }
         }
 
-        // Размещаем актёров слева (actors_x уже вычислен выше с учётом ширины label)
+        // Размещаем актёров слева.
+        //
+        // Несколько актёров могут получить одинаковую Y (если связаны с
+        // разными use case на одной высоте, либо оба не связаны ни с чем).
+        // Раньше в этом случае они рисовались в одной точке и полностью
+        // накладывались друг на друга. Теперь при совпадении Y актёр
+        // сдвигается по X на ширину блока.
+        let mut occupied: Vec<(f64, f64)> = Vec::new(); // (y, x)
         for actor in &diagram.actors {
             let actor_id = actor.alias.as_ref().unwrap_or(&actor.name);
 
@@ -173,7 +180,17 @@ impl UseCaseLayoutEngine {
                 system_y + system_height / 2.0 - self.config.actor_height / 2.0
             };
 
-            let (elem, bounds) = self.create_actor_element(&actor.name, actors_x, y);
+            // Ищем свободную позицию по X среди актёров с такой же Y
+            let mut actor_x = actors_x;
+            let tolerance = self.config.actor_height / 2.0;
+            while occupied.iter().any(|(oy, ox)| {
+                (oy - y).abs() < tolerance && (ox - actor_x).abs() < actor_total_width
+            }) {
+                actor_x += actor_total_width + self.config.horizontal_spacing;
+            }
+            occupied.push((y, actor_x));
+
+            let (elem, bounds) = self.create_actor_element(&actor.name, actor_x, y);
             element_positions.insert(actor.name.clone(), bounds);
             if let Some(alias) = &actor.alias {
                 element_positions.insert(alias.clone(), bounds);
@@ -331,6 +348,47 @@ impl Default for UseCaseLayoutEngine {
 mod tests {
     use super::*;
     use plantuml_ast::usecase::{UseCase, UseCaseActor};
+
+    /// Актёры не должны накладываться друг на друга.
+    ///
+    /// Регрессия: раньше `actors_x` вычислялся один раз и использовался для
+    /// всех актёров, поэтому несколько актёров на одной высоте рисовались в
+    /// одной точке.
+    #[test]
+    fn test_actors_do_not_overlap() {
+        let mut diagram = plantuml_ast::usecase::UseCaseDiagram::new();
+        diagram.actors.push(UseCaseActor::new("A"));
+        diagram.actors.push(UseCaseActor::new("B"));
+        diagram.actors.push(UseCaseActor::new("C"));
+        diagram.use_cases.push(UseCase::new("U"));
+
+        let result = UseCaseLayoutEngine::new().layout(&diagram);
+
+        let actors: Vec<&LayoutElement> = result
+            .elements
+            .iter()
+            .filter(|e| e.id.starts_with("actor"))
+            .collect();
+        assert_eq!(actors.len(), 3, "не все актёры размещены");
+
+        // Попарно проверяем, что прямоугольники не пересекаются
+        for (i, a) in actors.iter().enumerate() {
+            for b in actors.iter().skip(i + 1) {
+                let overlap_x = a.bounds.x < b.bounds.x + b.bounds.width
+                    && b.bounds.x < a.bounds.x + a.bounds.width;
+                let overlap_y = a.bounds.y < b.bounds.y + b.bounds.height
+                    && b.bounds.y < a.bounds.y + a.bounds.height;
+                assert!(
+                    !(overlap_x && overlap_y),
+                    "актёры {} и {} перекрываются: {:?} и {:?}",
+                    a.id,
+                    b.id,
+                    a.bounds,
+                    b.bounds
+                );
+            }
+        }
+    }
 
     #[test]
     fn test_layout_simple() {
