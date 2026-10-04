@@ -43,14 +43,18 @@ pub struct SaltLayoutConfig {
 impl Default for SaltLayoutConfig {
     fn default() -> Self {
         Self {
-            padding: 10.0,
-            row_height: 28.0,
-            min_cell_width: 60.0,
-            cell_padding: 8.0,
-            font_size: 13.0,
-            button_height: 24.0,
-            textfield_height: 22.0,
-            checkbox_size: 14.0,
+            // Измерено по эталону PlantUML
+            // (tests/golden/reference/salt_basic.svg, 113x71): строки идут
+            // с шагом 17.968 (y = 17.139, 35.107), кнопки высотой 17.969
+            // со скруглением 5 и обводкой 2.5, размер шрифта 12.
+            padding: 6.0,
+            row_height: 17.968,
+            min_cell_width: 52.07,
+            cell_padding: 6.0,
+            font_size: 12.0,
+            button_height: 17.969,
+            textfield_height: 17.969,
+            checkbox_size: 11.0,
             border_width: 1.0,
             background_color: "#FFFFFF",
             border_color: "#888888",
