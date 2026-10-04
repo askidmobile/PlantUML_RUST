@@ -50,12 +50,12 @@ impl SvgRenderer {
         // Набор атрибутов повторяет PlantUML: он важен для потребителей,
         // разбирающих вывод (contentStyleType), и для корректного
         // масштабирования (preserveAspectRatio, zoomAndPan).
-        let mut doc = Document::new()
+        let doc = Document::new()
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("version", "1.1")
-            .set("width", width)
-            .set("height", height)
+            .set("width", format!("{:.0}px", width))
+            .set("height", format!("{:.0}px", height))
             .set(
                 "viewBox",
                 (
@@ -67,7 +67,22 @@ impl SvgRenderer {
             )
             .set("zoomAndPan", "magnify")
             .set("preserveAspectRatio", "none")
-            .set("contentStyleType", "text/css");
+            .set("contentStyleType", "text/css")
+            // PlantUML дублирует размеры ещё и в style, а также пишет
+            // единицы измерения (`306px`) в width/height. Это важно для
+            // потребителей, читающих размеры из style.
+            .set(
+                "style",
+                format!("width:{width:.0}px;height:{height:.0}px;background:#FFFFFF;"),
+            );
+
+        // PlantUML помечает корневой `<svg>` типом диаграммы: потребители
+        // вывода (редакторы, конвертеры) определяют по нему разметку.
+        let mut doc = if let Some(kind) = &self.options.diagram_type {
+            doc.set("data-diagram-type", kind.as_str())
+        } else {
+            doc
+        };
 
         // PlantUML по умолчанию НЕ добавляет фон и рамку вокруг диаграммы
         // Фон добавляется только если явно указан через skinparam backgroundColor

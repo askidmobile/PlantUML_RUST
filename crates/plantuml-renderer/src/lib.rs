@@ -57,6 +57,14 @@ pub struct RenderOptions {
     pub scale: f64,
     /// Цвет фона (None = прозрачный)
     pub background_color: Option<String>,
+    /// Тип диаграммы для атрибута `data-diagram-type`.
+    ///
+    /// PlantUML помечает корневой `<svg>` этим атрибутом, и по нему
+    /// потребители вывода (редакторы, конвертеры) определяют тип. Имена
+    /// не совпадают с нашими один в один: например, component, deployment
+    /// и usecase PlantUML помечает как `DESCRIPTION`, а ER и object — как
+    /// `CLASS`.
+    pub diagram_type: Option<String>,
 }
 
 impl Default for RenderOptions {
@@ -65,6 +73,7 @@ impl Default for RenderOptions {
             xml_header: true,
             scale: 1.0,
             background_color: None, // None = PlantUML default (#FEFECE)
+            diagram_type: None,
         }
     }
 }

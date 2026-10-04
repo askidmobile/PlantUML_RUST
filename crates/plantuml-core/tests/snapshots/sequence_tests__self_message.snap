@@ -4,7 +4,7 @@ assertion_line: 67
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" height="149.461" preserveAspectRatio="none" version="1.1" viewBox="5 5 160.73618 149.461" width="160.73618" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="149px" preserveAspectRatio="none" style="width:161px;height:149px;background:#FFFFFF;" version="1.1" viewBox="5 5 160.73618 149.461" width="161px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>

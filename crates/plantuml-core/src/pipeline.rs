@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::{Error, RenderOptions, Result};
+use plantuml_ast::diagram::DiagramType;
 use plantuml_ast::Diagram;
 use plantuml_layout::{
     ActivityLayoutEngine, ClassLayoutEngine, ComponentLayoutEngine, ErLayoutEngine,
@@ -33,7 +34,7 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
     let layout = layout(&diagram, options)?;
 
     // 4. Рендеринг с темой из исходника
-    let svg = render_svg(&layout, options, &theme)?;
+    let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
 
     Ok(svg)
 }
@@ -60,9 +61,32 @@ pub fn render_pipeline_with_includes(
     let layout = layout(&diagram, options)?;
 
     // 4. Рендеринг с темой из исходника
-    let svg = render_svg(&layout, options, &theme)?;
+    let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
 
     Ok(svg)
+}
+
+/// Имя типа диаграммы для атрибута `data-diagram-type`.
+///
+/// Имена не совпадают с нашими один в один: PlantUML помечает component,
+/// deployment и usecase как `DESCRIPTION`, а ER и object — как `CLASS`.
+fn svg_diagram_type(diagram: &Diagram) -> &'static str {
+    match diagram.diagram_type() {
+        DiagramType::Sequence => "SEQUENCE",
+        DiagramType::Class | DiagramType::Er | DiagramType::Object => "CLASS",
+        DiagramType::Activity => "ACTIVITY",
+        DiagramType::State => "STATE",
+        DiagramType::Timing => "TIMING",
+        DiagramType::Component | DiagramType::Deployment | DiagramType::UseCase => "DESCRIPTION",
+        DiagramType::Gantt => "GANTT",
+        DiagramType::MindMap => "MINDMAP",
+        DiagramType::Wbs => "WBS",
+        DiagramType::Json => "JSON",
+        DiagramType::Yaml => "YAML",
+        DiagramType::Network => "NWDIAG",
+        DiagramType::Salt => "SALT",
+        DiagramType::Archimate => "ARCHIMATE",
+    }
 }
 
 /// Этап препроцессинга: возвращает обработанный текст и тему из исходника.
@@ -203,11 +227,13 @@ fn render_svg(
     layout: &LayoutResult,
     options: &RenderOptions,
     source_theme: &Theme,
+    diagram_type: &str,
 ) -> Result<String> {
     let render_options = plantuml_renderer::RenderOptions {
         xml_header: options.xml_header,
         scale: options.scale,
         background_color: options.background_color.clone(),
+        diagram_type: Some(diagram_type.to_string()),
     };
 
     // Тема из исходника накладывается поверх темы из опций.
