@@ -675,7 +675,10 @@ BODY
 
         // HEADER_LINE должен появиться только один раз
         let count = result.matches("HEADER_LINE").count();
-        assert_eq!(count, 1, "!include_once должен включать файл только один раз");
+        assert_eq!(
+            count, 1,
+            "!include_once должен включать файл только один раз"
+        );
     }
 
     #[test]

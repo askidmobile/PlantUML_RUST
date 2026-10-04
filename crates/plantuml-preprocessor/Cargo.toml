@@ -14,6 +14,7 @@ thiserror = { workspace = true }
 indexmap = { workspace = true }
 regex = { workspace = true }
 plantuml-themes = { path = "../plantuml-themes" }
+plantuml-stdlib = { path = "../plantuml-stdlib" }
 
 [dev-dependencies]
 tempfile = "3.10"

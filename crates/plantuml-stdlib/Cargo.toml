@@ -5,7 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Стандартная библиотека PlantUML (иконки, спрайты)"
-keywords = ["plantuml", "stdlib", "icons"]
+description = "Стандартная библиотека PlantUML (иконки, спрайты, макросы C4/AWS/Azure)"
+keywords = ["plantuml", "stdlib", "icons", "c4", "sprites"]
+categories = ["development-tools", "graphics"]
 
 [dependencies]
+
+[dev-dependencies]

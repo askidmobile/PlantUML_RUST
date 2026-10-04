@@ -139,8 +139,14 @@ impl FsFileResolver {
 
     /// Разрешает путь к стандартной библиотеке
     fn resolve_stdlib_path(&self, stdlib_path: &str) -> Option<PathBuf> {
-        // TODO: Интеграция с plantuml-stdlib
-        // Пока ищем в search_paths
+        // Сначала проверяем встроенную стандартную библиотеку
+        if plantuml_stdlib::exists(stdlib_path) {
+            // Возвращаем специальный маркер для stdlib
+            // (будет обработан в read_file)
+            return Some(PathBuf::from(format!("__stdlib__:{}", stdlib_path)));
+        }
+
+        // Fallback: ищем в search_paths
         for search_path in &self.search_paths {
             let candidate = search_path.join(stdlib_path);
             if candidate.exists() {
@@ -204,14 +210,22 @@ impl FileResolver for FsFileResolver {
     fn read_file(&self, path: &str) -> Result<String> {
         // Разрешаем путь
         let resolved_path = self.resolve_path(path).ok_or_else(|| {
-            PreprocessError::FileNotFound(format!("{} (base_dir: {})", path, self.base_dir.display()))
+            PreprocessError::FileNotFound(format!(
+                "{} (base_dir: {})",
+                path,
+                self.base_dir.display()
+            ))
         })?;
 
-        // Проверяем рекурсию (используем clone для мутабельности)
-        // NOTE: В реальности нужен RefCell или другой механизм
-        // Пока просто читаем файл без проверки рекурсии на уровне resolver
+        // Проверяем, является ли это встроенным stdlib
+        let path_str = resolved_path.to_string_lossy();
+        if let Some(stdlib_path) = path_str.strip_prefix("__stdlib__:") {
+            return plantuml_stdlib::get_include(stdlib_path)
+                .map(|s| s.to_string())
+                .ok_or_else(|| PreprocessError::FileNotFound(format!("stdlib: {}", stdlib_path)));
+        }
 
-        // Читаем файл
+        // Читаем файл с файловой системы
         fs::read_to_string(&resolved_path).map_err(|e| {
             PreprocessError::FileReadError(format!("{}: {}", resolved_path.display(), e))
         })
@@ -335,5 +349,28 @@ mod tests {
 
         // base_dir должен быть "diagrams/"
         assert!(resolver.file_exists("include.puml"));
+    }
+
+    #[test]
+    fn test_stdlib_include() {
+        let temp_dir = TempDir::new().unwrap();
+        let resolver = FsFileResolver::new(temp_dir.path());
+
+        // Проверяем, что stdlib включения доступны
+        assert!(resolver.file_exists("<C4/C4_Context>"));
+
+        // Читаем содержимое
+        let content = resolver.read_file("<C4/C4_Context>").unwrap();
+        assert!(content.contains("C4_CONTEXT"));
+        assert!(content.contains("Person"));
+    }
+
+    #[test]
+    fn test_stdlib_nonexistent() {
+        let temp_dir = TempDir::new().unwrap();
+        let resolver = FsFileResolver::new(temp_dir.path());
+
+        // Несуществующий stdlib путь
+        assert!(!resolver.file_exists("<nonexistent/path>"));
     }
 }
