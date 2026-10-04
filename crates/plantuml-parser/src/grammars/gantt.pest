@@ -23,8 +23,12 @@ statement = _{
     | scale_stmt
     | closed_stmt
     | holiday_stmt
-    | task_def
+    // `milestone_def` идёт ПЕРЕД `task_def`: модификаторы задачи
+    // необязательны (`task_modifiers` допускает ноль повторов), поэтому
+    // `task_def` жадно съедал `[Веха]`, оставляя `happens ...` —
+    // и ни одна форма вехи не разбиралась.
     | milestone_def
+    | task_def
     | separator
     | then_stmt
     | note_stmt
@@ -189,6 +193,9 @@ milestone_def = {
 milestone_time = {
     "at" ~ ws+ ~ task_ref ~ "'s" ~ ws+ ~ ("end" | "start")
     | "after" ~ ws+ ~ task_ref ~ "'s" ~ ws+ ~ "end"
+    // `happens at 2024-01-01` — дата с предлогом. Раньше не разбиралось.
+    | "at" ~ ws+ ~ date_value
+    | "on" ~ ws+ ~ date_value
     | date_value
 }
 
