@@ -11,8 +11,24 @@ use crate::traits::{LayoutEngine, LayoutResult};
 use crate::{ElementType, LayoutConfig, LayoutElement};
 
 /// Layout engine для JSON диаграмм
+/// Синтаксис отображения структуры.
+///
+/// YAML-диаграммы используют тот же движок, что и JSON, но нотация
+/// отличается: в YAML нет фигурных скобок и запятых, вложенность задаётся
+/// отступами, а элементы списка начинаются с `-`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Notation {
+    /// JSON: `{`, `}`, `[`, `]`
+    #[default]
+    Json,
+    /// YAML: без скобок, список через `- `
+    Yaml,
+}
+
+/// Layout engine для JSON/YAML диаграмм
 pub struct JsonLayoutEngine {
     config: JsonLayoutConfig,
+    notation: Notation,
 }
 
 impl JsonLayoutEngine {
@@ -20,12 +36,29 @@ impl JsonLayoutEngine {
     pub fn new() -> Self {
         Self {
             config: JsonLayoutConfig::default(),
+            notation: Notation::Json,
+        }
+    }
+
+    /// Создаёт движок с заданной нотацией (JSON или YAML)
+    pub fn with_notation(notation: Notation) -> Self {
+        Self {
+            config: JsonLayoutConfig::default(),
+            notation,
         }
     }
 
     /// Создаёт engine с указанной конфигурацией
     pub fn with_config(config: JsonLayoutConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            notation: Notation::Json,
+        }
+    }
+
+    /// Создаёт engine с конфигурацией и нотацией
+    pub fn with_config_and_notation(config: JsonLayoutConfig, notation: Notation) -> Self {
+        Self { config, notation }
     }
 
     /// Вычисляет layout для JSON узла
@@ -57,10 +90,12 @@ impl JsonLayoutEngine {
         let mut max_width = self.config.min_key_width * 2.0;
 
         // Заголовок объекта
-        let header_text = if let Some(key) = &node.key {
-            format!("{}: {{", key)
-        } else {
-            "{".to_string()
+        let header_text = match (&node.key, self.notation) {
+            // YAML: `key:` без фигурной скобки, вложенность — отступом
+            (Some(key), Notation::Yaml) => format!("{key}:"),
+            (None, Notation::Yaml) => String::new(),
+            (Some(key), Notation::Json) => format!("{key}: {{"),
+            (None, Notation::Json) => "{".to_string(),
         };
 
         // Layout дочерних элементов
@@ -114,25 +149,27 @@ impl JsonLayoutEngine {
         };
         elements.push(header_element);
 
-        // Закрывающая скобка
-        let close_element = LayoutElement {
-            id: format!("json_close_{}", elements.len()),
-            element_type: ElementType::Text {
-                text: "}".to_string(),
-                font_size: self.config.font_size,
-            },
-            bounds: Rect::new(
-                x + 5.0,
-                y + total_height - self.config.line_height,
-                20.0,
-                self.config.line_height,
-            ),
-            text: None,
-            properties: [("fill".to_string(), "#000000".to_string())]
-                .into_iter()
-                .collect(),
-        };
-        elements.push(close_element);
+        // Закрывающая скобка. В YAML её нет: вложенность задаётся отступами.
+        if self.notation == Notation::Json {
+            let close_element = LayoutElement {
+                id: format!("json_close_{}", elements.len()),
+                element_type: ElementType::Text {
+                    text: "}".to_string(),
+                    font_size: self.config.font_size,
+                },
+                bounds: Rect::new(
+                    x + 5.0,
+                    y + total_height - self.config.line_height,
+                    20.0,
+                    self.config.line_height,
+                ),
+                text: None,
+                properties: [("fill".to_string(), "#000000".to_string())]
+                    .into_iter()
+                    .collect(),
+            };
+            elements.push(close_element);
+        }
 
         Size::new(total_width, total_height)
     }
@@ -151,10 +188,12 @@ impl JsonLayoutEngine {
         let mut max_width = self.config.min_key_width * 2.0;
 
         // Заголовок массива
-        let header_text = if let Some(key) = &node.key {
-            format!("{}: [", key)
-        } else {
-            "[".to_string()
+        let header_text = match (&node.key, self.notation) {
+            // YAML: `key:` без квадратной скобки, элементы пойдут через `- `
+            (Some(key), Notation::Yaml) => format!("{key}:"),
+            (None, Notation::Yaml) => String::new(),
+            (Some(key), Notation::Json) => format!("{key}: ["),
+            (None, Notation::Json) => "[".to_string(),
         };
 
         // Layout элементов массива
@@ -217,25 +256,27 @@ impl JsonLayoutEngine {
         };
         elements.push(header_element);
 
-        // Закрывающая скобка
-        let close_element = LayoutElement {
-            id: format!("json_close_{}", elements.len()),
-            element_type: ElementType::Text {
-                text: "]".to_string(),
-                font_size: self.config.font_size,
-            },
-            bounds: Rect::new(
-                x + 5.0,
-                y + total_height - self.config.line_height,
-                20.0,
-                self.config.line_height,
-            ),
-            text: None,
-            properties: [("fill".to_string(), "#000000".to_string())]
-                .into_iter()
-                .collect(),
-        };
-        elements.push(close_element);
+        // Закрывающая скобка. В YAML её нет.
+        if self.notation == Notation::Json {
+            let close_element = LayoutElement {
+                id: format!("json_close_{}", elements.len()),
+                element_type: ElementType::Text {
+                    text: "]".to_string(),
+                    font_size: self.config.font_size,
+                },
+                bounds: Rect::new(
+                    x + 5.0,
+                    y + total_height - self.config.line_height,
+                    20.0,
+                    self.config.line_height,
+                ),
+                text: None,
+                properties: [("fill".to_string(), "#000000".to_string())]
+                    .into_iter()
+                    .collect(),
+            };
+            elements.push(close_element);
+        }
 
         Size::new(total_width, total_height)
     }
