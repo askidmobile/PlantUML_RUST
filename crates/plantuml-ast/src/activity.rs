@@ -41,6 +41,12 @@ pub enum ActivityElement {
     Repeat(RepeatLoop),
     /// Развилка (fork)
     Fork(Fork),
+    /// Раздел (partition)
+    Partition(Partition),
+    /// Множественный выбор (switch)
+    Switch(Switch),
+    /// Разделение потока (split)
+    Split(Split),
     /// Заметка
     Note(Note),
     /// Переход в swimlane
@@ -188,6 +194,48 @@ pub struct Fork {
     pub branches: Vec<Vec<ActivityElement>>,
     /// Тип слияния
     pub join_type: JoinType,
+}
+
+/// Раздел (`partition Имя { ... }`).
+///
+/// PlantUML рисует раздел рамкой с заголовком, внутри — обычный поток.
+/// Раньше правило грамматики было, но ни AST, ни парсер, ни layout его не
+/// знали: **всё содержимое раздела терялось**, а не только заголовок.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Partition {
+    /// Название раздела
+    pub name: String,
+    /// Цвет рамки
+    pub color: Option<Color>,
+    /// Содержимое раздела
+    pub elements: Vec<ActivityElement>,
+}
+
+/// Ветка `switch`/`split` вместе с её условием.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Branch {
+    /// Условие или название ветки
+    pub label: Option<String>,
+    /// Содержимое ветки
+    pub elements: Vec<ActivityElement>,
+}
+
+/// Множественный выбор (`switch (выражение) ... endswitch`).
+///
+/// Как и раздел, раньше не поддерживался вовсе — содержимое терялось.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Switch {
+    /// Выражение выбора
+    pub expression: Option<String>,
+    /// Ветки `case`
+    pub branches: Vec<Branch>,
+}
+
+/// Разделение потока (`split ... split again ... end split`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Split {
+    /// Ветки
+    pub branches: Vec<Branch>,
 }
 
 /// Тип слияния

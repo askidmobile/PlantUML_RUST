@@ -6,8 +6,8 @@ use pest::Parser;
 use pest_derive::Parser;
 
 use plantuml_ast::activity::{
-    Action, ActionStyle, ActivityDiagram, ActivityElement, Condition, ElseIfBranch, Fork, JoinType,
-    RepeatLoop, Swimlane, WhileLoop,
+    Action, ActionStyle, ActivityDiagram, ActivityElement, Branch, Condition, ElseIfBranch, Fork,
+    JoinType, Partition, RepeatLoop, Split, Swimlane, Switch, WhileLoop,
 };
 use plantuml_ast::common::{Color, Note, NotePosition};
 
@@ -67,6 +67,12 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Option<ActivityElement>
         Rule::repeat_stmt => parse_repeat_stmt(pair).map(ActivityElement::Repeat),
         Rule::fork_stmt => parse_fork_stmt(pair).map(ActivityElement::Fork),
         Rule::swimlane_stmt => parse_swimlane(pair).map(ActivityElement::SwimlaneChange),
+        // Раздел, множественный выбор и разделение потока. Правила
+        // грамматики были, но ни AST, ни парсер их не знали — терялось
+        // ВСЁ содержимое, а не только заголовок.
+        Rule::partition_stmt => parse_partition(pair).map(ActivityElement::Partition),
+        Rule::switch_stmt => parse_switch(pair).map(ActivityElement::Switch),
+        Rule::split_stmt => parse_split(pair).map(ActivityElement::Split),
         Rule::connector_stmt => parse_connector(pair).map(ActivityElement::Connector),
         Rule::note_stmt | Rule::note_inline | Rule::note_multiline => {
             parse_note(pair).map(ActivityElement::Note)
@@ -298,6 +304,108 @@ fn parse_repeat_stmt(pair: pest::iterators::Pair<Rule>) -> Option<RepeatLoop> {
 }
 
 /// Парсит fork/join
+/// Разбирает раздел `partition Имя { ... }`.
+fn parse_partition(pair: pest::iterators::Pair<Rule>) -> Option<Partition> {
+    let mut name = String::new();
+    let mut color = None;
+    let mut elements = Vec::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::partition_name => name = extract_partition_name(inner),
+            Rule::color => color = Some(Color::parse(inner.as_str().trim())),
+            Rule::body => elements = parse_body(inner),
+            _ => {}
+        }
+    }
+
+    if name.is_empty() {
+        return None;
+    }
+
+    Some(Partition {
+        name,
+        color,
+        elements,
+    })
+}
+
+/// Разбирает множественный выбор `switch (выражение) ... endswitch`.
+fn parse_switch(pair: pest::iterators::Pair<Rule>) -> Option<Switch> {
+    let mut expression = None;
+    let mut branches = Vec::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::condition_text => {
+                let text = inner.as_str().trim();
+                if !text.is_empty() {
+                    expression = Some(text.to_string());
+                }
+            }
+            Rule::case_clause => {
+                let mut label = None;
+                let mut elements = Vec::new();
+                for case_inner in inner.into_inner() {
+                    match case_inner.as_rule() {
+                        Rule::label_text => {
+                            let text = case_inner.as_str().trim();
+                            if !text.is_empty() {
+                                label = Some(text.to_string());
+                            }
+                        }
+                        Rule::body => elements = parse_body(case_inner),
+                        _ => {}
+                    }
+                }
+                branches.push(Branch { label, elements });
+            }
+            _ => {}
+        }
+    }
+
+    Some(Switch {
+        expression,
+        branches,
+    })
+}
+
+/// Разбирает разделение потока `split ... split again ... end split`.
+fn parse_split(pair: pest::iterators::Pair<Rule>) -> Option<Split> {
+    let mut branches: Vec<Branch> = Vec::new();
+    let mut current = Vec::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::body => current = parse_body(inner),
+            Rule::split_again_clause => {
+                branches.push(Branch {
+                    label: None,
+                    elements: std::mem::take(&mut current),
+                });
+                for again_inner in inner.into_inner() {
+                    if again_inner.as_rule() == Rule::body {
+                        current = parse_body(again_inner);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    branches.push(Branch {
+        label: None,
+        elements: current,
+    });
+
+    Some(Split { branches })
+}
+
+/// Извлекает имя раздела.
+fn extract_partition_name(pair: pest::iterators::Pair<Rule>) -> String {
+    pair.as_str().trim().trim_matches('"').to_string()
+}
+
 fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Fork> {
     let mut branches: Vec<Vec<ActivityElement>> = Vec::new();
     let mut current_branch: Vec<ActivityElement> = Vec::new();
@@ -466,6 +574,58 @@ fn parse_color(pair: pest::iterators::Pair<Rule>) -> Option<Color> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `partition`, `switch` и `split` не теряют содержимое.
+    ///
+    /// Регрессия: правила грамматики были, но ни AST, ни парсер их не
+    /// знали — терялось ВСЁ содержимое конструкции, а не только заголовок.
+    #[test]
+    fn test_partition_switch_split() {
+        let source = "@startuml\nstart\npartition Раздел {\n  :шаг;\n}\nstop\n@enduml";
+        let diagram = parse_activity(source).expect("диаграмма должна разбираться");
+        let partition = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                ActivityElement::Partition(p) => Some(p),
+                _ => None,
+            })
+            .expect("раздел должен быть разобран");
+        assert_eq!(partition.name, "Раздел");
+        assert_eq!(partition.elements.len(), 1, "содержимое раздела потеряно");
+
+        let source = "@startuml\nstart\nswitch (в)\ncase (1)\n:один;\ncase (2)\n:два;\nendswitch\nstop\n@enduml";
+        let diagram = parse_activity(source).expect("диаграмма должна разбираться");
+        let switch = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                ActivityElement::Switch(s) => Some(s),
+                _ => None,
+            })
+            .expect("switch должен быть разобран");
+        assert_eq!(switch.branches.len(), 2);
+        assert_eq!(
+            switch.branches[0].elements.len(),
+            1,
+            "содержимое ветки потеряно"
+        );
+
+        let source =
+            "@startuml\nstart\nsplit\n:веткаA;\nsplit again\n:веткаB;\nend split\nstop\n@enduml";
+        let diagram = parse_activity(source).expect("диаграмма должна разбираться");
+        let split = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                ActivityElement::Split(s) => Some(s),
+                _ => None,
+            })
+            .expect("split должен быть разобран");
+        assert_eq!(split.branches.len(), 2);
+        assert_eq!(split.branches[0].elements.len(), 1);
+        assert_eq!(split.branches[1].elements.len(), 1);
+    }
 
     #[test]
     fn test_parse_simple_activity() {

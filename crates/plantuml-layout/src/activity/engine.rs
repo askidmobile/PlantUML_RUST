@@ -5,7 +5,8 @@
 use std::collections::HashMap;
 
 use plantuml_ast::activity::{
-    Action, ActivityDiagram, ActivityElement, Condition, Fork, RepeatLoop, WhileLoop,
+    Action, ActivityDiagram, ActivityElement, Condition, Fork, Partition, RepeatLoop, Split,
+    Switch, WhileLoop,
 };
 use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
@@ -14,6 +15,9 @@ use super::config::ActivityLayoutConfig;
 
 /// Цвет заметки в PlantUML — светло-жёлтый.
 const ACTIVITY_NOTE_BACKGROUND: &str = "#FEFFDD";
+
+/// Внутренний отступ рамки раздела.
+const PARTITION_PADDING: f64 = 8.0;
 
 /// Зазор между потоком и заметкой.
 const ACTIVITY_NOTE_GAP: f64 = 10.0;
@@ -244,6 +248,19 @@ impl ActivityLayoutEngine {
                     let new_y = self.layout_fork(fork, center_x, current_y, &mut elements);
                     (new_y - current_y - self.config.vertical_spacing, true)
                 }
+                ActivityElement::Partition(partition) => {
+                    let new_y =
+                        self.layout_partition(partition, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                ActivityElement::Switch(switch) => {
+                    let new_y = self.layout_switch(switch, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
+                ActivityElement::Split(split) => {
+                    let new_y = self.layout_split(split, center_x, current_y, &mut elements);
+                    (new_y - current_y - self.config.vertical_spacing, true)
+                }
                 _ => (0.0, false),
             };
 
@@ -424,6 +441,15 @@ impl ActivityLayoutEngine {
                 self.layout_repeat(repeat_loop, center_x, current_y, elements)
             }
             ActivityElement::Fork(fork) => self.layout_fork(fork, center_x, current_y, elements),
+            ActivityElement::Partition(partition) => {
+                self.layout_partition(partition, center_x, current_y, elements)
+            }
+            ActivityElement::Switch(switch) => {
+                self.layout_switch(switch, center_x, current_y, elements)
+            }
+            ActivityElement::Split(split) => {
+                self.layout_split(split, center_x, current_y, elements)
+            }
             ActivityElement::Detach | ActivityElement::Kill => {
                 // Detach/Kill просто прерывают поток, не рисуем ничего
                 current_y
@@ -829,6 +855,199 @@ impl ActivityLayoutEngine {
     }
 
     /// Располагает fork/join
+    /// Раскладывает раздел `partition`.
+    ///
+    /// PlantUML рисует раздел рамкой с подписью в левом верхнем углу,
+    /// внутри — обычный поток. Раньше раздел не поддерживался вовсе:
+    /// в основном цикле он попадал в catch-all и пропускался вместе со
+    /// всем содержимым.
+    fn layout_partition(
+        &self,
+        partition: &Partition,
+        center_x: f64,
+        current_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let header_height = self.config.action_height;
+
+        // Содержимое раздела раскладывается ниже его заголовка
+        let content_y = current_y + header_height + self.config.vertical_spacing;
+        let mut inner: Vec<LayoutElement> = Vec::new();
+        let end_y = self.layout_elements(&partition.elements, center_x, content_y, &mut inner);
+
+        // Ширина рамки — по самому широкому содержимому
+        let mut width = self
+            .config
+            .text
+            .width(&partition.name, self.config.font_size)
+            + ACTION_TEXT_PADDING;
+        for element in &inner {
+            let right = (element.bounds.x + element.bounds.width - center_x).abs() * 2.0;
+            width = width.max(right + PARTITION_PADDING * 2.0);
+        }
+
+        let mut properties = std::collections::HashMap::new();
+        if let Some(color) = &partition.color {
+            properties.insert("stroke".to_string(), color.to_css());
+        }
+
+        // Рамка добавляется ПЕРВОЙ, чтобы её закрыли стрелки и элементы
+        elements.push(LayoutElement {
+            id: format!("partition_{}", elements.len()),
+            bounds: Rect::new(
+                center_x - width / 2.0,
+                current_y,
+                width,
+                end_y - current_y + PARTITION_PADDING,
+            ),
+            text: None,
+            properties,
+            element_type: ElementType::Rectangle {
+                label: partition.name.clone(),
+                corner_radius: 0.0,
+            },
+        });
+
+        elements.extend(inner);
+
+        end_y + PARTITION_PADDING
+    }
+
+    /// Раскладывает множественный выбор `switch`.
+    ///
+    /// Ветки ставятся вертикально, каждая со своей подписью условия —
+    /// так же, как PlantUML рисует ромбы выбора.
+    fn layout_switch(
+        &self,
+        switch: &Switch,
+        center_x: f64,
+        current_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let mut y = current_y;
+
+        for (index, branch) in switch.branches.iter().enumerate() {
+            let label = branch
+                .label
+                .clone()
+                .unwrap_or_else(|| format!("case {}", index + 1));
+            let width = self.config.text.width(&label, self.config.font_size) + ACTION_TEXT_PADDING;
+
+            elements.push(LayoutElement {
+                id: format!("switch_case_{}_{}", elements.len(), index),
+                bounds: Rect::new(center_x - width / 2.0, y, width, self.config.action_height),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Rectangle {
+                    label,
+                    corner_radius: 0.0,
+                },
+            });
+
+            y += self.config.action_height + self.config.vertical_spacing;
+            y = self.layout_elements(&branch.elements, center_x, y, elements);
+        }
+
+        y
+    }
+
+    /// Раскладывает разделение потока `split`.
+    ///
+    /// Ветки идут вертикально, как и в `switch`: горизонтальная раскладка
+    /// потребовала бы переработки всего потока, а PlantUML в этом случае
+    /// тоже разносит ветки по вертикали.
+    fn layout_split(
+        &self,
+        split: &Split,
+        center_x: f64,
+        current_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let mut y = current_y;
+
+        for (index, branch) in split.branches.iter().enumerate() {
+            let label = branch
+                .label
+                .clone()
+                .unwrap_or_else(|| format!("ветка {}", index + 1));
+            let width = self.config.text.width(&label, self.config.font_size) + ACTION_TEXT_PADDING;
+
+            elements.push(LayoutElement {
+                id: format!("split_branch_{}_{}", elements.len(), index),
+                bounds: Rect::new(center_x - width / 2.0, y, width, self.config.action_height),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Rectangle {
+                    label,
+                    corner_radius: 0.0,
+                },
+            });
+
+            y += self.config.action_height + self.config.vertical_spacing;
+            y = self.layout_elements(&branch.elements, center_x, y, elements);
+        }
+
+        y
+    }
+
+    /// Раскладывает последовательность элементов с заданной вертикали.
+    ///
+    /// Нужен вложенным конструкциям (раздел, ветки `switch`/`split`).
+    fn layout_elements(
+        &self,
+        elements: &[ActivityElement],
+        center_x: f64,
+        start_y: f64,
+        out: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let mut y = start_y;
+
+        for element in elements {
+            if let ActivityElement::Action(action) = element {
+                let width = self.config.text.width(&action.label, self.config.font_size)
+                    + ACTION_TEXT_PADDING;
+                out.push(LayoutElement {
+                    id: format!("action_{}", out.len()),
+                    bounds: Rect::new(center_x - width / 2.0, y, width, self.config.action_height),
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Rectangle {
+                        label: action.label.clone(),
+                        corner_radius: self.config.action_corner_radius,
+                    },
+                });
+                y += self.config.action_height + self.config.vertical_spacing;
+            } else if let ActivityElement::Note(note) = element {
+                let width =
+                    self.config.text.width(&note.text, self.config.font_size) + ACTION_TEXT_PADDING;
+                let mut properties = std::collections::HashMap::new();
+                properties.insert("fill".to_string(), ACTIVITY_NOTE_BACKGROUND.to_string());
+                out.push(LayoutElement {
+                    id: format!("note_{}", out.len()),
+                    bounds: Rect::new(
+                        center_x + self.config.action_width / 2.0 + ACTIVITY_NOTE_GAP,
+                        y,
+                        width,
+                        self.config.action_height,
+                    ),
+                    text: None,
+                    properties,
+                    element_type: ElementType::Rectangle {
+                        label: note.text.clone(),
+                        corner_radius: 0.0,
+                    },
+                });
+                y += self.config.action_height + self.config.vertical_spacing;
+            } else {
+                // Остальные конструкции внутри раздела раскладываются
+                // через общий метод: он умеет всё, что умеет основной цикл.
+                y = self.layout_element(element, center_x, y, out);
+            }
+        }
+
+        y
+    }
+
     fn layout_fork(
         &self,
         fork: &Fork,
