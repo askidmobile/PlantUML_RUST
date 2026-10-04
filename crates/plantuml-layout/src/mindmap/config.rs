@@ -30,10 +30,14 @@ impl Default for MindMapLayoutConfig {
             // (tests/golden/reference/mindmap_basic.svg, латинские подписи):
             // высота узла 36.297, шаг между уровнями ~130, отступ от края 10.
             // Раньше стояли 80/20/30, из-за чего диаграмма была заметно шире.
+            // Измерено по эталону mindmap_basic (387x246): узел — это текст
+            // плюс 20 («Project» 48.453 → 68.5; «Implementation» 111.166 →
+            // 131.2), высота 36.297; зазор между уровнями 50, между
+            // соседями 20.
             padding: 10.0,
-            level_spacing: 68.0,
-            sibling_spacing: 28.0,
-            min_node_width: 68.0,
+            level_spacing: 50.0,
+            sibling_spacing: 20.0,
+            min_node_width: 20.0,
             node_height: 36.297,
             node_padding_x: 10.0,
             node_padding_y: 6.0,

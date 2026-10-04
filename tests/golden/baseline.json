@@ -6,7 +6,7 @@
   "er_basic": { "width_diff": 30.7, "height_diff": 15.0, "missing_texts": 1 },
   "gantt_basic": { "width_diff": 31.4, "height_diff": 26.0, "missing_texts": 33 },
   "json_basic": { "width_diff": 22.0, "height_diff": 129.7, "missing_texts": 9 },
-  "mindmap_basic": { "width_diff": 50.8, "height_diff": 13.2, "missing_texts": 0 },
+  "mindmap_basic": { "width_diff": 5.8, "height_diff": 10.8, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 23.0, "height_diff": 29.0, "missing_texts": 2 },
   "object_basic": { "width_diff": 10.9, "height_diff": 10.0, "missing_texts": 1 },
   "salt_basic": { "width_diff": 33.4, "height_diff": 25.9, "missing_texts": 0 },
