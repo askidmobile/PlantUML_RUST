@@ -12,6 +12,11 @@ const NETWORK_DEVICE_FILL: &str = "#F1F1F1";
 /// Заливка полосы сети: измерено по тому же эталону.
 const NETWORK_AREA_FILL: &str = "#E2E2F0";
 
+/// Отступ серверов от края полосы сети.
+///
+/// Измерено по эталону: полоса занимает 10..110, серверы стоят на x=25 и 75.
+const SERVER_BAND_INSET: f64 = 15.0;
+
 use plantuml_ast::network::{DeviceType, NetworkDiagram, Server};
 use plantuml_model::{Point, Rect};
 
@@ -78,12 +83,16 @@ impl NetworkLayoutEngine {
 
     /// Вычисляет X позицию для сервера по индексу
     fn server_x_position(&self, index: usize) -> f64 {
-        self.config.padding + index as f64 * (self.config.server_width + self.config.server_spacing)
+        // Измерено по эталону: полоса занимает 10..110, а серверы стоят
+        // на x=25 и 75, то есть с отступом 15 от края полосы.
+        self.config.padding
+            + SERVER_BAND_INSET
+            + index as f64 * (self.config.server_width + self.config.server_spacing)
     }
 
     /// Вычисляет Y позицию для сети по индексу
     fn network_y_position(&self, index: usize) -> f64 {
-        self.config.padding
+        self.config.padding_top
             + index as f64
                 * (self.config.network_band_height
                     + self.config.server_top_offset
@@ -105,9 +114,13 @@ impl NetworkLayoutEngine {
             let y = self.network_y_position(net_idx);
 
             // Ширина сети зависит от количества серверов
+            // Ширина полосы измерена по эталону: 10..110, то есть 100 при
+            // двух серверах. Раньше к сумме серверов добавлялся ещё padding,
+            // из-за чего полоса выходила на 10px шире.
             let network_width = server_order.len() as f64
                 * (self.config.server_width + self.config.server_spacing)
-                + self.config.padding;
+                + self.config.server_width
+                - self.config.server_spacing;
 
             // Фон сети
             let network_bg = LayoutElement {
@@ -199,8 +212,11 @@ impl NetworkLayoutEngine {
                 let server = server_data.get(server_name);
 
                 for &net_idx in net_indices {
-                    let y =
-                        self.network_y_position(net_idx) + self.config.network_header_height + 10.0;
+                    // Верх сервера в эталоне на y=52.5: полоса кончается
+                    // на 17.5, значит отступ 35.
+                    let y = self.network_y_position(net_idx)
+                        + self.config.network_band_height
+                        + self.config.server_top_offset;
 
                     let server_rect =
                         Rect::new(x, y, self.config.server_width, self.config.server_height);

@@ -7,7 +7,7 @@
   "gantt_basic": { "width_diff": 27.9, "height_diff": 22.0, "missing_texts": 2 },
   "json_basic": { "width_diff": 8.6, "height_diff": 1.7, "missing_texts": 0 },
   "mindmap_basic": { "width_diff": 5.8, "height_diff": 10.8, "missing_texts": 0 },
-  "network_nwdiag": { "width_diff": 23.0, "height_diff": 29.0, "missing_texts": 2 },
+  "network_nwdiag": { "width_diff": 3.0, "height_diff": 26.5, "missing_texts": 2 },
   "object_basic": { "width_diff": 10.9, "height_diff": 10.0, "missing_texts": 1 },
   "salt_basic": { "width_diff": 13.4, "height_diff": 1.1, "missing_texts": 0 },
   "sequence_fragments": { "width_diff": 3.7, "height_diff": 45.9, "missing_texts": 0 },
