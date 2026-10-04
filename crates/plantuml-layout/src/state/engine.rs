@@ -317,6 +317,17 @@ impl StateLayoutEngine {
             }
         }
 
+        // Состояния параллельных регионов. Раньше поле `regions` не читалось
+        // нигде: парсер их разбирал, но в раскладку они не попадали, и такие
+        // состояния исчезали с диаграммы.
+        for region in &composite.regions {
+            for state in region {
+                if state.name != "[*]" {
+                    inner_states.insert(state.name.clone());
+                }
+            }
+        }
+
         for trans in &composite.internal_transitions {
             if trans.from != "[*]" {
                 inner_states.insert(trans.from.clone());

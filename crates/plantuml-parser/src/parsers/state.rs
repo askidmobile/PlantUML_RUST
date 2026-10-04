@@ -59,6 +59,31 @@ fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut StateDiagram) {
     }
 }
 
+/// Обрабатывает один оператор тела диаграммы состояний.
+///
+/// Вынесено из `parse_body`, чтобы составное состояние могло разбирать
+/// тело по регионам, а не целиком.
+fn parse_statement(inner: pest::iterators::Pair<Rule>, diagram: &mut StateDiagram) {
+    match inner.as_rule() {
+        Rule::state_def => {
+            if let Some(state) = parse_state_def(inner) {
+                diagram.add_state(state);
+            }
+        }
+        Rule::transition => {
+            if let Some(trans) = parse_transition(inner) {
+                diagram.add_transition(trans);
+            }
+        }
+        Rule::note_stmt => {
+            if let Some(note) = parse_note(inner) {
+                diagram.notes.push(note);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Парсит определение состояния
 fn parse_state_def(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     for inner in pair.into_inner() {
@@ -95,6 +120,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     let mut alias: Option<String> = None;
     let mut substates = Vec::new();
     let mut internal_transitions = Vec::new();
+    let mut regions: Vec<Vec<State>> = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -105,9 +131,37 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
                 alias = extract_alias(inner);
             }
             Rule::body => {
-                // Парсим вложенное тело
+                // Парсим вложенное тело. Разделитель `--` делит тело на
+                // параллельные регионы: до первого разделителя состояния
+                // попадают в `substates`, после — в `regions`.
+                // Раньше разделитель игнорировался, и все состояния
+                // сваливались в один список.
                 let mut sub_diagram = StateDiagram::new();
-                parse_body(inner, &mut sub_diagram);
+                let mut current_region: Option<Vec<State>> = None;
+
+                for statement in inner.into_inner() {
+                    if statement.as_rule() == Rule::region_separator {
+                        if let Some(region) = current_region.take() {
+                            regions.push(region);
+                        }
+                        current_region = Some(Vec::new());
+                        continue;
+                    }
+
+                    let mut one = StateDiagram::new();
+                    parse_statement(statement, &mut one);
+                    match &mut current_region {
+                        Some(region) => region.append(&mut one.states),
+                        None => sub_diagram.states.append(&mut one.states),
+                    }
+                    sub_diagram.transitions.append(&mut one.transitions);
+                }
+
+                // Последний регион тоже нужно сохранить
+                if let Some(region) = current_region {
+                    regions.push(region);
+                }
+
                 substates = sub_diagram.states;
                 internal_transitions = sub_diagram.transitions;
             }
@@ -127,7 +181,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
         state_type: StateType::Composite,
         substates,
         internal_transitions,
-        regions: Vec::new(),
+        regions,
         color: None,
         entry_action: None,
         exit_action: None,
@@ -476,6 +530,29 @@ fn extract_quoted_string(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Разделитель `--` делит тело составного состояния на регионы.
+    ///
+    /// Регрессия: разделитель игнорировался, все состояния сваливались в
+    /// один список, а поле `regions` оставалось пустым — состояние из
+    /// второго региона не попадало на диаграмму.
+    #[test]
+    fn test_state_regions() {
+        let source =
+            "@startuml\nstate Composite {\n  state A\n  state B\n  --\n  state C\n}\n@enduml";
+        let diagram = parse_state(source).expect("диаграмма должна разбираться");
+
+        let composite = diagram
+            .states
+            .iter()
+            .find(|s| s.name == "Composite")
+            .expect("составное состояние должно быть");
+
+        assert_eq!(composite.substates.len(), 2, "до разделителя два состояния");
+        assert_eq!(composite.regions.len(), 1, "после разделителя один регион");
+        assert_eq!(composite.regions[0].len(), 1);
+        assert_eq!(composite.regions[0][0].name, "C");
+    }
 
     #[test]
     fn test_parse_simple_transition() {
