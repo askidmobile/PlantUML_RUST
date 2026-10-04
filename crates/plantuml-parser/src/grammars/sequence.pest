@@ -32,7 +32,8 @@ statement = _{
     | ref_stmt
     | box_start          // Box start/end как отдельные маркеры
     | box_end
-    | group_stmt
+    | group_start
+    | group_end
     | fragment_start     // Фрагменты - раньше message
     | fragment_else
     | fragment_end
@@ -239,10 +240,14 @@ message_text = { (!NEWLINE ~ ANY)+ }
 
 // === Заметки ===
 
+// ВАЖНО: note_multi идёт первым. Форма `note over A` ... `end note`
+// начинается так же, как однострочная `note over A: текст`, и при обратном
+// порядке перехватывалась однострочным правилом, из-за чего многострочная
+// заметка давала ошибку парсинга.
 note_stmt = {
-    note_over
+    note_multi
+    | note_over
     | note_left_right
-    | note_multi
     | hnote
     | rnote
 }
@@ -260,8 +265,19 @@ note_left_right = {
     ws* ~ note_text?
 }
 
+// Многострочная заметка. Поддерживаются формы:
+//   note over A
+//   note over A, B
+//   note left of A
+//   note right of A
+//   note left
 note_multi = {
-    "note" ~ ws+ ~ (note_position | "over" ~ ws+ ~ identifier_list) ~ ws* ~
+    "note" ~ ws+ ~
+    (
+        "over" ~ ws+ ~ identifier_list
+        | note_position ~ (ws+ ~ "of" ~ ws+ ~ identifier_list)?
+        | note_position
+    ) ~ ws* ~
     NEWLINE ~ note_body ~ "end" ~ ws* ~ "note"
 }
 
@@ -300,11 +316,13 @@ box_end = { "end" ~ ws+ ~ "box" }
 
 // === Group (simple) ===
 
-group_stmt = {
-    "group" ~ ws+ ~ group_label ~ NEWLINE ~
-    (statement ~ NEWLINE*)* ~
-    "end"
-}
+// group Название ... end   (или end group)
+//
+// Разбирается как два маркера (начало и конец), как и фрагменты: так
+// парсер использует для вложенности общий стек. Метка необязательна —
+// `group` без названия допустим в PlantUML.
+group_start = { "group" ~ (ws+ ~ group_label)? }
+group_end = { "end" ~ (ws+ ~ "group")? }
 
 group_label = { (!NEWLINE ~ ANY)+ }
 

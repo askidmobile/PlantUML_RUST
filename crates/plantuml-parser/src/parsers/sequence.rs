@@ -147,6 +147,38 @@ fn process_rule(
                 }
             }
         }
+        Rule::group_start => {
+            // `group Название` — та же вложенная структура, что и фрагменты
+            // (alt/opt/loop), поэтому используем общий стек. Ранее правило
+            // разбиралось грамматикой, но парсер его игнорировал, и группа
+            // молча исчезала из вывода.
+            let label = parse_group_label(pair);
+            fragment_stack.push((FragmentType::Group, label.clone(), label, vec![]));
+            *current_section_elements = Vec::new();
+        }
+        Rule::group_end => {
+            if let Some((frag_type, condition, current_condition, mut sections)) =
+                fragment_stack.pop()
+            {
+                sections.push(FragmentSection {
+                    condition: current_condition,
+                    elements: std::mem::take(current_section_elements),
+                });
+
+                let fragment = Fragment {
+                    fragment_type: frag_type,
+                    condition,
+                    sections,
+                };
+
+                let element = SequenceElement::Fragment(fragment);
+                if fragment_stack.is_empty() {
+                    diagram.add_element(element);
+                } else {
+                    current_section_elements.push(element);
+                }
+            }
+        }
         Rule::note_stmt => {
             if let Some(note) = parse_note(pair) {
                 let element = SequenceElement::Note(note);
@@ -822,6 +854,19 @@ fn parse_autonumber_params_from_inner(
     }
 }
 
+/// Извлекает метку группы (`group Название`).
+fn parse_group_label(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::group_label {
+            let text = inner.as_str().trim();
+            if !text.is_empty() {
+                return Some(text.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Парсит return statement
 fn parse_return(pair: pest::iterators::Pair<Rule>) -> Return {
     let mut label: Option<String> = None;
@@ -1440,6 +1485,87 @@ Alice -> Bob: second
                 _ => panic!("Expected AutonumberCommand::Start"),
             },
             _ => panic!("Expected Autonumber element"),
+        }
+    }
+
+    /// Многострочная заметка `note over A` ... `end note`.
+    ///
+    /// Регрессия: правило многострочной заметки стояло в грамматике после
+    /// однострочного и перехватывалось им, поэтому такая форма давала ошибку
+    /// парсинга.
+    #[test]
+    fn test_parse_multiline_note_over() {
+        let source = "@startuml\nA -> B\nnote over A\n строка1\n строка2\nend note\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор многострочной заметки");
+
+        let note = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                SequenceElement::Note(n) => Some(n),
+                _ => None,
+            })
+            .expect("заметка не найдена");
+        assert!(
+            note.text.contains("строка1"),
+            "текст заметки: {:?}",
+            note.text
+        );
+        assert!(
+            note.text.contains("строка2"),
+            "текст заметки: {:?}",
+            note.text
+        );
+    }
+
+    /// Многострочная заметка с привязкой `note left of A`.
+    #[test]
+    fn test_parse_multiline_note_left_of() {
+        let source = "@startuml\nA -> B\nnote left of A\n текст\nend note\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор заметки слева");
+        assert!(diagram
+            .elements
+            .iter()
+            .any(|e| matches!(e, SequenceElement::Note(_))));
+    }
+
+    /// `group Название ... end` разбирается как фрагмент.
+    ///
+    /// Регрессия: правило было в грамматике, но парсер его не обрабатывал,
+    /// и группа молча исчезала из вывода.
+    #[test]
+    fn test_parse_group() {
+        let source = "@startuml\ngroup Группа\nA -> B\nend\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор группы");
+
+        let fragment = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                SequenceElement::Fragment(f) => Some(f),
+                _ => None,
+            })
+            .expect("группа не найдена");
+        assert_eq!(fragment.fragment_type, FragmentType::Group);
+        assert_eq!(fragment.condition.as_deref(), Some("Группа"));
+    }
+
+    /// `end group` и группа без метки.
+    #[test]
+    fn test_parse_group_forms() {
+        for source in [
+            "@startuml\ngroup Группа\nA -> B\nend group\n@enduml",
+            "@startuml\ngroup\nA -> B\nend\n@enduml",
+        ] {
+            let diagram =
+                parse_sequence(source).unwrap_or_else(|e| panic!("не разобрано: {source}\n{e}"));
+            assert!(
+                diagram
+                    .elements
+                    .iter()
+                    .any(|e| matches!(e, SequenceElement::Fragment(_))),
+                "группа не найдена в: {source}"
+            );
         }
     }
 
