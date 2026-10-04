@@ -23,7 +23,7 @@ expression: svg
 </marker>
 </defs>
 <g id="Serializable">
-<rect fill="#E2E2F0" height="82" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="153.87344" x="20" y="20"/>
+<rect fill="#F1F1F1" height="82" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="153.87344" x="20" y="20"/>
 <ellipse cx="36" cy="36" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="40" textLength="5.772">
 I
@@ -31,7 +31,7 @@ I
 <text fill="#000000" font-family="sans-serif" font-size="10" x="52" y="35" textLength="52.91">
 «interface»
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="52" y="51" textLength="80.808">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="52" y="51" textLength="80.808">
 Serializable
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="21" x2="172.87344" y1="58" y2="58"/>
@@ -42,12 +42,12 @@ serialize(): String
 </text>
 </g>
 <g id="User">
-<rect fill="#E2E2F0" height="100" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="153.87344" x="20" y="182"/>
+<rect fill="#F1F1F1" height="100" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="153.87344" x="20" y="182"/>
 <ellipse cx="36" cy="198" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
 <text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="36" y="202" textLength="5.772">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="52" y="201" textLength="26.936">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="52" y="201" textLength="26.936">
 User
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="21" x2="172.87344" y1="208" y2="208"/>

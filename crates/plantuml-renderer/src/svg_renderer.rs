@@ -1425,6 +1425,20 @@ impl SvgRenderer {
         let icon_size = 11.0; // радиус иконки класса
 
         // 1. Рамка класса
+        // Иконка классификатора. Цвет зависит от типа, но заливается только
+        // сам кружок: тело класса в эталоне PlantUML всегда #F1F1F1
+        // (светло-серый), независимо от типа.
+        let (icon_fill, icon_letter) = match classifier_type {
+            ClassifierKind::Class => ("#ADD1B2", "C"),     // зелёный
+            ClassifierKind::Interface => ("#B4A7E5", "I"), // фиолетовый
+            ClassifierKind::AbstractClass => ("#A9DCDF", "A"), // голубой
+            ClassifierKind::Enum => ("#EB937F", "E"),      // оранжевый
+            ClassifierKind::Annotation => ("#FFDD8C", "@"), // жёлтый
+            ClassifierKind::Entity => ("#CCCCCC", "E"),    // серый
+        };
+
+        // Тело класса: в эталоне PlantUML — #F1F1F1, а не цвет фона темы
+        // (#E2E2F0) и не цвет иконки
         let rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
@@ -1432,7 +1446,7 @@ impl SvgRenderer {
             .set("height", bounds.height)
             .set("rx", 2.5)
             .set("ry", 2.5)
-            .set("fill", theme.node_background.to_css())
+            .set("fill", CLASS_BODY_FILL)
             .set("stroke", theme.node_border.to_css())
             .set("stroke-width", 0.5);
         group = group.add(rect);
@@ -1442,14 +1456,6 @@ impl SvgRenderer {
         // 2. Иконка классификатора (PlantUML style)
         let icon_x = bounds.x + padding + icon_size;
         let icon_y = current_y + icon_size;
-        let (icon_fill, icon_letter) = match classifier_type {
-            ClassifierKind::Class => ("#ADD1B2", "C"),     // зелёный
-            ClassifierKind::Interface => ("#B4A7E5", "I"), // фиолетовый
-            ClassifierKind::AbstractClass => ("#A9DCDF", "A"), // голубой
-            ClassifierKind::Enum => ("#EB937F", "E"),      // оранжевый
-            ClassifierKind::Annotation => ("#FFDD8C", "@"), // жёлтый
-            ClassifierKind::Entity => ("#CCCCCC", "E"),    // серый
-        };
 
         // Круг иконки
         let icon_circle = svg::node::element::Ellipse::new()
@@ -1486,13 +1492,14 @@ impl SvgRenderer {
             current_y += 12.0;
         }
 
-        // 4. Название класса
+        // 4. Название класса.
+        // В эталоне PlantUML имя класса не жирное (font-size 14, обычное
+        // начертание) — жирный был лишним.
         let name_text = svg::node::element::Text::new(name)
             .set("x", name_x)
             .set("y", current_y + line_height - 2.0)
             .set("font-family", theme.font_family.as_str())
             .set("font-size", theme.font_size)
-            .set("font-weight", "bold")
             .set("fill", theme.text_color.to_css());
         group = group.add(name_text);
         current_y += line_height + padding;
@@ -1657,6 +1664,9 @@ impl Renderer for SvgRenderer {
         annotate_text_length(&svg)
     }
 }
+
+/// Цвет тела класса в эталоне PlantUML.
+const CLASS_BODY_FILL: &str = "#F1F1F1";
 
 /// Средняя ширина символа в долях от размера шрифта.
 ///
