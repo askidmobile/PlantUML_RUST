@@ -1,0 +1,5 @@
+@startyaml
+name: Проект
+version: 1
+active: true
+@endyaml

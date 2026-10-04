@@ -1,0 +1,12 @@
+@startuml
+robust "Веб-браузер" as WB
+concise "Сервер" as S
+
+@0
+WB is Ожидание
+S is Ожидание
+
+@100
+WB is Работа
+S is Обработка
+@enduml

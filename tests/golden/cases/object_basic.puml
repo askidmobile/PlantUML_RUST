@@ -1,0 +1,6 @@
+@startuml
+object "Пользователь" as u1
+object "Заказ" as o1
+
+u1 --> o1 : создаёт
+@enduml

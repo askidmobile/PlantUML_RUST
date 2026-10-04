@@ -1,0 +1,8 @@
+@startuml
+component "Веб-интерфейс" as Web
+component "Сервис API" as API
+database "База данных" as DB
+
+Web --> API : запрос
+API --> DB : чтение
+@enduml

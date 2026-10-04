@@ -1,0 +1,8 @@
+@startuml
+actor Пользователь
+usecase "Оформить заказ" as UC1
+usecase "Оплатить" as UC2
+
+Пользователь --> UC1
+UC1 --> UC2
+@enduml

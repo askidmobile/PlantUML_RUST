@@ -1,0 +1,8 @@
+@startgantt
+Project starts 2024-01-01
+[Проектирование] lasts 10 days
+[Разработка] lasts 20 days
+[Разработка] starts at [Проектирование]'s end
+[Тестирование] lasts 5 days
+[Тестирование] starts at [Разработка]'s end
+@endgantt

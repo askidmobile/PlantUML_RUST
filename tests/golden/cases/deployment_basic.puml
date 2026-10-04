@@ -1,0 +1,11 @@
+@startuml
+node "Сервер приложений" {
+  artifact "app.jar"
+}
+
+node "Сервер БД" {
+  database "PostgreSQL" as pg
+}
+
+"app.jar" --> pg : JDBC
+@enduml

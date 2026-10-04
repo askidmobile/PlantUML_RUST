@@ -1,9 +1,22 @@
 {
+  "activity_basic": { "width_diff": 55.0, "height_diff": 63.0, "missing_texts": 0 },
   "class_inheritance": { "width_diff": 65.0, "height_diff": 60.0, "missing_texts": 0 },
+  "component_basic": { "width_diff": 348.0, "height_diff": 55.0, "missing_texts": 0 },
+  "deployment_basic": { "width_diff": 45.0, "height_diff": 94.0, "missing_texts": 1 },
+  "er_basic": { "width_diff": 356.0, "height_diff": 94.0, "missing_texts": 1 },
+  "gantt_basic": { "width_diff": 340.0, "height_diff": 76.0, "missing_texts": 49 },
+  "json_basic": { "width_diff": 22.0, "height_diff": 163.0, "missing_texts": 9 },
+  "mindmap_basic": { "width_diff": 296.6, "height_diff": 9.0, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 213.0, "height_diff": 41.0, "missing_texts": 2 },
+  "object_basic": { "width_diff": 212.0, "height_diff": 100.0, "missing_texts": 1 },
+  "salt_basic": { "width_diff": 717.0, "height_diff": 71.0, "missing_texts": 0 },
   "sequence_fragments": { "width_diff": 16.5, "height_diff": 45.9, "missing_texts": 0 },
   "sequence_notes": { "width_diff": 34.0, "height_diff": 6.3, "missing_texts": 0 },
   "sequence_participants": { "width_diff": 21.8, "height_diff": 101.9, "missing_texts": 0 },
   "sequence_simple": { "width_diff": 24.6, "height_diff": 12.0, "missing_texts": 0 },
-  "state_simple": { "width_diff": 14.0, "height_diff": 112.0, "missing_texts": 0 }
+  "state_simple": { "width_diff": 14.0, "height_diff": 112.0, "missing_texts": 0 },
+  "timing_basic": { "width_diff": 322.0, "height_diff": 21.0, "missing_texts": 2 },
+  "usecase_basic": { "width_diff": 242.0, "height_diff": 40.0, "missing_texts": 0 },
+  "wbs_basic": { "width_diff": 195.9, "height_diff": 29.0, "missing_texts": 0 },
+  "yaml_basic": { "width_diff": 42.5, "height_diff": 88.0, "missing_texts": 6 }
 }

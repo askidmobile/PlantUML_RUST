@@ -1,15 +1,69 @@
 {
+  "activity_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4750ddfc5aa96924493a5680e8bca95721976d50fe150e88b97b6487b99ae57f",
+    "svg_bytes": "5024",
+    "svg_sha256": "e876bc31c2d038bdc808c2596043c3b93d7ac03e9a60f85388d7060392be2437"
+  },
   "class_inheritance": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "76df6d8eeb3e6f4f3320eceebd1c637fe724ef252fa6458d183255ab49ff3994",
     "svg_bytes": "5586",
     "svg_sha256": "97e8c64d6e9e41c90e937ec199dfdd13cad91dcac94290f3369f73f9f9b08384"
   },
+  "component_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f3aa4311af40adf80f48505cba9081d70e118c9aa01dd4abe82c7d7428020d4c",
+    "svg_bytes": "3287",
+    "svg_sha256": "0e29ef155f308fa6a9013dcd70e5431ed4c76b52e46555b4f3cacf3198447af1"
+  },
+  "deployment_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "428764768dd933ee926a36d59930217b873524f9bbc88479da97ee7ba565d5ef",
+    "svg_bytes": "3783",
+    "svg_sha256": "97e2d9b156c67eb482e250fa609170d16428e5e308cf4dde02683f8d2f501145"
+  },
+  "er_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3c74a530f744b1b86da27096820250530e9120bfa408b0bf0f0681453f8e65ac",
+    "svg_bytes": "3489",
+    "svg_sha256": "706e6878452a0b1d2c37f3d903579ba3f25e20573fa91c6610f21cba8eb548ee"
+  },
+  "gantt_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f7825f4a37e32153b088b1cb5aa02871d458a7a1660b92f5c1f60875e7490739",
+    "svg_bytes": "19025",
+    "svg_sha256": "9a024c27a795832653cf952f974d6ddb0b087de73ffaa2d9af3016f045efcee0"
+  },
+  "json_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ce12fc2bef47fcb2871639d2bfc4e467347f7d7c6bf2dd345e6457a32222c780",
+    "svg_bytes": "2953",
+    "svg_sha256": "77da252eac0925d9179ef58d49319f5e43567575d6e0d2bd76d0350f44d72226"
+  },
+  "mindmap_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3dd6a72f1d29801b4e45583560b9598570c26b4a5fbaf339101f7c283f89f4b7",
+    "svg_bytes": "2634",
+    "svg_sha256": "50219ace9b9296bf9c028a4d6e9d4099b18ee350a871ca3872a4fc1c06228514"
+  },
   "network_nwdiag": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "3b173b4ddb93a0f26d21459f6d61f3d6597dfea741e2f0dcabd9aa6796988fd5",
     "svg_bytes": "1467",
     "svg_sha256": "95a6ef165a3d4f8dc33ef278d73f39d76a0b372e5dbb7b1bf6180199437dc926"
+  },
+  "object_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "bb065be1f8c190de67a1d8132d8e4abdf7745eb59595df278fb22ca0b1e059d6",
+    "svg_bytes": "1859",
+    "svg_sha256": "183b036749de601cecb5ff076a953e52b3992eaadae4f6742c0ee27de9cc6a13"
+  },
+  "salt_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7ab9fa565a4bdc382395b227f2d74b3500b04f96530c30e90765fc21984a3bef",
+    "svg_bytes": "1829",
+    "svg_sha256": "d240017563e468fa1db50de0ab6ed06a596e8dbf9f839657ace62a5a4b56cb4c"
   },
   "sequence_fragments": {
     "plantuml_version": "1.2026.9beta4",
@@ -40,5 +94,29 @@
     "source_sha256": "69b0669fb4948bc64867fef3cc0bcab5c804e34fbdd8c6bfe897566d4187ef47",
     "svg_bytes": "3991",
     "svg_sha256": "4b35ceff856e36c481e1ab81d171165925873f052d87dd090c583b3db6ffc3ef"
+  },
+  "timing_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3c6d7d6366c20a98d91103f4c9fffbc454ff9886b2778647241f4912343ef400",
+    "svg_bytes": "3390",
+    "svg_sha256": "6f67947bb18057bc4b972f1046862c24ddf4aaa97edf75c9bcdfa587e2ee0e2e"
+  },
+  "usecase_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9b338dc378c1cd428a38f3955af91307f5f14a44a45eb6485917dd886e449647",
+    "svg_bytes": "2567",
+    "svg_sha256": "8f6fad3ac9d18abc9767101526b1d1795fb8208f13253014092fd1aae078cf2e"
+  },
+  "wbs_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c54e4be0e446aa75190cdaaf1dfca8d7f879ff233df71310cb1c36ded8d44802",
+    "svg_bytes": "2335",
+    "svg_sha256": "f0a044dad43b96629581ff8a7ec908c618a6aa48d29fdfb8cd9c922905bf1d0e"
+  },
+  "yaml_basic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "791cfedd5a1828b2ea166fbfabc8060d179af985a7ae465ad028b8cd22261906",
+    "svg_bytes": "1741",
+    "svg_sha256": "2d883cab0ea170f489e3c7fb06cb56d9d0cd710e162883b7920a42879d51d286"
   }
 }

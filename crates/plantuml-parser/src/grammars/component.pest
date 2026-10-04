@@ -189,17 +189,19 @@ connection = {
     connection_from ~ ws* ~ arrow ~ ws* ~ connection_to ~ connection_label?
 }
 
-connection_from = { 
-    bracket_component 
+// Имя конца связи. Поддерживается и quoted-форма: связи между элементами
+// с именами в кавычках (`"app.jar" --> pg`) — обычная запись PlantUML,
+// раньше такие связи не разбирались вовсе.
+connection_end = _{
+    bracket_component
     | interface_ref
-    | simple_identifier 
+    | quoted_string
+    | simple_identifier
 }
 
-connection_to = { 
-    bracket_component 
-    | interface_ref
-    | simple_identifier 
-}
+connection_from = { connection_end }
+
+connection_to = { connection_end }
 
 // Ссылка на интерфейс
 interface_ref = { "()" ~ ws* ~ simple_identifier | "(" ~ simple_identifier ~ ")" }

@@ -1,0 +1,13 @@
+@startuml
+entity "Пользователь" as user {
+  *id : int
+  --
+  name : string
+}
+
+entity "Заказ" as order {
+  *id : int
+}
+
+user ||--o{ order
+@enduml

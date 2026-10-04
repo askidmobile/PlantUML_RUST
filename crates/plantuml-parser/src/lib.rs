@@ -477,6 +477,22 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Sequence);
     }
 
+    // Deployment Diagram — проверяем ДО Sequence и Component.
+    //
+    // ВАЖНО: раньше этот блок стоял ПОСЛЕ правила «database + стрелка —
+    // это sequence», и диаграмма вида
+    //     node "Сервер" { database "БД" as pg }
+    //     "app.jar" --> pg : JDBC
+    // распознавалась как Sequence (из-за `database` и `-->`), после чего
+    // разбор падал на `node`. `node` с телом — более сильный признак,
+    // поэтому проверка идёт первой.
+    if source_lower.contains("device ")
+        || source_lower.contains("agent ")
+        || (source_lower.contains("node ") && source_lower.contains("{"))
+    {
+        return Ok(DiagramKind::Deployment);
+    }
+
     // database в сочетании с sequence-паттернами (-> или -->) — это sequence
     if source_lower.contains("database ")
         && (source_lower.contains(" -> ") || source_lower.contains(" --> "))
@@ -484,15 +500,6 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         && !source_lower.contains("package ")
     {
         return Ok(DiagramKind::Sequence);
-    }
-
-    // Deployment Diagram — проверяем ДО Component
-    // Специфичные для deployment: device, agent, node с вложенными элементами
-    if source_lower.contains("device ")
-        || source_lower.contains("agent ")
-        || (source_lower.contains("node ") && source_lower.contains("{"))
-    {
-        return Ok(DiagramKind::Deployment);
     }
 
     // Component Diagram

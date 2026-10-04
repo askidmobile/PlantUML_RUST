@@ -89,7 +89,9 @@ state_transition = {
 
 transition_arrow = { "->" | "-->" }
 
-entity_ref = @{ !reserved_word ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+// LETTER/NUMBER вместо ASCII_*: имена участников и состояний могут
+// быть на кириллице, что для проекта обязательно
+entity_ref = @{ !reserved_word ~ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 state_value = { 
     quoted_string 
@@ -97,7 +99,7 @@ state_value = {
     | simple_state
 }
 
-simple_state = @{ (ASCII_ALPHANUMERIC | "_" | "-")+ }
+simple_state = @{ (LETTER | NUMBER | "_" | "-")+ }
 
 label_text = { (!NEWLINE ~ ANY)* }
 
