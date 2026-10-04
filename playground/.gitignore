@@ -1,0 +1,13 @@
+# Исходники playground (index.html, test.html) отслеживаются.
+# Игнорируются только артефакты сборки wasm-pack.
+
+# Целевая директория сборки deploy-pages.yml
+pkg/
+
+# Устаревшие артефакты сборки в корне playground
+plantuml_wasm.js
+plantuml_wasm.d.ts
+plantuml_wasm_bg.wasm
+plantuml_wasm_bg.wasm.d.ts
+snippets/
+package.json

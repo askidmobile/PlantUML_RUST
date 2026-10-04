@@ -28,7 +28,8 @@ tarpaulin-report.html
 /doc/
 /docs/api/
 
-# WASM build (root level only, playground/pkg tracked for GitHub Pages)
+# WASM build: /pkg/ — артефакт wasm-pack в корне (не создаётся ни одним workflow).
+# Целевая директория деплоя — playground/pkg, она игнорируется через playground/.gitignore.
 /pkg/
 /dist/
 
@@ -76,6 +77,11 @@ flamegraph.svg
 
 # Generated SVG output files (test results)
 output_*.svg
+
+# Отладочные артефакты рендеринга в корне репозитория (не коммитить)
+/*.png
+/our_*.svg
+/test_ref_example.rs
 
 # Visual comparison test images (generated during testing)
 tests/visual/**/*_test.png
