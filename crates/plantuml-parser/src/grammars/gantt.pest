@@ -236,7 +236,7 @@ color_value = {
     | color_name
 }
 
-color_name = { ASCII_ALPHA+ }
+color_name = { LETTER+ }
 
 // === Skinparam ===
 
@@ -244,13 +244,13 @@ skinparam = {
     "skinparam" ~ ws+ ~ skinparam_name ~ ws+ ~ skinparam_value
 }
 
-skinparam_name = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
+skinparam_name = { (LETTER | NUMBER | "_")+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 
 // === Базовые токены ===
 
-simple_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+simple_identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 hex_color = @{ ASCII_HEX_DIGIT{3,8} }
 

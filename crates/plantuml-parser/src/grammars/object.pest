@@ -165,7 +165,7 @@ note_body = { (!("end" ~ ws+ ~ "note") ~ ANY)* }
 
 alias_part = { ws+ ~ "as" ~ ws+ ~ simple_identifier }
 stereotype_part = { ws* ~ "<<" ~ stereotype_name ~ ">>" }
-stereotype_name = { (ASCII_ALPHANUMERIC | "_" | " ")+ }
+stereotype_name = { (LETTER | NUMBER | "_" | " ")+ }
 color_part = { ws* ~ color }
 
 // === Skinparam ===
@@ -174,13 +174,13 @@ skinparam = {
     "skinparam" ~ ws+ ~ skinparam_name ~ ws+ ~ skinparam_value
 }
 
-skinparam_name = { (ASCII_ALPHA | ASCII_DIGIT | "_")+ }
+skinparam_name = { (LETTER | NUMBER | "_")+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 
 // === Базовые токены ===
 
-simple_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+simple_identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }

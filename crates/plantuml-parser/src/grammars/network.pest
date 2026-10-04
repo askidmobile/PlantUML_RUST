@@ -91,7 +91,7 @@ group_member = { identifier }
 server_definition = { identifier ~ ws ~ server_attributes }
 
 // Идентификатор
-identifier = @{ (ASCII_ALPHANUMERIC | "_" | "-")+ }
+identifier = @{ (LETTER | NUMBER | "_" | "-")+ }
 
 // Строка в кавычках
 quoted_string = { "\"" ~ string_content ~ "\"" }

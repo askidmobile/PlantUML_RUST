@@ -84,7 +84,7 @@ node_color = {
     "[" ~ color_value ~ "]"
 }
 
-color_value = { "#" ~ (ASCII_ALPHANUMERIC)+ }
+color_value = { "#" ~ (LETTER | NUMBER)+ }
 
 // Текст узла (до конца строки или до специальных символов)
 node_text = { text_to_eol }

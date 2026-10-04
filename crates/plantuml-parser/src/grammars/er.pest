@@ -84,8 +84,8 @@ entity_member = {
 }
 
 required_marker = { "*" ~ ws_inline* }
-attribute_name = @{ (ASCII_ALPHANUMERIC | "_")+ }
-attribute_type = @{ (ASCII_ALPHANUMERIC | "_" | "(" | ")" | "," | " ")+ }
+attribute_name = @{ (LETTER | NUMBER | "_")+ }
+attribute_type = @{ (LETTER | NUMBER | "_" | "(" | ")" | "," | " ")+ }
 
 separator = { ws_inline* ~ "--" ~ separator_text? ~ NEWLINE }
 separator_text = { (!NEWLINE ~ ANY)* }
@@ -94,7 +94,7 @@ stereotype = { "<<" ~ stereotype_content ~ ">>" }
 stereotype_content = @{ (!">" ~ ANY)+ }
 
 color_spec = { "#" ~ color_value }
-color_value = @{ (ASCII_ALPHANUMERIC)+ }
+color_value = @{ (LETTER | NUMBER)+ }
 
 // ER Relationship (IE notation)
 // User ||--o{ Order : places
@@ -121,10 +121,10 @@ right_cardinality = @{
 
 relation_line = @{ "--" | ".." }
 
-relation_label = @{ (ASCII_ALPHANUMERIC | "_" | " ")+ }
+relation_label = @{ (LETTER | NUMBER | "_" | " ")+ }
 
 // Common
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 ws = _{ (" " | "\t" | NEWLINE)* }
 ws_inline = _{ " " | "\t" }

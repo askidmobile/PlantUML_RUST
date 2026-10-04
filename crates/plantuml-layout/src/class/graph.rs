@@ -56,7 +56,9 @@ impl Node {
         // Ширина: max(имя класса, поля, методы)
         // Добавляем место для иконки класса (~30px)
         let icon_width = 30.0;
-        let name_width = classifier.id.name.len() as f64 * config.char_width
+        // Измеряем по символам: str::len() для кириллицы даёт число байт
+        // (вдвое больше символов) и завышал ширину русских имён
+        let name_width = config.text.width(&classifier.id.name, config.font_size)
             + icon_width
             + config.class_padding * 2.0;
 
@@ -70,7 +72,7 @@ impl Node {
                 } else {
                     format!("{}{}", f.visibility.to_char(), f.name)
                 };
-                text.len() as f64 * config.char_width
+                config.text.width(&text, config.font_size)
             })
             .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
@@ -85,7 +87,7 @@ impl Node {
                 } else {
                     format!("{}{}()", m.visibility.to_char(), m.name)
                 };
-                text.len() as f64 * config.char_width
+                config.text.width(&text, config.font_size)
             })
             .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);

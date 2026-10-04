@@ -140,7 +140,7 @@ target_action = { "++" | "**" | "!!" }
 
 // participant_ref не должен совпадать с ключевыми словами
 participant_ref = @{ 
-    !reserved_word ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* 
+    !reserved_word ~ (LETTER | "_") ~ (LETTER | NUMBER | "_")* 
 }
 
 // Зарезервированные слова, которые НЕ могут быть именами участников в message
@@ -329,17 +329,17 @@ skinparam = {
     | "skinparam" ~ ws+ ~ skinparam_name ~ ws* ~ "{" ~ ws* ~ NEWLINE ~ (skinparam_line ~ NEWLINE)* ~ "}"
 }
 
-skinparam_name = { (ASCII_ALPHA | "_")+ }
+skinparam_name = { (LETTER | "_")+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 skinparam_line = { ws* ~ skinparam_name ~ ws+ ~ skinparam_value }
 
 // === Базовые токены ===
 
 // Обычный идентификатор
-simple_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+simple_identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 // Для обратной совместимости
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }

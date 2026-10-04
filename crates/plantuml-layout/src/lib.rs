@@ -15,6 +15,7 @@ pub mod object;
 pub mod salt;
 pub mod sequence;
 pub mod state;
+pub mod text;
 pub mod timing;
 pub mod traits;
 pub mod usecase;

@@ -163,13 +163,13 @@ field = {
 visibility = { "+" | "-" | "#" | "~" | "{method}" | "{field}" }
 modifier = { "{static}" | "{abstract}" | "static" | "abstract" }
 
-field_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+field_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 field_type = { (!NEWLINE ~ !("}" | ",") ~ ANY)+ }
 
-method_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+method_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 method_params = { method_param ~ ("," ~ ws* ~ method_param)* }
 method_param = { param_name ~ (ws* ~ ":" ~ ws* ~ param_type)? }
-param_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+param_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 param_type = { (!("," | ")" | NEWLINE) ~ ANY)+ }
 return_type = { (!NEWLINE ~ !"}" ~ ANY)+ }
 
@@ -227,13 +227,13 @@ skinparam = {
     | "skinparam" ~ ws+ ~ skinparam_name ~ ws* ~ "{" ~ ws* ~ NEWLINE ~ (skinparam_line ~ NEWLINE)* ~ "}"
 }
 
-skinparam_name = { (ASCII_ALPHA | "_")+ }
+skinparam_name = { (LETTER | "_")+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 skinparam_line = { ws* ~ skinparam_name ~ ws+ ~ skinparam_value }
 
 // === Базовые токены ===
 
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }

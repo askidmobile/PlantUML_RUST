@@ -160,14 +160,14 @@ skinparam = {
     | "skinparam" ~ ws+ ~ skinparam_name ~ ws* ~ "{" ~ ws* ~ NEWLINE ~ (skinparam_line ~ NEWLINE)* ~ "}"
 }
 
-skinparam_name = { (ASCII_ALPHA | "_")+ }
+skinparam_name = { (LETTER | "_")+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 skinparam_line = { ws* ~ skinparam_name ~ ws+ ~ skinparam_value }
 
 // === Базовые токены ===
 
-simple_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+simple_identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
+identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }
