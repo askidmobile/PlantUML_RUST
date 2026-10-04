@@ -224,6 +224,18 @@ fn process_rule(
                 diagram.metadata.footer = Some(footer);
             }
         }
+        Rule::legend_stmt => {
+            // Легенда: текст между `legend` и `endlegend`. Раньше правило
+            // грамматики было, а парсер его не обрабатывал — легенда
+            // молча терялась.
+            diagram.metadata.legend = Some(parse_legend(pair));
+        }
+        Rule::mainframe_stmt => {
+            diagram.metadata.mainframe = parse_optional_text(pair);
+        }
+        Rule::newpage_stmt => {
+            diagram.metadata.newpage = parse_optional_text(pair);
+        }
         Rule::hide_stmt => {
             // hide footbox — нижние блоки участников не рисуются
             diagram.hide_footbox = true;
@@ -670,6 +682,42 @@ fn parse_delay_text(pair: pest::iterators::Pair<Rule>) -> Option<String> {
 }
 
 /// Парсит заголовок
+/// Извлекает текст легенды между `legend` и `endlegend`.
+fn parse_legend(pair: pest::iterators::Pair<Rule>) -> String {
+    let raw = pair.as_str();
+    let start = raw.find("legend").map(|i| i + "legend".len()).unwrap_or(0);
+    let end = raw.rfind("endlegend").unwrap_or(raw.len());
+    let body = raw.get(start..end).unwrap_or("");
+
+    // Первая строка — модификатор (left/right/center), её пропускаем
+    let mut lines = body.lines();
+    let first = lines.next().unwrap_or("").trim();
+    let skip_first = matches!(first, "left" | "right" | "center" | "top" | "bottom");
+
+    let rest: Vec<&str> = if skip_first {
+        lines.collect()
+    } else {
+        std::iter::once(first).chain(lines).collect()
+    };
+
+    rest.join("\n").trim().to_string()
+}
+
+/// Извлекает необязательный текст из оператора вида `mainframe Заголовок`.
+///
+/// Для `newpage Раздел 2` возвращает `Some("Раздел 2")`, для `mainframe`
+/// без заголовка — `None`.
+fn parse_optional_text(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+    let raw = pair.as_str();
+    let keyword = raw.split_whitespace().next().unwrap_or("");
+    let rest = raw.get(keyword.len()..).unwrap_or("").trim();
+    if rest.is_empty() {
+        None
+    } else {
+        Some(rest.to_string())
+    }
+}
+
 fn parse_title(pair: pest::iterators::Pair<Rule>) -> Option<String> {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::rest_of_line {
@@ -916,6 +964,20 @@ fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `legend`, `mainframe` и `newpage` попадают в метаданные.
+    ///
+    /// Регрессия: правила грамматики были добавлены, но парсер их не
+    /// обрабатывал — то есть конструкции принимались и молча терялись.
+    #[test]
+    fn test_legend_mainframe_newpage() {
+        let source = "@startuml\nlegend left\nМоя легенда\nendlegend\nmainframe Рамка\nA -> B\nnewpage Раздел 2\nB -> A\n@enduml";
+        let diagram = parse_sequence(source).expect("диаграмма должна разбираться");
+
+        assert_eq!(diagram.metadata.legend.as_deref(), Some("Моя легенда"));
+        assert_eq!(diagram.metadata.mainframe.as_deref(), Some("Рамка"));
+        assert_eq!(diagram.metadata.newpage.as_deref(), Some("Раздел 2"));
+    }
 
     #[test]
     fn test_parse_basic_sequence() {

@@ -240,6 +240,10 @@ pub struct DiagramMetadata {
     pub footer: Option<String>,
     /// Масштаб
     pub scale: Option<f64>,
+    /// Рамка вокруг диаграммы (`mainframe Заголовок`)
+    pub mainframe: Option<String>,
+    /// Заголовок новой страницы (`newpage Заголовок`)
+    pub newpage: Option<String>,
 }
 
 #[cfg(test)]
