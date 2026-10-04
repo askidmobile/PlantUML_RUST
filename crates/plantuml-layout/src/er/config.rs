@@ -32,8 +32,12 @@ pub struct ErLayoutConfig {
 impl Default for ErLayoutConfig {
     fn default() -> Self {
         Self {
-            padding: 20.0,
-            min_entity_width: 150.0,
+            padding: 7.0,
+            // Ширина сущности определяется содержимым. Фиксированный
+            // минимум 150 делал диаграмму вдвое шире эталона (180 против 85):
+            // в эталоне «User» занимает 63.9, «Order» — 32. Минимум оставлен
+            // небольшим, только чтобы фигура не выродилась.
+            min_entity_width: 32.0,
             entity_header_height: 30.0,
             attribute_height: 22.0,
             horizontal_spacing: 80.0,

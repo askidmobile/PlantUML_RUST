@@ -8,6 +8,13 @@ use plantuml_ast::component::{Component, ComponentDiagram, ComponentType, Connec
 use plantuml_model::{Point, Rect};
 
 use super::config::ComponentLayoutConfig;
+
+/// Базовая ширина компонента, измеренная по эталону PlantUML.
+const COMPONENT_BASE_WIDTH: f64 = 4.6;
+/// Прибавка к ширине компонента на каждый символ подписи.
+const COMPONENT_CHAR_WIDTH: f64 = 11.43;
+/// Высота компонента по эталону.
+const COMPONENT_HEIGHT: f64 = 46.297;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для component diagrams
@@ -141,14 +148,19 @@ impl ComponentLayoutEngine {
             properties.insert("fill".to_string(), color.to_css());
         }
 
+        // Размер компонента зависит от длины подписи: измерено по эталону
+        // («Веб-интерфейс», 13 символов — 153.189x46.297; «Сервис API», 10 —
+        // 118.9x46.297). Отсюда ширина ≈ 4.6 + 11.43 * n, высота 46.297.
+        // Раньше размер был фиксированным (40x40), из-за чего диаграмма
+        // расходилась с эталоном.
+        let chars = name.chars().count() as f64;
+        let width =
+            (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars).max(self.config.component_width);
+        let height = self.config.component_height.max(COMPONENT_HEIGHT);
+
         LayoutElement {
             id: format!("component_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width,
-                self.config.component_height,
-            ),
+            bounds: Rect::new(x, y, width, height),
             text: None,
             properties,
             element_type: ElementType::Rectangle {
@@ -160,14 +172,13 @@ impl ComponentLayoutEngine {
 
     /// Создаёт элемент базы данных (цилиндр)
     fn create_database_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
+        let chars = name.chars().count() as f64;
+        let width =
+            (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars).max(self.config.component_width);
+
         LayoutElement {
             id: format!("database_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width,
-                self.config.component_height,
-            ),
+            bounds: Rect::new(x, y, width, COMPONENT_HEIGHT),
             text: None,
             properties: std::collections::HashMap::new(),
             // База данных рисуется цилиндром, а не эмодзи: символ 🛢
