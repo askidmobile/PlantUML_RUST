@@ -5,8 +5,11 @@
 
 diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ body ~ end_tag ~ NEWLINE* ~ EOI }
 
-start_tag = { "@startuml" ~ identifier? }
-end_tag = { "@enduml" }
+// PlantUML принимает обе формы тега: `@startuml` и `@starttiming`.
+// Вторая — официальная для timing-диаграмм; раньше она не принималась,
+// и диагностированная как Timing диаграмма всё равно не разбиралась.
+start_tag = { ("@startuml" | "@starttiming") ~ identifier? }
+end_tag = { "@enduml" | "@endtiming" }
 
 body = { (body_line)* }
 
@@ -21,7 +24,15 @@ statement = _{
     | title_stmt
     | scale_stmt
     | participant_decl    // robust/concise/clock/binary
-    | time_marker         // @0, @100, @+50
+    // Время может стоять и отдельной строкой, и ПЕРЕД изменением
+    // состояния (`0 is A`) — поэтому проверяется в одной ветке с ним.
+    // Раньше голое число без `@` не разбиралось вовсе: абсолютный маркер
+    // времени съедал число, и остаток ` is A` был неожиданным.
+    // Время перед изменением состояния без имени сущности: `0 is A`.
+    // Здесь `is` относится ко времени, а не к сущности, поэтому
+    // state_change (который начинается с entity_ref) не подходит.
+    | time_marker ~ ws+ ~ "is" ~ ws+ ~ state_value ~ (ws* ~ ":" ~ ws* ~ label_text)?
+    | time_marker
     | state_change        // Entity is State
     | state_transition    // Entity: State -> State
     | constraint_stmt     // {duration}
@@ -60,9 +71,14 @@ participant_name = { quoted_string | simple_identifier }
 // === Маркеры времени ===
 
 // @0, @100, @+50, @start_time
+// Маркер времени. PlantUML допускает обе формы: с собакой (`@0`) и без
+// неё (`0 is A`). Вторая раньше не разбиралась, из-за чего не работал
+// ни один учебный пример timing-диаграммы.
 time_marker = {
     "@" ~ time_value
+    | absolute_time
 }
+
 
 time_value = {
     relative_time
