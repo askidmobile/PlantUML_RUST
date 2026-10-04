@@ -37,7 +37,11 @@ impl Default for JsonLayoutConfig {
         Self {
             padding: 20.0,
             indent: 20.0,
-            line_height: 24.0,
+            // Измерено по эталону PlantUML
+            // (tests/golden/reference/json_basic.svg): строки идут с шагом
+            // 20.297 (y = 24.995, 45.292, 65.589, 85.886), высота диаграммы
+            // 103 при четырёх строках. Раньше стояло 24.0.
+            line_height: 20.297,
             min_key_width: 60.0,
             font_size: 13.0,
             text: TextMeasurer::default(),
