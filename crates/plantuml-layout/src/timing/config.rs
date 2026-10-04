@@ -30,7 +30,12 @@ impl Default for TimingLayoutConfig {
             participant_label_width: 120.0,
             lane_height: 60.0,
             lane_spacing: 20.0,
-            time_scale: 3.0, // 3 пикселя на единицу времени
+            // Измерено по эталону PlantUML
+            // (tests/golden/reference/timing_basic.svg): метка времени 0 на
+            // x=88.2, метка 100 на x=131.2, то есть 0.43px на единицу.
+            // Раньше стояло выдуманное 3.0, из-за чего диаграмма была
+            // в семь раз шире эталона.
+            time_scale: 0.43,
             robust_state_height: 30.0,
             concise_line_height: 20.0,
             label_font_size: 12.0,

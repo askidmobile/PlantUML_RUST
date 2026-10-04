@@ -15,7 +15,7 @@
   "sequence_participants": { "width_diff": 21.8, "height_diff": 101.9, "missing_texts": 0 },
   "sequence_simple": { "width_diff": 24.6, "height_diff": 12.0, "missing_texts": 0 },
   "state_simple": { "width_diff": 14.0, "height_diff": 112.0, "missing_texts": 0 },
-  "timing_basic": { "width_diff": 256.0, "height_diff": 18.0, "missing_texts": 2 },
+  "timing_basic": { "width_diff": 1.0, "height_diff": 18.0, "missing_texts": 2 },
   "usecase_basic": { "width_diff": 137.8, "height_diff": 143.7, "missing_texts": 0 },
   "wbs_basic": { "width_diff": 195.9, "height_diff": 29.0, "missing_texts": 0 },
   "yaml_basic": { "width_diff": 42.5, "height_diff": 69.5, "missing_texts": 6 }
