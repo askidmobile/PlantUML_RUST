@@ -20,6 +20,9 @@ const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 /// Цвет фона заметки в PlantUML.
 const NOTE_BACKGROUND: &str = "#FEFFDD";
 
+/// Отступ заметки от линии жизни (измерено по эталону sequence_notes).
+const NOTE_ANCHOR_GAP: f64 = 4.5;
+
 /// Отступ от активации до нижнего блока участника.
 ///
 /// В эталоне PlantUML активация заканчивается на 10px выше footer
@@ -1274,8 +1277,11 @@ impl SequenceLayoutEngine {
                 .participant_center_x(&note.anchors[0])
                 .unwrap_or(self.config.margin);
             match note.position {
-                NotePosition::Left => anchor_x - self.config.note_width - 20.0,
-                NotePosition::Right => anchor_x + 20.0,
+                // Отступ заметки от линии жизни. Измерено по эталону:
+                // линия Bob на x=106.487, заметка начинается на 110.987,
+                // то есть отступ 4.5.
+                NotePosition::Left => anchor_x - self.config.note_width - NOTE_ANCHOR_GAP,
+                NotePosition::Right => anchor_x + NOTE_ANCHOR_GAP,
                 NotePosition::Over => anchor_x - self.config.note_width / 2.0,
                 NotePosition::Top | NotePosition::Bottom => anchor_x - self.config.note_width / 2.0,
             }

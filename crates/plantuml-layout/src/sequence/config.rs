@@ -65,8 +65,11 @@ impl Default for SequenceLayoutConfig {
             fragment_header_height: 22.0, // высота заголовка фрагмента
             divider_height: 25.0,         // высота разделителя
             delay_height: 20.0,           // высота задержки
-            note_height: 30.0,            // высота заметки
-            note_width: 100.0,            // ширина заметки
+            // Измерено по эталону sequence_notes: заметка занимает
+            // 110.987..204.987 по X (ширина 94) и 83.43..108.43 по Y
+            // (высота 25), загнутый угол 10.
+            note_height: 25.0,
+            note_width: 94.0,
             // Отступ от края: в эталоне участник стоит на x=10, y=10
             margin: 10.0,
             font_size: 13.0,

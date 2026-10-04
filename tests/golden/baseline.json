@@ -11,7 +11,7 @@
   "object_basic": { "width_diff": 10.9, "height_diff": 10.0, "missing_texts": 1 },
   "salt_basic": { "width_diff": 13.4, "height_diff": 1.1, "missing_texts": 0 },
   "sequence_fragments": { "width_diff": 3.7, "height_diff": 45.9, "missing_texts": 0 },
-  "sequence_notes": { "width_diff": 34.0, "height_diff": 6.3, "missing_texts": 0 },
+  "sequence_notes": { "width_diff": 12.5, "height_diff": 11.3, "missing_texts": 0 },
   "sequence_participants": { "width_diff": 63.8, "height_diff": 101.9, "missing_texts": 0 },
   "sequence_simple": { "width_diff": 7.3, "height_diff": 12.0, "missing_texts": 0 },
   "state_simple": { "width_diff": 22.4, "height_diff": 14.0, "missing_texts": 0 },
