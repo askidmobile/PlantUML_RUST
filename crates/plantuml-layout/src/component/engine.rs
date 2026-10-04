@@ -15,6 +15,8 @@ const COMPONENT_BASE_WIDTH: f64 = 4.6;
 const COMPONENT_CHAR_WIDTH: f64 = 11.43;
 /// Высота компонента по эталону.
 const COMPONENT_HEIGHT: f64 = 46.297;
+/// Насколько контейнер шире своего заголовка (измерено по эталону).
+const PACKAGE_TITLE_EXTRA: f64 = 76.0;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для component diagrams
@@ -170,6 +172,11 @@ impl ComponentLayoutEngine {
         }
     }
 
+    /// Высота компонента (по эталону).
+    fn component_natural_height(&self) -> f64 {
+        self.config.component_height.max(COMPONENT_HEIGHT)
+    }
+
     /// Создаёт элемент базы данных (цилиндр)
     fn create_database_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         let chars = name.chars().count() as f64;
@@ -309,26 +316,28 @@ impl ComponentLayoutEngine {
         let mut elements = Vec::new();
         let mut positions = HashMap::new();
 
-        // Располагаем вложенные компоненты
-        let num_cols = ((pkg.components.len() as f64).sqrt().ceil() as usize).max(1);
+        // Компоненты внутри контейнера располагаются вертикально: в эталоне
+        // `node` содержит один элемент под заголовком. Раньше использовалась
+        // сетка по sqrt(n), а размеры брались из конфига (40x40) вместо
+        // контентных, из-за чего контейнер расходился по габаритам.
         let mut max_row = 0;
-        let mut max_col = 0;
+        let mut inner_width: f64 = 0.0;
+        let mut inner_height: f64 = 0.0;
 
         for (i, comp) in pkg.components.iter().enumerate() {
-            let row = i / num_cols;
-            let col = i % num_cols;
-            max_row = max_row.max(row);
-            max_col = max_col.max(col);
+            max_row = i;
 
-            let comp_x = x
-                + self.config.package_padding
-                + col as f64 * (self.config.component_width + self.config.horizontal_spacing / 2.0);
+            let comp_x = x + self.config.package_padding;
             let comp_y = y
                 + self.config.package_header_height
                 + self.config.package_padding
-                + row as f64 * (self.config.component_height + self.config.vertical_spacing / 2.0);
+                + i as f64 * (self.component_natural_height() + self.config.vertical_spacing);
 
             let (elem, bounds) = self.create_component_element(comp, comp_x, comp_y);
+            inner_width = inner_width.max(bounds.width);
+            inner_height = comp_y - y + bounds.height
+                - self.config.package_header_height
+                - self.config.package_padding;
             positions.insert(comp.name.clone(), bounds);
             if let Some(alias) = &comp.alias {
                 positions.insert(alias.clone(), bounds);
@@ -336,15 +345,20 @@ impl ComponentLayoutEngine {
             elements.push(elem);
         }
 
-        // Вычисляем размер пакета
-        let inner_width = (max_col + 1) as f64
-            * (self.config.component_width + self.config.horizontal_spacing / 2.0)
-            - self.config.horizontal_spacing / 2.0;
-        let inner_height = (max_row + 1) as f64
-            * (self.config.component_height + self.config.vertical_spacing / 2.0)
-            - self.config.vertical_spacing / 2.0;
+        // Вычисляем размер пакета по фактическому содержимому
+        let _ = max_row;
 
-        let pkg_width = inner_width + self.config.package_padding * 2.0;
+        // Ширина контейнера: PlantUML растягивает его под заголовок.
+        // Измерено по эталону deployment_basic: контейнер «Сервер приложений»
+        // имеет ширину 241 при заголовке 165.136, «Сервер БД» — 162 при
+        // 86.181, то есть ширина = заголовок + 76. Берётся максимум из
+        // содержимого и заголовка.
+        let title_width = self
+            .config
+            .text
+            .width(&pkg.name, self.config.package_header_height);
+        let pkg_width = (inner_width + self.config.package_padding * 2.0)
+            .max(title_width + PACKAGE_TITLE_EXTRA);
         let pkg_height =
             inner_height + self.config.package_header_height + self.config.package_padding * 2.0;
 

@@ -1,5 +1,7 @@
 //! Конфигурация layout для Component Diagrams
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация Component Layout Engine
 #[derive(Debug, Clone)]
 pub struct ComponentLayoutConfig {
@@ -23,26 +25,38 @@ pub struct ComponentLayoutConfig {
     pub corner_radius: f64,
     /// Размер иконки компонента
     pub icon_size: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
 }
 
 impl Default for ComponentLayoutConfig {
     fn default() -> Self {
         Self {
-            margin: 30.0,
+            // Измерено по эталону: тела компонентов начинаются на x=7 и y=7.
+            margin: 7.0,
             // Размеры измерены по эталону PlantUML
             // (tests/golden/reference/component_basic.svg): компонент 40x40,
             // шаг по вертикали 112 (40 + отступ 72), подпись рисуется над
             // фигурой. Раньше было 140x60, из-за чего диаграмма получалась
             // широкой и низкой: 410x240 против эталонных 62x295.
             component_width: 40.0,
-            component_height: 40.0,
-            vertical_spacing: 32.0,
+            // Высота задаётся контентно в движке (COMPONENT_HEIGHT = 46.297).
+            component_height: 46.297,
+            // Вертикальный шаг измерен по эталону: тела компонентов стоят на
+            // y=7 и 130.297, то есть шаг 123.297 при высоте тела 46.297,
+            // значит отступ между ними 77.
+            vertical_spacing: 77.0,
             horizontal_spacing: 30.0,
             interface_radius: 10.0,
-            package_padding: 20.0,
+            // Измерено по эталону deployment_basic: контейнер «Сервер
+            // приложений» имеет высоту 95.29 = 40 (заголовок с отступом)
+            // + 39.297 (содержимое) + 16 (нижний отступ). Отсюда заголовок
+            // 25 при отступе 15 и нижнем отступе 16.
+            package_padding: 15.0,
             package_header_height: 25.0,
             corner_radius: 5.0,
             icon_size: 16.0,
+            text: TextMeasurer::default(),
         }
     }
 }
