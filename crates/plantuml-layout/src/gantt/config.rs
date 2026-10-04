@@ -30,7 +30,9 @@ pub struct GanttLayoutConfig {
 impl Default for GanttLayoutConfig {
     fn default() -> Self {
         Self {
-            padding: 20.0,
+            // Измерено по эталону: первая полоса начинается на x=138.069
+            // при task_label_width 133.07, то есть padding 5.
+            padding: 5.0,
             // Измерено по эталону PlantUML: первая полоса задачи
             // начинается на x=138.069 при padding 5, то есть ширина блока
             // подписи 133.07. Раньше стояло 150.0.
@@ -42,8 +44,10 @@ impl Default for GanttLayoutConfig {
             // (tests/golden/reference/gantt_basic.svg): полоса задачи
             // длительностью 10 дней имеет ширину 156px, то есть 15.6px на
             // день. Раньше стояло 20.0, из-за чего диаграмма расходилась.
-            day_width: 15.6,
-            header_height: 40.0,
+            // 10 дней дают полосу 156px, 20 дней — 316px, 5 дней — 76px,
+            // то есть около 15.7px на день.
+            day_width: 15.7,
+            header_height: 36.0,
             label_font_size: 12.0,
             date_font_size: 10.0,
             text: TextMeasurer::default(),

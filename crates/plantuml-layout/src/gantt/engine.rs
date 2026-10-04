@@ -4,8 +4,14 @@
 
 use std::collections::HashMap;
 
-/// Отступ подписи задачи от левого края полосы (из measured по эталону).
+/// Отступ подписи задачи от левого края полосы (измерено по эталону).
 const GANTT_LABEL_INSET: f64 = 4.0;
+
+/// Смещение ряда сокращённых дней недели от верха шапки (по эталону).
+const GANTT_WEEKDAY_ROW_Y: f64 = 93.696;
+
+/// Смещение ряда номеров дней месяца от верха шапки (по эталону).
+const GANTT_DAY_NUMBER_ROW_Y: f64 = 107.696;
 
 /// Ширина колонки таблицы задач.
 ///
@@ -420,11 +426,42 @@ impl GanttLayoutEngine {
             ];
             let is_closed = closed_days.contains(&weekdays[day_of_week]);
 
-            // Показываем только каждый 5-й день чтобы не было слишком плотно
-            if day % 5 == 0 || day == 0 {
+            // Под каждой колонкой PlantUML выводит ДВА ряда подписей:
+            // сокращённый день недели (Mo, Tu, ...) на y=98.696 и номер дня
+            // месяца (1, 2, 3, ...) на y=112.696. Раньше показывался только
+            // каждый пятый день одним рядом, из-за чего шапка диаграммы
+            // была на два ряда ниже эталонной.
+            let weekday_short = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+                .get(day_of_week)
+                .copied()
+                .unwrap_or("Mo");
+
+            elements.push(LayoutElement {
+                id: format!("weekday_{}", day),
+                bounds: Rect::new(
+                    x,
+                    header_y + GANTT_WEEKDAY_ROW_Y,
+                    self.config.day_width,
+                    11.0,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: weekday_short.to_string(),
+                    font_size: self.config.date_font_size,
+                },
+            });
+
+            // Номер дня месяца: в эталоне выводится под каждым днём.
+            {
                 elements.push(LayoutElement {
                     id: format!("date_{}", day),
-                    bounds: Rect::new(x, header_y + 20.0, self.config.day_width * 5.0, 15.0),
+                    bounds: Rect::new(
+                        x,
+                        header_y + GANTT_DAY_NUMBER_ROW_Y,
+                        self.config.day_width,
+                        14.0,
+                    ),
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {
