@@ -46,13 +46,13 @@ pub enum SaltWidget {
     Container(Container),
     /// Текст
     Text(String),
-    /// Кнопка [Button]
+    /// Кнопка `[Button]`
     Button(String),
     /// Текстовое поле "text"
     TextField(String),
     /// Радио-кнопка () или (X)
     Radio { label: String, checked: bool },
-    /// Чекбокс [] или [X]
+    /// Чекбокс `[]` или `[X]`
     Checkbox { label: String, checked: bool },
     /// Выпадающий список ^item^
     Droplist { items: Vec<String>, open: bool },

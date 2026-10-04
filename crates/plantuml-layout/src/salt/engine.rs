@@ -176,11 +176,7 @@ impl SaltLayoutEngine {
                 ),
             ]
             .into_iter()
-            .chain(
-                stroke_dasharray
-                    .map(|d| ("stroke-dasharray".to_string(), d.to_string()))
-                    .into_iter(),
-            )
+            .chain(stroke_dasharray.map(|d| ("stroke-dasharray".to_string(), d.to_string())))
             .collect(),
         };
         elements.push(border);
@@ -541,11 +537,7 @@ impl SaltLayoutEngine {
             text: None,
             properties: [("stroke".to_string(), self.config.border_color.to_string())]
                 .into_iter()
-                .chain(
-                    dasharray
-                        .map(|d| ("stroke-dasharray".to_string(), d.to_string()))
-                        .into_iter(),
-                )
+                .chain(dasharray.map(|d| ("stroke-dasharray".to_string(), d.to_string())))
                 .collect(),
         };
         elements.push(line);

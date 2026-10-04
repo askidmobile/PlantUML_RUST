@@ -21,30 +21,27 @@ pub fn parse_json(source: &str) -> crate::Result<JsonDiagram> {
     let mut diagram = JsonDiagram::new();
 
     for pair in pairs {
-        match pair.as_rule() {
-            Rule::json_diagram => {
-                for inner in pair.into_inner() {
-                    match inner.as_rule() {
-                        Rule::title_directive => {
-                            if let Some(title_pair) = inner.into_inner().next() {
-                                diagram.metadata.title = Some(title_pair.as_str().to_string());
-                            }
+        if pair.as_rule() == Rule::json_diagram {
+            for inner in pair.into_inner() {
+                match inner.as_rule() {
+                    Rule::title_directive => {
+                        if let Some(title_pair) = inner.into_inner().next() {
+                            diagram.metadata.title = Some(title_pair.as_str().to_string());
                         }
-                        Rule::highlight_directive => {
-                            if let Some(path_pair) = inner.into_inner().next() {
-                                diagram.highlights.push(path_pair.as_str().to_string());
-                            }
-                        }
-                        Rule::json_content => {
-                            if let Some(value_pair) = inner.into_inner().next() {
-                                diagram.root = Some(parse_json_value(None, value_pair)?);
-                            }
-                        }
-                        _ => {}
                     }
+                    Rule::highlight_directive => {
+                        if let Some(path_pair) = inner.into_inner().next() {
+                            diagram.highlights.push(path_pair.as_str().to_string());
+                        }
+                    }
+                    Rule::json_content => {
+                        if let Some(value_pair) = inner.into_inner().next() {
+                            diagram.root = Some(parse_json_value(None, value_pair)?);
+                        }
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 

@@ -29,11 +29,8 @@ pub fn parse_timing(source: &str) -> Result<TimingDiagram> {
     for pair in pairs {
         if pair.as_rule() == Rule::diagram {
             for inner in pair.into_inner() {
-                match inner.as_rule() {
-                    Rule::body => {
-                        parse_body(inner, &mut diagram, &mut current_time);
-                    }
-                    _ => {}
+                if inner.as_rule() == Rule::body {
+                    parse_body(inner, &mut diagram, &mut current_time);
                 }
             }
         }

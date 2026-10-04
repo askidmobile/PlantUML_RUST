@@ -115,8 +115,7 @@ jobs:
           key: ${{ runner.os }}-wasm-cargo-${{ hashFiles('**/Cargo.lock') }}
           
       - name: Build WASM
-        run: cargo build --target wasm32-unknown-unknown -p plantuml-wasm
-        continue-on-error: true  # WASM crate не создан ещё
+        run: cargo build --target wasm32-unknown-unknown -p plantuml-wasm --locked
 
   msrv:
     name: Minimum Supported Rust Version
@@ -124,8 +123,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust 1.75
-        uses: dtolnay/rust-toolchain@1.75.0
+      - name: Install Rust 1.83
+        uses: dtolnay/rust-toolchain@1.83.0
         
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -137,7 +136,7 @@ jobs:
           key: ${{ runner.os }}-msrv-cargo-${{ hashFiles('**/Cargo.lock') }}
           
       - name: Check MSRV
-        run: cargo check --workspace
+        run: cargo check --workspace --locked
 
   docs:
     name: Documentation

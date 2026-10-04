@@ -49,6 +49,8 @@ title_stmt = { "title" ~ ws+ ~ rest_of_line }
 // autonumber                    - включить с 1
 // autonumber 15                 - начать с 15
 // autonumber 40 10              - начать с 40, шаг 10
+// autonumber 1.1                - многоуровневая нумерация (1.1, 1.2, ...)
+// autonumber 1.1.1              - три уровня (1.1.1, 1.1.2, ...)
 // autonumber "[00]"             - формат без чисел
 // autonumber 10 "[00]"          - начало + формат
 // autonumber 10 10 "[00]"       - начало + шаг + формат
@@ -66,9 +68,13 @@ autonumber = {
 }
 
 autonumber_params = {
-    number ~ (ws+ ~ number)? ~ (ws+ ~ quoted_string)?   // числа, опционально формат
+    multilevel_number ~ (ws+ ~ number)? ~ (ws+ ~ quoted_string)?  // многоуровневое начало
+    | number ~ (ws+ ~ number)? ~ (ws+ ~ quoted_string)?   // числа, опционально формат
     | quoted_string                                      // только формат
 }
+
+// Многоуровневая нумерация: 1.1, 1.1.1 и т.д.
+multilevel_number = @{ number ~ ("." ~ number)+ }
 
 // === Участники ===
 // ВАЖНО: Используем конкретные ключевые слова, а не identifier

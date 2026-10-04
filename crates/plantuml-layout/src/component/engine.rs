@@ -49,9 +49,9 @@ impl ComponentLayoutEngine {
             let (elem, bounds) = self.create_component_element(comp, x, y);
 
             // Сохраняем позицию по имени и алиасу
-            component_positions.insert(comp.name.clone(), bounds.clone());
+            component_positions.insert(comp.name.clone(), bounds);
             if let Some(alias) = &comp.alias {
-                component_positions.insert(alias.clone(), bounds.clone());
+                component_positions.insert(alias.clone(), bounds);
             }
 
             elements.push(elem);
@@ -299,7 +299,7 @@ impl ComponentLayoutEngine {
                 + row as f64 * (self.config.component_height + self.config.vertical_spacing / 2.0);
 
             let (elem, bounds) = self.create_component_element(comp, comp_x, comp_y);
-            positions.insert(comp.name.clone(), bounds.clone());
+            positions.insert(comp.name.clone(), bounds);
             if let Some(alias) = &comp.alias {
                 positions.insert(alias.clone(), bounds);
             }
@@ -323,7 +323,7 @@ impl ComponentLayoutEngine {
         // Создаём элемент пакета (group)
         let pkg_elem = LayoutElement {
             id: format!("package_{}", pkg.name.replace(' ', "_")),
-            bounds: pkg_bounds.clone(),
+            bounds: pkg_bounds,
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::Group {

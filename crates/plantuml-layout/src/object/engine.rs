@@ -53,12 +53,12 @@ impl ObjectLayoutEngine {
 
             // Создаём bounds
             let bounds = Rect::new(x, y, self.config.object_width, object_height);
-            object_positions.insert(object.name.clone(), bounds.clone());
+            object_positions.insert(object.name.clone(), bounds);
 
             // Создаём element для объекта
             elements.push(LayoutElement {
                 id: format!("object_{}", object.name),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Rectangle {

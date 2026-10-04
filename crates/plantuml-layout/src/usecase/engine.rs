@@ -88,7 +88,7 @@ impl UseCaseLayoutEngine {
         let system_bounds = Rect::new(system_x, system_y, system_width, system_height);
         let system_elem = LayoutElement {
             id: format!("system_{}", system_name.replace(' ', "_")),
-            bounds: system_bounds.clone(),
+            bounds: system_bounds,
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::System { title: system_name },
@@ -105,7 +105,7 @@ impl UseCaseLayoutEngine {
                 + i as f64 * (self.config.usecase_height + self.config.vertical_spacing);
 
             let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
-            element_positions.insert(name.to_string(), bounds.clone());
+            element_positions.insert(name.to_string(), bounds);
             if let Some(a) = alias {
                 element_positions.insert(a.to_string(), bounds);
             }
@@ -174,7 +174,7 @@ impl UseCaseLayoutEngine {
             };
 
             let (elem, bounds) = self.create_actor_element(&actor.name, actors_x, y);
-            element_positions.insert(actor.name.clone(), bounds.clone());
+            element_positions.insert(actor.name.clone(), bounds);
             if let Some(alias) = &actor.alias {
                 element_positions.insert(alias.clone(), bounds);
             }
@@ -208,7 +208,7 @@ impl UseCaseLayoutEngine {
         (
             LayoutElement {
                 id: format!("actor_{}", name.replace(' ', "_")),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Actor {
@@ -226,7 +226,7 @@ impl UseCaseLayoutEngine {
         (
             LayoutElement {
                 id: format!("usecase_{}", name.replace(' ', "_")),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Ellipse {
@@ -294,9 +294,9 @@ impl UseCaseLayoutEngine {
 
     /// Вычисляет точки соединения для связи
     fn calculate_connection_points(&self, from: &Rect, to: &Rect) -> (Point, Point) {
-        let from_center_x = from.x + from.width / 2.0;
+        let _from_center_x = from.x + from.width / 2.0;
         let from_center_y = from.y + from.height / 2.0;
-        let to_center_x = to.x + to.width / 2.0;
+        let _to_center_x = to.x + to.width / 2.0;
         let to_center_y = to.y + to.height / 2.0;
 
         // Для актёров (узкие) соединяем справа

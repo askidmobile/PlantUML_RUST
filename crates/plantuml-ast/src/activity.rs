@@ -84,11 +84,11 @@ pub enum ActionStyle {
     #[default]
     /// Обычное действие :action;
     Normal,
-    /// Условие <condition>
+    /// Условие `<condition>`
     Condition,
     /// Отправка сигнала >signal>
     SendSignal,
-    /// Получение сигнала <signal>
+    /// Получение сигнала `<signal>`
     ReceiveSignal,
 }
 

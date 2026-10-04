@@ -57,8 +57,8 @@ fn extract_salt_content(source: &str) -> crate::Result<String> {
 
         // Убираем ключевое слово salt если есть
         let content = content.trim();
-        if content.starts_with("salt") {
-            return Ok(content[4..].trim().to_string());
+        if let Some(rest) = content.strip_prefix("salt") {
+            return Ok(rest.trim().to_string());
         }
         return Ok(content.to_string());
     }

@@ -17,10 +17,15 @@ pub struct MindMapLayoutEngine {
     config: MindMapLayoutConfig,
 }
 
-/// Информация о размещении узла
-struct NodeLayout {
-    rect: Rect,
-    children_height: f64,
+/// Контекст рекурсивного размещения узлов дерева.
+///
+/// Объединяет изменяемое состояние обхода, чтобы не протаскивать
+/// его через каждый вызов отдельными аргументами.
+struct NodeLayoutContext<'a> {
+    /// Высоты поддеревьев, ключ — путь от корня (индексы детей)
+    subtree_heights: &'a HashMap<Vec<usize>, f64>,
+    /// Накопленные элементы layout
+    elements: &'a mut Vec<LayoutElement>,
 }
 
 impl MindMapLayoutEngine {
@@ -41,25 +46,32 @@ impl MindMapLayoutEngine {
         let mut elements = Vec::new();
 
         if let Some(root) = &diagram.root {
-            // Первый проход: вычисляем высоту каждого поддерева
-            let subtree_heights = self.calculate_all_subtree_heights(root);
+            // Первый проход: вычисляем высоту каждого поддерева.
+            // Ключ — путь от корня (индексы детей), а не сырой указатель:
+            // путь устойчив к перевыделению памяти и клонированию узлов.
+            let mut subtree_heights = HashMap::new();
+            self.calculate_subtree_height_recursive(root, &mut Vec::new(), &mut subtree_heights);
 
             // Общая высота дерева
-            let total_height = self.get_subtree_height(root, &subtree_heights);
+            let total_height = self.get_subtree_height(&[], &subtree_heights);
 
             // Корень размещается слева, вертикально по центру
             let root_x = self.config.padding;
             let root_y = self.config.padding + total_height / 2.0 - self.config.node_height / 2.0;
 
             // Layout всего дерева рекурсивно
+            let mut ctx = NodeLayoutContext {
+                subtree_heights: &subtree_heights,
+                elements: &mut elements,
+            };
             self.layout_node(
                 root,
+                &mut Vec::new(),
                 root_x,
                 root_y,
-                self.config.padding, // top_y для детей
-                &subtree_heights,
-                &mut elements,
-                None, // нет родителя для корня
+                self.config.padding,
+                None,
+                &mut ctx,
             );
         }
 
@@ -69,76 +81,68 @@ impl MindMapLayoutEngine {
         LayoutResult { elements, bounds }
     }
 
-    /// Вычисляет высоту поддерева для каждого узла
-    fn calculate_all_subtree_heights(
-        &self,
-        root: &MindMapNode,
-    ) -> HashMap<*const MindMapNode, f64> {
-        let mut heights = HashMap::new();
-        self.calculate_subtree_height_recursive(root, &mut heights);
-        heights
-    }
-
+    /// Рекурсивно вычисляет высоту поддерева для узла по пути `path`
     fn calculate_subtree_height_recursive(
         &self,
         node: &MindMapNode,
-        heights: &mut HashMap<*const MindMapNode, f64>,
+        path: &mut Vec<usize>,
+        heights: &mut HashMap<Vec<usize>, f64>,
     ) -> f64 {
         if node.children.is_empty() {
             let height = self.config.node_height;
-            heights.insert(node as *const _, height);
+            heights.insert(path.clone(), height);
             return height;
         }
 
         // Сумма высот всех детей + отступы между ними
-        let children_total: f64 = node
-            .children
-            .iter()
-            .map(|c| self.calculate_subtree_height_recursive(c, heights))
-            .sum();
+        let mut children_total = 0.0;
+        for (idx, child) in node.children.iter().enumerate() {
+            path.push(idx);
+            children_total += self.calculate_subtree_height_recursive(child, path, heights);
+            path.pop();
+        }
         let spacing = (node.children.len() - 1) as f64 * self.config.sibling_spacing;
         let total = children_total + spacing;
 
         // Высота поддерева = max(высота узла, высота детей)
         let height = total.max(self.config.node_height);
-        heights.insert(node as *const _, height);
+        heights.insert(path.clone(), height);
         height
     }
 
-    fn get_subtree_height(
-        &self,
-        node: &MindMapNode,
-        heights: &HashMap<*const MindMapNode, f64>,
-    ) -> f64 {
-        *heights
-            .get(&(node as *const _))
-            .unwrap_or(&self.config.node_height)
+    fn get_subtree_height(&self, path: &[usize], heights: &HashMap<Vec<usize>, f64>) -> f64 {
+        heights
+            .get(path)
+            .copied()
+            .unwrap_or(self.config.node_height)
     }
 
     /// Размещает узел и его детей
+    #[allow(clippy::too_many_arguments)]
     fn layout_node(
         &self,
         node: &MindMapNode,
+        path: &mut Vec<usize>,
         x: f64,
         y: f64,
         children_top_y: f64,
-        subtree_heights: &HashMap<*const MindMapNode, f64>,
-        elements: &mut Vec<LayoutElement>,
         parent_rect: Option<&Rect>,
+        ctx: &mut NodeLayoutContext<'_>,
     ) {
         // Создаём узел
         let node_width = self.calculate_node_width(&node.text);
         let node_rect = Rect::new(x, y, node_width, self.config.node_height);
 
-        let node_id = elements.len();
-        elements.push(self.create_node_element(node, &node_rect, node_id));
+        let node_id = ctx.elements.len();
+        ctx.elements
+            .push(self.create_node_element(node, &node_rect, node_id));
 
         // Создаём соединение с родителем (если есть)
         if let Some(parent) = parent_rect {
             // Линия от правого края родителя к левому краю текущего узла
             let from = Point::new(parent.x + parent.width, parent.y + parent.height / 2.0);
             let to = Point::new(node_rect.x, node_rect.y + node_rect.height / 2.0);
-            elements.push(self.create_connection(from, to, node_id));
+            ctx.elements.push(self.create_connection(from, to, node_id));
         }
 
         // Размещаем детей
@@ -146,21 +150,24 @@ impl MindMapLayoutEngine {
             let child_x = x + node_width + self.config.level_spacing;
             let mut current_y = children_top_y;
 
-            for child in &node.children {
-                let child_height = self.get_subtree_height(child, subtree_heights);
+            for (idx, child) in node.children.iter().enumerate() {
+                // Полный путь от корня до ребёнка
+                path.push(idx);
+                let child_height = self.get_subtree_height(path, ctx.subtree_heights);
 
                 // Y позиция ребёнка — в центре его поддерева
                 let child_y = current_y + child_height / 2.0 - self.config.node_height / 2.0;
 
                 self.layout_node(
                     child,
+                    path,
                     child_x,
                     child_y,
                     current_y,
-                    subtree_heights,
-                    elements,
                     Some(&node_rect),
+                    ctx,
                 );
+                path.pop();
 
                 current_y += child_height + self.config.sibling_spacing;
             }

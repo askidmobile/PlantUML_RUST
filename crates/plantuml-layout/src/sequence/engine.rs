@@ -572,7 +572,7 @@ impl SequenceLayoutEngine {
             SequenceElement::Return(ret) => {
                 // Return тоже влияет на spacing
                 if let Some(label) = &ret.label {
-                    let text_width = self.config.message_label_width(label);
+                    let _text_width = self.config.message_label_width(label);
                     // Return не имеет autonumber
 
                     // Для return нужно знать caller и callee
@@ -599,11 +599,11 @@ impl SequenceLayoutEngine {
     /// Проверяет есть ли команда autonumber в диаграмме
     fn diagram_has_autonumber(&self, diagram: &SequenceDiagram) -> bool {
         for element in &diagram.elements {
-            if let SequenceElement::Autonumber(cmd) = element {
-                match cmd {
-                    AutonumberCommand::Start(_) | AutonumberCommand::Resume(_) => return true,
-                    _ => {}
-                }
+            if let SequenceElement::Autonumber(
+                AutonumberCommand::Start(_) | AutonumberCommand::Resume(_),
+            ) = element
+            {
+                return true;
             }
         }
         false
@@ -706,7 +706,10 @@ impl SequenceLayoutEngine {
         match cmd {
             AutonumberCommand::Start(params) => {
                 metrics.autonumber.enabled = true;
-                if let Some(start) = params.start {
+                if let Some(levels) = &params.levels {
+                    // Многоуровневая нумерация: autonumber 1.1.1
+                    metrics.autonumber.levels = levels.clone();
+                } else if let Some(start) = params.start {
                     metrics.autonumber.set_start(start);
                 } else {
                     // Если не указано, начинаем с 1
@@ -726,7 +729,9 @@ impl SequenceLayoutEngine {
                 metrics.autonumber.enabled = true;
                 // При resume можно указать новые параметры
                 if let Some(p) = params {
-                    if let Some(start) = p.start {
+                    if let Some(levels) = &p.levels {
+                        metrics.autonumber.levels = levels.clone();
+                    } else if let Some(start) = p.start {
                         metrics.autonumber.set_start(start);
                     }
                     if let Some(step) = p.step {

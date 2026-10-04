@@ -236,7 +236,7 @@ impl StateLayoutEngine {
                             sub_layout.bounds.width + self.config.margin * 2.0,
                             sub_layout.bounds.height + self.config.margin * 2.0 + 30.0,
                         );
-                        state_positions.insert(state_name.clone(), container_rect.clone());
+                        state_positions.insert(state_name.clone(), container_rect);
 
                         // Добавляем все элементы
                         elements.extend(container_elements);
@@ -247,7 +247,7 @@ impl StateLayoutEngine {
                         let state_type = self.get_state_type_internal(diagram, state_name);
                         let (elem, bounds) =
                             self.create_state_element(state_name, state_type, x, y);
-                        state_positions.insert(state_name.clone(), bounds.clone());
+                        state_positions.insert(state_name.clone(), bounds);
                         elements.push(elem);
 
                         x += bounds.width + self.config.horizontal_spacing;
@@ -385,7 +385,7 @@ impl StateLayoutEngine {
         }
 
         // Общая ширина контента: элементы + пространство для обратных стрелок
-        let content_width = max_level_width + backward_space;
+        let _content_width = max_level_width + backward_space;
 
         let mut max_x = 0.0f64;
         let mut max_y = 0.0f64;
@@ -424,7 +424,7 @@ impl StateLayoutEngine {
                         inner_state_width,
                         inner_state_height,
                     );
-                    state_positions.insert(state_name.clone(), bounds.clone());
+                    state_positions.insert(state_name.clone(), bounds);
                     elements.push(elem);
 
                     max_x = max_x.max(bounds.x + bounds.width);
@@ -519,7 +519,7 @@ impl StateLayoutEngine {
 
         elements.push(LayoutElement {
             id: format!("composite_{}", composite.name),
-            bounds: container_bounds.clone(),
+            bounds: container_bounds,
             text: None,
             properties: std::collections::HashMap::new(),
             element_type: ElementType::CompositeState {
@@ -574,7 +574,7 @@ impl StateLayoutEngine {
                 (
                     LayoutElement {
                         id: format!("inner_initial_{}", name.replace(['[', ']', '*', '_'], "")),
-                        bounds: bounds.clone(),
+                        bounds,
                         text: None,
                         properties: std::collections::HashMap::new(),
                         element_type: ElementType::InitialState,
@@ -591,7 +591,7 @@ impl StateLayoutEngine {
                 (
                     LayoutElement {
                         id: format!("inner_final_{}", name.replace(['[', ']', '*', '_'], "")),
-                        bounds: bounds.clone(),
+                        bounds,
                         text: None,
                         properties: std::collections::HashMap::new(),
                         element_type: ElementType::FinalState,
@@ -605,7 +605,7 @@ impl StateLayoutEngine {
                 (
                     LayoutElement {
                         id: format!("inner_state_{}", name),
-                        bounds: bounds.clone(),
+                        bounds,
                         text: None,
                         properties: std::collections::HashMap::new(),
                         element_type: ElementType::State {
@@ -853,7 +853,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("initial_{}", name.replace(['[', ']', '*', '_'], "")),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::InitialState,
@@ -874,7 +874,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("final_{}", name.replace(['[', ']', '*', '_'], "")),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::FinalState,
@@ -890,7 +890,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("state_{}", name),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::State {
@@ -913,7 +913,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("choice_{}", name),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Text {
@@ -938,7 +938,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("bar_{}", name),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Rectangle {
@@ -969,7 +969,7 @@ impl StateLayoutEngine {
         (
             LayoutElement {
                 id: format!("history_{}", name.replace(['[', ']', '*'], "")),
-                bounds: bounds.clone(),
+                bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Ellipse {
@@ -1014,11 +1014,7 @@ impl StateLayoutEngine {
             };
 
             vec![start, corner1, corner2, end]
-        } else if is_from_small && dy > 0.0 {
-            let start = Point::new(from_center_x, from_rect.y + from_rect.height);
-            let end = Point::new(to_center_x, to_rect.y);
-            vec![start, end]
-        } else if is_to_small && dy > 0.0 {
+        } else if (is_from_small || is_to_small) && dy > 0.0 {
             let start = Point::new(from_center_x, from_rect.y + from_rect.height);
             let end = Point::new(to_center_x, to_rect.y);
             vec![start, end]

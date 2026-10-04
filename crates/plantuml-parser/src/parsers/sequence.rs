@@ -762,38 +762,49 @@ fn parse_autonumber_params_from_inner(
     let mut start: Option<u32> = None;
     let mut step: Option<u32> = None;
     let mut format: Option<String> = None;
+    let mut levels: Option<Vec<u32>> = None;
     let mut has_params = false;
 
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::autonumber_params => {
-                has_params = true;
-                // Парсим вложенные элементы
-                for param in inner.into_inner() {
-                    match param.as_rule() {
-                        Rule::number => {
-                            if let Ok(n) = param.as_str().parse() {
-                                if start.is_none() {
-                                    start = Some(n);
-                                } else {
-                                    step = Some(n);
-                                }
+        if inner.as_rule() == Rule::autonumber_params {
+            has_params = true;
+            // Парсим вложенные элементы
+            for param in inner.into_inner() {
+                match param.as_rule() {
+                    Rule::multilevel_number => {
+                        // Многоуровневая нумерация: "1.1" -> [1, 1]
+                        let parsed: Vec<u32> = param
+                            .as_str()
+                            .split('.')
+                            .filter_map(|s| s.parse().ok())
+                            .collect();
+                        if !parsed.is_empty() {
+                            levels = Some(parsed);
+                        }
+                    }
+                    Rule::number => {
+                        if let Ok(n) = param.as_str().parse() {
+                            if start.is_none() {
+                                start = Some(n);
+                            } else {
+                                step = Some(n);
                             }
                         }
-                        Rule::quoted_string => {
-                            let s = param.as_str();
-                            format = Some(s.trim_matches('"').to_string());
-                        }
-                        _ => {}
                     }
+                    Rule::quoted_string => {
+                        let s = param.as_str();
+                        format = Some(s.trim_matches('"').to_string());
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 
-    if has_params || start.is_some() || format.is_some() {
-        Some(AutonumberStart::new(start, step, format))
+    if has_params || start.is_some() || format.is_some() || levels.is_some() {
+        let mut params = AutonumberStart::new(start, step, format);
+        params.levels = levels;
+        Some(params)
     } else {
         None
     }
@@ -817,10 +828,8 @@ fn parse_return(pair: pest::iterators::Pair<Rule>) -> Return {
 
 /// Парсит ref statement (ссылку на другую диаграмму)
 /// Поддерживает:
-/// - ref over Alice, Bob: See other diagram
-/// - ref over Alice, Bob
-///     text
-///   end ref
+/// - `ref over Alice, Bob: See other diagram`
+/// - многострочную форму `ref over Alice, Bob` … `end ref`
 fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
     let mut participants: Vec<String> = Vec::new();
     let mut text = String::new();
@@ -981,7 +990,7 @@ end
 
         let diagram = result.unwrap();
         // Should have 1 message + 1 fragment
-        assert!(diagram.elements.len() >= 1);
+        assert!(!diagram.elements.is_empty());
     }
 
     #[test]
@@ -1439,6 +1448,48 @@ Alice -> Bob: message
                 assert_eq!(params.start, Some(10));
             }
             _ => panic!("Expected Autonumber with start=10"),
+        }
+    }
+
+    #[test]
+    fn test_parse_autonumber_multilevel() {
+        // autonumber 1.1 — многоуровневая нумерация
+        let source = r#"@startuml
+autonumber 1.1
+Alice -> Bob: message
+@enduml"#;
+
+        let result = parse_sequence(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+
+        match &diagram.elements[0] {
+            SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
+                assert_eq!(params.levels, Some(vec![1, 1]));
+            }
+            _ => panic!("Expected Autonumber with levels=[1,1]"),
+        }
+    }
+
+    #[test]
+    fn test_parse_autonumber_multilevel_three() {
+        // autonumber 1.2.3 — три уровня
+        let source = r#"@startuml
+autonumber 1.2.3
+Alice -> Bob: message
+@enduml"#;
+
+        let result = parse_sequence(source);
+        assert!(result.is_ok(), "Parse error: {:?}", result.err());
+
+        let diagram = result.unwrap();
+
+        match &diagram.elements[0] {
+            SequenceElement::Autonumber(AutonumberCommand::Start(params)) => {
+                assert_eq!(params.levels, Some(vec![1, 2, 3]));
+            }
+            _ => panic!("Expected Autonumber with levels=[1,2,3]"),
         }
     }
 

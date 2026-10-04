@@ -1,7 +1,7 @@
 //! C4 Model — библиотека для архитектурных диаграмм
 //!
 //! Реализация C4 Model (Context, Container, Component, Code) для PlantUML.
-//! Основано на https://github.com/plantuml-stdlib/C4-PlantUML
+//! Основано на <https://github.com/plantuml-stdlib/C4-PlantUML>
 
 use std::collections::HashMap;
 

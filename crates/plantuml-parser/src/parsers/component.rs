@@ -328,11 +328,8 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
             }
             Rule::note_floating => {
                 for n in inner.into_inner() {
-                    match n.as_rule() {
-                        Rule::quoted_string => {
-                            text = extract_quoted_string(n);
-                        }
-                        _ => {}
+                    if n.as_rule() == Rule::quoted_string {
+                        text = extract_quoted_string(n);
                     }
                 }
             }

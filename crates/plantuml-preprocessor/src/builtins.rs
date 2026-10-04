@@ -5,7 +5,7 @@
 //! - Метаданные: `%version()`, `%filename()`, `%dirpath()`
 //! - Логические: `%true()`, `%false()`, `%not(expr)`
 //! - Строковые: `%strlen(s)`, `%substr(s, start, len)`, `%upper(s)`, `%lower(s)`,
-//!              `%strpos(s, needle)`, `%string(x)`, `%newline()`
+//!   `%strpos(s, needle)`, `%string(x)`, `%newline()`
 //! - Числовые: `%intval(s)`, `%floor(x)`, `%ceil(x)`, `%abs(x)`
 
 use regex::Regex;

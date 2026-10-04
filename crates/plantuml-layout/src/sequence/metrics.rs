@@ -57,30 +57,10 @@ impl Default for AutonumberState {
 }
 
 impl AutonumberState {
-    /// Создаёт состояние с начальными уровнями из строки "1.2.3"
-    pub fn from_start_string(start: &str) -> Self {
-        let levels: Vec<u32> = start.split('.').filter_map(|s| s.parse().ok()).collect();
-
-        Self {
-            enabled: true,
-            levels: if levels.is_empty() { vec![1] } else { levels },
-            step: 1,
-            format: None,
-        }
-    }
-
     /// Устанавливает начальное значение (может быть multi-level: "1.2.3" или простое число)
     pub fn set_start(&mut self, start: u32) {
         // Простое число устанавливает только первый уровень
         self.levels = vec![start];
-    }
-
-    /// Устанавливает начальное значение из строки (может быть "1.2.3")
-    pub fn set_start_from_string(&mut self, start: &str) {
-        let levels: Vec<u32> = start.split('.').filter_map(|s| s.parse().ok()).collect();
-        if !levels.is_empty() {
-            self.levels = levels;
-        }
     }
 
     /// Инкрементирует указанный уровень и сбрасывает нижние уровни
@@ -88,7 +68,7 @@ impl AutonumberState {
     ///
     /// Если указан уровень, которого нет, автоматически добавляется ещё один уровень
     /// для создания multi-level нумерации. Например:
-    /// - levels = [2], inc A → levels = [3, 1] (добавляем уровень для осмысленного multi-level)
+    /// `levels = [2]`, `inc A` → `levels = [3, 1]`
     pub fn increment_level(&mut self, level: char) {
         let level_idx = (level.to_ascii_uppercase() as usize).saturating_sub('A' as usize);
 
@@ -332,8 +312,10 @@ mod tests {
 
     #[test]
     fn test_autonumber_simple() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
+        let mut state = AutonumberState {
+            enabled: true,
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1");
         assert_eq!(state.next(), "2");
@@ -342,9 +324,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_with_step() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.step = 5;
+        let mut state = AutonumberState {
+            enabled: true,
+            step: 5,
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1");
         assert_eq!(state.next(), "6");
@@ -353,9 +337,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_multilevel_basic() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![1, 1]; // Начинаем с 1.1
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![1, 1], // Начинаем с 1.1
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1.1");
         assert_eq!(state.next(), "1.2");
@@ -364,9 +350,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_multilevel_three_levels() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![1, 1, 1]; // Начинаем с 1.1.1
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![1, 1, 1], // Начинаем с 1.1.1
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1.1.1");
         assert_eq!(state.next(), "1.1.2");
@@ -375,9 +363,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_increment_level_a() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![1, 3]; // 1.3
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![1, 3], // 1.3
+            ..Default::default()
+        };
 
         state.increment_level('A'); // Инкремент первого уровня
 
@@ -386,9 +376,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_increment_level_b() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![1, 1, 5]; // 1.1.5
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![1, 1, 5], // 1.1.5
+            ..Default::default()
+        };
 
         state.increment_level('B'); // Инкремент второго уровня
 
@@ -406,9 +398,11 @@ mod tests {
         // autonumber inc B
         // Alice -> Bob: msg4   ' 2.2.1
 
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![1, 1, 1];
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![1, 1, 1],
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1.1.1");
         assert_eq!(state.next(), "1.1.2");
@@ -422,9 +416,11 @@ mod tests {
 
     #[test]
     fn test_autonumber_with_format() {
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.format = Some("[0]".to_string());
+        let mut state = AutonumberState {
+            enabled: true,
+            format: Some("[0]".to_string()),
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "[1]");
         assert_eq!(state.next(), "[2]");
@@ -442,9 +438,11 @@ mod tests {
     fn test_autonumber_inc_a_creates_multilevel() {
         // Когда autonumber начинается с простого числа и вызывается inc A,
         // автоматически создаётся второй уровень для multi-level нумерации
-        let mut state = AutonumberState::default();
-        state.enabled = true;
-        state.levels = vec![2]; // Простое состояние после пары next()
+        let mut state = AutonumberState {
+            enabled: true,
+            levels: vec![2], // Простое состояние после пары next()
+            ..Default::default()
+        };
 
         state.increment_level('A');
 
@@ -455,8 +453,10 @@ mod tests {
     #[test]
     fn test_autonumber_simple_then_inc() {
         // Реальный сценарий: autonumber, несколько сообщений, затем inc A
-        let mut state = AutonumberState::default();
-        state.enabled = true;
+        let mut state = AutonumberState {
+            enabled: true,
+            ..Default::default()
+        };
 
         assert_eq!(state.next(), "1"); // levels: [1] -> [2]
         assert_eq!(state.next(), "2"); // levels: [2] -> [3]

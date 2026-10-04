@@ -1,7 +1,7 @@
 //! tupadr3 — DevIcons и другие спрайты
 //!
 //! Библиотека спрайтов от tupadr3.
-//! Основано на https://github.com/tupadr3/plantuml-icon-font-sprites
+//! Основано на <https://github.com/tupadr3/plantuml-icon-font-sprites>
 
 use std::collections::HashMap;
 

@@ -155,7 +155,7 @@ impl Default for Color {
     }
 }
 
-/// Стереотип элемента <<stereotype>>
+/// Стереотип элемента `<<stereotype>>`
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stereotype {
     /// Имена стереотипов

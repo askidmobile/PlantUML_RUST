@@ -340,13 +340,13 @@ pub struct ParticipantBox {
 /// Команда autonumber в диаграмме
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AutonumberCommand {
-    /// autonumber [start] [step] [format]
+    /// `autonumber [start] [step] [format]`
     Start(AutonumberStart),
     /// autonumber stop
     Stop,
-    /// autonumber resume [start] [step] [format]
+    /// `autonumber resume [start] [step] [format]`
     Resume(Option<AutonumberStart>),
-    /// autonumber inc <level>
+    /// `autonumber inc <level>`
     Inc(String),
 }
 
@@ -357,8 +357,11 @@ pub struct AutonumberStart {
     pub start: Option<u32>,
     /// Шаг инкремента (по умолчанию 1)
     pub step: Option<u32>,
-    /// Формат отображения (например "[00]", "<b>[000]</b>")
+    /// Формат отображения (например `[00]`, `<b>[000]</b>`)
     pub format: Option<String>,
+    /// Многоуровневое начальное значение (например "1.1.1" для autonumber 1.1.1).
+    /// Если задано, имеет приоритет над `start`.
+    pub levels: Option<Vec<u32>>,
 }
 
 impl AutonumberStart {
@@ -368,6 +371,7 @@ impl AutonumberStart {
             start: Some(start),
             step: None,
             format: None,
+            levels: None,
         }
     }
 
@@ -377,6 +381,17 @@ impl AutonumberStart {
             start: None,
             step: None,
             format: Some(format.into()),
+            levels: None,
+        }
+    }
+
+    /// Создаёт параметры с многоуровневым начальным значением
+    pub fn with_levels(levels: Vec<u32>) -> Self {
+        Self {
+            start: None,
+            step: None,
+            format: None,
+            levels: Some(levels),
         }
     }
 
@@ -386,6 +401,7 @@ impl AutonumberStart {
             start,
             step,
             format,
+            levels: None,
         }
     }
 }
