@@ -64,7 +64,7 @@ cargo doc --workspace --open
 crates/
 ├── plantuml-core/       # Главный фасад — публичный API (render, parse)
 ├── plantuml-ast/        # AST типы (SequenceDiagram, ClassDiagram, etc.)
-├── plantuml-parser/     # Лексер (logos) + Парсер (pest)
+├── plantuml-parser/     # Парсер (pest)
 ├── plantuml-preprocessor/  # Директивы (!include, !define, %date())
 ├── plantuml-model/      # Геометрические примитивы (Point, Rect, Size)
 ├── plantuml-layout/     # Layout engines (SequenceLayoutEngine, etc.)
@@ -211,7 +211,6 @@ Source → Preprocessor → Parser → AST → Layout → LayoutResult → Rende
 
 | Crate | Назначение |
 |-------|------------|
-| logos | Быстрый лексер |
 | pest | PEG парсер |
 | svg | SVG генерация |
 | thiserror | Типизированные ошибки |
@@ -223,4 +222,3 @@ Source → Preprocessor → Parser → AST → Layout → LayoutResult → Rende
 
 - PlantUML: https://plantuml.com/
 - pest Book: https://pest.rs/book/
-- logos: https://logos.maciej.codes/
