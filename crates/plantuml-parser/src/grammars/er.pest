@@ -44,18 +44,34 @@ skinparam = { "skinparam" ~ ws_inline+ ~ (!NEWLINE ~ ANY)+ ~ NEWLINE }
 comment_line = { "'" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
 // Entity definition
+//
+// Поддерживаются обе формы PlantUML:
+//   entity User { ... }   — с телом
+//   entity User           — без тела (только объявление)
+//
+// Форма без тела самая обычная в диаграммах, где состав атрибутов не важен.
+// Раньше грамматика требовала `{`, поэтому `entity ORDER` не разбирался, и
+// ER-диаграмма не строилась вовсе.
 entity_definition = {
     "entity" ~ ws_inline+ ~ entity_name ~ 
     (ws_inline+ ~ "as" ~ ws_inline+ ~ entity_alias)? ~
     (ws_inline* ~ stereotype)? ~
     (ws_inline* ~ color_spec)? ~
-    ws ~ "{" ~ ws ~
-    (separator | entity_member | NEWLINE)* ~
-    ws ~ "}"
+    (
+        ws ~ "{" ~ ws ~
+        (separator | entity_member | NEWLINE)* ~
+        ws ~ "}"
+        | ""
+    ) ~
+    ws_inline* ~ NEWLINE?
 }
 
-entity_name = @{ identifier }
+// Имя сущности: обычный идентификатор либо quoted-строка.
+// PlantUML позволяет `entity "User" as user` — отображаемое имя в кавычках.
+entity_name = @{ quoted_identifier | identifier }
 entity_alias = @{ identifier }
+
+quoted_identifier = ${ "\"" ~ (!"\"" ~ ANY)+ ~ "\"" }
 
 entity_member = {
     !("--" | "}") ~

@@ -223,7 +223,13 @@ impl StateLayoutEngine {
                 for state_name in states {
                     // Проверяем, это composite состояние?
                     if let Some(composite) = composite_states.get(state_name) {
-                        let sub_layout = composite_layouts.get(state_name).unwrap();
+                        // Раскладка вложенного состояния может отсутствовать,
+                        // если она не построена на предыдущем проходе.
+                        // Раньше здесь стоял unwrap — это паника на входе,
+                        // который парсер считает допустимым.
+                        let Some(sub_layout) = composite_layouts.get(state_name) else {
+                            continue;
+                        };
 
                         // Создаём контейнер composite состояния
                         let container_elements =

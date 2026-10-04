@@ -54,7 +54,9 @@ fn parse_entity(pair: pest::iterators::Pair<Rule>) -> crate::Result<Entity> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::entity_name => {
-                name = inner.as_str().to_string();
+                // Имя может быть в кавычках: `entity "User" as user`.
+                // Кавычки — часть синтаксиса, в имени они не нужны.
+                name = inner.as_str().trim_matches('"').to_string();
             }
             Rule::entity_alias => {
                 // Используем alias
@@ -180,6 +182,67 @@ fn parse_cardinality(s: &str) -> Cardinality {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Сущность без тела — `entity ORDER` — самая обычная форма PlantUML.
+    ///
+    /// Регрессия: грамматика требовала `{`, поэтому такой ввод не разбирался,
+    /// и ER-диаграмма не строилась вовсе.
+    #[test]
+    fn test_parse_entity_without_body() {
+        let source = r#"@startuml
+entity USER
+entity ORDER
+USER ||--o{ ORDER
+@enduml"#;
+
+        let diagram = parse_er(source).unwrap();
+        assert_eq!(diagram.entities.len(), 2, "обе сущности должны разобраться");
+        assert_eq!(diagram.entities[0].id.name, "USER");
+        assert_eq!(diagram.entities[1].id.name, "ORDER");
+        assert_eq!(diagram.relationships.len(), 1);
+    }
+
+    /// Имя сущности в кавычках с алиасом: `entity "User" as user`.
+    #[test]
+    fn test_parse_quoted_entity_name() {
+        let source = r#"@startuml
+entity "User" as user {
+  * id : number
+  --
+  name : string
+}
+entity "Order" as order
+user ||--o{ order
+@enduml"#;
+
+        let diagram = parse_er(source).unwrap();
+        let user = diagram
+            .entities
+            .iter()
+            .find(|e| e.id.alias.as_deref() == Some("user"))
+            .expect("сущность user не найдена");
+
+        // Кавычки — часть синтаксиса, в имени их быть не должно
+        assert_eq!(user.id.name, "User", "кавычки не сняты с имени");
+        assert_eq!(diagram.entities.len(), 2);
+    }
+
+    /// Смешанная форма: одна сущность с телом, другая без.
+    #[test]
+    fn test_parse_mixed_entity_forms() {
+        let source = r#"@startuml
+entity USER {
+  * id : int
+}
+entity ORDER
+USER ||--o{ ORDER : places
+@enduml"#;
+
+        let diagram = parse_er(source).unwrap();
+        assert_eq!(diagram.entities.len(), 2);
+        assert_eq!(diagram.entities[0].attributes.len(), 1);
+        assert!(diagram.entities[1].attributes.is_empty());
+    }
 
     #[test]
     fn test_parse_simple_er() {

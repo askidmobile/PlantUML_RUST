@@ -397,20 +397,29 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Object);
     }
 
-    // ER Diagram — проверяем ДО Class
-    // entity keyword в сочетании с { и атрибутами
-    if source_lower.contains("entity ") && source_lower.contains("{") {
-        // Проверяем ER-специфичные связи или просто entity определения
-        if source_lower.contains("||--")
-            || source_lower.contains("}|--")
-            || source_lower.contains("|{")
-            || source_lower.contains("}o")
-            || source_lower.contains("o{")
-            || source_lower.contains("<<pk>>")
-            || source_lower.contains("<<fk>>")
-        {
-            return Ok(DiagramKind::Er);
-        }
+    // ER Diagram.
+    //
+    // `entity` используется и в sequence-диаграммах (как тип участника),
+    // поэтому одного ключевого слова недостаточно. Различители:
+    //  - тело сущности: `entity User { ... }` — в sequence его не бывает;
+    //  - ER-связи с кардинальностью: `||--o{`, `}|--`, `|{`, `}o`, `o{`;
+    //  - маркеры ключей: `<<pk>>`, `<<fk>>`.
+    //
+    // Прежняя логика требовала одновременно `entity`, `{` и ER-маркер, из-за
+    // чего `entity ORDER` (объявление без тела) не распознавалось вовсе.
+    if source_lower.contains("<<pk>>")
+        || source_lower.contains("<<fk>>")
+        || source_lower.contains("||--")
+        || source_lower.contains("}|--")
+        || source_lower.contains("}o")
+        || source_lower.contains("o{")
+        || source_lower.contains("|{")
+    {
+        return Ok(DiagramKind::Er);
+    }
+    // `entity X {` — тело сущности, в sequence такого синтаксиса нет
+    if source_lower.contains("entity ") && source_lower.contains('{') {
+        return Ok(DiagramKind::Er);
     }
 
     // Class Diagram

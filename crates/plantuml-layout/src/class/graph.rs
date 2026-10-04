@@ -72,7 +72,7 @@ impl Node {
                 };
                 text.len() as f64 * config.char_width
             })
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
 
         let method_max_width = classifier
@@ -87,7 +87,7 @@ impl Node {
                 };
                 text.len() as f64 * config.char_width
             })
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
 
         // Добавляем место для иконки видимости (~15px)

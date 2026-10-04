@@ -100,14 +100,14 @@ impl ComponentLayoutEngine {
     }
 
     /// Создаёт элемент компонента
+    /// Создаёт элемент компонента и возвращает его **фактические** границы.
+    ///
+    /// Раньше возвращался прямоугольник фиксированного размера
+    /// (`component_width × component_height`, 140×60) независимо от того,
+    /// что реально нарисовано. Для `Interface` (эллипс 20×20), `Actor`
+    /// (0.6 ширины) и `Cloud` (1.2 ширины) это неверно: связи привязывались
+    /// к несуществующему блоку и визуально «висели» мимо фигуры.
     fn create_component_element(&self, comp: &Component, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(
-            x,
-            y,
-            self.config.component_width,
-            self.config.component_height,
-        );
-
         let elem = match comp.component_type {
             ComponentType::Database => self.create_database_element(&comp.name, x, y),
             ComponentType::Cloud => self.create_cloud_element(&comp.name, x, y),
@@ -118,6 +118,10 @@ impl ComponentLayoutEngine {
             ComponentType::Actor => self.create_actor_element(&comp.name, x, y),
             _ => self.create_standard_component_element(&comp.name, x, y),
         };
+
+        // Границы берём у фактически созданного элемента, а не назначаем
+        // по конфигу: иначе связи не попадают в фигуру.
+        let bounds = elem.bounds;
 
         (elem, bounds)
     }

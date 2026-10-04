@@ -335,7 +335,8 @@ impl NetworkLayoutEngine {
             if positions.len() > 1 {
                 // Соединяем все позиции вертикальной линией
                 let mut sorted_positions = positions.clone();
-                sorted_positions.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap());
+                // total_cmp вместо partial_cmp().unwrap(): не паникует на NaN
+                sorted_positions.sort_by(|a, b| a.y.total_cmp(&b.y));
 
                 for window in sorted_positions.windows(2) {
                     let from = window[0];

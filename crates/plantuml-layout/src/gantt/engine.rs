@@ -52,7 +52,14 @@ impl GanttLayoutEngine {
         let timeline_width = (total_days as f64) * self.config.day_width;
         let timeline_start_x = self.config.padding + self.config.task_label_width;
 
-        // 1. Рисуем заголовок с датами
+        // 1. Рисуем заголовок с датами.
+        //
+        // Высота области задач передаётся явно: раньше фон выходных
+        // создавался высотой 1000.0 с комментарием «будет обрезано», но
+        // обрезания нет, и calculate_bounds() раздувал высоту диаграммы
+        // до ~1000px (weekends.svg: viewBox 1030 при 136–241 у остальных).
+        let tasks_height =
+            (diagram.tasks.len() as f64) * (self.config.row_height + self.config.row_spacing);
         self.draw_header(
             &mut elements,
             timeline_start_x,
@@ -63,6 +70,7 @@ impl GanttLayoutEngine {
                 .iter()
                 .map(|c| c.day)
                 .collect::<Vec<_>>(),
+            tasks_height,
         );
 
         // 2. Рисуем сетку
@@ -255,6 +263,10 @@ impl GanttLayoutEngine {
     }
 
     /// Рисует заголовок с датами
+    ///
+    /// `tasks_height` — высота области задач под заголовком. Фон выходных
+    /// должен покрывать ровно её: раньше использовалась константа 1000.0,
+    /// попадавшая в расчёт общих границ.
     fn draw_header(
         &self,
         elements: &mut Vec<LayoutElement>,
@@ -262,6 +274,7 @@ impl GanttLayoutEngine {
         project_start: &GanttDate,
         total_days: u32,
         closed_days: &[Weekday],
+        tasks_height: f64,
     ) {
         let header_y = self.config.padding;
 
@@ -305,7 +318,7 @@ impl GanttLayoutEngine {
                         x,
                         header_y + self.config.header_height,
                         self.config.day_width,
-                        1000.0, // Высокое значение, будет обрезано
+                        tasks_height,
                     ),
                     text: None,
                     properties: std::collections::HashMap::new(),

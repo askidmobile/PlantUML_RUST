@@ -12,6 +12,65 @@ use super::WbsLayoutConfig;
 use crate::traits::LayoutResult;
 use crate::{ElementType, LayoutElement};
 
+/// Сдвигает все координаты SVG-пути на заданное смещение.
+///
+/// Путь хранится строкой вида `M10,20 L10,30 L40,30 L40,50`. Все числа в
+/// ней — абсолютные координаты, поэтому при центрировании диаграммы их
+/// нужно сдвинуть вместе с `bounds`, иначе связи «оторвутся» от узлов.
+///
+/// Формат поддерживается только тот, который порождает `create_connection`
+/// (`M` и `L` с парами чисел), — этого достаточно и позволяет обойтись без
+/// парсера путей.
+fn shift_svg_path(path: &str, dx: f64, dy: f64) -> String {
+    let mut out = String::with_capacity(path.len() + 16);
+    let mut number = String::new();
+    let mut numbers_in_pair = 0usize;
+
+    // Записывает накопленное число со сдвигом по нужной оси
+    fn flush(out: &mut String, number: &mut String, numbers_in_pair: usize, dx: f64, dy: f64) {
+        if number.is_empty() {
+            return;
+        }
+        if let Ok(value) = number.parse::<f64>() {
+            // Чётные позиции в паре — X, нечётные — Y
+            let shifted = if numbers_in_pair % 2 == 0 {
+                value + dx
+            } else {
+                value + dy
+            };
+            // Компактная запись без лишних нулей
+            if shifted.fract() == 0.0 {
+                out.push_str(&format!("{}", shifted as i64));
+            } else {
+                out.push_str(&format!("{shifted}"));
+            }
+        } else {
+            out.push_str(number);
+        }
+        number.clear();
+    }
+
+    for ch in path.chars() {
+        if ch.is_ascii_digit() || ch == '-' || ch == '.' || ch == '+' {
+            number.push(ch);
+        } else if ch == ',' {
+            flush(&mut out, &mut number, numbers_in_pair, dx, dy);
+            // Разделитель координат сохраняем: без него пары чисел сливаются
+            // (`15,17` превратилось бы в `1517`)
+            out.push(',');
+            numbers_in_pair += 1;
+        } else {
+            flush(&mut out, &mut number, numbers_in_pair, dx, dy);
+            // Новая команда — счётчик координат начинается заново
+            numbers_in_pair = 0;
+            out.push(ch);
+        }
+    }
+    flush(&mut out, &mut number, numbers_in_pair, dx, dy);
+
+    out
+}
+
 /// Layout engine для WBS диаграмм
 pub struct WbsLayoutEngine {
     config: WbsLayoutConfig,
@@ -205,7 +264,12 @@ impl WbsLayoutEngine {
         }
     }
 
-    /// Центрирует диаграмму
+    /// Центрирует диаграмму.
+    ///
+    /// Сдвигает не только `bounds`, но и координаты внутри
+    /// `properties["path"]`: связи хранятся готовой строкой с абсолютными
+    /// координатами, поэтому без этого после центрирования коннекторы
+    /// оставались на старом месте и расходились с узлами.
     fn center_diagram(&self, elements: &mut [LayoutElement]) {
         if elements.is_empty() {
             return;
@@ -223,9 +287,22 @@ impl WbsLayoutEngine {
         let offset_x = self.config.padding - min_x;
         let offset_y = self.config.padding - min_y;
 
+        // Если сдвиг не нужен, ничего не трогаем (в том числе не
+        // переформатируем координаты путей)
+        if offset_x == 0.0 && offset_y == 0.0 {
+            return;
+        }
+
         for element in elements.iter_mut() {
             element.bounds.x += offset_x;
             element.bounds.y += offset_y;
+
+            if let Some(path) = element.properties.get("path").cloned() {
+                element.properties.insert(
+                    "path".to_string(),
+                    shift_svg_path(&path, offset_x, offset_y),
+                );
+            }
         }
     }
 
@@ -270,6 +347,59 @@ impl Default for WbsLayoutEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Сдвиг пути не должен менять его структуру и обязан смещать все координаты.
+    #[test]
+    fn test_shift_svg_path() {
+        let path = "M10,20 L10,30 L40,30 L40,50";
+        let shifted = shift_svg_path(path, 5.0, -3.0);
+        assert_eq!(shifted, "M15,17 L15,27 L45,27 L45,47");
+    }
+
+    /// Дробные координаты сохраняются.
+    #[test]
+    fn test_shift_svg_path_fractional() {
+        let shifted = shift_svg_path("M1.5,2.5 L3.5,4.5", 0.5, 0.5);
+        assert_eq!(shifted, "M2,3 L4,5");
+    }
+
+    /// После центрирования координаты внутри `path` совпадают с границами.
+    ///
+    /// Регрессия: раньше `center_diagram` сдвигал только `element.bounds`,
+    /// а строка пути оставалась со старыми абсолютными координатами, из-за
+    /// чего связи рисовались мимо узлов.
+    #[test]
+    fn test_center_diagram_shifts_path() {
+        let mut root = WbsNode::new(1, "Project");
+        root.add_child(WbsNode::new(2, "Phase 1"));
+
+        let diagram = WbsDiagram::with_root(root);
+        let engine = WbsLayoutEngine::new();
+        let result = engine.layout(&diagram);
+
+        let connections: Vec<_> = result
+            .elements
+            .iter()
+            .filter(|e| e.element_type == ElementType::Path)
+            .collect();
+        assert!(!connections.is_empty(), "соединения не созданы");
+
+        for conn in connections {
+            let path = conn.properties.get("path").expect("у соединения нет path");
+            // Первая координата пути должна совпасть с левым верхом bounds
+            let first = path
+                .trim_start_matches('M')
+                .split([' ', ','])
+                .next()
+                .and_then(|v| v.parse::<f64>().ok())
+                .expect("не разобрать X пути");
+            assert!(
+                (first - conn.bounds.x).abs() < 0.01,
+                "X пути ({first}) не совпадает с bounds.x ({}) после центрирования",
+                conn.bounds.x
+            );
+        }
+    }
 
     #[test]
     fn test_layout_simple_wbs() {

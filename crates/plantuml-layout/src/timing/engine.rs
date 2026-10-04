@@ -63,12 +63,8 @@ impl TimingLayoutEngine {
 
         // Сортируем изменения по времени
         for changes in changes_by_participant.values_mut() {
-            changes.sort_by(|a, b| {
-                a.time
-                    .as_f64()
-                    .partial_cmp(&b.time.as_f64())
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+            // total_cmp: корректно упорядочивает и при NaN, без unwrap
+            changes.sort_by(|a, b| a.time.as_f64().total_cmp(&b.time.as_f64()));
         }
 
         // 4. Рисуем участников и их lanes

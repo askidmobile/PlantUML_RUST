@@ -1104,13 +1104,21 @@ impl SequenceLayoutEngine {
                 NotePosition::Top | NotePosition::Bottom => anchor_x - self.config.note_width / 2.0,
             }
         } else {
-            // Over multiple participants
-            let first_x = metrics
-                .participant_center_x(&note.anchors[0])
+            // Over multiple participants.
+            //
+            // Список анкоров может быть пуст — парсер считает такую заметку
+            // допустимой. Раньше здесь стояли note.anchors[0] и
+            // anchors.last().unwrap(), то есть паника на валидном входе.
+            let first_x = note
+                .anchors
+                .first()
+                .and_then(|a| metrics.participant_center_x(a))
                 .unwrap_or(self.config.margin);
-            let last_x = metrics
-                .participant_center_x(note.anchors.last().unwrap())
-                .unwrap_or(self.config.margin);
+            let last_x = note
+                .anchors
+                .last()
+                .and_then(|a| metrics.participant_center_x(a))
+                .unwrap_or(first_x);
             (first_x + last_x) / 2.0 - self.config.note_width / 2.0
         };
 
@@ -1147,18 +1155,24 @@ impl SequenceLayoutEngine {
             (self.config.margin, metrics.max_x - self.config.margin * 2.0)
         } else if reference.participants.len() == 1 {
             // Один участник - центрируем вокруг него
-            let center_x = metrics
-                .participant_center_x(&reference.participants[0])
+            let center_x = reference
+                .participants
+                .first()
+                .and_then(|p| metrics.participant_center_x(p))
                 .unwrap_or(self.config.margin + 50.0);
             let width = self.config.participant_spacing.max(100.0);
             (center_x - width / 2.0, width)
         } else {
             // Несколько участников - от первого до последнего
-            let first_x = metrics
-                .participant_center_x(&reference.participants[0])
+            let first_x = reference
+                .participants
+                .first()
+                .and_then(|p| metrics.participant_center_x(p))
                 .unwrap_or(self.config.margin);
-            let last_x = metrics
-                .participant_center_x(reference.participants.last().unwrap())
+            let last_x = reference
+                .participants
+                .last()
+                .and_then(|p| metrics.participant_center_x(p))
                 .unwrap_or(metrics.max_x);
             let padding = 20.0;
             (first_x - padding, last_x - first_x + padding * 2.0)

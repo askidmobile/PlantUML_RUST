@@ -29,6 +29,11 @@ pub struct SaltLayoutConfig {
     pub button_color: &'static str,
     /// Цвет текстового поля
     pub textfield_color: &'static str,
+    /// Доступная ширина для раскладки контейнеров.
+    ///
+    /// Раньше была жёстко зашита в `layout()` (800.0), из-за чего настройка
+    /// через `with_config` не влияла на ширину.
+    pub available_width: f64,
 }
 
 impl Default for SaltLayoutConfig {
@@ -47,6 +52,7 @@ impl Default for SaltLayoutConfig {
             border_color: "#888888",
             button_color: "#E0E0E0",
             textfield_color: "#FFFFFF",
+            available_width: 800.0,
         }
     }
 }

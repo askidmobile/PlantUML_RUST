@@ -898,15 +898,27 @@ impl Default for SaltLayoutEngine {
 impl LayoutEngine for SaltLayoutEngine {
     type Input = SaltDiagram;
 
+    /// Выполняет layout salt-диаграммы.
+    ///
+    /// Использует `self.config`: раньше здесь создавался новый движок через
+    /// `SaltLayoutEngine::new()`, из-за чего `with_config()` не оказывал
+    /// никакого эффекта — публичный API вводил в заблуждение.
+    ///
+    /// `render_widget` требует `&mut self` (счётчик идентификаторов),
+    /// поэтому работаем на локальной копии, унаследовавшей конфигурацию.
     fn layout(&self, diagram: &Self::Input, _config: &LayoutConfig) -> LayoutResult {
-        let mut engine = SaltLayoutEngine::new();
+        let mut engine = SaltLayoutEngine {
+            config: self.config.clone(),
+            element_id: self.element_id,
+        };
         let mut elements = Vec::new();
 
+        let available_width = engine.config.available_width;
         let (width, height) = engine.render_widget(
             &diagram.root,
             engine.config.padding,
             engine.config.padding,
-            800.0, // default available width
+            available_width,
             &mut elements,
         );
 

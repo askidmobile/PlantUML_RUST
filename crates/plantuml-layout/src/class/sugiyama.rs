@@ -240,7 +240,7 @@ impl<'a> SugiyamaLayout<'a> {
             .collect();
 
         // Сортируем по барицентру
-        barycenters.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        barycenters.sort_by(|a, b| a.1.total_cmp(&b.1));
 
         // Обновляем позиции
         for (pos, (node, _)) in barycenters.iter().enumerate() {
@@ -296,7 +296,7 @@ impl<'a> SugiyamaLayout<'a> {
                 .nodes_on_layer(layer - 1)
                 .iter()
                 .map(|&n| self.graph.nodes[n].size.height)
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .max_by(|a, b| a.total_cmp(b))
                 .unwrap_or(self.config.min_class_height);
 
             layer_y[layer] =
