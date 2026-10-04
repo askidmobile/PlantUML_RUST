@@ -15,6 +15,9 @@ statement = _{
     comment
     | skinparam
     | title_stmt
+    | header_stmt
+    | footer_stmt
+    | hide_stmt
     | autonumber
     | participant_decl   // Объявления участников - раньше message
     | create_stmt
@@ -43,6 +46,10 @@ comment = { "'" ~ (!NEWLINE ~ ANY)* }
 // === Заголовок ===
 
 title_stmt = { "title" ~ ws+ ~ rest_of_line }
+header_stmt = { "header" ~ ws+ ~ rest_of_line }
+footer_stmt = { "footer" ~ ws+ ~ rest_of_line }
+// hide footbox — скрыть нижние блоки участников
+hide_stmt = { "hide" ~ ws+ ~ ("footbox" | "footbox!") }
 
 // === Autonumber ===
 // Поддерживаемые варианты:

@@ -86,8 +86,11 @@ impl SequenceLayoutEngine {
         // 6. Добавляем прямоугольники активаций
         self.add_activations(&metrics, &mut elements);
 
-        // 7. Добавляем нижние блоки участников (footers) - как в PlantUML
-        self.add_participant_footers(&metrics, &mut elements);
+        // 7. Добавляем нижние блоки участников (footers) - как в PlantUML.
+        //    Директива `hide footbox` отключает их отрисовку.
+        if !diagram.hide_footbox {
+            self.add_participant_footers(&metrics, &mut elements);
+        }
 
         // 8. Вычисляем финальную высоту диаграммы (footer_y + footer_height + margin)
         let footer_y = metrics.current_y + FOOTER_GAP - self.config.message_spacing;
@@ -103,9 +106,96 @@ impl SequenceLayoutEngine {
             })
             .collect();
 
-        // 10. Вставляем box элементы в начало (чтобы рендерились под остальным)
+        // 9.5. Заголовок, подписи и легенда — как в PlantUML.
+        //      Раньше `title` разбирался парсером, но в вывод не попадал:
+        //      метаданные не читались layout-движком.
+        let mut header_elements = Vec::new();
+
+        // `header` рисуется над диаграммой
+        if let Some(header) = &diagram.metadata.header {
+            header_elements.push(LayoutElement {
+                id: "header".to_string(),
+                bounds: Rect::new(self.config.margin, 0.0, 0.0, self.config.line_height),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: header.clone(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
+
+        // `title` — по центру над диаграммой
+        if let Some(title) = &diagram.metadata.title {
+            header_elements.push(LayoutElement {
+                id: "title".to_string(),
+                bounds: Rect::new(
+                    self.config.margin,
+                    if diagram.metadata.header.is_some() {
+                        self.config.line_height
+                    } else {
+                        0.0
+                    },
+                    0.0,
+                    self.config.line_height,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: title.clone(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
+
+        // `footer` и `caption` — под диаграммой
+        let mut trailing_elements = Vec::new();
+        if let Some(caption) = &diagram.metadata.caption {
+            trailing_elements.push(LayoutElement {
+                id: "caption".to_string(),
+                bounds: Rect::new(
+                    self.config.margin,
+                    total_height,
+                    0.0,
+                    self.config.line_height,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: caption.clone(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
+        if let Some(footer) = &diagram.metadata.footer {
+            trailing_elements.push(LayoutElement {
+                id: "footer_text".to_string(),
+                bounds: Rect::new(
+                    self.config.margin,
+                    total_height
+                        + if diagram.metadata.caption.is_some() {
+                            self.config.line_height
+                        } else {
+                            0.0
+                        },
+                    0.0,
+                    self.config.line_height,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: footer.clone(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
+
+        // 10. Вставляем box элементы в начало (чтобы рендерились под остальным),
+        //     а заголовки — в конец
         let mut final_elements = box_elements;
         final_elements.extend(elements);
+        final_elements.extend(header_elements);
+        final_elements.extend(trailing_elements);
 
         // 11. Вычисляем bounds
         let mut result = LayoutResult {

@@ -15,6 +15,11 @@ pub struct SequenceDiagram {
     pub elements: Vec<SequenceElement>,
     /// Box группировки участников
     pub boxes: Vec<ParticipantBox>,
+    /// Скрывать нижние блоки участников (`hide footbox`)
+    ///
+    /// В PlantUML по умолчанию участники дублируются внизу диаграммы;
+    /// директива `hide footbox` это отключает.
+    pub hide_footbox: bool,
 }
 
 impl SequenceDiagram {

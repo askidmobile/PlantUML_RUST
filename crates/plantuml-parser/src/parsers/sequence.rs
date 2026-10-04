@@ -182,6 +182,20 @@ fn process_rule(
                 diagram.metadata.title = Some(title);
             }
         }
+        Rule::header_stmt => {
+            if let Some(header) = parse_title(pair) {
+                diagram.metadata.header = Some(header);
+            }
+        }
+        Rule::footer_stmt => {
+            if let Some(footer) = parse_title(pair) {
+                diagram.metadata.footer = Some(footer);
+            }
+        }
+        Rule::hide_stmt => {
+            // hide footbox — нижние блоки участников не рисуются
+            diagram.hide_footbox = true;
+        }
         Rule::activate_stmt => {
             if let Some((participant_id, color)) = parse_activate(pair) {
                 let element = SequenceElement::Activation(Activation {
@@ -1427,6 +1441,40 @@ Alice -> Bob: second
             },
             _ => panic!("Expected Autonumber element"),
         }
+    }
+
+    /// `header` и `footer` разбираются в метаданные.
+    ///
+    /// Регрессия: эти директивы не были описаны в грамматике, поэтому
+    /// диаграмма с ними не парсилась вовсе.
+    #[test]
+    fn test_parse_header_and_footer() {
+        let source = "@startuml\nheader Верхний\nfooter Нижний\nA -> B\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор должен пройти");
+
+        assert_eq!(diagram.metadata.header.as_deref(), Some("Верхний"));
+        assert_eq!(diagram.metadata.footer.as_deref(), Some("Нижний"));
+    }
+
+    /// `hide footbox` выставляет флаг в AST.
+    #[test]
+    fn test_parse_hide_footbox() {
+        let source = "@startuml\nhide footbox\nA -> B\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор должен пройти");
+
+        assert!(diagram.hide_footbox, "флаг hide_footbox не выставлен");
+
+        // Без директивы флаг снят
+        let plain = parse_sequence("@startuml\nA -> B\n@enduml").unwrap();
+        assert!(!plain.hide_footbox);
+    }
+
+    /// `title` попадает в метаданные и выживает в layout.
+    #[test]
+    fn test_parse_title_reaches_metadata() {
+        let source = "@startuml\ntitle Моя диаграмма\nA -> B\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор должен пройти");
+        assert_eq!(diagram.metadata.title.as_deref(), Some("Моя диаграмма"));
     }
 
     #[test]
