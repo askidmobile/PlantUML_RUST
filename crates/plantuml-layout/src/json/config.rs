@@ -1,5 +1,6 @@
 //! Конфигурация layout для JSON диаграмм
 
+use crate::text::TextMeasurer;
 /// Конфигурация для JSON layout engine
 #[derive(Debug, Clone)]
 pub struct JsonLayoutConfig {
@@ -13,6 +14,8 @@ pub struct JsonLayoutConfig {
     pub min_key_width: f64,
     /// Размер шрифта
     pub font_size: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
     /// Радиус скругления для объектов/массивов
     pub corner_radius: f64,
     /// Цвет фона объекта
@@ -37,6 +40,7 @@ impl Default for JsonLayoutConfig {
             line_height: 24.0,
             min_key_width: 60.0,
             font_size: 13.0,
+            text: TextMeasurer::default(),
             corner_radius: 3.0,
             object_bg_color: "#FEFECE",
             array_bg_color: "#E8F4E8",

@@ -190,7 +190,7 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width = text.len() as f64 * 8.0 + self.config.cell_padding;
+        let width = self.config.text.width(text, self.config.font_size) + self.config.cell_padding;
         let height = self.config.row_height;
 
         let text_elem = LayoutElement {
@@ -218,7 +218,8 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width = label.len() as f64 * 8.0 + self.config.cell_padding * 2.0;
+        let width =
+            self.config.text.width(label, self.config.font_size) + self.config.cell_padding * 2.0;
         let width = width.max(self.config.min_cell_width);
         let height = self.config.button_height;
 
@@ -269,7 +270,8 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width = text.len() as f64 * 8.0 + self.config.cell_padding * 2.0;
+        let width =
+            self.config.text.width(text, self.config.font_size) + self.config.cell_padding * 2.0;
         let width = width.max(self.config.min_cell_width);
         let height = self.config.textfield_height;
 
@@ -370,7 +372,7 @@ impl SaltLayoutEngine {
                     .collect(),
             };
             elements.push(label_elem);
-            label.len() as f64 * 8.0
+            self.config.text.width(label, self.config.font_size)
         } else {
             0.0
         };
@@ -433,7 +435,7 @@ impl SaltLayoutEngine {
                     .collect(),
             };
             elements.push(label_elem);
-            label.len() as f64 * 8.0
+            self.config.text.width(label, self.config.font_size)
         } else {
             0.0
         };
@@ -451,7 +453,7 @@ impl SaltLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
         let text = items.first().map(|s| s.as_str()).unwrap_or("Select...");
-        let width = text.len() as f64 * 8.0 + 30.0;
+        let width = self.config.text.width(text, self.config.font_size) + 30.0;
         let height = self.config.textfield_height;
 
         // Фон
@@ -592,7 +594,7 @@ impl SaltLayoutEngine {
             if !node.text.is_empty() {
                 let prefix = if node.level > 0 { "├─ " } else { "" };
                 let text = format!("{}{}", prefix, node.text);
-                let width = text.len() as f64 * 8.0 + indent;
+                let width = engine.config.text.width(&text, engine.config.font_size) + indent;
 
                 let text_elem = LayoutElement {
                     id: engine.next_id("tree_node"),
@@ -635,7 +637,7 @@ impl SaltLayoutEngine {
         let tab_height = 25.0;
 
         for (i, item) in items.iter().enumerate() {
-            let width = item.len() as f64 * 8.0 + 20.0;
+            let width = self.config.text.width(item, self.config.font_size) + 20.0;
             let is_selected = i == selected;
 
             // Фон вкладки
@@ -694,7 +696,7 @@ impl SaltLayoutEngine {
         // Фон меню
         let total_width = items
             .iter()
-            .map(|i| i.text.len() as f64 * 8.0 + 20.0)
+            .map(|i| self.config.text.width(&i.text, self.config.font_size) + 20.0)
             .sum::<f64>();
         let bg = LayoutElement {
             id: self.next_id("menu_bg"),
@@ -718,7 +720,7 @@ impl SaltLayoutEngine {
                 continue;
             }
 
-            let width = item.text.len() as f64 * 8.0 + 20.0;
+            let width = self.config.text.width(&item.text, self.config.font_size) + 20.0;
 
             let text = LayoutElement {
                 id: self.next_id("menu_item"),

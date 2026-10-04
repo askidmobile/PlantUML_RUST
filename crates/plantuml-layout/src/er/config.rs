@@ -1,5 +1,7 @@
 //! Конфигурация layout для ER диаграмм
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация для ER layout engine
 #[derive(Debug, Clone)]
 pub struct ErLayoutConfig {
@@ -19,6 +21,8 @@ pub struct ErLayoutConfig {
     pub entity_padding: f64,
     /// Размер шрифта
     pub font_size: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
     /// Цвет фона сущности
     pub entity_bg_color: &'static str,
     /// Цвет заголовка
@@ -36,6 +40,7 @@ impl Default for ErLayoutConfig {
             vertical_spacing: 60.0,
             entity_padding: 10.0,
             font_size: 13.0,
+            text: TextMeasurer::default(),
             entity_bg_color: "#FEFECE",
             header_bg_color: "#E2E2F0",
         }

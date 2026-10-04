@@ -202,8 +202,7 @@ impl WbsLayoutEngine {
 
     /// Вычисляет ширину узла
     fn calculate_node_width(&self, text: &str) -> f64 {
-        let char_width = self.config.font_size * 0.6;
-        let text_width = text.len() as f64 * char_width;
+        let text_width = self.config.text.width(text, self.config.font_size);
         (text_width + self.config.node_padding_x * 2.0).max(self.config.min_node_width)
     }
 

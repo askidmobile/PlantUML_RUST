@@ -1,5 +1,7 @@
 //! Конфигурация layout для WBS диаграмм
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация для WBS layout engine
 #[derive(Debug, Clone)]
 pub struct WbsLayoutConfig {
@@ -17,6 +19,8 @@ pub struct WbsLayoutConfig {
     pub node_padding_x: f64,
     /// Размер шрифта
     pub font_size: f64,
+    /// Измеритель текста (считает символы, а не байты)
+    pub text: TextMeasurer,
 }
 
 impl Default for WbsLayoutConfig {
@@ -29,6 +33,7 @@ impl Default for WbsLayoutConfig {
             node_height: 30.0,
             node_padding_x: 12.0,
             font_size: 13.0,
+            text: TextMeasurer::default(),
         }
     }
 }

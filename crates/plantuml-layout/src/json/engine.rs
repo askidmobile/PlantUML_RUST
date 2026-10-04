@@ -262,7 +262,7 @@ impl JsonLayoutEngine {
             value_text
         };
 
-        let text_width = display_text.len() as f64 * 8.0 + 20.0;
+        let text_width = self.config.text.width(&display_text, self.config.font_size) + 20.0;
         let width = text_width.max(self.config.min_key_width);
 
         let element = LayoutElement {

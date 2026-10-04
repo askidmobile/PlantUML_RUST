@@ -32,10 +32,14 @@ impl ErLayoutEngine {
 
     /// Вычисляет размер сущности
     fn calculate_entity_size(&self, entity: &Entity) -> Size {
-        let width = self
-            .config
-            .min_entity_width
-            .max(entity.id.name.len() as f64 * 9.0 + self.config.entity_padding * 2.0);
+        // Измеряем по символам: раньше здесь было `name.len() * 9.0`, что для
+        // кириллицы давало удвоенную ширину (байты вместо символов)
+        let width = self.config.min_entity_width.max(
+            self.config
+                .text
+                .width(&entity.id.name, self.config.font_size)
+                + self.config.entity_padding * 2.0,
+        );
 
         // Находим максимальную ширину атрибута
         let max_attr_width = entity
@@ -48,7 +52,12 @@ impl ErLayoutEngine {
                     .as_deref()
                     .map(|s| format!(" <<{}>>", s))
                     .unwrap_or_default();
-                (a.name.len() + type_str.len() + stereo_str.len() + 3) as f64 * 7.5
+                // Одна согласованная мера вместо двух разных констант
+                // (9.0 для имени и 7.5 для атрибутов)
+                self.config.text.width(
+                    &format!("{}{}{}", a.name, type_str, stereo_str),
+                    self.config.font_size,
+                ) + 3.0
             })
             .fold(0.0, f64::max);
 
