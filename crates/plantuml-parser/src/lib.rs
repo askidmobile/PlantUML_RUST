@@ -205,9 +205,130 @@ fn has_paren_usecase_pattern(source: &str) -> bool {
     false
 }
 
+/// Готовит исходник к анализу типа диаграммы: оставляет только структуру.
+///
+/// # Зачем
+///
+/// Определение типа по подстрокам во всём тексте давало ложные срабатывания
+/// на содержимом подписей: диаграмма `Alice -> Bob: class loaded`
+/// распознавалась как Class и рендерилась пустой (участники исчезали),
+/// а `render()` при этом возвращал `Ok`. Это молчаливая потеря данных.
+///
+/// Скелет убирает всё, что не является структурой PlantUML:
+/// - строчные (`'`) и блочные (`/' … '/`) комментарии;
+/// - тексты подписей: в строке `A -> B: текст` остаётся только `A -> B`;
+/// - содержимое многострочных блоков (`note … end note`, `legend … endlegend`
+///   и блочные формы `title`/`header`/`footer`/`caption`).
+///
+/// Кавычки не удаляются: имена в кавычках (`participant "Имя" as L`)
+/// структурны, а ключевые слова идут до них.
+fn structural_skeleton(source: &str) -> String {
+    /// Маркер закрытия многострочного текстового блока, если строка его открывает.
+    fn block_end(line_lower: &str) -> Option<&'static str> {
+        // Заметки: однострочная форма содержит ':' и маркера не имеет
+        if (line_lower == "note"
+            || line_lower.starts_with("note ")
+            || line_lower.starts_with("hnote ")
+            || line_lower.starts_with("rnote "))
+            && !line_lower.contains(':')
+        {
+            return Some("end note");
+        }
+        if line_lower == "legend" || line_lower.starts_with("legend ") {
+            return Some("endlegend");
+        }
+        // Блочные формы заголовков: ключевое слово без текста на той же строке
+        for (open, close) in [
+            ("title", "end title"),
+            ("header", "end header"),
+            ("footer", "end footer"),
+            ("caption", "end caption"),
+        ] {
+            if line_lower == open {
+                return Some(close);
+            }
+        }
+        None
+    }
+
+    /// Маркеры связей, после которых `:` открывает подпись, а не структуру.
+    const ARROWS: &[&str] = &[
+        "-->", "<--", "->>", "<<-", "->", "<-", "--", "..", "..>", "<..", "-[", "o--", "*--",
+        "|--", "||--",
+    ];
+
+    let mut out = String::new();
+    let mut closing: Option<&str> = None;
+    let mut in_comment = false;
+
+    for raw in source.lines() {
+        let line = raw.trim();
+
+        // Блочный комментарий
+        if in_comment {
+            if line.contains("'/") {
+                in_comment = false;
+            }
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("/'") {
+            if !rest.contains("'/") {
+                in_comment = true;
+            }
+            continue;
+        }
+
+        // Строчный комментарий
+        if line.starts_with('\'') {
+            continue;
+        }
+
+        // Внутри многострочного текстового блока структуры нет
+        if let Some(end) = closing {
+            if line.eq_ignore_ascii_case(end) {
+                closing = None;
+            }
+            continue;
+        }
+
+        let lower = line.to_lowercase();
+
+        // Директивы сохраняем: по ним распознаются @startgantt/@startjson,
+        // archimate, nwdiag и прочие теги
+        if lower.starts_with('!') || lower.starts_with('@') {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+
+        if let Some(end) = block_end(&lower) {
+            closing = Some(end);
+            continue;
+        }
+
+        // Отсекаем подпись связи: всё после ':' — текст, а не структура
+        if let Some(colon) = line.find(':') {
+            let head = &line[..colon];
+            if ARROWS.iter().any(|a| head.contains(a)) {
+                out.push_str(head.trim_end());
+                out.push('\n');
+                continue;
+            }
+        }
+
+        out.push_str(line);
+        out.push('\n');
+    }
+
+    out
+}
+
 /// Определяет тип диаграммы по содержимому
 pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
-    let source_lower = source.to_lowercase();
+    // Анализируем структурный скелет, а не сырой текст: иначе ключевые слова
+    // внутри подписей сообщений приводят к ложной детекции.
+    let skeleton = structural_skeleton(source);
+    let source_lower = skeleton.to_lowercase();
 
     // Salt Diagram — проверяем по @startsalt или salt keyword
     if source_lower.contains("@startsalt")
@@ -500,6 +621,71 @@ mod tests {
     fn test_detect_sequence() {
         let source = "@startuml\nAlice -> Bob: Hello\n@enduml";
         assert_eq!(detect_diagram_type(source).unwrap(), DiagramKind::Sequence);
+    }
+
+    /// Ключевые слова внутри подписей сообщений не должны менять тип.
+    ///
+    /// Регрессия: раньше `Alice -> Bob: class loaded` распознавалась как
+    /// Class, рендерилась пустой, и `render()` возвращал `Ok` — молчаливая
+    /// потеря данных.
+    #[test]
+    fn test_message_text_does_not_affect_detection() {
+        let triggers = [
+            "class loaded",
+            "object created",
+            "map lookup",
+            "usecase done",
+            "component deployed",
+            "if (ready)",
+            "state updated",
+            "entity saved",
+            "node down",
+            "actor left",
+            "salt {",
+            "participant added",
+            "abstract class parsed",
+        ];
+        for text in triggers {
+            let source = format!("@startuml\nAlice -> Bob: {text}\n@enduml");
+            assert_eq!(
+                detect_diagram_type(&source).unwrap(),
+                DiagramKind::Sequence,
+                "подпись «{text}» ломает детекцию: должна быть Sequence"
+            );
+        }
+    }
+
+    /// Тексты внутри многострочных блоков тоже не влияют на детекцию.
+    #[test]
+    fn test_multiline_text_blocks_do_not_affect_detection() {
+        // Блочная заметка
+        let note = "@startuml\nA -> B\nnote over A\n  class Fake\n  state Fake2\nend note\n@enduml";
+        assert_eq!(detect_diagram_type(note).unwrap(), DiagramKind::Sequence);
+
+        // Легенда
+        let legend = "@startuml\nA -> B\nlegend\n  class NotAClass\nendlegend\n@enduml";
+        assert_eq!(detect_diagram_type(legend).unwrap(), DiagramKind::Sequence);
+
+        // Комментарии
+        let comments = "@startuml\n' class Commented\n/' state AlsoCommented '/\nA -> B\n@enduml";
+        assert_eq!(
+            detect_diagram_type(comments).unwrap(),
+            DiagramKind::Sequence
+        );
+    }
+
+    /// Скелет сохраняет структуру: реальные объявления не теряются.
+    #[test]
+    fn test_skeleton_keeps_structure() {
+        let class = "@startuml\nclass User {\n  + name: String\n}\n@enduml";
+        assert_eq!(detect_diagram_type(class).unwrap(), DiagramKind::Class);
+
+        let gantt = "@startgantt\n[Task] lasts 5 days\n@endgantt";
+        assert_eq!(detect_diagram_type(gantt).unwrap(), DiagramKind::Gantt);
+
+        // Директива @startjson должна распознаваться несмотря на содержимое
+        let json = "@startjson\n{\"class\": \"not a class\"}\n@endjson";
+        assert_eq!(detect_diagram_type(json).unwrap(), DiagramKind::Json);
     }
 
     #[test]
