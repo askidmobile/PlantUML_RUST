@@ -31,6 +31,13 @@ const ACTIVATION_FOOTER_GAP: f64 = 10.0;
 /// Измерено по эталону PlantUML: последнее сообщение на y=157.828,
 /// footer на y=175.828, разница ровно 18px.
 const FOOTER_GAP: f64 = 18.0;
+
+/// Сдвиг верхнего ряда участников вниз при наличии актёра.
+///
+/// Измерено по эталону PlantUML: в sequence_participants (с actor)
+/// прямоугольники стоят на y=55, в sequence_simple (без actor) — на y=10.
+/// PlantUML освобождает место для стик-фигуры над прямоугольником.
+const ACTOR_HEAD_OFFSET: f64 = 45.0;
 use plantuml_ast::sequence::{
     Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
     ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
@@ -434,20 +441,24 @@ impl SequenceLayoutEngine {
         // Также собираем участников из сообщений
         self.collect_participants_order(diagram, &mut participant_order);
 
-        // Определяем какие участники находятся внутри боксов
-        let participants_in_boxes: std::collections::HashSet<String> = diagram
-            .boxes
-            .iter()
-            .flat_map(|b| b.participants.iter().cloned())
-            .collect();
-
         // Если есть боксы с заголовками, сдвигаем участников вниз
         let has_box_titles = diagram.boxes.iter().any(|b| b.title.is_some());
-        let participant_y = if has_box_titles {
-            self.config.margin + self.config.box_title_height
-        } else {
-            self.config.margin
-        };
+
+        // При наличии актёра PlantUML сдвигает весь верхний ряд участников
+        // вниз, освобождая место для стик-фигуры над прямоугольником:
+        // в эталоне sequence_participants (с actor) прямоугольники стоят на
+        // y=55, а в sequence_simple (без actor) — на y=10. Разница 45px.
+        let has_actor = participant_types
+            .values()
+            .any(|t| matches!(t, ParticipantType::Actor));
+
+        let participant_y = self.config.margin
+            + if has_box_titles {
+                self.config.box_title_height
+            } else {
+                0.0
+            }
+            + if has_actor { ACTOR_HEAD_OFFSET } else { 0.0 };
 
         // Сначала вычисляем ширины всех участников
         let participant_widths: Vec<f64> = participant_order
@@ -476,15 +487,11 @@ impl SequenceLayoutEngine {
             let width = participant_widths[i];
             let center_x = x + width / 2.0;
 
-            // Y-координата зависит от того, есть ли боксы с заголовками
-            let y = if participants_in_boxes.contains(name) && has_box_titles {
-                participant_y
-            } else if has_box_titles {
-                // Участники вне боксов тоже сдвигаются для выравнивания
-                participant_y
-            } else {
-                self.config.margin
-            };
+            // Y-координата уже посчитана выше: она учитывает и заголовки
+            // боксов, и сдвиг под стик-фигуру актёра. Раньше в ветке else
+            // брался config.margin, из-за чего сдвиг при наличии актёра
+            // терялся и весь верхний ряд оставался на месте.
+            let y = participant_y;
 
             let bounds = Rect::new(x, y, width, self.config.participant_height);
 
