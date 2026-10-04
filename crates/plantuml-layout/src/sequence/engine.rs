@@ -41,6 +41,18 @@ const FOOTER_GAP: f64 = 18.0;
 /// прямоугольники стоят на y=55, в sequence_simple (без actor) — на y=10.
 /// PlantUML освобождает место для стик-фигуры над прямоугольником.
 const ACTOR_HEAD_OFFSET: f64 = 45.0;
+
+/// Цвет подложки легенды в PlantUML.
+const SEQUENCE_LEGEND_BACKGROUND: &str = "#DDDDDD";
+
+/// Внутренний отступ легенды.
+const SEQUENCE_LEGEND_PADDING: f64 = 10.0;
+
+/// Отступ рамки `mainframe` от содержимого.
+const SEQUENCE_FRAME_PADDING: f64 = 10.0;
+
+/// Зазор между диаграммой и легендой.
+const SEQUENCE_LEGEND_GAP: f64 = 20.0;
 use plantuml_ast::sequence::{
     Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
     ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
@@ -210,6 +222,72 @@ impl SequenceLayoutEngine {
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Text {
                     text: footer.clone(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
+
+        // `mainframe Заголовок` — рамка вокруг всей диаграммы с подписью
+        // в левом верхнем углу. Раньше поле не читалось вовсе.
+        if let Some(frame) = &diagram.metadata.mainframe {
+            trailing_elements.push(LayoutElement {
+                id: "mainframe".to_string(),
+                bounds: Rect::new(
+                    self.config.margin,
+                    -self.config.line_height - SEQUENCE_FRAME_PADDING,
+                    metrics.max_x + SEQUENCE_FRAME_PADDING,
+                    total_height + self.config.line_height + SEQUENCE_FRAME_PADDING * 2.0,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::System {
+                    title: frame.clone(),
+                },
+            });
+        }
+
+        // Легенда — справа от диаграммы, на светло-жёлтой подложке.
+        // Раньше поле `legend` не читалось layout-движком: парсер её
+        // разбирал, а в вывод она не попадала.
+        if let Some(legend) = &diagram.metadata.legend {
+            let width = self.config.text.width(legend, self.config.font_size)
+                + SEQUENCE_LEGEND_PADDING * 2.0;
+            let height = legend.lines().count() as f64 * self.config.line_height
+                + SEQUENCE_LEGEND_PADDING * 2.0;
+
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("fill".to_string(), SEQUENCE_LEGEND_BACKGROUND.to_string());
+
+            trailing_elements.push(LayoutElement {
+                id: "legend_bg".to_string(),
+                bounds: Rect::new(
+                    self.config.margin + metrics.max_x + SEQUENCE_LEGEND_GAP,
+                    self.config.margin,
+                    width,
+                    height,
+                ),
+                text: None,
+                properties,
+                element_type: ElementType::Rectangle {
+                    label: String::new(),
+                    corner_radius: 0.0,
+                },
+            });
+            trailing_elements.push(LayoutElement {
+                id: "legend".to_string(),
+                bounds: Rect::new(
+                    self.config.margin
+                        + metrics.max_x
+                        + SEQUENCE_LEGEND_GAP
+                        + SEQUENCE_LEGEND_PADDING,
+                    self.config.margin + SEQUENCE_LEGEND_PADDING,
+                    width,
+                    height,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: legend.clone(),
                     font_size: self.config.font_size,
                 },
             });
