@@ -87,9 +87,10 @@ impl SaltLayoutEngine {
     /// Используется для подгонки размера контейнера под содержимое.
     fn widget_natural_width(&self, widget: &SaltWidget) -> f64 {
         match widget {
-            SaltWidget::Button(text) => {
-                self.config.text.width(text, self.config.font_size) + self.config.cell_padding * 2.0
-            }
+            // Кнопка: текст плюс небольшой отступ, но не уже эталонного
+            // минимума (в эталоне «Отмена» 48.07 → 52.07, «OK» 17.314 → 36)
+            SaltWidget::Button(text) => (self.config.text.width(text, self.config.font_size) + 4.0)
+                .max(self.config.min_button_width),
             SaltWidget::Text(text) => self.config.text.width(text, self.config.font_size),
             SaltWidget::TextField(text) => (self.config.text.width(text, self.config.font_size))
                 .max(self.config.min_cell_width),
@@ -145,7 +146,9 @@ impl SaltLayoutEngine {
         available_width: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let mut current_y = y + self.config.cell_padding;
+        // Текст первой строки в эталоне стоит на y=6 при высоте строки
+        // 17.968; базис оказывается на 17.139.
+        let mut current_y = y;
         let mut max_width = 0.0_f64;
         let start_x = x + self.config.cell_padding;
 
@@ -198,7 +201,11 @@ impl SaltLayoutEngine {
             }
 
             max_width = max_width.max(current_x - start_x);
-            current_y += row_height + self.config.cell_padding / 2.0;
+            // Шаг строк равен высоте строки: измерено по эталону — строки
+            // идут на y=17.139 и 35.107, то есть ровно на 17.968. Раньше
+            // добавлялся ещё и половинный отступ ячейки, из-за чего шаг
+            // составлял 20.97 и диаграмма вырастала по высоте.
+            current_y += row_height;
         }
 
         let total_width = max_width + self.config.cell_padding * 2.0;

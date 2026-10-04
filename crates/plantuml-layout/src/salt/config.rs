@@ -13,6 +13,8 @@ pub struct SaltLayoutConfig {
     pub min_cell_width: f64,
     /// Отступ между ячейками
     pub cell_padding: f64,
+    /// Минимальная ширина кнопки
+    pub min_button_width: f64,
     /// Размер шрифта
     pub font_size: f64,
     /// Высота кнопки
@@ -47,9 +49,14 @@ impl Default for SaltLayoutConfig {
             // (tests/golden/reference/salt_basic.svg, 113x71): строки идут
             // с шагом 17.968 (y = 17.139, 35.107), кнопки высотой 17.969
             // со скруглением 5 и обводкой 2.5, размер шрифта 12.
-            padding: 6.0,
+            // Контейнер начинается с нуля, а отступ задаётся ячейкой:
+            // в эталоне текст стоит на x=6.
+            padding: 0.0,
             row_height: 17.968,
             min_cell_width: 52.07,
+            // Минимальная ширина кнопки: в эталоне кнопка «OK» шириной 36
+            // при тексте 17.314.
+            min_button_width: 36.0,
             cell_padding: 6.0,
             font_size: 12.0,
             button_height: 17.969,
