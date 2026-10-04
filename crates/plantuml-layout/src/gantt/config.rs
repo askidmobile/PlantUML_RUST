@@ -31,7 +31,11 @@ impl Default for GanttLayoutConfig {
             row_height: 30.0,
             bar_height: 20.0,
             row_spacing: 5.0,
-            day_width: 20.0,
+            // Измерено по эталону PlantUML
+            // (tests/golden/reference/gantt_basic.svg): полоса задачи
+            // длительностью 10 дней имеет ширину 156px, то есть 15.6px на
+            // день. Раньше стояло 20.0, из-за чего диаграмма расходилась.
+            day_width: 15.6,
             header_height: 40.0,
             label_font_size: 12.0,
             date_font_size: 10.0,

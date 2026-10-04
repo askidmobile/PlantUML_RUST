@@ -70,7 +70,44 @@ fn parse_body(
             Rule::task_def => {
                 if let Some(task) = parse_task(inner, last_task_id) {
                     *last_task_id = task.id.clone().or_else(|| Some(task.name.clone()));
-                    diagram.tasks.push(task);
+
+                    // В PlantUML повторное упоминание задачи ДОПОЛНЯЕТ её,
+                    // а не создаёт новую:
+                    //   [Разработка] lasts 20 days
+                    //   [Разработка] starts at [Проектирование]'s end
+                    // — это одна задача с длительностью и стартом.
+                    // Раньше каждая строка добавляла новую задачу, поэтому
+                    // в диаграмме появлялись лишние однодневные задачи.
+                    let existing = diagram.tasks.iter_mut().find(|t| {
+                        t.name == task.name
+                            || (task.id.is_some() && t.id.is_some() && t.id == task.id)
+                    });
+
+                    match existing {
+                        Some(current) => {
+                            // Заполняем только те поля, что заданы явно.
+                            // Значения по умолчанию — AfterPrevious и один
+                            // день: если строка их не переопределяет, поле
+                            // существующей задачи не трогаем.
+                            if !matches!(task.start, TaskStart::AfterPrevious) {
+                                current.start = task.start;
+                            }
+                            if !matches!(task.duration, TaskDuration::Days(1)) {
+                                current.duration = task.duration;
+                            }
+                            if task.complete.is_some() {
+                                current.complete = task.complete;
+                            }
+                            if task.color.is_some() {
+                                current.color = task.color;
+                            }
+                            if task.resource.is_some() {
+                                current.resource = task.resource.clone();
+                            }
+                            current.links.extend(task.links);
+                        }
+                        None => diagram.tasks.push(task),
+                    }
                 }
             }
             Rule::then_stmt => {

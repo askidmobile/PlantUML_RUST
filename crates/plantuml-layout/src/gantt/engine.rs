@@ -4,6 +4,55 @@
 
 use std::collections::HashMap;
 
+/// Ширина колонки таблицы задач.
+///
+/// Измерено по эталону PlantUML: колонки Start, End и Duration начинаются
+/// на x=5, 46.3 и 87.6, то есть шаг 41.3.
+const GANTT_TABLE_COL_WIDTH: f64 = 41.3;
+
+/// Форматирует дату задачи как в PlantUML: `Jan 1`, `Feb 4`.
+///
+/// Даты считаются от даты старта проекта прибавлением номера дня, поэтому
+/// возможен переход через месяц и год.
+fn format_gantt_date(project_start: &GanttDate, day: u32) -> String {
+    /// Дней в месяце (без учёта високосности: PlantUML использует тот же
+    /// упрощённый календарь при отображении диапазонов).
+    fn days_in_month(year: i32, month: u32) -> u32 {
+        match month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 => 29,
+            2 => 28,
+            _ => 30,
+        }
+    }
+
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    let mut year = project_start.year;
+    let mut month = project_start.month.clamp(1, 12);
+    let mut day_of_month = project_start.day + day;
+
+    // Переносим через месяцы и годы
+    loop {
+        let in_month = days_in_month(year, month);
+        if day_of_month <= in_month {
+            break;
+        }
+        day_of_month -= in_month;
+        month += 1;
+        if month > 12 {
+            month = 1;
+            year += 1;
+        }
+    }
+
+    let name = MONTHS.get((month - 1) as usize).copied().unwrap_or("Jan");
+    format!("{name} {day_of_month}")
+}
+
 use plantuml_ast::gantt::{GanttDate, GanttDiagram, TaskDuration, TaskStart, Weekday};
 use plantuml_model::{Point, Rect};
 
@@ -93,22 +142,39 @@ impl GanttLayoutEngine {
                 + self.config.header_height
                 + (i as f64) * (self.config.row_height + self.config.row_spacing);
 
-            // Метка задачи
-            elements.push(LayoutElement {
-                id: format!("task_label_{}", i),
-                bounds: Rect::new(
-                    self.config.padding,
-                    row_y,
-                    self.config.task_label_width - 10.0,
-                    self.config.row_height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: task.name.clone(),
-                    font_size: self.config.label_font_size,
-                },
-            });
+            // Таблица задачи: PlantUML выводит её слева от диаграммы
+            // тремя колонками — Start, End, Duration. Раньше рисовалось
+            // только имя задачи, из-за чего диаграмма была заметно уже
+            // эталона (394 против 800px).
+            if let Some((start_day, end_day)) = task_positions.get(&task.name) {
+                let col_width = GANTT_TABLE_COL_WIDTH;
+                let date_text = |day: u32| format_gantt_date(&project_start, day);
+
+                let cells = [
+                    date_text(*start_day),
+                    // Конец показывается как последний день включительно
+                    date_text(end_day.saturating_sub(1)),
+                    format!("{} days", end_day - start_day),
+                ];
+
+                for (col, text) in cells.iter().enumerate() {
+                    elements.push(LayoutElement {
+                        id: format!("task_cell_{}_{}", i, col),
+                        bounds: Rect::new(
+                            self.config.padding + col as f64 * col_width,
+                            row_y,
+                            col_width - 10.0,
+                            self.config.row_height,
+                        ),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Text {
+                            text: text.clone(),
+                            font_size: self.config.label_font_size,
+                        },
+                    });
+                }
+            }
 
             // Бар задачи
             if let Some((start_day, end_day)) = task_positions.get(&task.name) {
@@ -277,6 +343,26 @@ impl GanttLayoutEngine {
         tasks_height: f64,
     ) {
         let header_y = self.config.padding;
+
+        // Заголовки таблицы задач: Start, End, Duration.
+        // PlantUML выводит их над колонками слева от диаграммы.
+        for (col, title) in ["Start", "End", "Duration"].iter().enumerate() {
+            elements.push(LayoutElement {
+                id: format!("table_header_{col}"),
+                bounds: Rect::new(
+                    self.config.padding + col as f64 * GANTT_TABLE_COL_WIDTH,
+                    header_y,
+                    GANTT_TABLE_COL_WIDTH,
+                    self.config.header_height,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: (*title).to_string(),
+                    font_size: self.config.label_font_size,
+                },
+            });
+        }
 
         // Метки дней
         for day in 0..total_days {
