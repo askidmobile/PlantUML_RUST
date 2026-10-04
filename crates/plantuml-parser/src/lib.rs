@@ -341,8 +341,13 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Archimate);
     }
 
-    // Network Diagram — проверяем по nwdiag
-    if source_lower.contains("nwdiag {") || source_lower.contains("nwdiag{") {
+    // Network Diagram — проверяем по тегу @startnwdiag либо блоку nwdiag.
+    // Тег — официальная форма PlantUML; сервер с @startuml для такой
+    // диаграммы отвечает ошибкой и требует именно @startnwdiag.
+    if source_lower.contains("@startnwdiag")
+        || source_lower.contains("nwdiag {")
+        || source_lower.contains("nwdiag{")
+    {
         return Ok(DiagramKind::Network);
     }
 

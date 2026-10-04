@@ -5,6 +5,13 @@
 
 use std::collections::{HashMap, HashSet};
 
+/// Заливка устройств сети: измерено по эталону PlantUML
+/// (`tests/golden/reference/network_nwdiag.svg`), едина для всех типов.
+const NETWORK_DEVICE_FILL: &str = "#F1F1F1";
+
+/// Заливка полосы сети: измерено по тому же эталону.
+const NETWORK_AREA_FILL: &str = "#E2E2F0";
+
 use plantuml_ast::network::{DeviceType, NetworkDiagram, Server};
 use plantuml_model::{Point, Rect};
 
@@ -113,7 +120,7 @@ impl NetworkLayoutEngine {
                 ),
                 text: None,
                 properties: [
-                    ("fill".to_string(), self.config.network_bg_color.to_string()),
+                    ("fill".to_string(), NETWORK_AREA_FILL.to_string()),
                     ("stroke".to_string(), "#A0A0A0".to_string()),
                     ("stroke-dasharray".to_string(), "5,5".to_string()),
                 ]
@@ -232,40 +239,44 @@ impl NetworkLayoutEngine {
 
         // Форма сервера
         let (element_type, fill_color) = match device_type {
+            // Заливка устройств в эталоне PlantUML единая (#F1F1F1)
+            // независимо от типа. Раньше здесь были выдуманные цвета
+            // (#FFFFCC, #CCE5FF, #FFCCCC, #CCFFCC), не встречающиеся
+            // в оригинале.
             DeviceType::Database => (
                 ElementType::Rectangle {
                     label: String::new(),
-                    corner_radius: 0.0, // Для БД можно будет сделать cylinder
+                    corner_radius: 0.0,
                 },
-                "#FFFFCC",
+                NETWORK_DEVICE_FILL,
             ),
             DeviceType::Cloud => (
                 ElementType::Rectangle {
                     label: String::new(),
                     corner_radius: 15.0,
                 },
-                "#CCE5FF",
+                NETWORK_DEVICE_FILL,
             ),
             DeviceType::Firewall => (
                 ElementType::Rectangle {
                     label: String::new(),
                     corner_radius: 0.0,
                 },
-                "#FFCCCC",
+                NETWORK_DEVICE_FILL,
             ),
             DeviceType::Router | DeviceType::Switch => (
                 ElementType::Rectangle {
                     label: String::new(),
                     corner_radius: 3.0,
                 },
-                "#CCFFCC",
+                NETWORK_DEVICE_FILL,
             ),
             _ => (
                 ElementType::Rectangle {
                     label: String::new(),
                     corner_radius: 3.0,
                 },
-                self.config.server_bg_color,
+                NETWORK_DEVICE_FILL,
             ),
         };
 

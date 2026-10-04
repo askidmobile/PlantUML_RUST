@@ -5,6 +5,12 @@
     "svg_bytes": "5586",
     "svg_sha256": "97e8c64d6e9e41c90e937ec199dfdd13cad91dcac94290f3369f73f9f9b08384"
   },
+  "network_nwdiag": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3b173b4ddb93a0f26d21459f6d61f3d6597dfea741e2f0dcabd9aa6796988fd5",
+    "svg_bytes": "1467",
+    "svg_sha256": "95a6ef165a3d4f8dc33ef278d73f39d76a0b372e5dbb7b1bf6180199437dc926"
+  },
   "sequence_fragments": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "c2255df27bab1aa0c87b7fa64336ed913bb074c3c3ae143618bd037dc2ce908a",
