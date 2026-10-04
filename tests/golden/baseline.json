@@ -9,7 +9,7 @@
   "mindmap_basic": { "width_diff": 296.6, "height_diff": 9.0, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 213.0, "height_diff": 41.0, "missing_texts": 2 },
   "object_basic": { "width_diff": 212.0, "height_diff": 100.0, "missing_texts": 1 },
-  "salt_basic": { "width_diff": 717.0, "height_diff": 71.0, "missing_texts": 0 },
+  "salt_basic": { "width_diff": 47.5, "height_diff": 71.0, "missing_texts": 0 },
   "sequence_fragments": { "width_diff": 16.5, "height_diff": 45.9, "missing_texts": 0 },
   "sequence_notes": { "width_diff": 34.0, "height_diff": 6.3, "missing_texts": 0 },
   "sequence_participants": { "width_diff": 21.8, "height_diff": 101.9, "missing_texts": 0 },

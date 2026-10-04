@@ -82,6 +82,60 @@ impl SaltLayoutEngine {
         }
     }
 
+    /// Натуральная ширина виджета без учёта доступного места.
+    ///
+    /// Используется для подгонки размера контейнера под содержимое.
+    fn widget_natural_width(&self, widget: &SaltWidget) -> f64 {
+        match widget {
+            SaltWidget::Button(text) => {
+                self.config.text.width(text, self.config.font_size) + self.config.cell_padding * 2.0
+            }
+            SaltWidget::Text(text) => self.config.text.width(text, self.config.font_size),
+            SaltWidget::TextField(text) => (self.config.text.width(text, self.config.font_size))
+                .max(self.config.min_cell_width),
+            SaltWidget::Checkbox { label, .. } | SaltWidget::Radio { label, .. } => {
+                self.config.checkbox_size
+                    + 4.0
+                    + self.config.text.width(label, self.config.font_size)
+            }
+            SaltWidget::Droplist { items, .. } => {
+                items
+                    .iter()
+                    .map(|i| self.config.text.width(i, self.config.font_size))
+                    .fold(0.0_f64, f64::max)
+                    + 20.0
+            }
+            SaltWidget::GroupBox { title, content } => self.widget_natural_width(content).max(
+                self.config.text.width(title, self.config.font_size)
+                    + self.config.cell_padding * 2.0,
+            ),
+            SaltWidget::ScrollArea { content, .. } => self.widget_natural_width(content) + 15.0,
+            SaltWidget::Tabs { items, .. } => items
+                .iter()
+                .map(|i| self.config.text.width(i, self.config.font_size) + 20.0)
+                .sum(),
+            SaltWidget::Menu { items } => items
+                .iter()
+                .map(|i| self.config.text.width(&i.text, self.config.font_size) + 20.0)
+                .fold(0.0_f64, f64::max),
+            SaltWidget::Container(c) => {
+                // Ширина вложенного контейнера — сумма натуральных ширин колонок
+                let max_cols = c.rows.iter().map(|r| r.len()).max().unwrap_or(1);
+                let mut cols = vec![0.0_f64; max_cols];
+                for row in &c.rows {
+                    for (i, w) in row.iter().enumerate() {
+                        if i < cols.len() {
+                            cols[i] = cols[i].max(self.widget_natural_width(w));
+                        }
+                    }
+                }
+                cols.iter().sum::<f64>() + self.config.cell_padding * 2.0
+            }
+            SaltWidget::Tree(_) => self.config.min_cell_width,
+            _ => self.config.min_cell_width,
+        }
+    }
+
     /// Рендерит контейнер
     fn render_container(
         &mut self,
@@ -95,21 +149,42 @@ impl SaltLayoutEngine {
         let mut max_width = 0.0_f64;
         let start_x = x + self.config.cell_padding;
 
-        // Вычисляем ширину каждого столбца
+        // Ширина столбца определяется содержимым, а не доступной шириной.
+        //
+        // PlantUML подгоняет размер контейнера под содержимое: эталон
+        // salt_basic имеет габарит 113x71 при том же содержимом. Раньше
+        // ширина делилась на фиксированные 800px, из-за чего диаграмма
+        // получалась в семь раз шире оригинала.
         let max_cols = container.rows.iter().map(|r| r.len()).max().unwrap_or(1);
-        let col_width = (available_width - self.config.cell_padding * 2.0) / max_cols as f64;
+
+        // Натуральная ширина каждой колонки — максимум по её ячейкам
+        let mut col_natural = vec![0.0_f64; max_cols];
+        for row in &container.rows {
+            for (col_idx, widget) in row.iter().enumerate() {
+                let natural = self.widget_natural_width(widget);
+                if col_idx < col_natural.len() {
+                    col_natural[col_idx] = col_natural[col_idx].max(natural);
+                }
+            }
+        }
+
+        // Если суммарная натуральная ширина превышает доступную, сжимаем
+        // пропорционально — иначе на широких таблицах контейнер вылезет.
+        let natural_total: f64 = col_natural.iter().sum();
+        let usable = (available_width - self.config.cell_padding * 2.0).max(0.0);
+        let col_width = if natural_total > usable && natural_total > 0.0 {
+            let scale = usable / natural_total;
+            col_natural.iter().map(|w| w * scale).collect::<Vec<_>>()
+        } else {
+            col_natural.clone()
+        };
 
         for row in &container.rows {
             let mut current_x = start_x;
             let mut row_height = self.config.row_height;
 
             for (col_idx, widget) in row.iter().enumerate() {
-                let cell_width = if col_idx == row.len() - 1 {
-                    // Последняя ячейка занимает оставшееся место
-                    (max_cols - col_idx) as f64 * col_width
-                } else {
-                    col_width
-                };
+                let cell_width = col_width.get(col_idx).copied().unwrap_or(0.0);
 
                 let (_w, h) = self.render_widget(
                     widget,
