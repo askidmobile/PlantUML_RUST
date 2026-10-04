@@ -40,7 +40,10 @@ impl Default for StateLayoutConfig {
             state_width: 120.0,
             state_min_height: 50.0,
             vertical_spacing: 61.0,
-            horizontal_spacing: 80.0,
+            // Зазор между «Inactive» и конечным состоянием: измерено по
+            // эталону — «Inactive» кончается на 102.126, конечный круг
+            // начинается на 190.34, то есть 88.214.
+            horizontal_spacing: 88.214,
             node_radius: 10.0,
             state_corner_radius: 10.0,
             choice_size: 20.0,
