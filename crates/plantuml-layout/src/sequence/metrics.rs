@@ -216,6 +216,15 @@ impl DiagramMetrics {
 
     /// Уменьшает уровень активации и сохраняет завершённую
     pub fn deactivate(&mut self, name: &str) {
+        self.deactivate_at(name, self.current_y);
+    }
+
+    /// Завершает активацию на заданной Y-координате.
+    ///
+    /// Отдельный метод нужен, чтобы движок мог задать конец активации
+    /// согласованно с позицией нижнего блока участника, а не брать
+    /// текущую позицию курсора.
+    pub fn deactivate_at(&mut self, name: &str, end_y: f64) {
         if let Some(level) = self.activation_stack.get_mut(name) {
             if *level > 0 {
                 *level -= 1;
@@ -223,7 +232,7 @@ impl DiagramMetrics {
                 // Извлекаем и сохраняем завершённую активацию
                 if let Some(stack) = self.active_activations.get_mut(name) {
                     if let Some(info) = stack.pop() {
-                        self.completed_activations.push((info, self.current_y));
+                        self.completed_activations.push((info, end_y));
                     }
                 }
             }

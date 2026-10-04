@@ -20,6 +20,12 @@ const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 /// Цвет фона заметки в PlantUML.
 const NOTE_BACKGROUND: &str = "#FEFFDD";
 
+/// Отступ от активации до нижнего блока участника.
+///
+/// В эталоне PlantUML активация заканчивается на 10px выше footer
+/// (активация до 200.633 при footer на 210.633).
+const ACTIVATION_FOOTER_GAP: f64 = 10.0;
+
 /// Отступ от последнего сообщения до нижнего блока участника (footer).
 ///
 /// Измерено по эталону PlantUML: последнее сообщение на y=157.828,
@@ -80,8 +86,14 @@ impl SequenceLayoutEngine {
             self.layout_element(element, &mut metrics, &mut elements);
         }
 
-        // 4. Завершаем все незакрытые активации
-        metrics.finalize_activations(metrics.current_y);
+        // 4. Завершаем все незакрытые активации.
+        //
+        // Конец активации — на 10px выше нижнего блока участника, как в
+        // эталоне PlantUML (активация до 200.633 при footer на 210.633).
+        // Раньше передавался metrics.current_y, который уже сдвинут на
+        // FOOTER_GAP, поэтому активация вылезала за footer на ~11px.
+        let activation_end_y = self.activation_footer_y(&metrics);
+        metrics.finalize_activations(activation_end_y);
 
         // 5. Добавляем lifelines
         self.add_lifelines(&metrics, &mut elements);
@@ -1337,6 +1349,14 @@ impl SequenceLayoutEngine {
         metrics.advance_y(ref_height + self.config.message_spacing);
     }
 
+    /// Y-координата, на которой завершаются незакрытые активации.
+    ///
+    /// Совпадает с позицией нижнего блока участника минус небольшой отступ:
+    /// в эталоне PlantUML активация заканчивается на 10px выше footer.
+    fn activation_footer_y(&self, metrics: &DiagramMetrics) -> f64 {
+        metrics.current_y + FOOTER_GAP - self.config.message_spacing - ACTIVATION_FOOTER_GAP
+    }
+
     /// Обрабатывает активацию/деактивацию
     fn process_activation(&self, act: &Activation, metrics: &mut DiagramMetrics) {
         match act.activation_type {
@@ -1344,7 +1364,16 @@ impl SequenceLayoutEngine {
                 metrics.activate(&act.participant);
             }
             ActivationType::Deactivate | ActivationType::Destroy => {
-                metrics.deactivate(&act.participant);
+                // Завершаем активацию на той же отметке, где начинается
+                // нижний блок участника, минус отступ: в эталоне PlantUML
+                // активация заканчивается на 10px выше footer.
+                //
+                // Раньше использовался metrics.current_y, а footer
+                // вычисляется как current_y + FOOTER_GAP - message_spacing,
+                // то есть на 11px меньше — из-за этого активация вылезала
+                // за footer ровно на эти 11px.
+                let end_y = self.activation_footer_y(metrics);
+                metrics.deactivate_at(&act.participant, end_y);
             }
         }
     }
