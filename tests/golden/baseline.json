@@ -2,7 +2,7 @@
   "activity_basic": { "width_diff": 11.7, "height_diff": 20.2, "missing_texts": 0 },
   "class_inheritance": { "width_diff": 16.8, "height_diff": 2.6, "missing_texts": 0 },
   "component_basic": { "width_diff": 3.2, "height_diff": 6.1, "missing_texts": 0 },
-  "deployment_basic": { "width_diff": 37.0, "height_diff": 27.6, "missing_texts": 1 },
+  "deployment_basic": { "width_diff": 37.0, "height_diff": 26.3, "missing_texts": 1 },
   "er_basic": { "width_diff": 30.7, "height_diff": 15.0, "missing_texts": 1 },
   "gantt_basic": { "width_diff": 27.9, "height_diff": 22.0, "missing_texts": 2 },
   "json_basic": { "width_diff": 22.0, "height_diff": 129.7, "missing_texts": 9 },

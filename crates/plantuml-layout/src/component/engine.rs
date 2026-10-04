@@ -17,6 +17,12 @@ const COMPONENT_CHAR_WIDTH: f64 = 11.43;
 const COMPONENT_HEIGHT: f64 = 46.297;
 /// Насколько контейнер шире своего заголовка (измерено по эталону).
 const PACKAGE_TITLE_EXTRA: f64 = 76.0;
+
+/// Добавка к ширине артефакта (измерено по эталону deployment_basic).
+const ARTIFACT_TEXT_PADDING: f64 = 30.0;
+
+/// Высота артефакта (измерено по эталону).
+const ARTIFACT_HEIGHT: f64 = 39.297;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для component diagrams
@@ -128,6 +134,10 @@ impl ComponentLayoutEngine {
             ComponentType::Node => self.create_node_element(&comp.name, x, y),
             ComponentType::Folder => self.create_folder_element(&comp.name, x, y),
             ComponentType::Actor => self.create_actor_element(&comp.name, x, y),
+            // Артефакт имеет свои пропорции: измерено по эталону
+            // deployment_basic — «app.jar» при тексте 49.027 занимает
+            // 79.027x39.297, то есть текст плюс 30.
+            ComponentType::Artifact => self.create_artifact_element(&comp.name, x, y),
             _ => self.create_standard_component_element(comp, x, y),
         };
 
@@ -175,6 +185,25 @@ impl ComponentLayoutEngine {
     /// Высота компонента (по эталону).
     fn component_natural_height(&self) -> f64 {
         self.config.component_height.max(COMPONENT_HEIGHT)
+    }
+
+    /// Создаёт артефакт.
+    ///
+    /// Измерено по эталону deployment_basic: «app.jar» при тексте 49.027
+    /// занимает 79.027x39.297, то есть ширина — текст плюс 30, высота 39.297.
+    fn create_artifact_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
+        let width = self.config.text.width(name, self.config.font_size) + ARTIFACT_TEXT_PADDING;
+
+        LayoutElement {
+            id: format!("artifact_{}", name.replace(' ', "_")),
+            bounds: Rect::new(x, y, width, ARTIFACT_HEIGHT),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Rectangle {
+                label: name.to_string(),
+                corner_radius: 2.5,
+            },
+        }
     }
 
     /// Создаёт элемент базы данных (цилиндр)
