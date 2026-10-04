@@ -24,6 +24,7 @@ statement = _{
     | interface_decl
     | abstract_decl
     | enum_decl
+    | direction_stmt
     | annotation_decl
     | note_stmt
     | relationship
@@ -287,3 +288,9 @@ rest_of_line = { (!NEWLINE ~ ANY)* }
 
 ws = _{ " " | "\t" }
 NEWLINE = _{ "\r\n" | "\n" | "\r" }
+
+// Направление раскладки: `top to bottom direction`, `left to right direction`.
+// Ключевое слово было только в usecase-грамматике; в class и sequence
+// такие строки не разбирались вовсе.
+direction_stmt = { direction_kind ~ ws+ ~ "direction" }
+direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }

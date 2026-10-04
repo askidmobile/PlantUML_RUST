@@ -17,6 +17,7 @@ statement = _{
     | title_stmt
     | header_stmt
     | footer_stmt
+    | direction_stmt
     | legend_stmt
     | mainframe_stmt
     | newpage_stmt
@@ -410,3 +411,9 @@ rest_of_line = { (!NEWLINE ~ ANY)* }
 
 ws = _{ " " | "\t" }
 NEWLINE = _{ "\r\n" | "\n" | "\r" }
+
+// Направление раскладки: `top to bottom direction`, `left to right direction`.
+// Ключевое слово было только в usecase-грамматике; в class и sequence
+// такие строки не разбирались вовсе.
+direction_stmt = { direction_kind ~ ws+ ~ "direction" }
+direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }
