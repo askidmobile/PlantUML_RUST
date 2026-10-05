@@ -57,7 +57,10 @@ scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
 // ВАЖНО: Используем negative lookahead чтобы не захватывать node/folder/frame с телом {}
 component_def = {
     container_keyword ~ ws+ ~ component_name ~ alias_part? ~ stereotype_part? ~ color_part? ~ !("{")
+    // `device`/`agent` могут быть и контейнерами (с телом) — тогда их
+    // разбирает package_def. Здесь они принимаются только БЕЗ тела.
     | non_container_keyword ~ ws+ ~ component_name ~ alias_part? ~ stereotype_part? ~ color_part?
+        ~ !(ws* ~ "{" ~ NEWLINE)
     | bracket_component ~ alias_part? ~ stereotype_part? ~ color_part?
 }
 
@@ -161,6 +164,8 @@ package_statement = _{
 
 package_keyword = {
     "package"
+    | "device"
+    | "agent"
     | "cloud"
     | "rectangle"
     | "database"

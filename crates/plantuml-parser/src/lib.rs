@@ -441,7 +441,27 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         || source_lower.contains("(usecase)")
         || source_lower.contains("actor ");
 
+    // `interface` есть и в component-диаграммах. Если в исходнике есть
+    // явные component/deployment-признаки, это не class-диаграмма:
+    // раньше `component A` + `interface I` уходило в class-парсер, который
+    // не знает слова `component`, и разбор падал.
+    let has_component_marker = [
+        "component ",
+        "node ",
+        "device ",
+        "artifact ",
+        "folder ",
+        "frame ",
+        "cloud ",
+        "storage ",
+        "queue ",
+        "database ",
+    ]
+    .iter()
+    .any(|keyword| source_lower.contains(keyword));
+
     if !has_usecase_marker
+        && (!has_component_marker || source_lower.contains("class "))
         && (source_lower.contains("class ")
             || source_lower.contains("interface ")
             || source_lower.contains("abstract class")
