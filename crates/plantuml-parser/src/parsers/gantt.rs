@@ -67,36 +67,6 @@ fn parse_body(
                     diagram.holidays.push(holiday);
                 }
             }
-            Rule::task_active_stmt => {
-                // `[T1] is closed` / `[T1] is open`. Флаг ставится прямо
-                // здесь: через модификаторы не получалось — при повторном
-                // упоминании задачи слияние затирало значение по умолчанию.
-                let raw = inner.as_str();
-                let closed = raw.contains("closed");
-                // Здесь имя задачи лежит в `task_name` (с квадратными
-                // скобками), а не в `task_ref`, поэтому extract_task_ref
-                // не подходит.
-                let name = inner
-                    .clone()
-                    .into_inner()
-                    .find(|p| p.as_rule() == Rule::task_name)
-                    .map(|p| {
-                        p.as_str()
-                            .trim()
-                            .trim_matches(['[', ']'])
-                            .trim()
-                            .to_string()
-                    });
-                if let Some(name) = name {
-                    if let Some(task) = diagram
-                        .tasks
-                        .iter_mut()
-                        .find(|t| t.name == name || t.id.as_deref() == Some(name.as_str()))
-                    {
-                        task.is_active = !closed;
-                    }
-                }
-            }
             Rule::task_def => {
                 if let Some(task) = parse_task(inner, last_task_id) {
                     *last_task_id = task.id.clone().or_else(|| Some(task.name.clone()));
@@ -525,34 +495,6 @@ fn extract_task_ref_inner(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// `[T1] is closed` и `[T1] is open` управляют флагом активности.
-    ///
-    /// Регрессия: строка не разбиралась вовсе. Попытка сделать это
-    /// модификатором задачи не работала — при повторном упоминании задачи
-    /// слияние затирало значение по умолчанию, поэтому флаг ставится на
-    /// уровне отдельного оператора.
-    #[test]
-    fn test_task_is_closed() {
-        let source = "@startgantt\n[T1] lasts 5 days\n[T1] is closed\n@endgantt";
-        let diagram = parse_gantt(source).expect("диаграмма должна разбираться");
-        assert_eq!(diagram.tasks.len(), 1);
-        assert!(!diagram.tasks[0].is_active, "задача должна быть закрыта");
-
-        // Повторное упоминание задачи не должно сбрасывать флаг
-        let source =
-            "@startgantt\n[T1] lasts 5 days\n[T1] is closed\n[T1] is colored in red\n@endgantt";
-        let diagram = parse_gantt(source).expect("диаграмма должна разбираться");
-        assert!(
-            !diagram.tasks[0].is_active,
-            "флаг сброшен повторным упоминанием"
-        );
-
-        // `is open` возвращает задачу в работу
-        let source = "@startgantt\n[T1] lasts 5 days\n[T1] is closed\n[T1] is open\n@endgantt";
-        let diagram = parse_gantt(source).expect("диаграмма должна разбираться");
-        assert!(diagram.tasks[0].is_active);
-    }
 
     #[test]
     fn test_parse_simple_gantt() {

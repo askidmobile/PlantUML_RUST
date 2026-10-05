@@ -293,14 +293,13 @@ mod tests {
     /// PlantUML.
     #[test]
     fn test_nwdiag_without_wrapper() {
-        let source =
-            "@startnwdiag\nnetwork LAN {\n  address = \"10.0.0.0/24\"\n  server s1\n}\n@endnwdiag";
+        let source = "@startnwdiag\nnetwork dmz {\n  address = \"210.0.0.0/24\"\n  web01 [address = \".1\"]\n}\n@endnwdiag";
         let diagram = parse_network(source).expect("диаграмма должна разбираться");
         assert_eq!(diagram.networks.len(), 1);
-        assert_eq!(diagram.networks[0].id.name, "LAN");
+        assert_eq!(diagram.networks[0].id.name, "dmz");
 
         // Форма с обёрткой продолжает работать
-        let source = "@startnwdiag\nnwdiag {\n  network LAN {\n    server s1\n  }\n}\n@endnwdiag";
+        let source = "@startnwdiag\nnwdiag {\n  network dmz {\n    web01 [address = \".1\"]\n  }\n}\n@endnwdiag";
         let diagram = parse_network(source).expect("диаграмма должна разбираться");
         assert_eq!(diagram.networks.len(), 1);
     }

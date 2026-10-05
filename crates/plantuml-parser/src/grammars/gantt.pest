@@ -28,7 +28,6 @@ statement = _{
     // `task_def` жадно съедал `[Веха]`, оставляя `happens ...` —
     // и ни одна форма вехи не разбиралась.
     | milestone_def
-    | task_active_stmt
     | task_def
     | separator
     | then_stmt
@@ -124,13 +123,6 @@ task_modifier = {
     | requires_modifier
 }
 
-// `[T1] is closed` / `[T1] is open` — задача закрыта или снова открыта.
-//
-// Это ОТДЕЛЬНЫЙ оператор, а не модификатор: модификаторы применяются при
-// создании задачи, и при повторном упоминании (`[T1] is colored in red`)
-// слияние затёрло бы флаг. Раньше такая строка не разбиралась вовсе —
-// правило `closed_stmt` покрывало только `saturday is closed` (выходные).
-task_active_stmt = { task_name ~ ws+ ~ "is" ~ ws+ ~ ("closed" | "open") }
 
 // as [T1]
 alias_modifier = { "as" ~ ws+ ~ task_ref }
