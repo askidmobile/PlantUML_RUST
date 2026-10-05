@@ -143,6 +143,13 @@ fn process_rule(
                 diagram.add_relationship(rel);
             }
         }
+        Rule::direction_stmt => {
+            // `left to right direction`. Грамматика строку принимала, но
+            // ни один парсер её не обрабатывал — направление терялось.
+            if let Some(direction) = parse_direction_text(pair.as_str()) {
+                diagram.metadata.direction = Some(direction);
+            }
+        }
         Rule::note_stmt => {
             // Заметки class-диаграмм. Грамматика их знала и раньше
             // принимала, но парсер не обрабатывал — заметка молча терялась,
@@ -752,9 +759,62 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
     fallback
 }
 
+/// Разбирает направление раскладки из `direction_stmt`.
+///
+/// Возвращает `None`, если строка не распознана.
+pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Direction> {
+    use plantuml_ast::common::Direction;
+
+    // Порядок слов ВАЖЕН: `top to bottom` и `bottom to top` содержат одни
+    // и те же слова, различает их только последовательность.
+    let lower = text.to_lowercase();
+    let top = lower.find("top");
+    let bottom = lower.find("bottom");
+    let left = lower.find("left");
+    let right = lower.find("right");
+
+    match (top, bottom, left, right) {
+        (Some(t), Some(b), _, _) if t < b => Some(Direction::TopToBottom),
+        (Some(t), Some(b), _, _) if b < t => Some(Direction::BottomToTop),
+        (_, _, Some(l), Some(r)) if l < r => Some(Direction::LeftToRight),
+        (_, _, Some(l), Some(r)) if r < l => Some(Direction::RightToLeft),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `left to right direction` и `top to bottom direction` сохраняются.
+    ///
+    /// Регрессия: грамматика принимала эту строку, но НИ ОДИН парсер её не
+    /// обрабатывал — направление молча терялось, а тип `Direction` в AST
+    /// не использовался вовсе.
+    ///
+    /// Проверены только две формы: `bottom to top` и `right to left`
+    /// PlantUML отвергает (HTTP 400), и наш парсер тоже.
+    #[test]
+    fn test_direction_directive() {
+        let diagram = parse_class("@startuml\nleft to right direction\nclass A\n@enduml")
+            .expect("диаграмма должна разбираться");
+        assert_eq!(
+            diagram.metadata.direction,
+            Some(plantuml_ast::common::Direction::LeftToRight)
+        );
+
+        let diagram = parse_class("@startuml\ntop to bottom direction\nclass A\n@enduml")
+            .expect("диаграмма должна разбираться");
+        assert_eq!(
+            diagram.metadata.direction,
+            Some(plantuml_ast::common::Direction::TopToBottom),
+            "порядок слов должен учитываться"
+        );
+
+        // Без директивы направления нет
+        let diagram = parse_class("@startuml\nclass A\n@enduml").expect("разбирается");
+        assert_eq!(diagram.metadata.direction, None);
+    }
 
     /// Алиас объявления: `class "Длинное имя" as short`.
     ///

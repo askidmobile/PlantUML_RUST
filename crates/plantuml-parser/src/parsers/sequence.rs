@@ -246,6 +246,11 @@ fn process_rule(
                 diagram.metadata.footer = Some(footer);
             }
         }
+        Rule::direction_stmt => {
+            if let Some(direction) = parse_direction_text(pair.as_str()) {
+                diagram.metadata.direction = Some(direction);
+            }
+        }
         Rule::legend_stmt => {
             // Легенда: текст между `legend` и `endlegend`. Раньше правило
             // грамматики было, а парсер его не обрабатывал — легенда
@@ -981,6 +986,29 @@ fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
     }
 
     Some(Reference { text, participants })
+}
+
+/// Разбирает направление раскладки из `direction_stmt`.
+///
+/// Возвращает `None`, если строка не распознана.
+pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Direction> {
+    use plantuml_ast::common::Direction;
+
+    // Порядок слов ВАЖЕН: `top to bottom` и `bottom to top` содержат одни
+    // и те же слова, различает их только последовательность.
+    let lower = text.to_lowercase();
+    let top = lower.find("top");
+    let bottom = lower.find("bottom");
+    let left = lower.find("left");
+    let right = lower.find("right");
+
+    match (top, bottom, left, right) {
+        (Some(t), Some(b), _, _) if t < b => Some(Direction::TopToBottom),
+        (Some(t), Some(b), _, _) if b < t => Some(Direction::BottomToTop),
+        (_, _, Some(l), Some(r)) if l < r => Some(Direction::LeftToRight),
+        (_, _, Some(l), Some(r)) if r < l => Some(Direction::RightToLeft),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

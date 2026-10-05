@@ -240,6 +240,12 @@ pub struct DiagramMetadata {
     pub footer: Option<String>,
     /// Масштаб
     pub scale: Option<f64>,
+    /// Направление раскладки (`left to right direction`).
+    ///
+    /// Поле добавлено позже остальных: грамматики принимали эту строку и
+    /// раньше, но НИ ОДИН парсер её не обрабатывал — данные молча
+    /// терялись, и тип `Direction` в AST не использовался вовсе.
+    pub direction: Option<Direction>,
     /// Рамка вокруг диаграммы (`mainframe Заголовок`)
     pub mainframe: Option<String>,
     /// Заголовок новой страницы (`newpage Заголовок`)
