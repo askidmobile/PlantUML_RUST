@@ -12,6 +12,13 @@ use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
 
 /// Сторона ромба слияния после ветвления (измерено по эталону).
+/// Внутреннее поле диаграммы деятельности.
+///
+/// Измерено по эталону `activity_basic`: контент начинается в (16, 15)
+/// при нулевом начале координат вывода.
+const ACTIVITY_CONTENT_INSET_X: f64 = 16.0;
+const ACTIVITY_CONTENT_INSET_Y: f64 = 15.0;
+
 const MERGE_DIAMOND_SIZE: f64 = 24.0;
 
 /// Отступ от конца ветвей до ромба слияния (измерено по эталону).
@@ -317,6 +324,42 @@ impl ActivityLayoutEngine {
             elements = swimlane_elements;
         }
 
+        // Приводим контент к началу координат.
+        //
+        // Движок оставлял отрицательные координаты (крайняя левая ветвь
+        // уходила в x = −23.75), из-за чего рамка диаграммы смещалась
+        // влево и вверх, а размер не совпадал с эталоном. Эталон
+        // начинает контент в (0, 0), а поля добавляет рендерер.
+        let min_x = elements
+            .iter()
+            .map(|element| element.bounds.x)
+            .fold(f64::MAX, f64::min);
+        let min_y = elements
+            .iter()
+            .map(|element| element.bounds.y)
+            .fold(f64::MAX, f64::min);
+
+        // Смещение — не в ноль, а на величину внутреннего поля: эталон
+        // начинает контент в (16, 15) при `bounds.x = 0`, поэтому в
+        // выводе начало координат остаётся нулевым.
+        let offset_x = ACTIVITY_CONTENT_INSET_X - min_x;
+        let offset_y = ACTIVITY_CONTENT_INSET_Y - min_y;
+
+        if min_x.is_finite() && min_y.is_finite() && (offset_x != 0.0 || offset_y != 0.0) {
+            for element in &mut elements {
+                element.bounds.x += offset_x;
+                element.bounds.y += offset_y;
+
+                // У стрелок координаты лежат ещё и в точках линии.
+                if let ElementType::Edge { points, .. } = &mut element.element_type {
+                    for point in points.iter_mut() {
+                        point.x += offset_x;
+                        point.y += offset_y;
+                    }
+                }
+            }
+        }
+
         // Вычисляем bounds
         let mut result = LayoutResult {
             elements,
@@ -324,7 +367,13 @@ impl ActivityLayoutEngine {
         };
         result.calculate_bounds();
 
-        // Добавляем отступы
+        // Добавляем отступы.
+        //
+        // Начало координат остаётся НУЛЕВЫМ: внутреннее поле уже учтено
+        // смещением контента выше. Иначе рендерер сдвинул бы viewBox на
+        // величину поля, и вывод отличался бы от эталонного.
+        result.bounds.x = 0.0;
+        result.bounds.y = 0.0;
         result.bounds.width += self.config.margin;
         result.bounds.height += self.config.margin;
 
