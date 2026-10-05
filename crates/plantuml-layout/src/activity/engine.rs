@@ -16,6 +16,9 @@ use super::config::ActivityLayoutConfig;
 /// Цвет заметки в PlantUML — светло-жёлтый.
 const ACTIVITY_NOTE_BACKGROUND: &str = "#FEFFDD";
 
+/// Минимальный радиус коннектора.
+const CONNECTOR_MIN_RADIUS: f64 = 12.0;
+
 /// Внутренний отступ рамки раздела.
 const PARTITION_PADDING: f64 = 8.0;
 
@@ -96,10 +99,7 @@ impl ActivityLayoutEngine {
             }
 
             // Пропускаем элементы, которые не требуют layout
-            if matches!(
-                element,
-                ActivityElement::Detach | ActivityElement::Kill | ActivityElement::Connector(_)
-            ) {
+            if matches!(element, ActivityElement::Detach | ActivityElement::Kill) {
                 continue;
             }
 
@@ -185,6 +185,26 @@ impl ActivityLayoutEngine {
 
                     // Заметка не прерывает поток: стрелка после неё не нужна
                     (self.config.action_height, false)
+                }
+                ActivityElement::Connector(name) => {
+                    // Коннектор PlantUML рисует кружком с подписью внутри.
+                    // Раньше элемент пропускался целиком (и в фильтре, и в
+                    // заглушке `TODO`) — на диаграмме его не было вовсе.
+                    let width =
+                        self.config.text.width(name, self.config.font_size) + ACTION_TEXT_PADDING;
+                    let radius = (width / 2.0).max(CONNECTOR_MIN_RADIUS);
+
+                    elements.push(LayoutElement {
+                        id: format!("connector_{}", elements.len()),
+                        bounds: Rect::new(center_x - radius, current_y, radius * 2.0, radius * 2.0),
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Ellipse {
+                            label: Some(name.clone()),
+                        },
+                    });
+
+                    (radius * 2.0, true)
                 }
                 ActivityElement::Stop => {
                     let r = self.config.node_radius;
@@ -482,9 +502,22 @@ impl ActivityLayoutEngine {
                 // Обрабатывается в основном цикле layout()
                 current_y
             }
-            ActivityElement::Connector(_) => {
-                // TODO: коннекторы
-                current_y
+            ActivityElement::Connector(name) => {
+                let width =
+                    self.config.text.width(name, self.config.font_size) + ACTION_TEXT_PADDING;
+                let radius = (width / 2.0).max(CONNECTOR_MIN_RADIUS);
+
+                elements.push(LayoutElement {
+                    id: format!("connector_{}", elements.len()),
+                    bounds: Rect::new(center_x - radius, current_y, radius * 2.0, radius * 2.0),
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Ellipse {
+                        label: Some(name.clone()),
+                    },
+                });
+
+                current_y + radius * 2.0 + self.config.vertical_spacing
             }
         }
     }
