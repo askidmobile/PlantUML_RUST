@@ -7,6 +7,8 @@ use crate::text::TextMeasurer;
 pub struct ComponentLayoutConfig {
     /// Отступ от края диаграммы
     pub margin: f64,
+    /// Отступ для объёмных узлов deployment (больше, чем для компонентов).
+    pub node_margin: f64,
     /// Ширина компонента
     pub component_width: f64,
     /// Высота компонента
@@ -38,6 +40,7 @@ impl Default for ComponentLayoutConfig {
         Self {
             // Измерено по эталону: тела компонентов начинаются на x=7 и y=7.
             margin: 7.0,
+            node_margin: 16.0,
             // Размеры измерены по эталону PlantUML
             // (tests/golden/reference/component_basic.svg): компонент 40x40,
             // шаг по вертикали 112 (40 + отступ 72), подпись рисуется над

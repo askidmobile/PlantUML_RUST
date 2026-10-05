@@ -26,6 +26,12 @@ const ARTIFACT_HEIGHT: f64 = 39.297;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для component diagrams
+/// Дополнительное правое поле для диаграмм с объёмными узлами.
+///
+/// Эталон: правый край узла на 25 от края холста при поле рендерера 7,
+/// то есть 18 сверх общего margin.
+const NODE_RIGHT_EXTRA: f64 = 18.0;
+
 pub struct ComponentLayoutEngine {
     config: ComponentLayoutConfig,
 }
@@ -76,13 +82,26 @@ impl ComponentLayoutEngine {
         }
 
         // Располагаем пакеты
+        // Узлы начинаются сразу под компонентами.
+        //
+        // Раньше здесь безусловно резервировалась одна строка
+        // (`components.len() / num_cols + 1`), даже когда компонентов нет
+        // вовсе. Из-за этого диаграмма из одного узла сдвигалась вниз на
+        // 123px, а холст начинался с y=123.3 вместо 7.
+        let component_rows = components.len().div_ceil(num_cols.max(1));
         let mut package_y = self.config.margin
-            + ((components.len() / num_cols.max(1) + 1) as f64)
-                * (self.config.component_height + self.config.vertical_spacing);
+            + component_rows as f64 * (self.config.component_height + self.config.vertical_spacing);
+
+        // Узлы ставятся с отступом node_margin, а не общим margin.
+        let node_x = if diagram.packages.is_empty() {
+            self.config.margin
+        } else {
+            self.config.node_margin
+        };
 
         for pkg in &diagram.packages {
             let (pkg_elements, pkg_bounds, inner_positions) =
-                self.layout_package(pkg, self.config.margin, package_y);
+                self.layout_package(pkg, node_x, package_y);
 
             for elem in pkg_elements {
                 elements.push(elem);
@@ -110,8 +129,22 @@ impl ComponentLayoutEngine {
         };
         result.calculate_bounds();
 
-        // Добавляем отступы
-        result.bounds.width += self.config.margin * 2.0;
+        // Отступы.
+        //
+        // У объёмных узлов deployment поля БОЛЬШЕ, чем у плоских
+        // компонентов. Измерено по эталонам, снятым с сервера:
+        //   один узел:         слева 16, справа 25
+        //   плоский компонент: слева  7, справа 13.8
+        // Узлы размещаются с отступом `node_margin`, а начало координат
+        // остаётся на `margin`, поэтому левое поле складывается из обоих.
+        let has_nodes = !diagram.packages.is_empty();
+        if has_nodes {
+            result.bounds.x = self.config.margin;
+            let content_right = result.bounds.x + result.bounds.width;
+            result.bounds.width = (content_right - result.bounds.x) + NODE_RIGHT_EXTRA;
+        } else {
+            result.bounds.width += self.config.margin * 2.0;
+        }
         result.bounds.height += self.config.margin * 2.0;
 
         result
