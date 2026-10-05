@@ -11,6 +11,9 @@ use plantuml_ast::activity::{
 use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
 
+/// Насколько конечный узел больше начального (измерено по эталону).
+const END_RADIUS_EXTRA: f64 = 1.0;
+
 use super::config::ActivityLayoutConfig;
 
 /// Цвет заметки в PlantUML — светло-жёлтый.
@@ -207,7 +210,10 @@ impl ActivityLayoutEngine {
                     (radius * 2.0, true)
                 }
                 ActivityElement::Stop => {
-                    let r = self.config.node_radius;
+                    // Конечный узел на 1px больше начального: в эталоне
+                    // activity_basic начальный круг имеет rx=10, конечный —
+                    // rx=11. Раньше оба использовали node_radius.
+                    let r = self.config.node_radius + END_RADIUS_EXTRA;
                     elements.push(LayoutElement {
                         id: format!("stop_{}", elements.len()),
                         bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
@@ -220,7 +226,10 @@ impl ActivityLayoutEngine {
                     (r * 2.0, false) // Stop не требует стрелки после
                 }
                 ActivityElement::End => {
-                    let r = self.config.node_radius;
+                    // Конечный узел на 1px больше начального: в эталоне
+                    // activity_basic начальный круг имеет rx=10, конечный —
+                    // rx=11. Раньше оба использовали node_radius.
+                    let r = self.config.node_radius + END_RADIUS_EXTRA;
                     elements.push(LayoutElement {
                         id: format!("end_{}", elements.len()),
                         bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
