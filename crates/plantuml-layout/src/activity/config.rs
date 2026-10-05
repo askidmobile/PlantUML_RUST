@@ -53,7 +53,7 @@ impl Default for ActivityLayoutConfig {
             // Шаги эталона: initial 15..35, действие 55..89, ромб
             // 108.969..132.969, действия веток 142.969, слияние 226.938.
             vertical_spacing: 19.969,
-            horizontal_spacing: 60.0,
+            horizontal_spacing: 50.0,
             node_radius: 10.0,
             diamond_width: 70.9,
             diamond_height: 24.0,
