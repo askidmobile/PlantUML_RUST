@@ -7,6 +7,9 @@ use std::collections::{HashMap, HashSet};
 
 /// Заливка устройств сети: измерено по эталону PlantUML
 /// (`tests/golden/reference/network_nwdiag.svg`), едина для всех типов.
+/// Отступ текста внутри бокса сервера (измерено по эталону: 60.084 - 40.084).
+const SERVER_TEXT_PADDING: f64 = 20.0;
+
 /// Зазор между столбцом подписей и левым краем полосы (измерено по эталону).
 const NETWORK_LABEL_GAP: f64 = 5.0;
 
@@ -92,7 +95,7 @@ impl NetworkLayoutEngine {
         // Серверы стоят с отступом SERVER_BAND_INSET от левого края полосы.
         self.band_x(diagram)
             + SERVER_BAND_INSET
-            + index as f64 * (self.config.server_width + self.config.server_spacing)
+            + index as f64 * (self.server_width(diagram) + self.config.server_spacing)
     }
 
     /// Левый край полосы сети.
@@ -102,6 +105,36 @@ impl NetworkLayoutEngine {
     /// текстом среди всех сетей.
     fn band_x(&self, diagram: &NetworkDiagram) -> f64 {
         self.config.padding + self.label_column_width(diagram) + NETWORK_LABEL_GAP
+    }
+
+    /// Ширина бокса сервера.
+    ///
+    /// Контентная, а не константная. В эталоне `network_nwdiag` бокс равен
+    /// 60.084 при ширине текста «web01» 40.084, то есть текст плюс 20.
+    /// Раньше в конфиге стояло фиксированное 20x30, из-за чего диаграмма
+    /// выходила в разы меньше эталонной. Берём максимум по всем серверам,
+    /// чтобы боксы оставались одинаковыми и сетка не разъезжалась.
+    fn server_width(&self, diagram: &NetworkDiagram) -> f64 {
+        let mut width = self.config.server_width;
+        for network in &diagram.networks {
+            for member in &network.members {
+                width = width.max(
+                    self.config
+                        .text
+                        .width(&member.id.name, self.config.font_size)
+                        + SERVER_TEXT_PADDING,
+                );
+            }
+        }
+        for server in &diagram.servers {
+            width = width.max(
+                self.config
+                    .text
+                    .width(&server.id.name, self.config.font_size)
+                    + SERVER_TEXT_PADDING,
+            );
+        }
+        width
     }
 
     /// Ширина столбца подписей слева от полос.
@@ -152,7 +185,7 @@ impl NetworkLayoutEngine {
             // Измерено по эталону network_nwdiag: полоса 86.564..266.732
             // (180.168) при двух серверах по 60.084 с зазором 30 и отступом
             // 15 с каждой стороны: 2*60.084 + 30 + 2*15 = 180.168.
-            let servers_span = server_order.len() as f64 * self.config.server_width
+            let servers_span = server_order.len() as f64 * self.server_width(diagram)
                 + (server_order.len().saturating_sub(1)) as f64 * self.config.server_spacing;
             let network_width = servers_span + SERVER_BAND_INSET * 2.0;
 
@@ -294,7 +327,7 @@ impl NetworkLayoutEngine {
                         + self.config.server_top_offset;
 
                     let server_rect =
-                        Rect::new(x, y, self.config.server_width, self.config.server_height);
+                        Rect::new(x, y, self.server_width(diagram), self.config.server_height);
 
                     // Иконка/форма сервера в зависимости от типа
                     let device_type = server.map(|s| s.device_type).unwrap_or(DeviceType::Server);
@@ -497,7 +530,7 @@ impl NetworkLayoutEngine {
                 if let Some(idx) = server_order.iter().position(|s| s == server_name) {
                     let x = self.server_x_position(diagram, idx);
                     min_x = min_x.min(x);
-                    max_x = max_x.max(x + self.config.server_width);
+                    max_x = max_x.max(x + self.server_width(diagram));
                 }
             }
 
