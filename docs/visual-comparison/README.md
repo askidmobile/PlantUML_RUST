@@ -1,6 +1,13 @@
 # Визуальное сравнение с PlantUML
 
 В каждом листе **слева — наш рендер, справа — эталон PlantUML**.
+Сверху листа идёт подпись: синяя черта и «НАШ РЕНДЕР (plantuml-rs)» слева,
+зелёная и «ЭТАЛОН PlantUML (plantuml.com)» справа.
+
+Ориентация проверена измерением, а не на глаз: левая половина каждого листа
+попиксельно совпадает с растеризацией нашего SVG (разница 0.00), правая —
+с эталоном (0.00).
+
 Эталоны получены с plantuml.com (v1.2026.9beta4) скриптом
 `tests/golden/fetch_references.py`.
 
@@ -13,7 +20,11 @@ cargo run --release -p plantuml-core --example=<кейс>
 # raster
 rsvg-convert -w 600 <наш>.svg -o <наш>.png
 rsvg-convert -w 600 <эталон>.svg -o <эталон>.png
-magick <наш>.png <эталон>.png +append <лист>.png
+magick <наш>.png <эталон>.png +append -bordercolor gray -border 2 <тело>.png
+python3 - <<'EOF'   # полоса-подпись сверху
+...
+EOF
+magick <подпись>.png <тело>.png -append <лист>.png
 ```
 
 ## Что было исправлено в левых картинках
