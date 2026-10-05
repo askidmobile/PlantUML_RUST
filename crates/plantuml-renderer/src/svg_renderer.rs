@@ -65,8 +65,13 @@ impl SvgRenderer {
         /// 10/10/11.55/11.11).
         const TABLE: (f64, f64, f64, f64) = (10.0, 10.0, 11.11, 11.81);
 
+        /// MINDMAP: движок сам добавляет `padding = 10` со всех сторон,
+        /// поэтому рендерер дополняет до эталонных 10/20/20.14/20.81.
+        const MINDMAP: (f64, f64, f64, f64) = (0.0, 10.0, 10.14, 10.81);
+
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
+            Some("MINDMAP") => MINDMAP,
             Some("JSON") | Some("YAML") => TABLE,
             Some("GANTT") => GANTT,
             Some("WBS") => WBS,
