@@ -77,6 +77,41 @@ impl FileResolver for NoopFileResolver {
     }
 }
 
+/// Резолвер, который обслуживает ТОЛЬКО встроенную стандартную библиотеку.
+///
+/// Нужен по умолчанию: `!include <C4/C4_Context>` не требует файловой
+/// системы, данные встроены в `plantuml-stdlib`. Раньше `Preprocessor::new`
+/// использовал `NoopFileResolver`, поэтому ЛЮБОЕ stdlib-включение через
+/// публичный API (`render`, `parse_diagram`) падало с «!include не
+/// поддерживается», и весь реестр из 48 включений был недостижим.
+///
+/// Файловая система здесь намеренно не используется — резолвер безопасен
+/// для `wasm32-unknown-unknown`.
+#[derive(Debug, Default)]
+pub struct StdlibResolver;
+
+impl FileResolver for StdlibResolver {
+    fn read_file(&self, path: &str) -> Result<String> {
+        // Путь приходит в угловых скобках — это маркер стандартной
+        // библиотеки (`!include <C4/C4_Context>`).
+        let is_stdlib = path.starts_with('<') && path.ends_with('>');
+        if !is_stdlib {
+            return Err(PreprocessError::IncludeNotSupported(path.to_string()));
+        }
+
+        let stdlib_path = path.trim_matches(|c| c == '<' || c == '>');
+        plantuml_stdlib::get_include(stdlib_path)
+            .map(|content| content.to_string())
+            .ok_or_else(|| PreprocessError::FileNotFound(format!("stdlib: {stdlib_path}")))
+    }
+
+    fn file_exists(&self, path: &str) -> bool {
+        path.starts_with('<')
+            && path.ends_with('>')
+            && plantuml_stdlib::exists(path.trim_matches(|c| c == '<' || c == '>'))
+    }
+}
+
 /// Состояние определения функции/процедуры
 #[derive(Debug, Clone)]
 enum DefiningCallable {
@@ -116,6 +151,8 @@ pub struct PreprocessContext {
     pub callables: IndexMap<String, functions::UserCallable>,
     /// Текущее определение функции/процедуры
     defining: DefiningCallable,
+    /// Текущее определение объявлено как `!unquoted`
+    defining_unquoted: bool,
     /// Текущая тема
     pub theme: Theme,
     /// SkinParam параметры
@@ -144,6 +181,7 @@ impl Default for PreprocessContext {
             condition_depth: 0,
             condition_stack: Vec::new(),
             callables: IndexMap::new(),
+            defining_unquoted: false,
             defining: DefiningCallable::None,
             theme: Theme::default(),
             skin_params: SkinParams::new(),
@@ -303,20 +341,26 @@ impl PreprocessContext {
 }
 
 /// Препроцессор PlantUML
-pub struct Preprocessor<R: FileResolver = NoopFileResolver> {
+pub struct Preprocessor<R: FileResolver = StdlibResolver> {
     resolver: R,
 }
 
-impl Preprocessor<NoopFileResolver> {
-    /// Создаёт препроцессор без поддержки !include
+impl Preprocessor<StdlibResolver> {
+    /// Создаёт препроцессор со встроенной стандартной библиотекой.
+    ///
+    /// Файловая система не используется: доступны только включения вида
+    /// `!include <C4/C4_Context>`. Для работы с файлами нужен
+    /// `Preprocessor::with_resolver(FsFileResolver::new(...))`.
     pub fn new() -> Self {
         Self {
-            resolver: NoopFileResolver,
+            // Стандартная библиотека встроена в бинарник, поэтому доступна
+            // всегда; файловая система для этого не нужна.
+            resolver: StdlibResolver,
         }
     }
 }
 
-impl Default for Preprocessor<NoopFileResolver> {
+impl Default for Preprocessor<StdlibResolver> {
     fn default() -> Self {
         Self::new()
     }
@@ -470,6 +514,12 @@ impl<R: FileResolver> Preprocessor<R> {
             return self.handle_include(rest.trim(), ctx, true);
         } else if let Some(rest) = directive.strip_prefix("function ") {
             self.start_function_definition(rest.trim(), ctx)?;
+        } else if let Some(rest) = directive.strip_prefix("unquoted procedure ") {
+            self.start_procedure_definition(rest.trim(), ctx)?;
+            ctx.defining_unquoted = true;
+        } else if let Some(rest) = directive.strip_prefix("unquoted function ") {
+            self.start_function_definition(rest.trim(), ctx)?;
+            ctx.defining_unquoted = true;
         } else if let Some(rest) = directive.strip_prefix("procedure ") {
             self.start_procedure_definition(rest.trim(), ctx)?;
         } else if let Some(rest) = directive.strip_prefix("theme ") {
@@ -678,7 +728,11 @@ impl<R: FileResolver> Preprocessor<R> {
         let callable = std::mem::replace(&mut ctx.defining, DefiningCallable::None);
 
         match callable {
-            DefiningCallable::Function(c) | DefiningCallable::Procedure(c) => {
+            DefiningCallable::Function(mut c) | DefiningCallable::Procedure(mut c) => {
+                // Флаг ставится при разборе `!unquoted` и переносится сюда:
+                // само определение попадает в реестр только по !endprocedure.
+                c.unquoted = ctx.defining_unquoted;
+                ctx.defining_unquoted = false;
                 ctx.register_callable(c);
             }
             DefiningCallable::None => {
@@ -729,6 +783,40 @@ impl<R: FileResolver> Preprocessor<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Кириллица перед вызовом процедуры не вызывает панику.
+    ///
+    /// Регрессия: `find_function_calls` собирал `Vec<char>` и возвращал
+    /// индексы в СИМВОЛАХ, а `process_function_calls` резал строку по ним
+    /// как по БАЙТОВЫМ. На ASCII это совпадает, на кириллице — нет:
+    /// `&result[..start]` попадал в середину символа и паниковал
+    /// «byte index N is not a char boundary».
+    #[test]
+    fn test_cyrillic_before_procedure_call() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n!procedure $X($a)\nclass $a\n!endprocedure\n' Комментарий\n$X(Имя)\n@enduml";
+        let out = pp
+            .process(source)
+            .expect("кириллица перед вызовом не должна падать");
+        assert!(out.contains("class Имя"), "вызов не раскрылся: {out}");
+    }
+
+    /// Стандартная библиотека доступна без явного резолвера.
+    ///
+    /// Регрессия: `Preprocessor::new` использовал `NoopFileResolver`,
+    /// поэтому ЛЮБОЕ `!include <...>` через публичный API падало с
+    /// «!include не поддерживается», и весь реестр stdlib был недостижим.
+    #[test]
+    fn test_stdlib_include_without_resolver() {
+        let pp = Preprocessor::new();
+        let out = pp
+            .process("@startuml\n!include <C4/C4_Context>\nA -> B\n@enduml")
+            .expect("stdlib должен быть доступен по умолчанию");
+        assert!(
+            out.contains("C4_Context.puml") || out.contains("C4 Model"),
+            "содержимое stdlib не подставлено"
+        );
+    }
 
     #[test]
     fn test_simple_preprocess() {

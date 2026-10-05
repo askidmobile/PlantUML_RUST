@@ -27,6 +27,12 @@ pub struct UserCallable {
     pub parameters: Vec<String>,
     /// Тело функции (строки между !function и !endfunction)
     pub body: Vec<String>,
+    /// Объявлена как `!unquoted`: кавычки вокруг аргументов снимаются.
+    ///
+    /// PlantUML использует это в стандартной библиотеке: вызов
+    /// `Person(a, "Имя")` подставляет аргумент внутрь уже закавыченной
+    /// строки макроса, и без снятия кавычек получается `"=="Имя""`.
+    pub unquoted: bool,
 }
 
 impl UserCallable {
@@ -37,6 +43,7 @@ impl UserCallable {
             kind: CallableKind::Function,
             parameters,
             body: Vec::new(),
+            unquoted: false,
         }
     }
 
@@ -47,6 +54,7 @@ impl UserCallable {
             kind: CallableKind::Procedure,
             parameters,
             body: Vec::new(),
+            unquoted: false,
         }
     }
 
@@ -64,7 +72,15 @@ impl UserCallable {
 
         // Связываем параметры с аргументами
         for (i, param) in self.parameters.iter().enumerate() {
-            let value = args.get(i).cloned().unwrap_or_default();
+            let mut value = args.get(i).cloned().unwrap_or_default();
+            // `!unquoted`: снимаем обрамляющие кавычки, иначе подстановка
+            // внутрь закавыченной строки макроса даёт `"=="Имя""`.
+            if self.unquoted {
+                let trimmed = value.trim();
+                if trimmed.len() >= 2 && trimmed.starts_with('"') && trimmed.ends_with('"') {
+                    value = trimmed[1..trimmed.len() - 1].to_string();
+                }
+            }
             local_vars.insert(param.clone(), value);
         }
 
@@ -180,10 +196,20 @@ pub fn parse_callable_call(call: &str) -> Option<(String, Vec<String>)> {
     Some((name, args))
 }
 
-/// Ищет вызовы функций в строке и возвращает позиции
+/// Ищет вызовы функций в строке и возвращает позиции.
+///
+/// Позиции — БАЙТОВЫЕ, а не в символах: вызывающий код режет строку через
+/// `&line[..start]`. Раньше здесь собирался `Vec<char>` и наружу отдавались
+/// индексы в символах, поэтому любая кириллица ПЕРЕД вызовом процедуры
+/// сдвигала границы и приводила к панике «byte index N is not a char
+/// boundary».
 pub fn find_function_calls(line: &str) -> Vec<(usize, usize, String, Vec<String>)> {
     let mut calls = Vec::new();
     let chars: Vec<char> = line.chars().collect();
+    // Байтовое смещение каждого символа: chars[k] начинается с byte_offsets[k]
+    let byte_offsets: Vec<usize> = line.char_indices().map(|(b, _)| b).collect();
+    let to_byte =
+        |char_idx: usize| -> usize { byte_offsets.get(char_idx).copied().unwrap_or(line.len()) };
     let mut i = 0;
 
     while i < chars.len() {
@@ -217,7 +243,7 @@ pub fn find_function_calls(line: &str) -> Vec<(usize, usize, String, Vec<String>
                 if depth == 0 {
                     let call_str: String = chars[start..i].iter().collect();
                     if let Some((_, args)) = parse_callable_call(&call_str) {
-                        calls.push((start, i, name, args));
+                        calls.push((to_byte(start), to_byte(i), name, args));
                     }
                 }
             }

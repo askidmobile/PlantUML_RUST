@@ -92,6 +92,56 @@ skinparam rectangle {
 
 ' BiRel - двунаправленная связь
 !define BiRel(e_from, e_to, e_label) e_from <--> e_to : e_label
+!define BiRel(e_from, e_to, e_label, e_techn) e_from <--> e_to : e_label\n<size:10>[e_techn]</size>
+
+' ===== НАПРАВЛЕННЫЕ СВЯЗИ =====
+'
+' Версия C4-PlantUML умеет задавать направление стрелки: Rel_D (вниз),
+' Rel_U (вверх), Rel_L (влево), Rel_R (вправо) и их длинные синонимы.
+' В нашей библиотеке их не было — не хватало 17 макросов.
+' Синтаксис направлений `-down->` поддерживается грамматикой component.
+
+!define Rel_D(e_from, e_to, e_label) e_from -down-> e_to : e_label
+!define Rel_D(e_from, e_to, e_label, e_techn) e_from -down-> e_to : e_label\n<size:10>[e_techn]</size>
+!define Rel_Down(e_from, e_to, e_label) Rel_D(e_from, e_to, e_label)
+!define Rel_Down(e_from, e_to, e_label, e_techn) Rel_D(e_from, e_to, e_label, e_techn)
+
+!define Rel_U(e_from, e_to, e_label) e_from -up-> e_to : e_label
+!define Rel_U(e_from, e_to, e_label, e_techn) e_from -up-> e_to : e_label\n<size:10>[e_techn]</size>
+!define Rel_Up(e_from, e_to, e_label) Rel_U(e_from, e_to, e_label)
+!define Rel_Up(e_from, e_to, e_label, e_techn) Rel_U(e_from, e_to, e_label, e_techn)
+
+!define Rel_L(e_from, e_to, e_label) e_from -left-> e_to : e_label
+!define Rel_L(e_from, e_to, e_label, e_techn) e_from -left-> e_to : e_label\n<size:10>[e_techn]</size>
+!define Rel_Left(e_from, e_to, e_label) Rel_L(e_from, e_to, e_label)
+!define Rel_Left(e_from, e_to, e_label, e_techn) Rel_L(e_from, e_to, e_label, e_techn)
+
+!define Rel_R(e_from, e_to, e_label) e_from -right-> e_to : e_label
+!define Rel_R(e_from, e_to, e_label, e_techn) e_from -right-> e_to : e_label\n<size:10>[e_techn]</size>
+!define Rel_Right(e_from, e_to, e_label) Rel_R(e_from, e_to, e_label)
+!define Rel_Right(e_from, e_to, e_label, e_techn) Rel_R(e_from, e_to, e_label, e_techn)
+
+!define Rel_Back_Neighbor(e_from, e_to, e_label) e_from <- e_to : e_label
+
+!define BiRel_D(e_from, e_to, e_label) e_from <->down-> e_to : e_label
+!define BiRel_U(e_from, e_to, e_label) e_from <->up-> e_to : e_label
+!define BiRel_L(e_from, e_to, e_label) e_from <->left-> e_to : e_label
+!define BiRel_R(e_from, e_to, e_label) e_from <->right-> e_to : e_label
+!define BiRel_Neighbor(e_from, e_to, e_label) e_from <-> e_to : e_label
+!define BiRel_Back_Neighbor(e_from, e_to, e_label) e_from <-> e_to : e_label
+
+' Boundary - граница с произвольным типом
+!define Boundary(e_alias, e_label, e_type) rectangle "e_label" <<e_type>> as e_alias {
+
+' Lay_* — псевдонимы для указания направления раскладки
+!define Lay_D(e_from, e_to) e_from -down-> e_to
+!define Lay_U(e_from, e_to) e_from -up-> e_to
+!define Lay_L(e_from, e_to) e_from -left-> e_to
+!define Lay_R(e_from, e_to) e_from -right-> e_to
+
+' Теги элементов и связей
+!define AddElementTag(e_tag, e_bgColor, e_fontColor, e_borderColor) skinparam rectangle<<e_tag>> { \n BackgroundColor e_bgColor \n FontColor e_fontColor \n BorderColor e_borderColor \n }
+!define AddRelTag(e_tag, e_color, e_lineStyle, e_textColor) skinparam arrow<<e_tag>> { \n Color e_color \n }
 
 ' ===== СТИЛИ =====
 
