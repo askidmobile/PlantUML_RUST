@@ -1293,8 +1293,16 @@ impl<R: FileResolver> Preprocessor<R> {
                 let trailing = &result[end..];
                 let is_statement = leading.trim().is_empty() && trailing.trim().is_empty();
 
+                // Значение функции отбрасывается ТОЛЬКО на верхнем уровне.
+                //
+                // Проверено на сервере: макрос, тело которого состоит из
+                // `!return $inner()`, ВОЗВРАЩАЕТ значение. Прежде правило
+                // «вызов во всю строку — оператор» применялось и внутри
+                // тел, поэтому вложенный вызов терялся.
+                let drop_value = is_statement && ctx.call_depth == 0;
+
                 let replacement = match callable.kind {
-                    functions::CallableKind::Function if is_statement => String::new(),
+                    functions::CallableKind::Function if drop_value => String::new(),
                     functions::CallableKind::Function => {
                         // Функция в выражении: подставляем возвращённое значение
                         return_value.unwrap_or_default()
@@ -2026,6 +2034,50 @@ MAIN_END
         assert!(
             out.contains("class Готово"),
             "глобальная переменная не видна: {out}"
+        );
+    }
+
+    /// Вложенный вызов в `!return` сохраняет ЗНАЧЕНИЕ.
+    ///
+    /// Регрессия: правило «вызов во всю строку — оператор» применялось и
+    /// внутри тел макросов, поэтому `!return $inner()` терял значение.
+    /// Проверено на сервере: PlantUML возвращает `VALUE`.
+    #[test]
+    fn test_return_of_nested_call_keeps_value() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $inner()\n\
+            !return ЗНАЧЕНИЕ\n\
+            !endfunction\n\
+            !function $outer()\n\
+            !return $inner()\n\
+            !endfunction\n\
+            class \"[$outer()]\"\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("[ЗНАЧЕНИЕ]"),
+            "значение вложенного вызова потеряно: {out}"
+        );
+    }
+
+    /// Вызов-оператор на ВЕРХНЕМ уровне по-прежнему ничего не печатает.
+    #[test]
+    fn test_statement_call_at_top_level_is_silent() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $f()\n\
+            !return ЗНАЧЕНИЕ\n\
+            !endfunction\n\
+            $f()\n\
+            class X\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            !out.contains("ЗНАЧЕНИЕ"),
+            "значение оператора просочилось: {out}"
         );
     }
 
