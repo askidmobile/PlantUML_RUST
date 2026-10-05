@@ -37,6 +37,12 @@ pub struct SequenceLayoutConfig {
     pub margin: f64,
     /// Размер шрифта
     pub font_size: f64,
+    /// Размер шрифта подписей участников.
+    ///
+    /// В эталоне  все подписи нарисованы при
+    /// font-size=14, тогда как общий  равен 13. Из-за
+    /// несовпадения бокс участника выходил на 3.74 уже эталонного.
+    pub participant_font_size: f64,
     /// Измеритель текста (считает символы, а не байты)
     pub text: TextMeasurer,
     /// Высота строки текста
@@ -73,6 +79,7 @@ impl Default for SequenceLayoutConfig {
             // Отступ от края: в эталоне участник стоит на x=10, y=10
             margin: 10.0,
             font_size: 13.0,
+            participant_font_size: 14.0,
             text: TextMeasurer::default(),
             line_height: 18.0,      // высота строки
             box_title_height: 30.0, // высота заголовка бокса
@@ -96,7 +103,8 @@ impl SequenceLayoutConfig {
     /// В эталоне PlantUML: textLength="33.667" при width="47.667", то есть
     /// по 7px внутреннего отступа с каждой стороны.
     pub fn participant_width_for_name(&self, name: &str) -> f64 {
-        let text_width = self.text_width(name) + PARTICIPANT_PADDING * 2.0;
+        let text_width =
+            self.text.width(name, self.participant_font_size) + PARTICIPANT_PADDING * 2.0;
         self.participant_width.max(text_width)
     }
 
