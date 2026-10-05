@@ -542,6 +542,7 @@ dependencies = [
  "pest",
  "pest_derive",
  "plantuml-ast",
+ "plantuml-stdlib",
  "thiserror",
 ]
 

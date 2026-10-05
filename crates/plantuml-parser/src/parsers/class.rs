@@ -801,34 +801,49 @@ fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class
     let mut width = 0usize;
     let mut height = 0usize;
     let mut rows: Vec<String> = Vec::new();
+    let mut body = String::new();
+    let mut compressed = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::identifier => name = inner.as_str().to_string(),
             Rule::sprite_size => {
-                // `ШxВ/цветов`: берём часть до `/`.
+                // `ШxВ/цветов`, где суффикс цвета может оканчиваться на
+                // `z` — это признак СЖАТОГО тела (формат `16z`).
                 let size = inner.as_str();
-                let dims = size.split('/').next().unwrap_or(size);
-                let mut parts = dims.split(['x', 'X']);
-                width = parts
-                    .next()
-                    .and_then(|v| v.trim().parse().ok())
-                    .unwrap_or(0);
-                height = parts
-                    .next()
-                    .and_then(|v| v.trim().parse().ok())
-                    .unwrap_or(0);
+                let without_comment = size.split_whitespace().next().unwrap_or(size);
+                let mut parts = without_comment.split('/');
+                let dims = parts.next().unwrap_or(without_comment);
+                let colours = parts.next().unwrap_or("");
+                compressed = colours.ends_with('z');
+
+                let mut dims = dims.split(['x', 'X']);
+                width = dims.next().and_then(|v| v.trim().parse().ok()).unwrap_or(0);
+                height = dims.next().and_then(|v| v.trim().parse().ok()).unwrap_or(0);
             }
             Rule::sprite_body => {
-                for line in inner.as_str().lines() {
-                    let trimmed = line.trim();
-                    // Строка пикселей — только шестнадцатеричные цифры.
-                    if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
-                        rows.push(trimmed.to_string());
-                    }
-                }
+                body = inner.as_str().to_string();
             }
             _ => {}
+        }
+    }
+
+    if rows.is_empty() && compressed && !body.is_empty() && width > 0 && height > 0 {
+        // Сжатое тело: base64 алфавитом PlantUML плюс raw deflate.
+        // Формат разобран на k8s-sprites-unlabeled-25pct.iuml.
+        match plantuml_stdlib::inflate::decode_compressed_sprite(&body, width, height) {
+            Ok(decoded) => rows = decoded,
+            Err(_) => return None,
+        }
+    }
+
+    if rows.is_empty() && !body.is_empty() {
+        // Несжатое тело: строки шестнадцатеричных цифр.
+        for line in body.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+                rows.push(trimmed.to_string());
+            }
         }
     }
 
@@ -854,6 +869,33 @@ fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Сжатый спрайт (формат `16z`) разбирается и распаковывается.
+    ///
+    /// Регрессия: тело сжатого спрайта — не hex-цифры, а base64 плюс
+    /// raw deflate, поэтому прежний разбор отбрасывал такие спрайты
+    /// молча. Именно в этом формате лежат kubernetes, aws и azure.
+    #[test]
+    fn test_compressed_sprite_parses() {
+        // Спрайт 2x2 из четырёх пикселей значения 1, 2, 3, 4.
+        // Тело: raw deflate `636462660100`, затем base64 алфавитом
+        // PlantUML — получается `OsHYPW40`.
+        let source = "@startuml\n\
+            sprite $tiny [2x2/16z] {\n\
+            OsHYPW40\n\
+            }\n\
+            class A\n\
+            @enduml";
+
+        let diagram = parse_class(source).expect("диаграмма должна разбираться");
+        // Если распаковка не поддержана, спрайт отбрасывается — тогда
+        // список пуст, и тест это покажет.
+        assert_eq!(diagram.sprites.len(), 1, "сжатый спрайт потерян");
+        let sprite = &diagram.sprites[0];
+        assert_eq!(sprite.width, 2);
+        assert_eq!(sprite.height, 2);
+        assert_eq!(sprite.rows.len(), 2, "строк пикселей должно быть две");
+    }
 
     /// Определение спрайта доходит до AST.
     ///
