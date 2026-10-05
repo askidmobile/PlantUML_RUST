@@ -1463,16 +1463,28 @@ impl SvgRenderer {
         };
 
         // Боковины и нижняя крышка
+        // Силуэт цилиндра.
+        //
+        // ВАЖНО: верхняя крышка входит в СИЛУЭТ выпуклостью ВВЕРХ, а не
+        // рисуется отдельной дугой над плоским верхом. Эталон
+        // `sequence_participants` даёт один замкнутый контур
+        // `M538.089,34 C538.089,24 … 574.089,34 L574.089,60 C…538.089,60
+        // L538.089,34`: прежний код начинал с прямой `L{left},{top_cap}`,
+        // поэтому цилиндр выглядел скруглённым прямоугольником с плоским
+        // верхом, а дуга висела над ним отдельной линией.
+        let top_bulge = top_cap - ry;
         let body = format!(
-            "M{left},{top_cap} L{left},{bottom_cap} \
-             C{left},{bottom} {cx},{bottom} {cx},{bottom} \
-             C{cx},{bottom} {right},{bottom} {right},{bottom_cap} \
-             L{right},{top_cap}",
+            "M{left},{top_cap} C{left},{top_bulge} {cx},{top_bulge} {cx},{top_bulge} \
+             C{cx},{top_bulge} {right},{top_bulge} {right},{top_cap} \
+             L{right},{bottom_cap} \
+             C{right},{bottom_bulge} {cx},{bottom_bulge} {cx},{bottom_bulge} \
+             C{cx},{bottom_bulge} {left},{bottom_bulge} {left},{bottom_cap} Z",
             left = fmt(cx - rx),
             right = fmt(cx + rx),
             top_cap = fmt(top_cap),
             bottom_cap = fmt(bottom_cap),
-            bottom = fmt(bottom_cap + ry),
+            top_bulge = fmt(top_bulge),
+            bottom_bulge = fmt(bottom_cap + ry),
         );
 
         let mut group = group;
@@ -1483,18 +1495,22 @@ impl SvgRenderer {
                 .set("stroke", stroke.clone())
                 .set("stroke-width", 0.5),
         );
-        // Верхняя крышка
+        // Нижняя дуга верхней крышки — «обод» цилиндра.
+        //
+        // Без неё верх читается как плоская крышка: эталон рисует вторую
+        // половину эллипса отдельным путём `M538.089,34 C538.089,44 …
+        // 574.089,34` без заливки.
         group = group.add(
             svg::node::element::Path::new()
                 .set(
                     "d",
                     format!(
-                        "M{left},{top_cap} C{left},{top_bulge} {cx},{top_bulge} {cx},{top_bulge} \
-                         C{cx},{top_bulge} {right},{top_bulge} {right},{top_cap}",
+                        "M{left},{top_cap} C{left},{rim} {cx},{rim} {cx},{rim} \
+                         C{cx},{rim} {right},{rim} {right},{top_cap}",
                         left = fmt(cx - rx),
                         right = fmt(cx + rx),
                         top_cap = fmt(top_cap),
-                        top_bulge = fmt(top_cap - ry),
+                        rim = fmt(top_cap + ry),
                     ),
                 )
                 .set("fill", "none")
