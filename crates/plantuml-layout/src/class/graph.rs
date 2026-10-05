@@ -78,10 +78,15 @@ impl Node {
             .iter()
             .map(|f| {
                 // Учитываем тип поля: "+name: type"
+                // Маркер видимости НЕ входит в измеряемый текст: PlantUML
+                // рисует его отдельной иконкой, а место под неё уже учтено
+                // в CLASS_CONTENT_EXTRA. Проверено по эталону:
+                // «bark()» 42.253 + 26 = 68.253 — ровно ширина бокса Dog.
+                // С «+» в тексте ширина выходила на 7.4px больше.
                 let text = if let Some(ref typ) = f.member_type {
-                    format!("{}{}: {}", f.visibility.to_char(), f.name, typ)
+                    format!("{}: {}", f.name, typ)
                 } else {
-                    format!("{}{}", f.visibility.to_char(), f.name)
+                    f.name.clone()
                 };
                 config.text.width(&text, config.font_size)
             })
@@ -93,10 +98,11 @@ impl Node {
             .iter()
             .map(|m| {
                 // Учитываем return type (member_type в AST): "+method(): type"
+                // См. комментарий выше: маркер видимости — иконка, а не текст.
                 let text = if let Some(ref ret_type) = m.member_type {
-                    format!("{}{}(): {}", m.visibility.to_char(), m.name, ret_type)
+                    format!("{}(): {}", m.name, ret_type)
                 } else {
-                    format!("{}{}()", m.visibility.to_char(), m.name)
+                    format!("{}()", m.name)
                 };
                 config.text.width(&text, config.font_size)
             })
@@ -246,14 +252,18 @@ impl Graph {
             if let (Some(&from_idx), Some(&to_idx)) =
                 (node_index.get(&rel.from), node_index.get(&rel.to))
             {
-                // Для наследования/реализации: в AST from=дочерний, to=родитель
-                // В графе для layout: родитель → потомок (чтобы родитель был на слое 0)
-                let (graph_from, graph_to) = match rel.relationship_type {
-                    RelationshipType::Inheritance | RelationshipType::Realization => {
-                        (to_idx, from_idx) // Родитель → Потомок (родитель на слое 0)
-                    }
-                    _ => (from_idx, to_idx),
-                };
+                // Наследование НЕ разворачивается.
+                //
+                // Раньше здесь ребро наследования/реализации переворачивалось,
+                // чтобы родитель оказался на слое 0, то есть сверху. Проверено
+                // на plantuml.com: для `Child --|> Parent` PlantUML ставит
+                // РЕБЁНКА сверху (y=27.85), а родителя снизу (y=135.85).
+                // То есть наследование раскладывается как любая другая связь —
+                // источник сверху, цель снизу.
+                //
+                // Подтверждается эталоном class_inheritance: Dog и Cat на
+                // y=7, Animal на y=131.29.
+                let (graph_from, graph_to) = (from_idx, to_idx);
                 edges.push(Edge::new(graph_from, graph_to, rel));
             }
         }
