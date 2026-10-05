@@ -191,13 +191,12 @@ milestone_def = {
     task_name ~ ws+ ~ "happens" ~ ws+ ~ milestone_time
 }
 
+// Веха привязывается ТОЛЬКО к другой задаче. Формы с датой
+// (`happens 2024-01-01`, `happens at 2024-01-01`, `happens on ...`)
+// в PlantUML не существуют — сервер отвечает 400 на каждую.
 milestone_time = {
     "at" ~ ws+ ~ task_ref ~ "'s" ~ ws+ ~ ("end" | "start")
     | "after" ~ ws+ ~ task_ref ~ "'s" ~ ws+ ~ "end"
-    // `happens at 2024-01-01` — дата с предлогом. Раньше не разбиралось.
-    | "at" ~ ws+ ~ date_value
-    | "on" ~ ws+ ~ date_value
-    | date_value
 }
 
 // === Разделители ===
