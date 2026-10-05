@@ -5,6 +5,12 @@
 use plantuml_ast::salt::{BorderStyle, Container, SaltDiagram, SaltWidget, SeparatorType};
 use plantuml_model::{Point, Rect};
 
+/// Насколько строка с кнопками выше обычной.
+///
+/// Измерено по эталону `salt_basic`: строка кнопок занимает 26.472 при
+/// обычной высоте 17.968, то есть на 8.502 больше.
+const SALT_BUTTON_ROW_TOP_EXTRA: f64 = 8.502;
+
 /// Смещение подчёркивания поля ввода от низа ячейки.
 ///
 /// Измерено по эталону `salt_basic`: ячейка кончается на 17.969,
@@ -190,15 +196,38 @@ impl SaltLayoutEngine {
 
         for row in &container.rows {
             let mut current_x = start_x;
-            let mut row_height = self.config.row_height;
+
+            // Строка с КНОПКАМИ выше обычной, и кнопка прижата к её низу.
+            //
+            // Измерено по эталону `salt_basic`: строки 1–2 идут по
+            // 17.968, а строка кнопок занимает 26.472 — кнопка высотой
+            // 17.969 стоит на 8.502 ниже её верха. Без этого кнопки
+            // оказывались на 8.5 выше эталонных.
+            let has_button = row
+                .iter()
+                .any(|widget| matches!(widget, SaltWidget::Button(_)));
+            let button_offset = if has_button {
+                SALT_BUTTON_ROW_TOP_EXTRA
+            } else {
+                0.0
+            };
+            let mut row_height =
+                (self.config.row_height).max(self.config.button_height + button_offset);
 
             for (col_idx, widget) in row.iter().enumerate() {
                 let cell_width = col_width.get(col_idx).copied().unwrap_or(0.0);
 
+                let is_button = matches!(widget, SaltWidget::Button(_));
+                let widget_y = if is_button {
+                    current_y + button_offset
+                } else {
+                    current_y
+                };
+
                 let (_w, h) = self.render_widget(
                     widget,
                     current_x,
-                    current_y,
+                    widget_y,
                     cell_width - self.config.cell_padding,
                     elements,
                 );
