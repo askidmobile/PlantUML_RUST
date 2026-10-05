@@ -5,11 +5,11 @@
 
 diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ body ~ end_tag ~ NEWLINE* ~ EOI }
 
-// PlantUML принимает обе формы тега: `@startuml` и `@starttiming`.
-// Вторая — официальная для timing-диаграмм; раньше она не принималась,
-// и диагностированная как Timing диаграмма всё равно не разбиралась.
-start_tag = { ("@startuml" | "@starttiming") ~ identifier? }
-end_tag = { "@enduml" | "@endtiming" }
+// Только `@startuml`. Тег `@starttiming` в PlantUML НЕ существует:
+// сервер отвечает 400 на любую его форму (проверено). Ранее он был
+// добавлен по ошибке и теперь убран.
+start_tag = { "@startuml" ~ identifier? }
+end_tag = { "@enduml" }
 
 body = { (body_line)* }
 

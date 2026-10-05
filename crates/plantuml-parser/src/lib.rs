@@ -377,11 +377,9 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     }
 
     // Timing Diagram — проверяем первой, robust/concise уникальны.
-    // Тег `@starttiming` — официальная форма PlantUML; раньше он не
-    // проверялся, и простая диаграмма вида `A is 1` не давала определить
-    // тип вовсе (других признаков в ней нет).
-    if source_lower.contains("@starttiming")
-        || source_lower.contains("robust ")
+    // Тега `@starttiming` в PlantUML нет (проверено на сервере), поэтому
+    // признаком служат только типы участников.
+    if source_lower.contains("robust ")
         || source_lower.contains("concise ")
         || source_lower.contains("clock ")
         || source_lower.contains("binary ")

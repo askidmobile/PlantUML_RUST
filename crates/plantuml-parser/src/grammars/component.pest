@@ -164,8 +164,10 @@ package_statement = _{
 
 package_keyword = {
     "package"
-    | "device"
-    | "agent"
+    // `component` и `artifact` принимают тело (проверено на сервере),
+    // поэтому они — контейнерные. `device` и `agent` тела НЕ принимают:
+    // `agent A { }` и любая форма `device` дают 400.
+    | "component"
     | "cloud"
     | "rectangle"
     | "database"
