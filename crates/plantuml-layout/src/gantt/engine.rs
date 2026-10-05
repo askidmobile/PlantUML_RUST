@@ -7,6 +7,19 @@ use std::collections::HashMap;
 /// Отступ подписи задачи от левого края полосы (измерено по эталону).
 const GANTT_LABEL_INSET: f64 = 4.0;
 
+/// Верх подписи месяца над таблицей.
+///
+/// Рендерер рисует базовую линию в `bounds.y + font_size`, поэтому верх
+/// считается как «базовая линия минус размер шрифта». Эталонные базовые
+/// линии: 11.14 сверху и 127.55 снизу; header_y у нас равен padding.
+const GANTT_MONTH_TOP_ROW_Y: f64 = 11.14 - GANTT_MONTH_FONT_SIZE - 5.0;
+
+/// Верх подписи месяца под таблицей.
+const GANTT_MONTH_BOTTOM_ROW_Y: f64 = 127.55 - GANTT_MONTH_FONT_SIZE - 5.0;
+
+/// Размер шрифта подписей месяца (в эталоне 12).
+const GANTT_MONTH_FONT_SIZE: f64 = 12.0;
+
 /// Смещение ряда сокращённых дней недели от верха шапки (по эталону).
 const GANTT_WEEKDAY_ROW_Y: f64 = 93.696;
 
@@ -23,6 +36,68 @@ const GANTT_TABLE_COL_WIDTH: f64 = 41.3;
 ///
 /// Даты считаются от даты старта проекта прибавлением номера дня, поэтому
 /// возможен переход через месяц и год.
+/// Перечисляет месяцы, покрытые диапазоном дней.
+///
+/// Возвращает `(номер первого дня, число дней, подпись)` для каждого
+/// месяца, начиная с месяца старта проекта.
+fn gantt_months(project_start: &GanttDate, total_days: u32) -> Vec<(u32, u32, String)> {
+    const FULL_MONTHS: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+
+    let mut result: Vec<(u32, u32, String)> = Vec::new();
+    if total_days == 0 {
+        return result;
+    }
+
+    let mut year = project_start.year;
+    let mut month = project_start.month.clamp(1, 12);
+    let mut day_index = 0_u32;
+    // Дней до конца месяца старта
+    let mut left_in_month = gantt_days_in_month(year, month) - project_start.day.min(30);
+
+    while day_index < total_days {
+        let days = left_in_month.min(total_days - day_index);
+        result.push((
+            day_index,
+            days,
+            format!("{} {}", FULL_MONTHS[(month - 1) as usize], year),
+        ));
+
+        day_index += days;
+        month += 1;
+        if month > 12 {
+            month = 1;
+            year += 1;
+        }
+        left_in_month = gantt_days_in_month(year, month);
+    }
+
+    result
+}
+
+/// Дней в месяце (тот же упрощённый календарь, что и в подписях дат).
+fn gantt_days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 => 29,
+        2 => 28,
+        _ => 30,
+    }
+}
+
 fn format_gantt_date(project_start: &GanttDate, day: u32) -> String {
     /// Дней в месяце (без учёта високосности: PlantUML использует тот же
     /// упрощённый календарь при отображении диапазонов).
@@ -486,6 +561,37 @@ impl GanttLayoutEngine {
                     element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 0.0,
+                    },
+                });
+            }
+        }
+
+        // Подписи месяцев.
+        //
+        // PlantUML выводит шкалу месяцев ДВАЖДЫ: над таблицей и под ней.
+        // В эталоне gantt_basic «January 2024» стоит на y=11.14 и на
+        // y=127.55, «February» — там же. У нас этих подписей не было
+        // вовсе, то есть месяц на диаграмме не был подписан нигде.
+        //
+        // Подпись центрируется по своему диапазону дней: в эталоне
+        // «January 2024» (31 день) занимает центр 384.07 при диапазоне
+        // 136.069..632.07 — совпадает.
+        for (start_day, days, label) in gantt_months(project_start, total_days) {
+            let x = start_x + (start_day as f64) * self.config.day_width;
+            let width = (days as f64) * self.config.day_width;
+
+            for (id, y) in [
+                ("month_top", header_y + GANTT_MONTH_TOP_ROW_Y),
+                ("month_bottom", header_y + GANTT_MONTH_BOTTOM_ROW_Y),
+            ] {
+                elements.push(LayoutElement {
+                    id: format!("{id}_{}", start_day),
+                    bounds: Rect::new(x, y, width, GANTT_MONTH_FONT_SIZE),
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
+                        text: label.clone(),
+                        font_size: GANTT_MONTH_FONT_SIZE,
                     },
                 });
             }
