@@ -479,11 +479,16 @@ impl SvgRenderer {
             }
             ElementType::Text { text, font_size } => {
                 let bold = element.properties.contains_key("font-weight");
+                let fill = element
+                    .properties
+                    .get("text-fill")
+                    .cloned()
+                    .unwrap_or_else(|| theme.text_color.to_css());
                 group = self.render_text_weighted(
                     &element.bounds,
                     text,
                     *font_size,
-                    bold,
+                    TextStyle { bold, fill: &fill },
                     theme,
                     group,
                 );
@@ -648,6 +653,13 @@ impl SvgRenderer {
             .and_then(|value| value.parse::<f64>().ok())
             .unwrap_or(theme.font_size);
 
+        // Цвет подписи тоже может быть переопределён: подписи timing
+        // нарисованы цветом #333, тогда как тема даёт #000.
+        let label_color = properties
+            .get("text-fill")
+            .cloned()
+            .unwrap_or_else(|| theme.text_color.to_css());
+
         let mut text = svg::node::element::Text::new(label)
             .set("x", bounds.x + bounds.width / 2.0)
             .set("y", bounds.y + bounds.height / 2.0)
@@ -655,7 +667,7 @@ impl SvgRenderer {
             .set("dominant-baseline", "middle")
             .set("font-family", theme.font_family.as_str())
             .set("font-size", label_font_size)
-            .set("fill", theme.text_color.to_css());
+            .set("fill", label_color.clone());
 
         // Рукописный стиль: `skinparam handwritten true`. PlantUML рисует
         // текст слегка наклонным.
@@ -1531,7 +1543,7 @@ impl SvgRenderer {
         bounds: &Rect,
         text_content: &str,
         font_size: f64,
-        bold: bool,
+        style: TextStyle<'_>,
         theme: &Theme,
         group: Group,
     ) -> Group {
@@ -1540,9 +1552,11 @@ impl SvgRenderer {
             .set("y", bounds.y + font_size)
             .set("font-family", theme.font_family.as_str())
             .set("font-size", font_size)
-            .set("fill", theme.text_color.to_css());
+            // Цвет можно переопределить свойством: PlantUML рисует
+            // подписи timing цветом #333, тогда как остальные типы — #000.
+            .set("fill", style.fill);
 
-        if bold {
+        if style.bold {
             text = text.set("font-weight", "700");
         }
 
@@ -2216,6 +2230,15 @@ const SPRITE_INLINE_PIXEL: f64 = 1.0;
 
 /// Отступ после спрайта внутри подписи.
 const SPRITE_INLINE_GAP: f64 = 2.0;
+
+/// Оформление текста: жирность и цвет.
+///
+/// Сгруппировано, чтобы не плодить параметры: `render_text_weighted`
+/// иначе превышает порог clippy по числу аргументов.
+struct TextStyle<'a> {
+    bold: bool,
+    fill: &'a str,
+}
 
 /// Данные спрайта, разобранные из свойства элемента.
 #[derive(Debug, Clone)]

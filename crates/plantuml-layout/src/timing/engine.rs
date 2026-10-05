@@ -18,6 +18,13 @@ use crate::traits::LayoutResult;
 /// отстоит от оси ровно на 50, следующее — на 100.
 const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
 
+/// Цвет подписей timing.
+///
+/// PlantUML рисует ВСЕ подписи timing цветом `#333`, тогда как остальные
+/// типы диаграмм используют `#000`. Проверено по эталону: все восемь
+/// текстовых элементов имеют `fill="#333"`.
+const TIMING_TEXT_COLOR: &str = "#333";
+
 /// Отступ метки состояния от вертикали перехода (измерено по эталону:
 /// переход на 141.732, метка «Обработка» на 153.73 — разница 12).
 const STATE_LABEL_OFFSET: f64 = 12.0;
@@ -142,7 +149,9 @@ impl TimingLayoutEngine {
                     self.config.lane_height,
                 ),
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
+                    .into_iter()
+                    .collect(),
                 element_type: ElementType::Text {
                     text: display_name.to_string(),
                     font_size: self.config.label_font_size,
@@ -206,7 +215,9 @@ impl TimingLayoutEngine {
                 id: "title".to_string(),
                 bounds: Rect::new(self.config.padding, 5.0, 500.0, 20.0),
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
+                    .into_iter()
+                    .collect(),
                 element_type: ElementType::Text {
                     text: title.clone(),
                     font_size: 14.0,
@@ -353,7 +364,9 @@ impl TimingLayoutEngine {
                     id: format!("state_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x1, state_y, width, self.config.robust_state_height),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
+                        .into_iter()
+                        .collect(),
                     element_type: ElementType::Rectangle {
                         label: current.state.clone(),
                         corner_radius: 0.0,
@@ -368,7 +381,9 @@ impl TimingLayoutEngine {
                     id: format!("state_{}_last", participant_name),
                     bounds: Rect::new(x, state_y, 50.0, self.config.robust_state_height),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
+                        .into_iter()
+                        .collect(),
                     element_type: ElementType::Rectangle {
                         label: last.state.clone(),
                         corner_radius: 0.0,
@@ -456,6 +471,7 @@ impl TimingLayoutEngine {
                 // а PlantUML рисует метки concise-дорожек полужирными.
                 let mut properties = std::collections::HashMap::new();
                 properties.insert("font-weight".to_string(), "700".to_string());
+                properties.insert("text-fill".to_string(), TIMING_TEXT_COLOR.to_string());
 
                 elements.push(LayoutElement {
                     id: format!("state_label_{}_{}_{}", participant_name, participant_idx, i),
@@ -608,7 +624,9 @@ impl TimingLayoutEngine {
                 id: format!("time_label_{}", t as i64),
                 bounds: Rect::new(x - label_width / 2.0, y + 8.0, label_width, 15.0),
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
+                    .into_iter()
+                    .collect(),
                 element_type: ElementType::Text {
                     text: format!("{}", t as i64),
                     font_size: self.config.time_font_size,
