@@ -42,6 +42,14 @@ impl ObjectDiagram {
 pub struct Object {
     /// Имя объекта (например, "user1" или "user1 : User")
     pub name: String,
+    /// Отображаемое имя из формы `object "Имя" as псевдоним`.
+    ///
+    /// PlantUML разрешает подписать объект произвольно и дать ему короткий
+    /// псевдоним: в тексте рисуется `Имя`, а связи ссылаются на псевдоним.
+    /// Без этого поля `object "Пользователь" as u1` терял псевдоним, и
+    /// связь `u1 --> o1` не находила ни одного конца.
+    #[serde(default)]
+    pub display: Option<String>,
     /// Тип/класс объекта (опционально)
     pub class_name: Option<String>,
     /// Значения полей
@@ -57,6 +65,7 @@ impl Object {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
+            display: None,
             class_name: None,
             fields: Vec::new(),
             stereotype: None,
@@ -68,6 +77,7 @@ impl Object {
     pub fn with_class(name: impl Into<String>, class_name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
+            display: None,
             class_name: Some(class_name.into()),
             fields: Vec::new(),
             stereotype: None,
@@ -80,11 +90,14 @@ impl Object {
         self.fields.push(field);
     }
 
-    /// Возвращает полное имя для отображения (name : ClassName)
+    /// Возвращает полное имя для отображения (name : ClassName).
+    ///
+    /// Если задан псевдоним, рисуется подпись из `display`, а не он сам.
     pub fn display_name(&self) -> String {
+        let base = self.display.clone().unwrap_or_else(|| self.name.clone());
         match &self.class_name {
-            Some(class) => format!("{} : {}", self.name, class),
-            None => self.name.clone(),
+            Some(class) => format!("{base} : {class}"),
+            None => base,
         }
     }
 }

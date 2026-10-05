@@ -79,6 +79,7 @@ fn parse_object_def(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
 /// Парсит объект с телом
 fn parse_object_with_body(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
     let mut name = String::new();
+    let mut display: Option<String> = None;
     let mut class_name: Option<String> = None;
     let mut stereotype: Option<Stereotype> = None;
     let mut fields = Vec::new();
@@ -87,6 +88,10 @@ fn parse_object_with_body(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
         match inner.as_rule() {
             Rule::object_name => {
                 name = extract_name(inner);
+            }
+            Rule::alias_part => {
+                display = Some(std::mem::take(&mut name));
+                name = extract_alias(inner);
             }
             Rule::class_part => {
                 class_name = extract_class_name(inner);
@@ -107,6 +112,7 @@ fn parse_object_with_body(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
 
     Some(Object {
         name,
+        display,
         class_name,
         fields,
         stereotype,
@@ -117,6 +123,7 @@ fn parse_object_with_body(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
 /// Парсит простой объект (без тела)
 fn parse_object_simple(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
     let mut name = String::new();
+    let mut display: Option<String> = None;
     let mut class_name: Option<String> = None;
     let mut stereotype: Option<Stereotype> = None;
 
@@ -124,6 +131,10 @@ fn parse_object_simple(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
         match inner.as_rule() {
             Rule::object_name => {
                 name = extract_name(inner);
+            }
+            Rule::alias_part => {
+                display = Some(std::mem::take(&mut name));
+                name = extract_alias(inner);
             }
             Rule::class_part => {
                 class_name = extract_class_name(inner);
@@ -141,6 +152,7 @@ fn parse_object_simple(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
 
     Some(Object {
         name,
+        display,
         class_name,
         fields: Vec::new(),
         stereotype,
@@ -190,12 +202,17 @@ fn parse_field_def(pair: pest::iterators::Pair<Rule>) -> Option<ObjectField> {
 /// Парсит map (ассоциативный массив) как объект
 fn parse_map_def(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
     let mut name = String::new();
+    let mut display: Option<String> = None;
     let mut fields = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::object_name => {
                 name = extract_name(inner);
+            }
+            Rule::alias_part => {
+                display = Some(std::mem::take(&mut name));
+                name = extract_alias(inner);
             }
             Rule::map_body => {
                 fields = parse_map_body(inner);
@@ -210,6 +227,7 @@ fn parse_map_def(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
 
     Some(Object {
         name,
+        display,
         class_name: Some("Map".to_string()),
         fields,
         stereotype: None,
@@ -379,6 +397,24 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
     }
 
     text
+}
+
+/// Возвращает псевдоним из формы `as псевдоним`.
+///
+/// `alias_part` — это `ws+ ~ "as" ~ ws+ ~ simple_identifier`; значение
+/// лежит во вложенном правиле `simple_identifier`.
+fn extract_alias(pair: pest::iterators::Pair<Rule>) -> String {
+    let text = pair.as_str().trim().to_string();
+
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::simple_identifier {
+            return inner.as_str().to_string();
+        }
+    }
+
+    // Запасной путь: правило состоит из одного идентификатора, поэтому
+    // достаточно отбросить ключевое слово.
+    text.trim_start_matches("as").trim().to_string()
 }
 
 fn extract_class_name(pair: pest::iterators::Pair<Rule>) -> Option<String> {

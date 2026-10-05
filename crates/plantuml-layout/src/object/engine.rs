@@ -11,6 +11,30 @@ const OBJECT_BASE_WIDTH: f64 = 12.41;
 /// Прибавка к ширине объекта на каждый символ имени.
 const OBJECT_CHAR_WIDTH: f64 = 8.724;
 
+/// Высота полосы имени объекта.
+///
+/// Эталон `object_basic`: рамка 36.3 высотой, подчёркивание имени — на
+/// `y+20.3`, то есть имя занимает верхнюю полосу и не центрируется по
+/// всей рамке.
+const OBJECT_NAME_BAND: f64 = 20.3;
+
+/// Цвет заливки объекта (эталон `object_basic`: `#F1F1F1`, а не тема).
+const OBJECT_BACKGROUND: &str = "#F1F1F1";
+
+/// Радиус скругления рамки объекта (эталон `object_basic`: `rx=2.5`).
+const OBJECT_CORNER_RADIUS: f64 = 2.5;
+
+/// Отступ подписи от левого края рамки (эталон `object_basic`: 14 при x=7).
+const OBJECT_TEXT_INSET: f64 = 7.0;
+
+/// Кегль подписи объекта (эталон `object_basic`: `font-size="14"`).
+const OBJECT_NAME_FONT_SIZE: f64 = 14.0;
+
+/// Насколько базис подписи выше конца полосы имени.
+///
+/// Эталон `object_basic`: полоса кончается на `y+20.3`, базис — на `y+15`.
+const OBJECT_NAME_BASELINE_INSET: f64 = 5.3;
+
 use super::ObjectLayoutConfig;
 use crate::traits::LayoutResult;
 use crate::{EdgeType, ElementType, LayoutElement};
@@ -44,10 +68,26 @@ impl ObjectLayoutEngine {
         // (138x170) оба объекта стоят на разных y (7 и 120.29), а не в ряд.
         // Раньше использовалась сетка по 4 в ряд, из-за чего диаграмма
         // получалась широкой и низкой (350x70 против 138x170).
-        let objects_per_row = 1;
-        let mut x = self.config.padding;
+        //
+        // Ширина объекта зависит от длины имени: измерено по эталону
+        // («Пользователь», 12 символов — 117.1; «Заказ», 5 — 56.034),
+        // отсюда ширина ≈ 12.41 + 8.724 * n.
+        let widths: Vec<f64> = diagram
+            .objects
+            .iter()
+            .map(|object| {
+                OBJECT_BASE_WIDTH + OBJECT_CHAR_WIDTH * object.display_name().chars().count() as f64
+            })
+            .collect();
+        let max_width = widths.iter().cloned().fold(0.0_f64, f64::max);
+
+        // PlantUML выравнивает объекты по ОБЩЕЙ вертикальной оси: в эталоне
+        // `object_basic` центры «Пользователь» и «Заказ» совпадают
+        // (65.55), хотя ширины рамок разные (117.1 и 56.03). Без этого
+        // связь между ними шла по диагонали вместо вертикали.
+        let diagram_width = max_width + self.config.padding * 2.0;
+
         let mut y = self.config.padding;
-        let mut row_max_height = 0.0f64;
         let mut max_x = 0.0f64;
         let mut max_y = 0.0f64;
 
@@ -59,26 +99,73 @@ impl ObjectLayoutEngine {
 
             // Определяем заголовок (с подчёркиванием как в UML)
             let display_name = object.display_name();
+            let obj_width = widths[i];
 
-            // Ширина объекта зависит от длины имени: измерено по эталону
-            // («Пользователь», 12 символов — 117.1; «Заказ», 5 — 56.034),
-            // отсюда ширина ≈ 12.41 + 8.724 * n.
-            let obj_width =
-                OBJECT_BASE_WIDTH + OBJECT_CHAR_WIDTH * display_name.chars().count() as f64;
-
-            // Создаём bounds
+            // Создаём bounds: объект центрируется по общей оси диаграммы
+            let x = (diagram_width - obj_width) / 2.0;
             let bounds = Rect::new(x, y, obj_width, object_height);
             object_positions.insert(object.name.clone(), bounds);
 
-            // Создаём element для объекта
+            // Создаём element для объекта.
+            //
+            // Подпись рисуется ОТДЕЛЬНЫМ текстом, а не меткой рамки: у
+            // PlantUML имя стоит в верхней полосе высотой 20.3 и подчёркнуто,
+            // тогда как `render_rectangle` центрирует метку по всей рамке.
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("fill".to_string(), OBJECT_BACKGROUND.to_string());
+            properties.insert("rx".to_string(), OBJECT_CORNER_RADIUS.to_string());
+
             elements.push(LayoutElement {
                 id: format!("object_{}", object.name),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: properties.clone(),
                 element_type: ElementType::Rectangle {
-                    label: display_name,
-                    corner_radius: 0.0, // Объекты без скруглённых углов
+                    label: String::new(),
+                    corner_radius: OBJECT_CORNER_RADIUS,
+                },
+            });
+
+            // Ширина подписи — по метрикам шрифта, а не по рамке: иначе
+            // габарит диаграммы вырастал на отступ подписи.
+            let name_width =
+                crate::text::TextMeasurer::default().width(&display_name, OBJECT_NAME_FONT_SIZE);
+
+            // Имя: слева с отступом 7, базис — рамка плюс 15 (кегль 14).
+            elements.push(LayoutElement {
+                id: format!("object_name_{}", object.name),
+                bounds: Rect::new(
+                    x + OBJECT_TEXT_INSET,
+                    y + OBJECT_NAME_BAND - OBJECT_NAME_FONT_SIZE - OBJECT_NAME_BASELINE_INSET,
+                    name_width,
+                    OBJECT_NAME_FONT_SIZE,
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Text {
+                    text: display_name.clone(),
+                    font_size: OBJECT_NAME_FONT_SIZE,
+                },
+            });
+
+            // Подчёркивание имени: от левого края плюс 1 до правого минус 1.
+            elements.push(LayoutElement {
+                id: format!("object_underline_{}", object.name),
+                bounds: Rect::new(x + 1.0, y + OBJECT_NAME_BAND, obj_width - 2.0, 0.0),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
+                    points: vec![
+                        Point::new(x + 1.0, y + OBJECT_NAME_BAND),
+                        Point::new(x + obj_width - 1.0, y + OBJECT_NAME_BAND),
+                    ],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
                 },
             });
 
@@ -104,18 +191,15 @@ impl ObjectLayoutEngine {
                 });
             }
 
-            row_max_height = row_max_height.max(object_height);
-            max_x = max_x.max(x + self.config.object_width);
+            // Габарит считается по ФАКТИЧЕСКОЙ рамке: `config.object_width`
+            // — это лишь значение по умолчанию, а ширина каждого объекта
+            // выводится из длины имени.
+            max_x = max_x.max(x + obj_width);
             max_y = max_y.max(y + object_height);
 
-            // Переход к следующей позиции
-            if (i + 1) % objects_per_row == 0 {
-                x = self.config.padding;
-                y += row_max_height + self.config.vertical_spacing;
-                row_max_height = 0.0;
-            } else {
-                x += self.config.object_width + self.config.horizontal_spacing;
-            }
+            // Объекты идут по одному в строке: PlantUML расставляет их
+            // вертикально (эталон `object_basic` — 138x170).
+            y += object_height + self.config.vertical_spacing;
         }
 
         // 2. Добавляем связи
