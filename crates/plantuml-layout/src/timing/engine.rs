@@ -4,7 +4,9 @@
 
 use std::collections::HashMap;
 
-use plantuml_ast::timing::{ParticipantType, StateChange, TimeValue, TimingDiagram};
+use plantuml_ast::timing::{
+    ParticipantType, StateChange, TimeValue, TimingDiagram, TimingParticipant,
+};
 use plantuml_model::{Point, Rect};
 
 use super::TimingLayoutConfig;
@@ -23,6 +25,23 @@ const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
 /// PlantUML рисует ВСЕ подписи timing цветом `#333`, тогда как остальные
 /// типы диаграмм используют `#000`. Проверено по эталону: все восемь
 /// текстовых элементов имеют `fill="#333"`.
+/// Отступ подписи дорожки от её левого края.
+///
+/// Измерено по эталону `timing_basic`: дорожка начинается на x = 20,
+/// а подпись стоит на x = 25.
+const TIMING_LABEL_INSET: f64 = 5.0;
+
+/// Высота дорожки `robust`.
+///
+/// Измерено по эталону `timing_basic`: дорожка занимает 20.000..85.297.
+const ROBUST_LANE_HEIGHT: f64 = 65.297;
+
+/// Высота дорожки `concise`.
+///
+/// Измерено по эталону: 85.297..141.594. Дорожки РАЗНОЙ высоты, поэтому
+/// единая `lane_height` давала ось на y = 150 вместо 141.594.
+const CONCISE_LANE_HEIGHT: f64 = 56.297;
+
 const TIMING_TEXT_COLOR: &str = "#333";
 
 /// Цвет перехода состояния в concise-дорожках (эталон: `stroke:#006400`).
@@ -137,19 +156,41 @@ impl TimingLayoutEngine {
             + (events.saturating_sub(1)) as f64 * TIME_TICK_STEP
             + TIME_AXIS_TAIL;
 
+        // Высоты дорожек зависят от типа: в эталоне robust занимает
+        // 65.297, а concise — 56.297, поэтому позиции считаются
+        // накопительно, а не умножением на общую высоту.
+        let lane_heights: Vec<f64> = diagram
+            .participants
+            .iter()
+            .map(|participant| self.lane_height_of(participant))
+            .collect();
+        let mut lane_tops: Vec<f64> = Vec::with_capacity(lane_heights.len());
+        let mut running_y = self.config.padding;
+        for height in &lane_heights {
+            lane_tops.push(running_y);
+            running_y += height + self.config.lane_spacing;
+        }
+
         for (i, participant) in diagram.participants.iter().enumerate() {
-            let lane_y = self.config.padding
-                + (i as f64) * (self.config.lane_height + self.config.lane_spacing);
+            let lane_y = lane_tops[i];
+            let lane_height = lane_heights[i];
 
             // Метка участника
-            let display_name = participant.alias.as_deref().unwrap_or(&participant.name);
+            // PlantUML показывает ОТОБРАЖАЕМОЕ имя, а не псевдоним:
+            // `robust "Веб-браузер" as WB` подписывает дорожку «Веб-браузер».
+            // Здесь приоритет был обратным, и в вывод попадало «WB».
+            let display_name = if participant.name.is_empty() {
+                participant.alias.as_deref().unwrap_or(&participant.name)
+            } else {
+                &participant.name
+            };
             elements.push(LayoutElement {
                 id: format!("participant_label_{}", i),
                 bounds: Rect::new(
-                    self.config.padding,
+                    self.config.padding + TIMING_LABEL_INSET,
                     lane_y,
                     self.config.participant_label_width - 10.0,
-                    self.config.lane_height,
+                    lane_height,
                 ),
                 text: None,
                 properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
@@ -169,6 +210,7 @@ impl TimingLayoutEngine {
                         i,
                         &participant.name,
                         lane_y,
+                        lane_height,
                         timeline_start_x,
                         timeline_width,
                         min_time,
@@ -181,6 +223,7 @@ impl TimingLayoutEngine {
                         i,
                         &participant.name,
                         lane_y,
+                        lane_height,
                         timeline_start_x,
                         timeline_width,
                         min_time,
@@ -192,6 +235,7 @@ impl TimingLayoutEngine {
                         &mut elements,
                         i,
                         lane_y,
+                        lane_height,
                         timeline_start_x,
                         timeline_width,
                     );
@@ -200,11 +244,27 @@ impl TimingLayoutEngine {
         }
 
         // 5. Рисуем временную ось внизу
-        let axis_y = self.config.padding
-            + (diagram.participants.len() as f64)
-                * (self.config.lane_height + self.config.lane_spacing);
+        let axis_y = lane_tops
+            .last()
+            .map(|last| last + lane_heights.last().copied().unwrap_or(0.0))
+            .unwrap_or(self.config.padding)
+            + self.config.lane_spacing;
 
         self.draw_time_axis(
+            &mut elements,
+            diagram,
+            timeline_start_x,
+            axis_y,
+            timeline_width,
+        );
+
+        // РАМКА диаграммы.
+        //
+        // Эталон рисует вертикали по краям дорожек и горизонтали сверху
+        // и между дорожками. Без них наш контент был на 10px уже:
+        // крайние точки рамки (x = 20 и x = 196.732) как раз задают
+        // границы содержимого.
+        self.draw_frame_lines(
             &mut elements,
             diagram,
             timeline_start_x,
@@ -341,12 +401,13 @@ impl TimingLayoutEngine {
         participant_idx: usize,
         participant_name: &str,
         lane_y: f64,
+        lane_height: f64,
         start_x: f64,
         _width: f64,
         _min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
-        let state_y = lane_y + (self.config.lane_height - self.config.robust_state_height) / 2.0;
+        let state_y = lane_y + (lane_height - self.config.robust_state_height) / 2.0;
 
         // Позиция = начало шкалы + ИНДЕКС события * шаг деления.
         //
@@ -404,12 +465,13 @@ impl TimingLayoutEngine {
         participant_idx: usize,
         participant_name: &str,
         lane_y: f64,
+        lane_height: f64,
         start_x: f64,
         width: f64,
         _min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
-        let line_y = lane_y + self.config.lane_height / 2.0;
+        let line_y = lane_y + lane_height / 2.0;
 
         // Базовая линия
         elements.push(LayoutElement {
@@ -505,11 +567,12 @@ impl TimingLayoutEngine {
         elements: &mut Vec<LayoutElement>,
         participant_idx: usize,
         lane_y: f64,
+        lane_height: f64,
         start_x: f64,
         width: f64,
     ) {
         let high_y = lane_y + 10.0;
-        let low_y = lane_y + self.config.lane_height - 10.0;
+        let low_y = lane_y + lane_height - 10.0;
         let period = 40.0; // Период clock
 
         let mut points = Vec::new();
@@ -652,6 +715,78 @@ impl TimingLayoutEngine {
                     font_size: self.config.time_font_size,
                 },
             });
+        }
+    }
+    /// Рисует рамку диаграммы времени: вертикали по краям дорожек,
+    /// горизонталь сверху и разделители между дорожками.
+    ///
+    /// Измерено по эталону `timing_basic`: левая вертикаль на x = 20,
+    /// правая на x = 196.732, верхняя горизонталь на y = 20,
+    /// разделитель дорожек на y = 85.297.
+    fn draw_frame_lines(
+        &self,
+        elements: &mut Vec<LayoutElement>,
+        diagram: &TimingDiagram,
+        timeline_start_x: f64,
+        axis_y: f64,
+        timeline_width: f64,
+    ) {
+        let left = self.config.padding;
+        let right = timeline_start_x + timeline_width;
+        let top = self.config.padding;
+        let mut push_line = |x1: f64, y1: f64, x2: f64, y2: f64| {
+            elements.push(LayoutElement {
+                id: format!("timing_frame_{}", elements.len()),
+                bounds: Rect::new(
+                    x1.min(x2),
+                    y1.min(y2),
+                    (x2 - x1).abs().max(1.0),
+                    (y2 - y1).abs().max(1.0),
+                ),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Edge {
+                    points: vec![Point::new(x1, y1), Point::new(x2, y2)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+        };
+
+        // Верхняя горизонталь и вертикали по краям.
+        push_line(left, top, right, top);
+        push_line(left, top, left, axis_y);
+        push_line(right, top, right, axis_y);
+
+        // Разделители между дорожками — по накопительным высотам,
+        // потому что дорожки разной высоты.
+        let mut y = top;
+        for participant in diagram
+            .participants
+            .iter()
+            .take(diagram.participants.len().saturating_sub(1))
+        {
+            y += self.lane_height_of(participant) + self.config.lane_spacing;
+            push_line(left, y, right, y);
+        }
+    }
+
+    /// Высота дорожки участника.
+    ///
+    /// В эталоне `timing_basic` дорожки РАЗНОЙ высоты: robust занимает
+    /// 65.297, concise — 56.297. Единая высота давала ось на y = 150
+    /// вместо эталонных 141.594.
+    fn lane_height_of(&self, participant: &TimingParticipant) -> f64 {
+        match participant.participant_type {
+            ParticipantType::Robust => ROBUST_LANE_HEIGHT,
+            ParticipantType::Concise | ParticipantType::Binary | ParticipantType::Clock => {
+                CONCISE_LANE_HEIGHT
+            }
         }
     }
 }
