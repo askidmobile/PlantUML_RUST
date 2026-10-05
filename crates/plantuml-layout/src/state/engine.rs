@@ -26,6 +26,11 @@ pub struct StateLayoutEngine {
     config: StateLayoutConfig,
 }
 
+/// Насколько конечный узел UML больше начального.
+///
+/// Эталон `state_simple`: начальный `[*]` — `rx=10`, конечный — `rx=11`.
+const FINAL_NODE_RADIUS_EXTRA: f64 = 1.0;
+
 /// Внутренние идентификаторы для [*]
 const INITIAL_STATE_ID: &str = "[*]_initial";
 const FINAL_STATE_ID: &str = "[*]_final";
@@ -632,7 +637,9 @@ impl StateLayoutEngine {
                 )
             }
             StateType::Final => {
-                let r = 8.0;
+                // Конечный узел на 1px больше начального — как в PlantUML
+                // (эталон `state_simple`: начальный `rx=10`, конечный `rx=11`).
+                let r = 8.0 + FINAL_NODE_RADIUS_EXTRA;
                 let cx = x + width / 2.0;
                 let cy = y + r;
                 let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
@@ -929,10 +936,14 @@ impl StateLayoutEngine {
 
     /// Создаёт конечное состояние
     fn create_final_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let r = self.config.node_radius;
-        // x уже указывает на левый край области для элемента
-        let cx = x + r;
-        let cy = y + r;
+        // Конечный узел на 1px больше начального — как в PlantUML
+        // (эталон `state_simple`: начальный `rx=10`, конечный `rx=11`).
+        let r = self.config.node_radius + FINAL_NODE_RADIUS_EXTRA;
+        // x уже указывает на левый край области для элемента.
+        // Центр остаётся в середине ВЫДЕЛЕННОЙ ячейки (`node_radius * 2`),
+        // иначе узел на 1px больше сдвигал бы диаграмму вправо-вниз.
+        let cx = x + self.config.node_radius;
+        let cy = y + self.config.node_radius;
 
         let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
 

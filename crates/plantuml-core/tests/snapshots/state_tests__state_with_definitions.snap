@@ -4,10 +4,10 @@ assertion_line: 50
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="367px" preserveAspectRatio="none" style="width:201px;height:367px;background:#FFFFFF;" version="1.1" viewBox="7 7 201 367" width="201px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="368px" preserveAspectRatio="none" style="width:201px;height:368px;background:#FFFFFF;" version="1.1" viewBox="7 7 201 368" width="201px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
+<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
 </marker>
 <marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
@@ -24,7 +24,7 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="initial_initial">
-<ellipse cx="96.5" cy="17" fill="#181818" rx="10" ry="10" stroke="none"/>
+<ellipse cx="96.5" cy="17" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
 </g>
 <g id="composite_Active">
 <rect fill="#E2E2F0" height="184" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="179" x="7" y="88"/>
@@ -54,14 +54,14 @@ Waiting
 <path d="M141.5,225.5 L156.5,225.5 L156.5,164.5 L141.5,164.5" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="final_final">
-<ellipse cx="96.5" cy="343" fill="#FFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
-<ellipse cx="96.5" cy="343" fill="#181818" rx="6" ry="6" stroke="none"/>
+<ellipse cx="96.5" cy="343" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="96.5" cy="343" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="trans_initial_Active">
 <path d="M96.5,27 L96.5,88" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="trans_Active_final">
-<path d="M96.5,272 L96.5,333" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M96.5,272 L96.5,332" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 </g>
 </svg>

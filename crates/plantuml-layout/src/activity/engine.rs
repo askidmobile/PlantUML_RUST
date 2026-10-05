@@ -27,6 +27,36 @@ const MERGE_DIAMOND_GAP: f64 = 6.0;
 /// Насколько конечный узел больше начального (измерено по эталону).
 const END_RADIUS_EXTRA: f64 = 1.0;
 
+/// Цвет заливки фигур activity.
+///
+/// PlantUML заливает действия, шестиугольник условия и ромб слияния
+/// одним цветом `#F1F1F1` — он светлее темы `node_background`
+/// (`#E2E2F0`), поэтому цвет передаётся свойством.
+const ACTIVITY_SHAPE_BACKGROUND: &str = "#F1F1F1";
+
+/// Радиус скругления действий (эталон `activity_basic`: `rx=12.5`).
+const ACTIVITY_ACTION_CORNER_RADIUS: f64 = 12.5;
+
+/// Кегль подписей действий.
+///
+/// Эталон `activity_basic` рисует «Первый шаг» 12-м кеглем; тема даёт 14,
+/// из-за чего подписи выходили на 16 % крупнее эталонных.
+const ACTIVITY_ACTION_FONT_SIZE: f64 = 12.0;
+
+/// Кегль подписей условия и ветвлений («да», «нет»).
+const ACTIVITY_LABEL_FONT_SIZE: f64 = 11.0;
+
+/// Срез боковых вершин шестиугольника условия.
+///
+/// Эталон `activity_basic`: шестиугольник `68.9..139.8` при плоской
+/// верхней грани `80.9..127.8`, то есть срез по 12 с каждой стороны.
+const CONDITION_CORNER_CUT: f64 = 12.0;
+
+/// Насколько базис подписи ветвления выше плеча излома.
+///
+/// Эталон `activity_basic`: плечо на `y=120.97`, базис «да» — `118.38`.
+const BRANCH_LABEL_BASELINE_OFFSET: f64 = 2.62;
+
 use super::config::ActivityLayoutConfig;
 
 /// Цвет заметки в PlantUML — светло-жёлтый.
@@ -77,6 +107,168 @@ impl ActivityLayoutEngine {
     /// Создаёт engine с заданной конфигурацией
     pub fn with_config(config: ActivityLayoutConfig) -> Self {
         Self { config }
+    }
+
+    /// Свойства фигуры activity: заливка, скругление и кегль подписи.    ///
+    /// `render_rectangle` читает эти свойства, поэтому движку достаточно
+    /// пометить элемент — отдельная ветка рендеринга не нужна.
+    fn shape_properties(font_size: f64) -> HashMap<String, String> {
+        let mut properties = HashMap::new();
+        properties.insert("fill".to_string(), ACTIVITY_SHAPE_BACKGROUND.to_string());
+        properties.insert("rx".to_string(), ACTIVITY_ACTION_CORNER_RADIUS.to_string());
+        properties.insert("font-size".to_string(), font_size.to_string());
+        properties
+    }
+
+    /// Геометрия шестиугольника условия.
+    ///
+    /// PlantUML рисует условие `if` плоским сверху и снизу, а боковые
+    /// вершины срезает: ширина зависит от подписи, высота фиксирована.
+    /// Возвращает ширину и вершины в локальных координатах фигуры.
+    fn condition_shape(&self, condition: &str) -> (f64, Vec<Point>) {
+        let text_width = self.config.text.width(condition, ACTIVITY_LABEL_FONT_SIZE);
+        let cut = CONDITION_CORNER_CUT;
+        let height = self.config.diamond_height;
+        let width = (text_width + cut * 2.0).max(cut * 4.0);
+
+        let points = vec![
+            Point::new(cut, 0.0),
+            Point::new(width - cut, 0.0),
+            Point::new(width, height / 2.0),
+            Point::new(width - cut, height),
+            Point::new(cut, height),
+            Point::new(0.0, height / 2.0),
+        ];
+
+        (width, points)
+    }
+
+    /// Добавляет ромб условия (шестиугольник) с подписью внутри.
+    fn add_condition_shape(
+        &self,
+        condition: &str,
+        center_x: f64,
+        top_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let (width, points) = self.condition_shape(condition);
+        let height = self.config.diamond_height;
+
+        elements.push(LayoutElement {
+            id: format!("condition_{}", elements.len()),
+            bounds: Rect::new(center_x - width / 2.0, top_y, width, height),
+            text: None,
+            properties: Self::shape_properties(ACTIVITY_LABEL_FONT_SIZE),
+            element_type: ElementType::Polygon {
+                points,
+                label: Some(condition.to_string()),
+                font_size: ACTIVITY_LABEL_FONT_SIZE,
+            },
+        });
+
+        width
+    }
+
+    /// Добавляет подпись ветвления над плечом излома.
+    ///
+    /// PlantUML прижимает подпись к боковой вершине шестиугольника:
+    /// «да» кончается на левой вершине, «нет» начинается на правой
+    /// (эталон `activity_basic`).
+    fn add_branch_label(
+        &self,
+        label: &str,
+        anchor_x: f64,
+        line_y: f64,
+        align_end: bool,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        let width = self.config.text.width(label, ACTIVITY_LABEL_FONT_SIZE);
+        let x = if align_end {
+            anchor_x - width
+        } else {
+            anchor_x
+        };
+
+        elements.push(LayoutElement {
+            id: format!("branch_label_{}", elements.len()),
+            bounds: Rect::new(
+                x,
+                line_y - BRANCH_LABEL_BASELINE_OFFSET - ACTIVITY_LABEL_FONT_SIZE,
+                width,
+                ACTIVITY_LABEL_FONT_SIZE,
+            ),
+            text: None,
+            properties: HashMap::new(),
+            element_type: ElementType::Text {
+                text: label.to_string(),
+                font_size: ACTIVITY_LABEL_FONT_SIZE,
+            },
+        });
+    }
+
+    /// Добавляет стрелку с одним изломом (горизонталь, затем вертикаль).
+    ///
+    /// PlantUML не соединяет ветви с условием по диагонали: эталон
+    /// `activity_basic` даёт две отдельные линии —
+    /// `(68.86,120.97)-(54.34,120.97)` и `(54.34,120.97)-(54.34,142.97)`.
+    fn add_elbow_arrow(&self, points: Vec<Point>, elements: &mut Vec<LayoutElement>) {
+        let xs: Vec<f64> = points.iter().map(|p| p.x).collect();
+        let ys: Vec<f64> = points.iter().map(|p| p.y).collect();
+        let min_x = xs.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max_x = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min_y = ys.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max_y = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+        elements.push(LayoutElement {
+            id: format!("elbow_{}", elements.len()),
+            bounds: Rect::new(
+                min_x,
+                min_y,
+                (max_x - min_x).max(1.0),
+                (max_y - min_y).max(1.0),
+            ),
+            text: None,
+            properties: HashMap::new(),
+            element_type: ElementType::Edge {
+                points,
+                label: None,
+                arrow_start: false,
+                arrow_end: true,
+                dashed: false,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
+            },
+        });
+    }
+
+    /// Раскладывает тело ветви условия.
+    ///
+    /// Отличие от последовательного вызова `layout_element` в одном:
+    /// последнее действие ветви не рисует стрелку «вниз». PlantUML ведёт
+    /// поток от конца ветви прямо в ромб слияния, поэтому без этой
+    /// поправки из-под излома торчал хвост длиной в `vertical_spacing`.
+    fn layout_branch_body(
+        &self,
+        body: &[ActivityElement],
+        center_x: f64,
+        start_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) -> f64 {
+        let mut y = start_y;
+        for elem in body {
+            y = self.layout_element(elem, center_x, y, elements);
+        }
+
+        let is_plain_tail = elements.last().is_some_and(|element| {
+            element.id.starts_with("arrow_")
+                && matches!(&element.element_type, ElementType::Edge { points, .. } if points.len() == 2)
+        });
+        if is_plain_tail {
+            elements.pop();
+        }
+
+        y
     }
 
     /// Выполняет layout диаграммы
@@ -173,7 +365,9 @@ impl ActivityLayoutEngine {
                         bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
                         text: None,
                         properties: std::collections::HashMap::new(),
-                        element_type: ElementType::Ellipse { label: None },
+                        // PlantUML заливает начальный узел чёрным: пустой
+                        // круг в эталоне `activity_basic` — ошибка.
+                        element_type: ElementType::InitialState,
                     });
                     (r * 2.0, true)
                 }
@@ -225,32 +419,30 @@ impl ActivityLayoutEngine {
                 ActivityElement::Stop => {
                     // Конечный узел на 1px больше начального: в эталоне
                     // activity_basic начальный круг имеет rx=10, конечный —
-                    // rx=11. Раньше оба использовали node_radius.
+                    // rx=11. PlantUML рисует его «яблочком»: внешнее кольцо
+                    // без заливки плюс внутренний залитый круг.
                     let r = self.config.node_radius + END_RADIUS_EXTRA;
                     elements.push(LayoutElement {
                         id: format!("stop_{}", elements.len()),
                         bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
                         text: None,
                         properties: std::collections::HashMap::new(),
-                        element_type: ElementType::Ellipse {
-                            label: Some("●".to_string()),
-                        },
+                        element_type: ElementType::FinalState,
                     });
                     (r * 2.0, false) // Stop не требует стрелки после
                 }
                 ActivityElement::End => {
                     // Конечный узел на 1px больше начального: в эталоне
                     // activity_basic начальный круг имеет rx=10, конечный —
-                    // rx=11. Раньше оба использовали node_radius.
+                    // rx=11. PlantUML рисует его «яблочком»: внешнее кольцо
+                    // без заливки плюс внутренний залитый круг.
                     let r = self.config.node_radius + END_RADIUS_EXTRA;
                     elements.push(LayoutElement {
                         id: format!("end_{}", elements.len()),
                         bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
                         text: None,
                         properties: std::collections::HashMap::new(),
-                        element_type: ElementType::Ellipse {
-                            label: Some("●".to_string()),
-                        },
+                        element_type: ElementType::FinalState,
                     });
                     (r * 2.0, false)
                 }
@@ -265,7 +457,7 @@ impl ActivityLayoutEngine {
                         id: format!("action_{}", elements.len()),
                         bounds: Rect::new(center_x - w / 2.0, current_y, w, h),
                         text: None,
-                        properties: std::collections::HashMap::new(),
+                        properties: Self::shape_properties(ACTIVITY_ACTION_FONT_SIZE),
                         element_type: ElementType::Rectangle {
                             label: action.label.clone(),
                             corner_radius: self.config.action_corner_radius,
@@ -638,7 +830,7 @@ impl ActivityLayoutEngine {
             bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
             text: None,
             properties: std::collections::HashMap::new(),
-            element_type: ElementType::Ellipse { label: None },
+            element_type: ElementType::InitialState,
         });
 
         let next_y = current_y + r * 2.0 + self.config.vertical_spacing;
@@ -658,16 +850,15 @@ impl ActivityLayoutEngine {
 
     /// Располагает конечный узел (filled circle with ring)
     fn layout_stop(&self, center_x: f64, current_y: f64, elements: &mut Vec<LayoutElement>) -> f64 {
-        let r = self.config.node_radius;
+        // Конечный узел на 1px больше начального — см. `ActivityElement::Stop`.
+        let r = self.config.node_radius + END_RADIUS_EXTRA;
 
         elements.push(LayoutElement {
             id: format!("stop_{}", elements.len()),
             bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
             text: None,
             properties: std::collections::HashMap::new(),
-            element_type: ElementType::Ellipse {
-                label: Some("●".to_string()), // Внутренний круг
-            },
+            element_type: ElementType::FinalState,
         });
 
         current_y + r * 2.0 + self.config.vertical_spacing
@@ -694,7 +885,7 @@ impl ActivityLayoutEngine {
             id: format!("action_{}", elements.len()),
             bounds: Rect::new(center_x - w / 2.0, current_y, w, h),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties: Self::shape_properties(ACTIVITY_ACTION_FONT_SIZE),
             element_type: ElementType::Rectangle {
                 label: action.label.clone(),
                 corner_radius: self.config.action_corner_radius,
@@ -717,41 +908,34 @@ impl ActivityLayoutEngine {
         current_y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
-        let dw = self.config.diamond_width;
         let dh = self.config.diamond_height;
 
-        // Ромб условия
-        elements.push(LayoutElement {
-            id: format!("diamond_{}", elements.len()),
-            bounds: Rect::new(center_x - dw / 2.0, current_y, dw, dh),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text: cond.condition.clone(),
-                font_size: 12.0,
-            },
-        });
+        // Шестиугольник условия: ширина зависит от подписи.
+        let dw = self.add_condition_shape(&cond.condition, center_x, current_y, elements);
 
         let after_diamond = current_y + dh + self.config.vertical_spacing / 2.0;
         let branch_start_y = after_diamond;
+        let mid_y = current_y + dh / 2.0;
 
         // Then branch (left)
         let left_x = center_x - self.config.horizontal_spacing;
         let mut then_end_y = branch_start_y;
 
-        // Стрелка от ромба влево + вниз
-        self.add_arrow(
-            center_x - dw / 2.0,
-            current_y + dh / 2.0,
-            left_x,
-            branch_start_y,
-            cond.then_label.clone(),
+        // Стрелка от условия влево + вниз (излом, а не диагональ).
+        self.add_elbow_arrow(
+            vec![
+                Point::new(center_x - dw / 2.0, mid_y),
+                Point::new(left_x, mid_y),
+                Point::new(left_x, branch_start_y),
+            ],
             elements,
         );
 
-        for elem in &cond.then_branch {
-            then_end_y = self.layout_element(elem, left_x, then_end_y, elements);
+        if let Some(label) = &cond.then_label {
+            self.add_branch_label(label, center_x - dw / 2.0, mid_y, true, elements);
         }
+
+        then_end_y = self.layout_branch_body(&cond.then_branch, left_x, then_end_y, elements);
 
         // Ветки elseif: раньше они полностью игнорировались — поле
         // `elseif_branches` не читалось нигде, поэтому `if / elseif / else`
@@ -761,20 +945,24 @@ impl ActivityLayoutEngine {
         for (i, branch) in cond.elseif_branches.iter().enumerate() {
             let branch_x = center_x + self.config.horizontal_spacing * (i as f64 + 1.0);
 
-            // Стрелка от ромба к ветке с её условием
-            self.add_arrow(
+            // Стрелка от условия к ветке с её подписью
+            self.add_elbow_arrow(
+                vec![
+                    Point::new(center_x + dw / 2.0, mid_y),
+                    Point::new(branch_x, mid_y),
+                    Point::new(branch_x, branch_start_y),
+                ],
+                elements,
+            );
+            self.add_branch_label(
+                &branch.condition,
                 center_x + dw / 2.0,
-                current_y + dh / 2.0,
-                branch_x,
-                branch_start_y,
-                Some(branch.condition.clone()),
+                mid_y,
+                false,
                 elements,
             );
 
-            let mut y = branch_start_y;
-            for elem in &branch.elements {
-                y = self.layout_element(elem, branch_x, y, elements);
-            }
+            let y = self.layout_branch_body(&branch.elements, branch_x, branch_start_y, elements);
             elseif_end_y = elseif_end_y.max(y);
         }
 
@@ -785,19 +973,20 @@ impl ActivityLayoutEngine {
             let right_x = center_x
                 + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
 
-            // Стрелка от ромба вправо + вниз
-            self.add_arrow(
-                center_x + dw / 2.0,
-                current_y + dh / 2.0,
-                right_x,
-                branch_start_y,
-                cond.else_label.clone(),
+            // Стрелка от условия вправо + вниз
+            self.add_elbow_arrow(
+                vec![
+                    Point::new(center_x + dw / 2.0, mid_y),
+                    Point::new(right_x, mid_y),
+                    Point::new(right_x, branch_start_y),
+                ],
                 elements,
             );
-
-            for elem in else_branch {
-                else_end_y = self.layout_element(elem, right_x, else_end_y, elements);
+            if let Some(label) = &cond.else_label {
+                self.add_branch_label(label, center_x + dw / 2.0, mid_y, false, elements);
             }
+
+            else_end_y = self.layout_branch_body(else_branch, right_x, else_end_y, elements);
         }
 
         // Низ ветвей.
@@ -812,14 +1001,46 @@ impl ActivityLayoutEngine {
         // Точка слияния
         let merge_y = then_bottom.max(else_bottom);
 
-        // Стрелки к точке слияния (нужны только при разной длине ветвей)
-        if then_bottom < merge_y {
-            self.add_arrow(left_x, then_bottom, center_x, merge_y, None, elements);
-        }
-        if cond.else_branch.is_some() && else_bottom < merge_y {
+        // Стрелки к точке слияния.
+        //
+        // PlantUML рисует их ВСЕГДА, даже когда ветви одинаковой длины:
+        // в эталоне activity_basic обе кончаются на 176.94, и обе линии
+        // доходят до ромба — вертикально вниз, затем горизонтально в его
+        // боковую вершину.
+        let merge_top = merge_y + MERGE_DIAMOND_GAP;
+        let merge_center_y = merge_top + MERGE_DIAMOND_SIZE / 2.0;
+        let merge_half = MERGE_DIAMOND_SIZE / 2.0;
+
+        self.add_elbow_arrow(
+            vec![
+                Point::new(left_x, then_bottom),
+                Point::new(left_x, merge_center_y),
+                Point::new(center_x - merge_half, merge_center_y),
+            ],
+            elements,
+        );
+
+        let mut merge_branches: Vec<(f64, f64)> = Vec::new();
+        if cond.else_branch.is_some() {
             let right_x = center_x
                 + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
-            self.add_arrow(right_x, else_bottom, center_x, merge_y, None, elements);
+            merge_branches.push((right_x, else_bottom));
+        }
+        for (i, _) in cond.elseif_branches.iter().enumerate() {
+            // Ветки elseif уходят вниз в свою точку слияния отдельными
+            // линиями: их курсор хранится в `elseif_end_y` как общий.
+            let branch_x = center_x + self.config.horizontal_spacing * (i as f64 + 1.0);
+            merge_branches.push((branch_x, elseif_end_y - self.config.vertical_spacing));
+        }
+        for (branch_x, bottom) in merge_branches {
+            self.add_elbow_arrow(
+                vec![
+                    Point::new(branch_x, bottom),
+                    Point::new(branch_x, merge_center_y),
+                    Point::new(center_x + merge_half, merge_center_y),
+                ],
+                elements,
+            );
         }
 
         // Ромб слияния.
@@ -828,20 +1049,25 @@ impl ActivityLayoutEngine {
         // в эталоне activity_basic ветви кончаются на 176.94, ромб занимает
         // 182.94..206.94, следующее действие начинается на 226.94 —
         // то есть отступы 6 сверху и 20 снизу.
-        let merge_top = merge_y + MERGE_DIAMOND_GAP;
         elements.push(LayoutElement {
             id: format!("merge_diamond_{}", elements.len()),
             bounds: Rect::new(
-                center_x - MERGE_DIAMOND_SIZE / 2.0,
+                center_x - merge_half,
                 merge_top,
                 MERGE_DIAMOND_SIZE,
                 MERGE_DIAMOND_SIZE,
             ),
             text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text: String::new(),
-                font_size: 12.0,
+            properties: Self::shape_properties(ACTIVITY_LABEL_FONT_SIZE),
+            element_type: ElementType::Polygon {
+                points: vec![
+                    Point::new(merge_half, 0.0),
+                    Point::new(MERGE_DIAMOND_SIZE, merge_half),
+                    Point::new(merge_half, MERGE_DIAMOND_SIZE),
+                    Point::new(0.0, merge_half),
+                ],
+                label: None,
+                font_size: ACTIVITY_LABEL_FONT_SIZE,
             },
         });
 
@@ -856,20 +1082,10 @@ impl ActivityLayoutEngine {
         current_y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
-        let dw = self.config.diamond_width;
         let dh = self.config.diamond_height;
 
-        // Ромб условия
-        elements.push(LayoutElement {
-            id: format!("while_diamond_{}", elements.len()),
-            bounds: Rect::new(center_x - dw / 2.0, current_y, dw, dh),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text: while_loop.condition.clone(),
-                font_size: 12.0,
-            },
-        });
+        // Шестиугольник условия цикла
+        let dw = self.add_condition_shape(&while_loop.condition, center_x, current_y, elements);
 
         let body_start_y = current_y + dh + self.config.vertical_spacing;
         let mut body_end_y = body_start_y;
@@ -936,19 +1152,9 @@ impl ActivityLayoutEngine {
         }
 
         // Ромб условия внизу
-        let dw = self.config.diamond_width;
         let dh = self.config.diamond_height;
 
-        elements.push(LayoutElement {
-            id: format!("repeat_diamond_{}", elements.len()),
-            bounds: Rect::new(center_x - dw / 2.0, body_end_y, dw, dh),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text: repeat_loop.condition.clone(),
-                font_size: 12.0,
-            },
-        });
+        let dw = self.add_condition_shape(&repeat_loop.condition, center_x, body_end_y, elements);
 
         // Обратная стрелка
         let loop_x = center_x + self.config.horizontal_spacing + 20.0;
@@ -1357,9 +1563,11 @@ mod tests {
         });
         assert!(has_elseif_action, "ветка elseif потеряна при раскладке");
 
-        // И её метка условия — на стрелке
+        // И её метка условия — отдельным текстом над плечом излома
+        // (PlantUML прижимает подписи к боковым вершинам шестиугольника,
+        // поэтому метка больше не висит на самой стрелке).
         let has_elseif_label = result.elements.iter().any(|e| match &e.element_type {
-            ElementType::Edge { label, .. } => label.as_deref().is_some_and(|l| l.contains("у2")),
+            ElementType::Text { text, .. } => text.contains("у2"),
             _ => false,
         });
         assert!(has_elseif_label, "метка ветки elseif потеряна");

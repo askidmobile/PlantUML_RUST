@@ -1,6 +1,6 @@
 //! SVG рендерер
 
-use svg::node::element::{Definitions, Group, Marker, Path, Rectangle};
+use svg::node::element::{Definitions, Group, Marker, Path, Polygon, Rectangle, Text};
 use svg::Document;
 
 use crate::{
@@ -14,6 +14,16 @@ const FRAGMENT_BORDER: &str = "#000";
 
 /// Цвет заливки заголовка фрагмента в эталоне PlantUML.
 const FRAGMENT_HEADER_FILL: &str = "#EEE";
+
+/// Цвет начального и конечного узлов UML (PlantUML пишет `#222`, а не
+/// цвет границы темы: эталоны `activity_basic` и `state_simple` дают
+/// `fill="#222" stroke="#222"`).
+const UML_NODE_COLOR: &str = "#222";
+
+/// Радиус внутреннего круга конечного узла UML относительно внешнего.
+///
+/// Эталон `activity_basic`: внешний круг `rx=11`, внутренний `rx=6`.
+const UML_FINAL_INNER_RATIO: f64 = 6.0 / 11.0;
 
 /// SVG рендерер
 pub struct SvgRenderer {
@@ -376,9 +386,17 @@ impl SvgRenderer {
             .set("markerUnits", "userSpaceOnUse")
             .add(
                 Path::new()
-                    // PlantUML style: ромб с вырезом
+                    // PlantUML style: ромб с вырезом.
+                    //
+                    // Обводка не декоративна: PlantUML рисует наконечник
+                    // полигоном со `stroke-width:1`, поэтому его видимый
+                    // размер на пиксель больше самой геометрии. Без обводки
+                    // наши стрелки выглядели тоньше эталонных.
                     .set("d", "M0,0 L10,4 L0,8 L4,4 Z")
-                    .set("fill", arrow_color.as_str()),
+                    .set("fill", arrow_color.as_str())
+                    .set("stroke", arrow_color.as_str())
+                    .set("stroke-width", 1)
+                    .set("stroke-linejoin", "miter"),
             );
 
         // Открытый маркер стрелки (для async сообщений)
@@ -584,6 +602,21 @@ impl SvgRenderer {
             ElementType::System { title } => {
                 group = self.render_system(&element.bounds, title, theme, group);
             }
+            ElementType::Polygon {
+                points,
+                label,
+                font_size,
+            } => {
+                group = self.render_polygon(
+                    &element.bounds,
+                    points,
+                    label.as_deref(),
+                    *font_size,
+                    theme,
+                    group,
+                    &element.properties,
+                );
+            }
             ElementType::Edge {
                 points,
                 label,
@@ -715,6 +748,75 @@ impl SvgRenderer {
                 let color = element.properties.get("color").map(|s| s.as_str());
                 group = self.render_participant_box(&element.bounds, title, color, theme, group);
             }
+        }
+
+        group
+    }
+
+    /// Рисует многоугольник с необязательной подписью в центре.
+    ///
+    /// Так PlantUML изображает условие ветвления activity (шестиугольник)
+    /// и точку слияния ветвей (ромб). Вершины приходят в локальных
+    /// координатах `bounds`, поэтому движку раскладки достаточно задать
+    /// прямоугольник фигуры.
+    #[allow(clippy::too_many_arguments)]
+    fn render_polygon(
+        &self,
+        bounds: &Rect,
+        points: &[Point],
+        label: Option<&str>,
+        font_size: f64,
+        theme: &Theme,
+        mut group: Group,
+        properties: &std::collections::HashMap<String, String>,
+    ) -> Group {
+        if points.len() < 3 {
+            return group;
+        }
+
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+        let stroke_width = properties
+            .get("stroke-width")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(theme.line_width * 0.5);
+
+        let points_attr = points
+            .iter()
+            .map(|p| format!("{},{}", bounds.x + p.x, bounds.y + p.y))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        group = group.add(
+            Polygon::new()
+                .set("points", points_attr)
+                .set("fill", fill)
+                .set("stroke", stroke)
+                .set("stroke-width", stroke_width),
+        );
+
+        if let Some(text_content) = label.filter(|value| !value.is_empty()) {
+            let label_color = properties
+                .get("text-fill")
+                .cloned()
+                .unwrap_or_else(|| theme.text_color.to_css());
+
+            group = group.add(
+                Text::new(text_content)
+                    .set("x", bounds.x + bounds.width / 2.0)
+                    .set("y", bounds.y + bounds.height / 2.0)
+                    .set("text-anchor", "middle")
+                    .set("dominant-baseline", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("fill", label_color),
+            );
         }
 
         group
@@ -970,7 +1072,7 @@ impl SvgRenderer {
     }
 
     /// Рендерит UML Initial State (чёрный заполненный круг)
-    fn render_initial_state(&self, bounds: &Rect, theme: &Theme, group: Group) -> Group {
+    fn render_initial_state(&self, bounds: &Rect, _theme: &Theme, group: Group) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let cy = bounds.y + bounds.height / 2.0;
         let r = bounds.width.min(bounds.height) / 2.0;
@@ -981,18 +1083,20 @@ impl SvgRenderer {
             .set("cy", cy)
             .set("rx", r)
             .set("ry", r)
-            .set("fill", theme.node_border.to_css()) // чёрная заливка
-            .set("stroke", "none");
+            .set("fill", UML_NODE_COLOR)
+            .set("stroke", UML_NODE_COLOR)
+            .set("stroke-width", 1);
 
         group.add(circle)
     }
 
     /// Рендерит UML Final State (bullseye: внешний круг + внутренний заполненный круг)
-    fn render_final_state(&self, bounds: &Rect, theme: &Theme, mut group: Group) -> Group {
+    fn render_final_state(&self, bounds: &Rect, _theme: &Theme, mut group: Group) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let cy = bounds.y + bounds.height / 2.0;
         let outer_r = bounds.width.min(bounds.height) / 2.0;
-        let inner_r = outer_r * 0.6; // внутренний круг 60% от внешнего
+        // Внутренний круг — 6/11 внешнего (эталон `activity_basic`).
+        let inner_r = outer_r * UML_FINAL_INNER_RATIO;
 
         // Внешний круг (пустой, с обводкой)
         let outer_circle = svg::node::element::Ellipse::new()
@@ -1000,9 +1104,9 @@ impl SvgRenderer {
             .set("cy", cy)
             .set("rx", outer_r)
             .set("ry", outer_r)
-            .set("fill", theme.background_color.to_css())
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
+            .set("fill", "none")
+            .set("stroke", UML_NODE_COLOR)
+            .set("stroke-width", 1);
 
         group = group.add(outer_circle);
 
@@ -1012,7 +1116,7 @@ impl SvgRenderer {
             .set("cy", cy)
             .set("rx", inner_r)
             .set("ry", inner_r)
-            .set("fill", theme.node_border.to_css()) // чёрная заливка
+            .set("fill", UML_NODE_COLOR)
             .set("stroke", "none");
 
         group.add(inner_circle)

@@ -7,7 +7,7 @@ expression: svg
 <svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="161px" preserveAspectRatio="none" style="width:165px;height:161px;background:#FFFFFF;" version="1.1" viewBox="2.9999999999999964 0 165.35199999999998 161.336" width="165px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
+<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
 </marker>
 <marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
