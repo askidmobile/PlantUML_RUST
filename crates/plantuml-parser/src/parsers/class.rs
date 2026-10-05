@@ -215,6 +215,7 @@ fn parse_class_decl_with_inheritance(
     let mut stereotype: Option<Stereotype> = None;
     let mut color: Option<Color> = None;
     let mut generics: Option<String> = None;
+    let mut alias: Option<String> = None;
     let mut fields: Vec<Member> = Vec::new();
     let mut methods: Vec<Member> = Vec::new();
     let mut extends: Option<String> = None;
@@ -230,6 +231,15 @@ fn parse_class_decl_with_inheritance(
             }
             Rule::class_name | Rule::qualified_name => {
                 name = extract_name(inner);
+            }
+            // `class "Длинное имя" as short`. Грамматика алиас принимала,
+            // но парсер его не читал — алиас молча терялся, и связи по
+            // нему не находились.
+            Rule::alias_part => {
+                alias = inner
+                    .into_inner()
+                    .find(|p| p.as_rule() == Rule::identifier || p.as_rule() == Rule::quoted_string)
+                    .map(|p| p.as_str().trim().trim_matches('"').to_string());
             }
             Rule::stereotype => {
                 let s = inner.as_str();
@@ -271,7 +281,7 @@ fn parse_class_decl_with_inheritance(
 
     Some(ClassDeclResult {
         classifier: Classifier {
-            id: plantuml_ast::common::Identifier::new(name),
+            id: plantuml_ast::common::Identifier { name, alias },
             classifier_type,
             fields,
             methods,
@@ -745,6 +755,31 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Алиас объявления: `class "Длинное имя" as short`.
+    ///
+    /// Регрессия: правила алиаса в class-грамматике не было вовсе, поэтому
+    /// такая запись не разбиралась. После добавления правила выяснилось,
+    /// что парсер его не читает — алиас молча терялся, и связи по нему
+    /// не находились.
+    #[test]
+    fn test_class_alias() {
+        let diagram =
+            parse_class("@startuml\nclass \"Длинное имя\" as short\n@enduml").expect("разбирается");
+        assert_eq!(diagram.classifiers.len(), 1);
+        assert_eq!(diagram.classifiers[0].id.name, "Длинное имя");
+        assert_eq!(diagram.classifiers[0].id.alias.as_deref(), Some("short"));
+
+        // Связь по алиасу
+        let source =
+            "@startuml\nclass \"Первый\" as a1\nclass \"Второй\" as a2\na1 --> a2\n@enduml";
+        let diagram = parse_class(source).expect("разбирается");
+        assert_eq!(diagram.relationships.len(), 1, "связь по алиасу потеряна");
+
+        // Обычная форма без алиаса
+        let diagram = parse_class("@startuml\nclass A\n@enduml").expect("разбирается");
+        assert_eq!(diagram.classifiers[0].id.alias, None);
+    }
 
     /// Заметки class-диаграмм разбираются.
     ///
