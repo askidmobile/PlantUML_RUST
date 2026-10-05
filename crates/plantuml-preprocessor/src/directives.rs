@@ -95,6 +95,7 @@ pub fn handle_ifdef(name: &str, ctx: &mut PreprocessContext, is_ifdef: bool) {
     let effective = ctx.should_output() && condition;
 
     ctx.condition_stack.push(effective);
+    ctx.branch_taken.push(effective);
     ctx.condition_depth += 1;
 }
 
@@ -118,6 +119,7 @@ pub fn handle_if(expression: &str, ctx: &mut PreprocessContext) {
     let effective = ctx.should_output() && value;
 
     ctx.condition_stack.push(effective);
+    ctx.branch_taken.push(effective);
     ctx.condition_depth += 1;
 }
 
@@ -335,11 +337,46 @@ pub fn handle_else(ctx: &mut PreprocessContext) -> Result<()> {
     let len = ctx.condition_stack.len();
     let parent_ok = len <= 1 || ctx.condition_stack[..len - 1].iter().all(|&b| b);
 
-    // Инвертируем текущее условие если родитель true
-    if parent_ok {
-        if let Some(last) = ctx.condition_stack.last_mut() {
-            *last = !*last;
-        }
+    // Ветвь выполняется, только если ни одна предыдущая не сработала.
+    let taken = ctx.branch_taken.last().copied().unwrap_or(false);
+    let effective = parent_ok && !taken;
+
+    if let Some(last) = ctx.condition_stack.last_mut() {
+        *last = effective;
+    }
+    if let Some(last) = ctx.branch_taken.last_mut() {
+        *last = taken || effective;
+    }
+
+    Ok(())
+}
+
+/// Обрабатывает `!elseif (выражение)`.
+///
+/// Ветвь проверяется ТОЛЬКО если ни одна предыдущая не сработала.
+/// Раньше `!elseif` не обрабатывался вовсе: он не менял состояние, и при
+/// истинном первом условии выполнялись ВСЕ ветви подряд, а при ложном —
+/// ни одна. На этом, в частности, раздувалась библиотека C4: строки
+/// накапливались кратно и достигали десятков мегабайт.
+pub fn handle_elseif(expression: &str, ctx: &mut PreprocessContext) -> Result<()> {
+    if ctx.condition_stack.is_empty() {
+        return Err(PreprocessError::UnbalancedCondition);
+    }
+
+    let len = ctx.condition_stack.len();
+    let parent_ok = len <= 1 || ctx.condition_stack[..len - 1].iter().all(|&b| b);
+    let already_taken = ctx.branch_taken.last().copied().unwrap_or(false);
+
+    // Условие вычисляется только если ветвь ещё может быть выбрана:
+    // иначе `%variable_exists` и прочие проверки выполнялись бы зря.
+    let value = !already_taken && parent_ok && evaluate_condition(expression, ctx);
+    let effective = parent_ok && value;
+
+    if let Some(last) = ctx.condition_stack.last_mut() {
+        *last = effective;
+    }
+    if let Some(last) = ctx.branch_taken.last_mut() {
+        *last = already_taken || effective;
     }
 
     Ok(())
@@ -352,6 +389,7 @@ pub fn handle_endif(ctx: &mut PreprocessContext) -> Result<()> {
     }
 
     ctx.condition_stack.pop();
+    ctx.branch_taken.pop();
     ctx.condition_depth = ctx.condition_depth.saturating_sub(1);
 
     Ok(())

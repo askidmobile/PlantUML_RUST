@@ -160,6 +160,11 @@ pub struct PreprocessContext {
     pub condition_depth: usize,
     /// Активные условия (true = выполнять код)
     pub condition_stack: Vec<bool>,
+    /// Для каждого уровня условия — БЫЛА ЛИ УЖЕ ВЫПОЛНЕНА ветвь.
+    ///
+    /// Без этого нельзя реализовать `!elseif`: нужно знать, что
+    /// предыдущая ветвь уже сработала, иначе выполняются ВСЕ ветви.
+    pub branch_taken: Vec<bool>,
     /// Пользовательские функции и процедуры
     pub callables: IndexMap<String, functions::UserCallable>,
     /// Текущее определение функции/процедуры
@@ -190,6 +195,13 @@ pub struct PreprocessContext {
     pub returning: bool,
     /// Текущая глубина вызовов макросов (защита от рекурсии).
     pub call_depth: usize,
+    /// Имена переменных, которые нужно ПЕРЕНЕСТИ в вызывающий контекст.
+    ///
+    /// Переменные, заданные телом макроса, ЛОКАЛЬНЫ: проверено на сервере —
+    /// после `!function $f()` с `!$inner = Inside` класс `$inner` выводит
+    /// литерал, то есть переменная снаружи НЕ видна. Наружу переносятся
+    /// только глобальные, заданные через `%set_variable_value`.
+    pub exported: Vec<String>,
 }
 
 impl Default for PreprocessContext {
@@ -199,6 +211,7 @@ impl Default for PreprocessContext {
             included_files: Vec::new(),
             condition_depth: 0,
             condition_stack: Vec::new(),
+            branch_taken: Vec::new(),
             callables: IndexMap::new(),
             defining_unquoted: false,
             defining: DefiningCallable::None,
@@ -210,6 +223,7 @@ impl Default for PreprocessContext {
             return_value: None,
             returning: false,
             call_depth: 0,
+            exported: Vec::new(),
         }
     }
 }
@@ -553,6 +567,8 @@ impl<R: FileResolver> Preprocessor<R> {
             directives::handle_ifdef(rest.trim(), ctx, true);
         } else if let Some(rest) = directive.strip_prefix("ifndef ") {
             directives::handle_ifdef(rest.trim(), ctx, false);
+        } else if let Some(rest) = directive.strip_prefix("elseif ") {
+            directives::handle_elseif(rest.trim(), ctx)?;
         } else if directive == "else" {
             directives::handle_else(ctx)?;
         } else if directive == "endif" {
@@ -849,25 +865,39 @@ impl<R: FileResolver> Preprocessor<R> {
             )));
         }
 
+        // РЕЕСТРЫ МАКРОСОВ ПЕРЕНОСИМ, А НЕ КОПИРУЕМ.
+        //
+        // Раньше здесь стояли `ctx.callables.clone()` и `ctx.macros.clone()`,
+        // то есть на КАЖДЫЙ вызов макроса копировался весь реестр. Для
+        // стандартной библиотеки C4 (сотни макросов с телами по несколько
+        // килобайт) это давало взрывной рост: раскрытие одной диаграммы
+        // не завершалось за минуты. Перенос стоит O(1).
+        let callables = std::mem::take(&mut ctx.callables);
+        let macros = std::mem::take(&mut ctx.macros);
+        let included_files = std::mem::take(&mut ctx.included_files);
+        let include_stack = std::mem::take(&mut ctx.include_stack);
+
         let mut child = PreprocessContext {
             // Переменные и объявления наследуются, но условия начинаются
             // заново: тело макроса не должно зависеть от того, внутри
             // какого `!if` он вызван.
             variables: ctx.variables.clone(),
-            included_files: ctx.included_files.clone(),
+            included_files,
             condition_depth: 0,
             condition_stack: Vec::new(),
-            callables: ctx.callables.clone(),
+            branch_taken: Vec::new(),
+            callables,
             defining: DefiningCallable::None,
             defining_unquoted: false,
             theme: ctx.theme.clone(),
             skin_params: ctx.skin_params.clone(),
-            macros: ctx.macros.clone(),
-            include_stack: ctx.include_stack.clone(),
+            macros,
+            include_stack,
             max_include_depth: ctx.max_include_depth,
             return_value: None,
             returning: false,
             call_depth: ctx.call_depth + 1,
+            exported: Vec::new(),
         };
 
         // Связываем параметры с аргументами. Значение по умолчанию берётся
@@ -881,8 +911,15 @@ impl<R: FileResolver> Preprocessor<R> {
                 None => (parameter.trim().to_string(), String::new()),
             };
 
+            // Аргумент вычисляется в контексте ВЫЗЫВАЮЩЕГО: в него уже
+            // подставлены его переменные. Без этого параметр получал
+            // собственное имя (`$tagStereo` -> `$tagStereo`), и значение
+            // функции оставалось неразвёрнутым.
             let mut value = match args.get(index) {
-                Some(value) if !value.trim().is_empty() => value.clone(),
+                Some(value) if !value.trim().is_empty() => {
+                    let substituted = variables::substitute(value, &ctx.variables);
+                    evaluate_concat(&substituted, ctx)
+                }
                 _ => default,
             };
 
@@ -899,8 +936,25 @@ impl<R: FileResolver> Preprocessor<R> {
         let body = callable.body.join("\n");
         let output = self.process_with_context(&body, &mut child)?;
 
-        // Побочные эффекты — наружу.
-        ctx.variables = child.variables;
+        // Побочные эффекты — наружу. Реестры возвращаем на место: тело
+        // макроса могло объявить новые процедуры или включить файл.
+        //
+        // ПЕРЕМЕННЫЕ ПЕРЕНОСИМ НЕ ВСЕ, А ТОЛЬКО ГЛОБАЛЬНЫЕ.
+        // Раньше здесь стояло `ctx.variables = child.variables`, то есть
+        // локальные переменные макроса протекали в вызывающий контекст.
+        // Проверено на сервере: PlantUML так НЕ делает — после функции
+        // переменная снаружи не видна. Протечка же давала взрывной рост:
+        // накопленные строки (в C4 `$bgColor`, `$fontColor`) возвращались
+        // наружу, попадали в следующий вызов и удваивались.
+        for name in child.exported.iter() {
+            if let Some(value) = child.variables.get(name) {
+                ctx.variables.insert(name.clone(), value.clone());
+            }
+        }
+        ctx.callables = child.callables;
+        ctx.macros = child.macros;
+        ctx.included_files = child.included_files;
+        ctx.include_stack = child.include_stack;
 
         Ok((output, child.return_value))
     }
@@ -947,7 +1001,12 @@ impl<R: FileResolver> Preprocessor<R> {
             let value = evaluate_concat(&value, ctx);
 
             if name.starts_with('$') {
-                ctx.variables.insert(name, value);
+                ctx.variables.insert(name.clone(), value);
+                // Значение задано ГЛОБАЛЬНО — оно должно быть видно и
+                // после возврата из макроса.
+                if !ctx.exported.contains(&name) {
+                    ctx.exported.push(name);
+                }
             }
 
             result = format!("{}{}", &result[..start], &result[close + 1..]);
@@ -1656,12 +1715,16 @@ MAIN_END
         assert!(!out.contains("!if"), "директива просочилась в вывод: {out}");
     }
 
-    /// Переменная, установленная внутри процедуры, видна снаружи.
+    /// Переменная, установленная внутри макроса, НАРУЖУ НЕ ВИДНА.
     ///
-    /// Библиотеки на это рассчитывают: C4 вызывает `SetPropertyHeader`
-    /// ради побочного эффекта и потом читает установленные переменные.
+    /// Проверено на сервере: после `!function $f()` с `!$inner = Inside`
+    /// класс `$inner` выводит ЛИТЕРАЛ, то есть переменная локальна. То же
+    /// для процедуры. Прежний код копировал ВСЕ переменные макроса в
+    /// вызывающий контекст, и это давало взрывной рост: накопленные
+    /// строки возвращались наружу и удваивались на каждом вызове
+    /// (в библиотеке C4 `$bgColor` доходил до мегабайт).
     #[test]
-    fn test_macro_variable_leaks_outward() {
+    fn test_macro_variables_are_local() {
         let pp = Preprocessor::new();
         let source = "@startuml\n\
             !procedure $Set()\n\
@@ -1673,8 +1736,27 @@ MAIN_END
 
         let out = pp.process(source).expect("разбор не должен падать");
         assert!(
+            !out.contains("class Готово"),
+            "локальная переменная протекла наружу: {out}"
+        );
+    }
+
+    /// `%set_variable_value` задаёт переменную ГЛОБАЛЬНО — она видна снаружи.
+    #[test]
+    fn test_set_variable_value_is_global() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !procedure $Set()\n\
+            %set_variable_value(\"$глоб\", Готово)\n\
+            !endprocedure\n\
+            $Set()\n\
+            class $глоб\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
             out.contains("class Готово"),
-            "переменная не видна снаружи: {out}"
+            "глобальная переменная не видна: {out}"
         );
     }
 
