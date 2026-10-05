@@ -174,3 +174,43 @@ fn sprite_renders_as_rectangles() {
         assert!(svg.contains(color), "в выводе нет цвета спрайта {color}");
     }
 }
+
+/// Спрайт рисуется без потери пикселей.
+///
+/// Одинаковые пиксели объединяются в блоки: сначала по строке, затем по
+/// вертикали. Без объединения спрайт 64x63 давал 10.5 МБ вывода на одну
+/// диаграмму; после объединения — меньше мегабайта. Проверяем, что
+/// суммарная площадь закраски равна числу непрозрачных пикселей.
+#[test]
+fn sprite_pixels_are_not_lost_when_merged() {
+    // Спрайт 4x4, где цифра `0` прозрачна: непрозрачных 15.
+    let source = "@startuml\n\
+        sprite $s [4x4/16] {\n\
+        1234\n\
+        5678\n\
+        9abc\n\
+        def0\n\
+        }\n\
+        class A\n\
+        @enduml";
+
+    let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
+
+    let mut area = 0.0_f64;
+    for part in svg.split("<rect").skip(1) {
+        let text = part.split("/>").next().unwrap_or("");
+        // Прямоугольники спрайта отличаются наличием fill-opacity.
+        if !text.contains("fill-opacity") {
+            continue;
+        }
+        let number = |attribute: &str| -> f64 {
+            text.find(&format!("{attribute}=\""))
+                .and_then(|index| text[index + attribute.len() + 2..].split('"').next())
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0.0)
+        };
+        area += number("width") * number("height");
+    }
+
+    assert_eq!(area, 15.0, "площадь закраски не совпала с числом пикселей");
+}

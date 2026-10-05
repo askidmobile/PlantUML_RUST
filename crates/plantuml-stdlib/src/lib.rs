@@ -35,6 +35,7 @@
 mod c4;
 mod common;
 pub mod inflate;
+mod kubernetes;
 mod logos;
 mod office;
 mod tupadr3;
@@ -48,6 +49,7 @@ static STDLIB_REGISTRY: LazyLock<HashMap<&'static str, &'static str>> = LazyLock
 
     // Добавляем все включения из модулей
     c4::register(&mut registry);
+    kubernetes::register(&mut registry);
     tupadr3::register(&mut registry);
     logos::register(&mut registry);
     office::register(&mut registry);

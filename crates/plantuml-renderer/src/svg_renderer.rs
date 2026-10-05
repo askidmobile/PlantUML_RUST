@@ -62,21 +62,76 @@ impl SvgRenderer {
         pixel_size: f64,
         mut group: Group,
     ) -> Group {
-        for (row_index, row) in rows.iter().enumerate() {
-            for (col_index, ch) in row.chars().enumerate() {
-                let Some((color, alpha)) = sprite_color(ch) else {
+        // Пиксели одного цвета объединяются в ПРЯМОУГОЛЬНЫЕ БЛОКИ.
+        //
+        // Спрайт 64x63 содержит 4032 пикселя. Если рисовать каждый
+        // отдельным `<rect>`, вывод раздувается до десятков мегабайт
+        // (замерено 10.5 МБ на диаграмму). Сначала пробеги по строке
+        // (10.5 МБ -> 1.3 МБ), затем слияние одинаковых пробегов по
+        // вертикали — картинка при этом не меняется.
+        let grid: Vec<Vec<char>> = rows.iter().map(|row| row.chars().collect()).collect();
+        let height = grid.len();
+        // Прогоны по каждой строке: (начало, длина, цифра).
+        let runs: Vec<Vec<(usize, usize, char)>> = grid
+            .iter()
+            .map(|row| {
+                let mut out = Vec::new();
+                let mut col = 0;
+                while col < row.len() {
+                    let mut run = 1;
+                    while col + run < row.len() && row[col + run] == row[col] {
+                        run += 1;
+                    }
+                    out.push((col, run, row[col]));
+                    col += run;
+                }
+                out
+            })
+            .collect();
+
+        // Сливаем совпадающие прогоны соседних строк по вертикали.
+        let mut used: Vec<Vec<bool>> = runs.iter().map(|r| vec![false; r.len()]).collect();
+        for row_index in 0..height {
+            for run_index in 0..runs[row_index].len() {
+                if used[row_index][run_index] {
+                    continue;
+                }
+
+                let (col, width, digit) = runs[row_index][run_index];
+                let Some((color, alpha)) = sprite_color(digit) else {
+                    used[row_index][run_index] = true;
                     continue;
                 };
+                used[row_index][run_index] = true;
+
                 // Цифра `0` в палитре полностью прозрачна — не рисуем.
                 if alpha == 0 {
                     continue;
                 }
 
+                // Считаем, сколько строк подряд совпадает этот прогон.
+                let mut span = 1;
+                'outer: while row_index + span < height {
+                    for (next_index, (next_col, next_width, next_digit)) in
+                        runs[row_index + span].iter().enumerate()
+                    {
+                        if used[row_index + span][next_index] {
+                            continue;
+                        }
+                        if *next_col == col && *next_width == width && *next_digit == digit {
+                            used[row_index + span][next_index] = true;
+                            span += 1;
+                            continue 'outer;
+                        }
+                    }
+                    break;
+                }
+
                 let rect = Rectangle::new()
-                    .set("x", bounds.x + col_index as f64 * pixel_size)
+                    .set("x", bounds.x + col as f64 * pixel_size)
                     .set("y", bounds.y + row_index as f64 * pixel_size)
-                    .set("width", pixel_size)
-                    .set("height", pixel_size)
+                    .set("width", width as f64 * pixel_size)
+                    .set("height", span as f64 * pixel_size)
                     .set("fill", color)
                     .set("fill-opacity", fmt(alpha as f64 / 255.0));
 
