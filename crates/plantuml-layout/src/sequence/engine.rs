@@ -724,8 +724,14 @@ impl SequenceLayoutEngine {
         // Обрабатываем от коротких к длинным
         for (span, messages) in messages_by_span {
             for (start_idx, end_idx, text_width) in messages {
-                // Padding для текста: 5px слева + 15px справа от наконечника
-                let required_length = text_width + 20.0;
+                // Длина стрелки, необходимой под подпись.
+                //
+                // `text_width` приходит из `message_label_width`, которая
+                // УЖЕ добавила 16px отступов. Эталон требует ещё 8:
+                // «сообщение» 76.261 + 16 + 8 = 100.261 — ровно шаг
+                // участников в sequence_participants. Раньше здесь стояло
+                // 20, то есть на 12px больше, и все шаги были раздуты.
+                let required_length = text_width + 8.0;
 
                 if span == 1 {
                     // Соседние участники: устанавливаем spacing напрямую
