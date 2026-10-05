@@ -29,7 +29,7 @@ impl Default for TimingLayoutConfig {
             padding: 20.0,
             participant_label_width: 120.0,
             lane_height: 60.0,
-            lane_spacing: 20.0,
+            lane_spacing: 5.0,
             // Измерено по эталону PlantUML
             // (tests/golden/reference/timing_basic.svg): метка времени 0 на
             // x=88.2, метка 100 на x=131.2, то есть 0.43px на единицу.
