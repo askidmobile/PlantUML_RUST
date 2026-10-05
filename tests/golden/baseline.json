@@ -4,7 +4,7 @@
   "component_basic": { "width_diff": 3.0, "height_diff": 6.0, "missing_texts": 0 },
   "deployment_basic": { "width_diff": 32.0, "height_diff": 2.0, "missing_texts": 0 },
   "er_basic": { "width_diff": 31.0, "height_diff": 15.0, "missing_texts": 1 },
-  "gantt_basic": { "width_diff": 22.0, "height_diff": 22.0, "missing_texts": 2 },
+  "gantt_basic": { "width_diff": 12.0, "height_diff": 22.0, "missing_texts": 2 },
   "json_basic": { "width_diff": 10.0, "height_diff": 2.0, "missing_texts": 0 },
   "mindmap_basic": { "width_diff": 6.0, "height_diff": 11.0, "missing_texts": 0 },
   "network_nwdiag": { "width_diff": 3.0, "height_diff": 27.0, "missing_texts": 2 },
