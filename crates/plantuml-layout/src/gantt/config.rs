@@ -37,9 +37,9 @@ impl Default for GanttLayoutConfig {
             // начинается на x=138.069 при padding 5, то есть ширина блока
             // подписи 133.07. Раньше стояло 150.0.
             task_label_width: 133.07,
-            row_height: 30.0,
-            bar_height: 20.0,
-            row_spacing: 5.0,
+            row_height: 12.8,
+            bar_height: 12.8,
+            row_spacing: 4.0,
             // Измерено по эталону PlantUML
             // (tests/golden/reference/gantt_basic.svg): полоса задачи
             // длительностью 10 дней имеет ширину 156px, то есть 15.6px на
