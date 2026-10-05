@@ -51,8 +51,13 @@ impl SvgRenderer {
         /// подписи, снизу — небольшой отступ.
         const GANTT: (f64, f64, f64, f64) = (0.0, 0.0, 20.8, 2.45);
 
+        /// WBS: движок сам добавляет `padding = 10`, поэтому рендереру
+        /// нужно ещё 10, чтобы суммарное поле совпало с эталонным (20).
+        const WBS: (f64, f64, f64, f64) = (10.0, 10.0, 10.0, 10.0);
+
         match self.options.diagram_type.as_deref() {
             Some("GANTT") => GANTT,
+            Some("WBS") => WBS,
             _ => DEFAULT,
         }
     }

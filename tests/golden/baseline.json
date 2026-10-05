@@ -17,6 +17,6 @@
   "state_simple": { "width_diff": 0.0, "height_diff": 4.0, "missing_texts": 0 },
   "timing_basic": { "width_diff": 3.0, "height_diff": 8.0, "missing_texts": 2 },
   "usecase_basic": { "width_diff": 4.0, "height_diff": 1.0, "missing_texts": 0 },
-  "wbs_basic": { "width_diff": 10.0, "height_diff": 30.0, "missing_texts": 0 },
+  "wbs_basic": { "width_diff": 3.0, "height_diff": 24.0, "missing_texts": 0 },
   "yaml_basic": { "width_diff": 6.0, "height_diff": 7.0, "missing_texts": 1 }
 }

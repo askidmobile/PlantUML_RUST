@@ -43,7 +43,7 @@ impl Default for WbsLayoutConfig {
             min_node_width: 20.0,
             node_height: 34.0,
             node_padding_x: 10.0,
-            font_size: 13.0,
+            font_size: 12.0,
             text: TextMeasurer::default(),
         }
     }
