@@ -488,6 +488,16 @@ impl SvgRenderer {
         };
 
         match &element.element_type {
+            ElementType::Note { label, fold } => {
+                group = self.render_note(
+                    &element.bounds,
+                    label,
+                    *fold,
+                    theme,
+                    group,
+                    &element.properties,
+                );
+            }
             ElementType::Rectangle {
                 label,
                 corner_radius,
@@ -821,6 +831,82 @@ impl SvgRenderer {
         if theme.handwritten {
             text = text.set("font-style", "italic");
         }
+
+        group.add(text)
+    }
+
+    /// Рисует примечание: прямоугольник с ЗАГНУТЫМ верхним правым углом.
+    ///
+    /// PlantUML рисует примечание полигоном со срезом угла и отдельным
+    /// треугольником сгиба, а не простым прямоугольником. Измерено по
+    /// эталону `sequence_notes`: правый край 204.987, срез начинается
+    /// на 194.987 (размер среза 10).
+    fn render_note(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        fold: f64,
+        theme: &Theme,
+        mut group: Group,
+        properties: &std::collections::HashMap<String, String>,
+    ) -> Group {
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+
+        let x = bounds.x;
+        let y = bounds.y;
+        let right = bounds.x + bounds.width;
+        let bottom = bounds.y + bounds.height;
+        let fold_x = right - fold;
+        let fold_y = y + fold;
+
+        let body = format!(
+            "M{x},{y} L{x},{bottom} L{right},{bottom} L{right},{fold_y} L{fold_x},{y} L{x},{y}"
+        );
+        let corner = format!("M{fold_x},{y} L{fold_x},{fold_y} L{right},{fold_y}");
+
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", body)
+                .set("fill", fill)
+                .set("stroke", stroke.clone())
+                .set("stroke-width", theme.line_width * 0.5),
+        );
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", corner)
+                .set("fill", "none")
+                .set("stroke", stroke)
+                .set("stroke-width", theme.line_width * 0.5),
+        );
+
+        let label_font_size = properties
+            .get("font-size")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(theme.font_size);
+        let label_color = properties
+            .get("text-fill")
+            .cloned()
+            .unwrap_or_else(|| theme.text_color.to_css());
+        let text_inset = properties
+            .get("text-inset")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let text = svg::node::element::Text::new(label)
+            .set("x", bounds.x + text_inset)
+            .set("y", bounds.y + bounds.height / 2.0)
+            .set("text-anchor", "start")
+            .set("dominant-baseline", "middle")
+            .set("font-family", theme.font_family.as_str())
+            .set("font-size", label_font_size)
+            .set("fill", label_color);
 
         group.add(text)
     }

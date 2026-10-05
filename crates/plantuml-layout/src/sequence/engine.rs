@@ -24,6 +24,22 @@ const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 /// текст на x = 116.987.
 const NOTE_TEXT_INSET: f64 = 6.0;
 
+/// Размер среза загнутого угла примечания.
+///
+/// Измерено по эталону `sequence_notes`: правый край на 204.987,
+/// срез начинается на 194.987, то есть 10.
+const NOTE_FOLD: f64 = 10.0;
+
+/// Отступ примечания от стрелки сообщения, после которого оно стоит.
+///
+/// Измерено по эталону `sequence_notes`: стрелка 70.43, примечание 83.43.
+const NOTE_TOP_GAP: f64 = 13.0;
+
+/// Зазор от низа примечания до следующего сообщения.
+///
+/// Измерено по эталону: низ примечания 108.43, следующая стрелка 134.695.
+const NOTE_BOTTOM_GAP: f64 = 26.265;
+
 const NOTE_BACKGROUND: &str = "#FEFFDD";
 
 /// Отступ заметки от линии жизни (измерено по эталону sequence_notes).
@@ -1458,7 +1474,17 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        let y = metrics.current_y;
+        // Примечание после сообщения ставится СРАЗУ под ним.
+        //
+        // Измерено по эталону `sequence_notes`: стрелка на 70.43,
+        // примечание начинается на 83.43, то есть отступ 13. Прежде
+        // примечание ставилось на `current_y`, который уже сдвинут на
+        // весь шаг сообщения (29.133), и оно оказывалось на 16 ниже.
+        let y = if metrics.last_message_y > 0.0 {
+            metrics.last_message_y + NOTE_TOP_GAP
+        } else {
+            metrics.current_y
+        };
 
         // Определяем X позицию
         let x = if note.anchors.is_empty() {
@@ -1514,14 +1540,18 @@ impl SequenceLayoutEngine {
             bounds,
             text: None,
             properties,
-            element_type: ElementType::Rectangle {
+            element_type: ElementType::Note {
                 label: note.text.clone(),
-                corner_radius: 0.0, // Заметки обычно с прямыми углами
+                fold: NOTE_FOLD,
             },
         };
 
         elements.push(note_elem);
-        metrics.advance_y(self.config.note_height + 10.0);
+
+        // Следующее сообщение идёт НИЖЕ примечания. Измерено по эталону:
+        // низ примечания 108.43, следующая стрелка на 134.695.
+        let note_bottom = y + self.config.note_height;
+        metrics.current_y = metrics.current_y.max(note_bottom + NOTE_BOTTOM_GAP);
     }
 
     /// Размещает ref блок (ссылка на другую диаграмму)
