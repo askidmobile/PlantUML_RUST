@@ -285,6 +285,21 @@ fn split_top_level<'a>(text: &'a str, operator: &str) -> Option<(&'a str, &'a st
 fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
     let trimmed = operand.trim().trim_matches('"');
 
+    // Символьный литерал в ОДИНАРНЫХ кавычках.
+    //
+    // Библиотека C4-PlantUML ищет пробел так:
+    //     !while ($brPos > 0 && %substr($text, $brPos, 1) != ' ')
+    // Одинарные кавычки здесь — литерал, а НЕ комментарий. Прежде операнд
+    // оставался трёхсимвольной строкой `' '`, сравнение с настоящим пробелом
+    // всегда давало «не равно», счётчик уходил в ноль, и `$breakText` не
+    // укорачивал текст — цикл крутился все 10 000 итераций (42 с на вызов,
+    // 91 с на разбор библиотеки C4).
+    let trimmed = if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
+        &trimmed[1..trimmed.len() - 1]
+    } else {
+        trimmed
+    };
+
     match trimmed {
         "%true()" | "true" => return "true".to_string(),
         "%false()" | "false" => return "false".to_string(),

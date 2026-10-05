@@ -25,7 +25,13 @@ static RE_UPPER: LazyLock<Regex> =
 static RE_LOWER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"%lower\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
 static RE_SUBSTR: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"%substr\(\s*"?([^",)]*?)"?\s*,\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)"#).unwrap()
+    // Индекс — ВЫРАЖЕНИЕ, а не только число: библиотека C4-PlantUML пишет
+    // `%substr($text, $brPos + 1)`. Прежний шаблон с `(\d+)` такой вызов не
+    // распознавал, вызов оставался текстом, и переменная `$text` в
+    // `$breakText` НЕ укорачивалась — цикл `!while` крутился все 10 000
+    // итераций. Отсюда 42 секунды на один вызов и 91 секунда на разбор
+    // библиотеки C4 целиком.
+    Regex::new(r#"%substr\(\s*"?([^",)]*?)"?\s*,\s*([^,)]+?)\s*(?:,\s*([^,)]+?)\s*)?\)"#).unwrap()
 });
 static RE_STRPOS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"%strpos\(\s*"?([^",)]*?)"?\s*,\s*"?([^")]*?)"?\s*\)"#).unwrap());
@@ -145,13 +151,52 @@ fn process_lower(input: &str) -> String {
         .to_string()
 }
 
+/// Вычисляет простое арифметическое выражение индекса.
+///
+/// Поддерживает `+`, `-`, `*`, `/` и скобки не требует: PlantUML в
+/// аргументах встроенных функций пишет именно такие выражения
+/// (`$brPos + 1`, `$width - 2`). Возвращает `None`, если разобрать не
+/// удалось — тогда вызывающий код оставляет вызов как есть.
+fn eval_index(expression: &str) -> Option<i64> {
+    let expression = expression.trim();
+    if expression.is_empty() {
+        return None;
+    }
+    if let Ok(value) = expression.parse::<i64>() {
+        return Some(value);
+    }
+    // Сложение и вычитание — самый низкий приоритет, ищем ПОСЛЕДНИЙ знак.
+    for operators in [['+', '-'], ['*', '/']] {
+        for (index, ch) in expression.char_indices().rev() {
+            if index == 0 || !operators.contains(&ch) {
+                continue;
+            }
+            let (left, right) = (&expression[..index], &expression[index + 1..]);
+            let (Some(left), Some(right)) = (eval_index(left), eval_index(right)) else {
+                continue;
+            };
+            return match ch {
+                '+' => Some(left + right),
+                '-' => Some(left - right),
+                '*' => Some(left * right),
+                '/' if right != 0 => Some(left / right),
+                _ => None,
+            };
+        }
+    }
+    None
+}
+
 /// %substr("string", start, len) -> подстрока
 fn process_substr(input: &str) -> String {
     RE_SUBSTR
         .replace_all(input, |caps: &regex::Captures| {
             let s = &caps[1];
-            let start: usize = caps[2].parse().unwrap_or(0);
-            let len: Option<usize> = caps.get(3).and_then(|m| m.as_str().parse().ok());
+            let start: usize = eval_index(&caps[2]).unwrap_or(0).max(0) as usize;
+            let len: Option<usize> = caps
+                .get(3)
+                .and_then(|m| eval_index(m.as_str()))
+                .map(|value| value.max(0) as usize);
 
             let chars: Vec<char> = s.chars().collect();
             if start >= chars.len() {
@@ -430,6 +475,29 @@ mod tests {
 
         let result = process_builtins(r#"sub = %substr("hello", 10)"#);
         assert_eq!(result, "sub = ");
+    }
+
+    /// Индекс может быть АРИФМЕТИЧЕСКИМ ВЫРАЖЕНИЕМ.
+    ///
+    /// Регрессия: библиотека C4-PlantUML пишет `%substr($text, $brPos + 1)`.
+    /// Прежний шаблон принимал только `\d+`, вызов оставался текстом,
+    /// переменная `$text` в `$breakText` не укорачивалась — цикл `!while`
+    /// крутился все 10 000 итераций (42 секунды на вызов).
+    #[test]
+    fn test_substr_with_expression_index() {
+        // Проверено на сервере: %substr("abcdef", 2 + 1) = "def".
+        assert_eq!(
+            process_builtins(r#"x = %substr("abcdef", 2 + 1)"#),
+            "x = def"
+        );
+        assert_eq!(
+            process_builtins(r#"x = %substr("abcdef", 4 - 1)"#),
+            "x = def"
+        );
+        assert_eq!(
+            process_builtins(r#"x = %substr("abcdef", 1 + 1, 2 * 2)"#),
+            "x = cdef"
+        );
     }
 
     #[test]
