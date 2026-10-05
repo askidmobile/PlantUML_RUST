@@ -34,6 +34,7 @@
 
 mod c4;
 mod common;
+pub mod inflate;
 mod logos;
 mod office;
 mod tupadr3;
