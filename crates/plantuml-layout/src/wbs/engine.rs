@@ -101,7 +101,16 @@ impl WbsLayoutEngine {
             let start_x = self.config.padding;
             let start_y = self.config.padding;
 
-            self.layout_node(root, start_x, start_y, &subtree_widths, &mut elements);
+            self.layout_node(
+                root,
+                start_x,
+                start_y,
+                0,
+                true,
+                start_y,
+                &subtree_widths,
+                &mut elements,
+            );
         }
 
         // Центрируем диаграмму
@@ -146,11 +155,29 @@ impl WbsLayoutEngine {
     }
 
     /// Располагает узел и его детей
+    /// Вертикальная координата ряда.
+    ///
+    /// Ряд 0 стоит в начале, ряд 1 — через отступ `level_spacing`,
+    /// каждый следующий — через `row_spacing`. Измерено по эталону:
+    /// шаги 73.97 и 48.97 при высоте узла 33.969, то есть 40.0 и 15.0.
+    fn row_y(&self, row: usize, base_y: f64) -> f64 {
+        if row == 0 {
+            return base_y;
+        }
+
+        let step = self.config.node_height + self.config.row_spacing;
+        base_y + self.config.node_height + self.config.level_spacing + (row - 1) as f64 * step
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn layout_node(
         &self,
         node: &WbsNode,
         x: f64,
         y: f64,
+        row: usize,
+        is_root: bool,
+        base_y: f64,
         subtree_widths: &HashMap<*const WbsNode, f64>,
         elements: &mut Vec<LayoutElement>,
     ) {
@@ -170,18 +197,31 @@ impl WbsLayoutEngine {
 
         // Располагаем детей
         if !node.children.is_empty() {
-            let child_y = y + self.config.node_height + self.config.level_spacing;
             let mut child_x = x;
 
-            for child in &node.children {
+            for (k, child) in node.children.iter().enumerate() {
                 let child_subtree_width = subtree_widths
                     .get(&(child as *const WbsNode))
                     .copied()
                     .unwrap_or(self.config.min_node_width);
 
-                // Рекурсивно располагаем ребёнка
+                // Ряд ребёнка по правилу выше.
+                let child_row = if is_root { 1 } else { row + 1 + k };
+                let child_y = self.row_y(child_row, base_y);
+
+                // Ребёнок НЕ корень: его собственные дети пойдут по общему
+                // правилу, поэтому `is_root` здесь всегда false.
                 let child_start_id = elements.len();
-                self.layout_node(child, child_x, child_y, subtree_widths, elements);
+                self.layout_node(
+                    child,
+                    child_x,
+                    child_y,
+                    child_row,
+                    false,
+                    base_y,
+                    subtree_widths,
+                    elements,
+                );
 
                 // Рисуем связь от родителя к ребёнку
                 let child_node_width = self.calculate_node_width(&child.text);
@@ -441,5 +481,51 @@ mod tests {
 
         assert!(long > short);
         assert!(short >= engine.config.min_node_width);
+    }
+
+    /// Ряды узлов соответствуют правилу, выведенному по девяти замерам.
+    ///
+    /// ```text
+    /// ряд(корень) = 0
+    /// дети корня  -> все в ряду 1
+    /// ребёнок k не-корневого узла в ряду r -> ряд r + 1 + k
+    /// ```
+    #[test]
+    fn test_row_rule() {
+        // R[A[A1,A2], B[B1,B2]] — проверено на сервере.
+        let mut a = WbsNode::new(1, "A");
+        a.add_child(WbsNode::new(2, "A1"));
+        a.add_child(WbsNode::new(3, "A2"));
+
+        let mut b = WbsNode::new(4, "B");
+        b.add_child(WbsNode::new(5, "B1"));
+        b.add_child(WbsNode::new(6, "B2"));
+
+        let mut root = WbsNode::new(0, "R");
+        root.add_child(a);
+        root.add_child(b);
+
+        let diagram = WbsDiagram::with_root(root);
+        let result = WbsLayoutEngine::new().layout(&diagram);
+
+        let y_of = |text: &str| -> f64 {
+            result
+                .elements
+                .iter()
+                .find(|e| e.text.as_deref() == Some(text))
+                .map(|e| e.bounds.y)
+                .unwrap_or(f64::NAN)
+        };
+
+        let (r, a, b) = (y_of("R"), y_of("A"), y_of("B"));
+        let (a1, b1) = (y_of("A1"), y_of("B1"));
+        let (a2, b2) = (y_of("A2"), y_of("B2"));
+
+        assert_eq!(a, b, "A и B должны делить ряд");
+        assert_eq!(a1, b1, "A1 и B1 должны делить ряд");
+        assert_eq!(a2, b2, "A2 и B2 должны делить ряд");
+        assert!(a > r, "дети корня ниже корня");
+        assert!(a1 > a, "второй ряд ниже первого");
+        assert!(a2 > a1, "третий ряд ниже второго");
     }
 }
