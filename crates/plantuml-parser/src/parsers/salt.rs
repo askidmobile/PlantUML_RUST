@@ -218,9 +218,12 @@ fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option
         }
         Rule::button => {
             if let Some(content) = pair.into_inner().next() {
-                return Ok(Some(SaltWidget::Button(
-                    content.as_str().trim().to_string(),
-                )));
+                // Пробелы внутри скобок ЗНАЧИМЫ: PlantUML считает ширину
+                // кнопки по числу символов СЫРОЙ подписи. В эталоне
+                // `salt_basic` кнопка « OK » шириной 36 = 8 * 4 + 4, хотя
+                // сам текст «OK» занимает 17.31. Обрезка пробелов здесь
+                // давала кнопку почти вдвое уже эталонной.
+                return Ok(Some(SaltWidget::Button(content.as_str().to_string())));
             }
         }
         Rule::textfield => {

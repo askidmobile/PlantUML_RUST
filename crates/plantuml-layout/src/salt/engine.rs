@@ -17,6 +17,78 @@ const SALT_BUTTON_ROW_TOP_EXTRA: f64 = 8.502;
 /// а линия поля идёт на 19.969.
 const SALTFIELD_LINE_OFFSET: f64 = 2.0;
 
+/// Шаг сетки salt по горизонтали.
+///
+/// PlantUML считает ширину ячеек НЕ по метрикам шрифта, а по числу
+/// символов: поле ввода — `8 * n + 3`, кнопка — `8 * n + 4`. Проверено
+/// на сервере: поле из 26 символов даёт 211, из 4 — 35; кнопка из
+/// 20 символов — 164, из 4 — 36. Прежняя формула брала ширину текста,
+/// из-за чего колонки не совпадали с эталоном.
+const SALT_CHAR_ADVANCE: f64 = 8.0;
+
+/// Добавка к ширине поля ввода после шага сетки.
+const SALT_FIELD_EXTRA: f64 = 3.0;
+
+/// Добавка к ширине кнопки после шага сетки.
+const SALT_BUTTON_EXTRA: f64 = 4.0;
+
+/// Зазор после ячейки поля ввода.
+const SALT_FIELD_GAP: f64 = 8.0;
+
+/// Зазор после ячейки кнопки.
+///
+/// Измерено по эталону `salt_basic`: колонка кнопки «Отмена» шириной
+/// 59.07 при самой кнопке 52.07.
+const SALT_BUTTON_GAP: f64 = 7.0;
+
+/// Зазор после текстовой ячейки.
+const SALT_TEXT_GAP: f64 = 2.0;
+
+/// Цвет линий поля ввода и его засечек.
+///
+/// Эталон `salt_basic` пишет `stroke:#000;stroke-width:1`: прежний
+/// серый `#888888` с половинной толщиной делал подчёркивание бледным.
+const SALTFIELD_STROKE: &str = "#000";
+
+/// Толщина линий поля ввода.
+const SALTFIELD_STROKE_WIDTH: f64 = 1.0;
+
+/// Отступ кнопки от левого края колонки (эталон `salt_basic`: 8.50 при 6).
+const SALT_BUTTON_INSET: f64 = 2.5;
+
+/// Отступ поля ввода от левого края колонки.
+///
+/// Эталон `salt_basic`: колонка поля начинается на 65.07, а подчёркивание
+/// идёт с 66.07.
+const SALT_FIELD_INSET: f64 = 1.0;
+
+/// Радиус скругления кнопки (эталон `salt_basic`: `rx=5`).
+const SALT_BUTTON_CORNER_RADIUS: f64 = 5.0;
+
+/// Заливка кнопки (эталон `salt_basic`: `#EEE`, а не тема).
+const SALT_BUTTON_BACKGROUND: &str = "#EEE";
+
+/// Цвет обводки кнопки (эталон `salt_basic`: `#181818`).
+const SALT_BUTTON_BORDER: &str = "#181818";
+
+/// Толщина обводки кнопки (эталон `salt_basic`: `stroke-width:2.5`).
+const SALT_BUTTON_BORDER_WIDTH: f64 = 2.5;
+
+/// Базис подписи кнопки от её верха.
+///
+/// Эталон `salt_basic`: рамка на 44.44, текст — на 57.58, то есть
+/// на 13.14 ниже (центр рамки плюс половина высоты строчных).
+const BUTTON_TEXT_BASELINE_OFFSET: f64 = 13.14;
+
+/// Отступ подписи поля ввода от его левого края (эталон: 68.07 при 66.07).
+const SALTFIELD_TEXT_INSET: f64 = 2.0;
+
+/// Базис подписи поля ввода от верха строки (эталон `salt_basic`: 17.14).
+const SALTFIELD_TEXT_BASELINE: f64 = 17.14;
+
+/// Базис текстовой подписи от верха строки (эталон `salt_basic`: 17.14).
+const SALT_TEXT_BASELINE: f64 = 17.14;
+
 use crate::salt::config::SaltLayoutConfig;
 use crate::traits::{LayoutEngine, LayoutResult};
 use crate::{EdgeType, ElementType, LayoutConfig, LayoutElement};
@@ -99,13 +171,15 @@ impl SaltLayoutEngine {
     /// Используется для подгонки размера контейнера под содержимое.
     fn widget_natural_width(&self, widget: &SaltWidget) -> f64 {
         match widget {
-            // Кнопка: текст плюс небольшой отступ, но не уже эталонного
-            // минимума (в эталоне «Отмена» 48.07 → 52.07, «OK» 17.314 → 36)
-            SaltWidget::Button(text) => (self.config.text.width(text, self.config.font_size) + 4.0)
-                .max(self.config.min_button_width),
-            SaltWidget::Text(text) => self.config.text.width(text, self.config.font_size),
-            SaltWidget::TextField(text) => (self.config.text.width(text, self.config.font_size))
-                .max(self.config.min_cell_width),
+            // Кнопка: `max(8 * символов, ширина текста) + 4` плюс зазор
+            // колонки. Ширина берётся по СЫРОЙ подписи: в эталоне
+            // `salt_basic` кнопка « OK » шириной 36 = 8 * 4 + 4, хотя
+            // текст «OK» — 17.31.
+            SaltWidget::Button(text) => self.button_width(text) + SALT_BUTTON_GAP,
+            SaltWidget::Text(text) => {
+                self.config.text.width(text, self.config.font_size) + SALT_TEXT_GAP
+            }
+            SaltWidget::TextField(text) => self.textfield_width(text) + SALT_FIELD_GAP,
             SaltWidget::Checkbox { label, .. } | SaltWidget::Radio { label, .. } => {
                 self.config.checkbox_size
                     + 4.0
@@ -194,6 +268,16 @@ impl SaltLayoutEngine {
             col_natural.clone()
         };
 
+        // Ширина контейнера считается по ПРАВОМУ КРАЮ нарисованных
+        // элементов, а не по сумме ширин колонок.
+        //
+        // Колонка резервирует место под свой самый широкий виджет, но
+        // последний столбец в эталоне обрезается по факту: `salt_basic`
+        // кончается на 100.07 (правый край поля), хотя колонка поля
+        // занимает 43. Прежний расчёт по колонкам давал 114.07 и холст
+        // 127 вместо 113.
+        let first_element = elements.len();
+
         for row in &container.rows {
             let mut current_x = start_x;
 
@@ -235,12 +319,16 @@ impl SaltLayoutEngine {
                 current_x += cell_width;
             }
 
-            max_width = max_width.max(current_x - start_x);
             // Шаг строк равен высоте строки: измерено по эталону — строки
             // идут на y=17.139 и 35.107, то есть ровно на 17.968. Раньше
             // добавлялся ещё и половинный отступ ячейки, из-за чего шаг
             // составлял 20.97 и диаграмма вырастала по высоте.
             current_y += row_height;
+        }
+
+        for element in &elements[first_element..] {
+            let right = element.bounds.x + element.bounds.width;
+            max_width = max_width.max(right - x - self.config.cell_padding);
         }
 
         let total_width = max_width + self.config.cell_padding * 2.0;
@@ -307,7 +395,10 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width = self.config.text.width(text, self.config.font_size) + self.config.cell_padding;
+        let text_width = self.config.text.width(text, self.config.font_size);
+        // Ширина ячейки — текст плюс зазор колонки: эталон `salt_basic`
+        // даёт колонку подписи на 2 шире самой длинной подписи.
+        let width = text_width + SALT_TEXT_GAP;
         let height = self.config.row_height;
 
         let text_elem = LayoutElement {
@@ -316,7 +407,13 @@ impl SaltLayoutEngine {
                 text: text.to_string(),
                 font_size: self.config.font_size,
             },
-            bounds: Rect::new(x, y + 5.0, width, height),
+            // Базис подписи: эталон ставит первую строку на 17.14.
+            bounds: Rect::new(
+                x,
+                y + SALT_TEXT_BASELINE - self.config.font_size,
+                text_width,
+                self.config.font_size,
+            ),
             text: Some(text.to_string()),
             properties: [("fill".to_string(), "#000000".to_string())]
                 .into_iter()
@@ -327,6 +424,21 @@ impl SaltLayoutEngine {
         (width, height)
     }
 
+    /// Ширина поля ввода по правилу PlantUML: `8 * символов + 3`.
+    fn textfield_width(&self, text: &str) -> f64 {
+        SALT_CHAR_ADVANCE * text.chars().count() as f64 + SALT_FIELD_EXTRA
+    }
+
+    /// Ширина кнопки по правилу PlantUML.
+    ///
+    /// `max(8 * символов, ширина текста) + 4`: для кириллицы метрики
+    /// шрифта шире шага сетки, поэтому берётся максимум.
+    fn button_width(&self, label: &str) -> f64 {
+        let by_grid = SALT_CHAR_ADVANCE * label.chars().count() as f64 + SALT_BUTTON_EXTRA;
+        let by_text = self.config.text.width(label, self.config.font_size) + SALT_BUTTON_EXTRA;
+        by_grid.max(by_text)
+    }
+
     /// Рендерит кнопку
     fn render_button(
         &mut self,
@@ -335,44 +447,59 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width =
-            self.config.text.width(label, self.config.font_size) + self.config.cell_padding * 2.0;
-        let width = width.max(self.config.min_cell_width);
+        let width = self.button_width(label);
         let height = self.config.button_height;
 
-        // Фон кнопки
+        // Кнопка прижата к левому краю колонки с отступом 2.5 — эталон
+        // `salt_basic` даёт 8.50 при начале колонки на 6.
+        let button_x = x + SALT_BUTTON_INSET;
+        let label_text = label.trim();
+
+        // Фон кнопки.
+        //
+        // Радиус 5 и обводка 2.5 — из эталона `salt_basic`; раньше были
+        // радиус 3 и обводка темы (0.5), из-за чего кнопки выглядели
+        // плоскими и почти без рамки.
         let bg = LayoutElement {
             id: self.next_id("button_bg"),
             element_type: ElementType::Rectangle {
                 label: String::new(),
-                corner_radius: 3.0,
+                corner_radius: SALT_BUTTON_CORNER_RADIUS,
             },
-            bounds: Rect::new(x, y, width, height),
+            bounds: Rect::new(button_x, y, width, height),
             text: None,
             properties: [
-                ("fill".to_string(), self.config.button_color.to_string()),
-                ("stroke".to_string(), self.config.border_color.to_string()),
+                ("fill".to_string(), SALT_BUTTON_BACKGROUND.to_string()),
+                ("stroke".to_string(), SALT_BUTTON_BORDER.to_string()),
+                (
+                    "stroke-width".to_string(),
+                    SALT_BUTTON_BORDER_WIDTH.to_string(),
+                ),
             ]
             .into_iter()
             .collect(),
         };
         elements.push(bg);
 
-        // Текст кнопки
+        // Текст кнопки — по центру: эталон ставит «Отмена» на 10.50 при
+        // рамке 8.50..60.57 и тексте 48.07.
+        let text_width = self.config.text.width(label_text, self.config.font_size);
         let text = LayoutElement {
             id: self.next_id("button_text"),
             element_type: ElementType::Text {
-                text: label.to_string(),
+                text: label_text.to_string(),
                 font_size: self.config.font_size,
             },
-            bounds: Rect::new(x + self.config.cell_padding, y + 4.0, width, height),
-            text: Some(label.to_string()),
-            properties: [
-                ("fill".to_string(), "#000000".to_string()),
-                ("text-anchor".to_string(), "middle".to_string()),
-            ]
-            .into_iter()
-            .collect(),
+            bounds: Rect::new(
+                button_x + (width - text_width) / 2.0,
+                y + BUTTON_TEXT_BASELINE_OFFSET - self.config.font_size,
+                text_width,
+                self.config.font_size,
+            ),
+            text: Some(label_text.to_string()),
+            properties: [("fill".to_string(), "#000000".to_string())]
+                .into_iter()
+                .collect(),
         };
         elements.push(text);
 
@@ -387,10 +514,9 @@ impl SaltLayoutEngine {
         y: f64,
         elements: &mut Vec<LayoutElement>,
     ) -> (f64, f64) {
-        let width =
-            self.config.text.width(text, self.config.font_size) + self.config.cell_padding * 2.0;
-        let width = width.max(self.config.min_cell_width);
+        let width = self.textfield_width(text);
         let height = self.config.textfield_height;
+        let x = x + SALT_FIELD_INSET;
 
         // Поле ввода: ЛИНИЯ с засечками по краям, а не прямоугольник.
         //
@@ -414,9 +540,15 @@ impl SaltLayoutEngine {
             },
             bounds: Rect::new(x, line_y, width, 1.0),
             text: None,
-            properties: [("stroke".to_string(), self.config.border_color.to_string())]
-                .into_iter()
-                .collect(),
+            properties: [
+                ("stroke".to_string(), SALTFIELD_STROKE.to_string()),
+                (
+                    "stroke-width".to_string(),
+                    SALTFIELD_STROKE_WIDTH.to_string(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
         });
 
         for tick_x in [x, x + width] {
@@ -435,22 +567,35 @@ impl SaltLayoutEngine {
                     from_cardinality: None,
                     to_cardinality: None,
                 },
-                bounds: Rect::new(tick_x, line_y - 3.0, 1.0, 2.0),
+                bounds: Rect::new(tick_x, line_y - 3.0, 0.0, 2.0),
                 text: None,
-                properties: [("stroke".to_string(), self.config.border_color.to_string())]
-                    .into_iter()
-                    .collect(),
+                properties: [
+                    ("stroke".to_string(), SALTFIELD_STROKE.to_string()),
+                    (
+                        "stroke-width".to_string(),
+                        SALTFIELD_STROKE_WIDTH.to_string(),
+                    ),
+                ]
+                .into_iter()
+                .collect(),
             });
         }
 
-        // Текст
+        // Текст поля: эталон ставит его на 2 правее начала подчёркивания
+        // и базисом 17.14 от верха строки.
+        let text_width = self.config.text.width(text, self.config.font_size);
         let text_elem = LayoutElement {
             id: self.next_id("field_text"),
             element_type: ElementType::Text {
                 text: text.to_string(),
                 font_size: self.config.font_size,
             },
-            bounds: Rect::new(x + 4.0, y + 4.0, width, height),
+            bounds: Rect::new(
+                x + SALTFIELD_TEXT_INSET,
+                y + SALTFIELD_TEXT_BASELINE - self.config.font_size,
+                text_width,
+                self.config.font_size,
+            ),
             text: Some(text.to_string()),
             properties: [("fill".to_string(), "#000000".to_string())]
                 .into_iter()

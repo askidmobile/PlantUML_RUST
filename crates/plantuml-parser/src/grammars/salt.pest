@@ -80,11 +80,16 @@ widget = _{
 }
 
 // Кнопка [text]
-button = { "[" ~ button_content ~ "]" }
+//
+// Составное-атомарное правило (`$`), а не обычное: pest сам пропускает
+// пробелы между токенами, и на границе `"["` и `button_content` терялся
+// ВЕДУЩИЙ пробел подписи. PlantUML считает ширину кнопки по числу
+// символов, поэтому «[ OK ]» обязана остаться четырёхсимвольной.
+button = ${ "[" ~ button_content ~ "]" }
 button_content = @{ (!("]") ~ !NEWLINE ~ ANY)* }
 
 // Текстовое поле "text"
-textfield = { "\"" ~ textfield_content ~ "\"" }
+textfield = ${ "\"" ~ textfield_content ~ "\"" }
 textfield_content = @{ (!("\"") ~ !NEWLINE ~ ANY)* }
 
 // Чекбокс отмеченный [X] или [x]

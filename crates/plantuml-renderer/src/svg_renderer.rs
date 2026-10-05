@@ -285,8 +285,11 @@ impl SvgRenderer {
             Some("STATE") => (0.0, 0.0, 8.0, 7.0),
             // SALT: измерено по эталону `salt_basic` — холст 113x71.
             // Начало координат остаётся нулевым: содержимое таблицы уже
-            // начинается в (6, 7.84), как в эталоне.
-            Some("SALT") => (0.0, 0.0, 12.93, 2.59),
+            // начинается в (6, 7.84), как в эталоне. Правый запас
+            // пересчитан после того, как движок стал считать ширину
+            // контейнера по правому краю нарисованных элементов
+            // (габарит вырос со 100.07 до 109.57).
+            Some("SALT") => (0.0, 0.0, 3.43, 2.59),
             // TIMING: измерено по эталону `timing_basic` — холст 229x175.
             // Левые и верхние поля оставлены общими, добавка справа и
             // снизу доводит габарит до эталонного.
@@ -851,7 +854,14 @@ impl SvgRenderer {
             .unwrap_or(corner_radius);
 
         // Толщина границы берётся из темы (`skinparam linetype`), значение
-        // по умолчанию 0.5 совпадает с PlantUML для участников.
+        // по умолчанию 0.5 совпадает с PlantUML для участников. Свойство
+        // `stroke-width` перекрывает её: так рисуются кнопки salt —
+        // в эталоне `salt_basic` у них обводка 2.5.
+        let stroke_width = properties
+            .get("stroke-width")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(theme.line_width * 0.5);
+
         let mut rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
@@ -861,7 +871,7 @@ impl SvgRenderer {
             .set("ry", corner_radius)
             .set("fill", fill_color)
             .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", theme.line_width * 0.5);
+            .set("stroke-width", stroke_width);
 
         if let Some(op) = opacity {
             rect = rect.set("fill-opacity", op);
