@@ -69,8 +69,13 @@ impl SvgRenderer {
         /// поэтому рендерер дополняет до эталонных 10/20/20.14/20.81.
         const MINDMAP: (f64, f64, f64, f64) = (0.0, 10.0, 10.14, 10.81);
 
+        /// NWDIAG: слева 5 (контент начинается с padding движка),
+        /// справа 6.27; сверху и снизу остаются поля по умолчанию.
+        const NWDIAG: (f64, f64, f64, f64) = (0.0, 7.0, 6.27, 7.0);
+
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
+            Some("NWDIAG") => NWDIAG,
             Some("MINDMAP") => MINDMAP,
             Some("JSON") | Some("YAML") => TABLE,
             Some("GANTT") => GANTT,

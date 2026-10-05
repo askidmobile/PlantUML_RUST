@@ -602,9 +602,30 @@ impl LayoutEngine for NetworkLayoutEngine {
         // Рисуем группы (на заднем плане)
         self.render_groups(diagram, &server_order, &mut elements);
 
+        // Границы должны покрывать ВСЕ элементы.
+        //
+        // Ручной расчёт (`band_x + network_width - padding`) не учитывал
+        // правый край полосы: bounds.width выходил 263.97 при фактическом
+        // максимуме x 268.97, то есть контент вылезал за объявленные
+        // границы на 5px. Из-за этого полю рендерера нельзя было задать
+        // нужное значение — контент обрезался бы.
+        let content_right = elements
+            .iter()
+            .map(|e| e.bounds.x + e.bounds.width)
+            .fold(0.0_f64, f64::max);
+        let content_bottom = elements
+            .iter()
+            .map(|e| e.bounds.y + e.bounds.height)
+            .fold(0.0_f64, f64::max);
+
         LayoutResult {
             elements,
-            bounds: Rect::new(0.0, 0.0, width, height),
+            bounds: Rect::new(
+                0.0,
+                0.0,
+                width.max(content_right),
+                height.max(content_bottom),
+            ),
         }
     }
 }
