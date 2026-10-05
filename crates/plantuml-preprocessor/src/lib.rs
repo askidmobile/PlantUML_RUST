@@ -532,8 +532,11 @@ impl<R: FileResolver> Preprocessor<R> {
             // подставляется из переменных: полноценный разбор выражений
             // не нужен, библиотеки возвращают уже готовые строки.
             // Значение тоже ВЫРАЖЕНИЕ: `!return "[" + $x + "]"` должно
-            // вернуть склеенную строку, а не текст выражения.
-            let value = evaluate_concat(rest.trim(), ctx);
+            // вернуть склеенную строку, а не текст выражения. Вызовы
+            // функций внутри вычисляются РАНЬШЕ: `!return $bl()` иначе
+            // возвращал текст вызова.
+            let expanded = self.process_function_calls(rest.trim(), ctx);
+            let value = evaluate_concat(&expanded, ctx);
             ctx.return_value = Some(value);
             ctx.returning = true;
         } else if let Some(rest) = directive.strip_prefix("global ") {
@@ -1423,6 +1426,50 @@ MAIN_END
         assert!(result.contains("LEVEL2_CONTENT"));
         assert!(result.contains("LEVEL1_END"));
         assert!(result.contains("MAIN_END"));
+    }
+
+    /// Имя переменной не подставляется ВНУТРИ более длинного имени.
+    ///
+    /// Регрессия: подстановка шла через `replace("$element", ...)`,
+    /// поэтому `$elementSkin` превращался в `<значение>Skin`. На этом
+    /// стандартная библиотека получала `rectangleSkin` вместо
+    /// `skinparam rectangle<<...>>`.
+    #[test]
+    fn test_prefix_variable_name_is_not_replaced() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !$element = rectangle\n\
+            !$elementSkin = \"skinparam \" + $element\n\
+            class $elementSkin\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class skinparam rectangle"),
+            "длинное имя повреждено коротким: {out}"
+        );
+    }
+
+    /// Вызов функции внутри `!return` раскрывается.
+    #[test]
+    fn test_function_call_inside_return() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $inner($a)\n\
+            !return \"[\" + $a + \"]\"\n\
+            !endfunction\n\
+            !function $outer($b)\n\
+            !return \"<\" + $inner($b) + \">\"\n\
+            !endfunction\n\
+            !$v = Внутри\n\
+            class $outer($v)\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class <[Внутри]>"),
+            "вложенный вызов не раскрыт: {out}"
+        );
     }
 
     /// Присваивание ВЫЧИСЛЯЕТ правую часть, а не хранит её текстом.
