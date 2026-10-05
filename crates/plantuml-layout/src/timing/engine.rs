@@ -363,10 +363,18 @@ impl TimingLayoutEngine {
                     },
                 });
 
-                // Метка состояния
+                // Метка состояния.
+                //
+                // Ширина берётся по тексту: раньше здесь стояла константа
+                // 50.0, и подпись «Обработка» (68.15) вылезала за границы
+                // диаграммы на 11px — то есть обрезалась бы.
+                let label_width = self
+                    .config
+                    .text
+                    .width(&change.state, self.config.label_font_size);
                 elements.push(LayoutElement {
                     id: format!("state_label_{}_{}_{}", participant_name, participant_idx, i),
-                    bounds: Rect::new(x + 5.0, line_y - 20.0, 50.0, 15.0),
+                    bounds: Rect::new(x + 5.0, line_y - 20.0, label_width, 15.0),
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {

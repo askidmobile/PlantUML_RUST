@@ -1,8 +1,12 @@
 //! Конфигурация layout для Timing Diagrams
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация layout для Timing Diagrams
 #[derive(Debug, Clone)]
 pub struct TimingLayoutConfig {
+    /// Измеритель текста.
+    pub text: TextMeasurer,
     /// Отступ от краёв
     pub padding: f64,
     /// Ширина области имён участников
@@ -39,6 +43,7 @@ impl Default for TimingLayoutConfig {
             robust_state_height: 30.0,
             concise_line_height: 20.0,
             label_font_size: 12.0,
+            text: TextMeasurer::default(),
             time_font_size: 10.0,
         }
     }
