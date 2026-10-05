@@ -3,6 +3,12 @@
 use plantuml_ast::class::{ClassDiagram, ClassifierType, RelationshipType};
 use plantuml_model::{Point, Rect};
 
+/// Размер одного пикселя спрайта в единицах SVG.
+const SPRITE_PIXEL_SIZE: f64 = 1.0;
+
+/// Отступ между блоками объявленных спрайтов.
+const SPRITE_BLOCK_GAP: f64 = 10.0;
+
 use crate::traits::LayoutEngine;
 use crate::{
     ClassMember, ClassifierKind, EdgeType, ElementType, LayoutConfig, LayoutElement, LayoutResult,
@@ -47,7 +53,11 @@ impl ClassLayoutEngine {
 
     /// Выполняет layout диаграммы классов
     pub fn layout_diagram(&self, diagram: &ClassDiagram) -> LayoutResult {
-        if diagram.classifiers.is_empty() && diagram.packages.is_empty() {
+        // Диаграмма из одних спрайтов тоже валидна.
+        if diagram.classifiers.is_empty()
+            && diagram.packages.is_empty()
+            && diagram.sprites.is_empty()
+        {
             return LayoutResult::empty();
         }
 
@@ -58,6 +68,31 @@ impl ClassLayoutEngine {
 
         // Преобразуем результат в LayoutElements
         let mut elements = Vec::new();
+
+        // Спрайты: `sprite $имя [ШxВ] { ... }`.
+        //
+        // PlantUML ставит их в подписях через `<$имя>`, но и объявленный
+        // спрайт без подстановки стоит в выводе — поэтому размещаем их
+        // отдельным блоком под диаграммой, чтобы объявление не терялось.
+        let mut sprite_y = self.config.margin;
+        for sprite in &diagram.sprites {
+            let pixel_size = SPRITE_PIXEL_SIZE;
+            let width = sprite.width as f64 * pixel_size;
+            let height = sprite.height as f64 * pixel_size;
+
+            elements.push(LayoutElement {
+                id: format!("sprite_{}", sprite.name),
+                bounds: Rect::new(self.config.margin, sprite_y, width, height),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Sprite {
+                    rows: sprite.rows.clone(),
+                    pixel_size,
+                },
+            });
+
+            sprite_y += height + SPRITE_BLOCK_GAP;
+        }
 
         // Добавляем узлы (классы)
         for node in &graph.nodes {

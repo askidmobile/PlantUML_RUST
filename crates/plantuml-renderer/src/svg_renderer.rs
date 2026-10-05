@@ -38,6 +38,44 @@ impl SvgRenderer {
         self.render(layout, theme)
     }
 
+    /// Рисует растровый спрайт набором прямоугольников.
+    ///
+    /// PlantUML встраивает PNG в base64, но палитра фиксирована: 16
+    /// оттенков серого с убывающей прозрачностью. Поэтому кодер PNG не
+    /// нужен — каждая hex-цифра тела становится прямоугольником.
+    /// Значения палитры сняты с эталонного PNG, который отдаёт сервер.
+    fn render_sprite(
+        &self,
+        bounds: &Rect,
+        rows: &[String],
+        pixel_size: f64,
+        mut group: Group,
+    ) -> Group {
+        for (row_index, row) in rows.iter().enumerate() {
+            for (col_index, ch) in row.chars().enumerate() {
+                let Some((color, alpha)) = sprite_color(ch) else {
+                    continue;
+                };
+                // Цифра `0` в палитре полностью прозрачна — не рисуем.
+                if alpha == 0 {
+                    continue;
+                }
+
+                let rect = Rectangle::new()
+                    .set("x", bounds.x + col_index as f64 * pixel_size)
+                    .set("y", bounds.y + row_index as f64 * pixel_size)
+                    .set("width", pixel_size)
+                    .set("height", pixel_size)
+                    .set("fill", color)
+                    .set("fill-opacity", fmt(alpha as f64 / 255.0));
+
+                group = group.add(rect);
+            }
+        }
+
+        group
+    }
+
     /// Поля страницы `(слева, сверху, справа, снизу)` для текущего типа.
     ///
     /// Значения измерены по эталонам PlantUML. Тип приходит в
@@ -282,6 +320,9 @@ impl SvgRenderer {
                     group,
                     &element.properties,
                 );
+            }
+            ElementType::Sprite { rows, pixel_size } => {
+                group = self.render_sprite(&element.bounds, rows, *pixel_size, group);
             }
             ElementType::Ellipse { label } => {
                 group = self.render_ellipse(&element.bounds, label.as_deref(), theme, group);
@@ -2013,6 +2054,35 @@ impl Renderer for SvgRenderer {
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
+
+/// Цвет и прозрачность пикселя спрайта по его шестнадцатеричной цифре.
+///
+/// Палитра PlantUML — серый градиент от `#F1F1F1` до `#121212`. Значения
+/// сняты с эталонного PNG, который сервер встраивает в вывод: тип цвета 6
+/// (RGBA), поэтому у первых индексов прозрачность меньше 255.
+fn sprite_color(digit: char) -> Option<(&'static str, u8)> {
+    const PALETTE: [(&str, u8); 16] = [
+        ("#F1F1F1", 0),
+        ("#E2E2E2", 60),
+        ("#D3D3D3", 123),
+        ("#C5C5C5", 186),
+        ("#B6B6B6", 238),
+        ("#A7A7A7", 255),
+        ("#989898", 255),
+        ("#898989", 255),
+        ("#7A7A7A", 255),
+        ("#6B6B6B", 255),
+        ("#5D5D5D", 255),
+        ("#4E4E4E", 255),
+        ("#3F3F3F", 255),
+        ("#303030", 255),
+        ("#212121", 255),
+        ("#121212", 255),
+    ];
+
+    let index = digit.to_digit(16)? as usize;
+    PALETTE.get(index).copied()
+}
 
 /// Величина скоса объёмной рамки узла deployment.
 const NODE_3D_OFFSET: f64 = 10.0;
