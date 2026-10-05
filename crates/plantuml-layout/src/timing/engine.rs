@@ -21,6 +21,9 @@ const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
 /// Шаг делений шкалы. Постоянный: не зависит ни от значений времени,
 /// ни от числа событий (проверено на пяти замерах с plantuml.com).
 const TIME_TICK_STEP: f64 = 50.0;
+
+/// Насколько шкала выступает правее последнего деления (измерено).
+const TIME_AXIS_TAIL: f64 = 5.0;
 use crate::{EdgeType, ElementType, LayoutElement};
 
 /// Layout engine для Timing Diagrams
@@ -61,8 +64,10 @@ impl TimingLayoutEngine {
         let diagram = &diagram;
 
         // 1. Собираем все времена для определения масштаба
-        let (min_time, max_time) = self.calculate_time_range(diagram);
-        let time_range = (max_time - min_time).max(100.0);
+        // Верхняя граница диапазона больше не нужна: шкала строится по
+        // числу событий, а не по значениям времени (см. `timeline_width`).
+        // Нижняя используется при отрисовке ломаных состояний.
+        let (min_time, _max_time) = self.calculate_time_range(diagram);
 
         // 2. Создаём mapping участников к их lane индексам
         let participant_map: HashMap<String, usize> = diagram
@@ -96,7 +101,27 @@ impl TimingLayoutEngine {
 
         // 4. Рисуем участников и их lanes
         let timeline_start_x = self.config.padding + self.config.participant_label_width;
-        let timeline_width = time_range * self.config.time_scale;
+
+        // Длина шкалы.
+        //
+        // PlantUML строит её по ЧИСЛУ СОБЫТИЙ, а не по диапазону времени:
+        // первое деление отстоит от оси на 50, каждое следующее ещё на 50,
+        // а сама шкала кончается на 5 правее последнего деления.
+        //
+        // Проверено на трёх независимых замерах:
+        //   timing_basic (2 события): ось 91.732, деления 141.732/191.732,
+        //                             правый край 196.732 = 191.732 + 5
+        //   @0/@100      (2 события): ось  32.635, деления  82.635/132.635,
+        //                             правый край 137.635 = 132.635 + 5
+        //   @0/@25/@50/@75 (4):       последнее деление 232.63, край 237.63
+        //
+        // Раньше длина считалась как `time_range * time_scale`, то есть
+        // масштабировалась по значениям времени: при диапазоне 100 и
+        // масштабе 0.43 выходило 43 против эталонных 105.
+        let events = self.collect_time_values(diagram).len().max(1);
+        let timeline_width = TIME_FIRST_TICK_OFFSET
+            + (events.saturating_sub(1)) as f64 * TIME_TICK_STEP
+            + TIME_AXIS_TAIL;
 
         for (i, participant) in diagram.participants.iter().enumerate() {
             let lane_y = self.config.padding
