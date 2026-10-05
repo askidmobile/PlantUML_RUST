@@ -191,7 +191,17 @@ impl JsonLayoutEngine {
                     _ => None,
                 };
                 if let Some(child) = child {
-                    self.layout_table(&child, nested_x, nested_y, elements);
+                    // Вложенная таблица ЦЕНТРИРУЕТСЯ по своей строке, а не
+                    // начинается с её середины. В эталоне json_basic таблица
+                    // массива занимает 40.09..80.68 при строке `tags`
+                    // 50.59..70.89, то есть её центр 60.385 совпадает с
+                    // центром строки 60.74. Раньше верх таблицы ставился в
+                    // центр строки, и она уезжала вниз на половину высоты —
+                    // на 20.65px.
+                    let mut probe: Vec<LayoutElement> = Vec::new();
+                    let size = self.layout_table(&child, 0.0, 0.0, &mut probe);
+                    let centered_y = nested_y - size.height / 2.0;
+                    self.layout_table(&child, nested_x, centered_y, elements);
                 }
             }
 

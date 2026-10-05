@@ -60,8 +60,14 @@ impl SvgRenderer {
         /// object_basic: 14.28/14.41, 14.49/14.11, 13.90/13.41).
         const CLASS: (f64, f64, f64, f64) = (7.0, 7.0, 14.28, 14.41);
 
+        /// JSON и YAML: таблица с отступом 10 со всех сторон и небольшим
+        /// запасом справа и снизу (измерено 10/10/11.11/11.81 и
+        /// 10/10/11.55/11.11).
+        const TABLE: (f64, f64, f64, f64) = (10.0, 10.0, 11.11, 11.81);
+
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
+            Some("JSON") | Some("YAML") => TABLE,
             Some("GANTT") => GANTT,
             Some("WBS") => WBS,
             _ => DEFAULT,
