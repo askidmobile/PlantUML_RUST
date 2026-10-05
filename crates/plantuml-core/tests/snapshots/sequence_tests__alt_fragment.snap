@@ -4,7 +4,7 @@ assertion_line: 88
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:163px;height:252px;background:#FFFFFF;" version="1.1" viewBox="-10 0 162.6298 251.735" width="163px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:187px;height:252px;background:#FFFFFF;" version="1.1" viewBox="0 0 186.5208056 251.985" width="187px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
@@ -24,10 +24,10 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="lifeline_Alice">
-<path d="M33.8329,40.297 L33.8329,209.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M33.8329,40.297 L33.8329,209.81300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="lifeline_Bob">
-<path d="M111.2226,40.297 L111.2226,209.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M111.2226,40.297 L111.2226,209.81300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="msg_Alice_Bob">
 <path d="M33.8329,70.297 L111.2226,70.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
@@ -36,27 +36,27 @@ Request
 </text>
 </g>
 <g id="fragment_alt">
-<rect fill="none" height="123.26600000000003" stroke="#000" stroke-width="1.5" width="141.7508" x="0" y="82.42999999999999"/>
-<path d="M0,82.42999999999999 L62.957800000000006,82.42999999999999 L62.957800000000006,89.56299999999999 L52.957800000000006,99.56299999999999 L0,99.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
-<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="96.42999999999999" textLength="20.185">
+<rect fill="none" height="104.38600000000004" stroke="#000" stroke-width="1.5" width="158.68680559999999" x="16.955" y="82.42999999999999"/>
+<path d="M16.955,82.42999999999999 L79.9128,82.42999999999999 L79.9128,89.56299999999999 L69.9128,99.56299999999999 L16.955,99.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
+<text fill="#000" font-family="sans-serif" font-size="13" font-weight="700" x="31.955" y="95.5" textLength="18.743">
 alt
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="72.9578" y="96.42999999999999" textLength="80.496">
+<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="96.39500000000001" y="94.63999999999999" textLength="63.247">
 [success]
 </text>
 <g id="msg_Bob_Alice">
-<path d="M111.2226,144.43 L33.8329,144.43" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8329" y="139.43" textLength="18.756">
+<path d="M111.2226,130.69 L33.8329,130.69" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8329" y="125.69" textLength="18.756">
 OK
 </text>
 </g>
-<path d="M0,164.56300000000002 L141.7508,164.56300000000002" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="700" x="5" y="176.56300000000002" textLength="59.137">
+<path d="M16.955,139.883 L175.6418056,139.883" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="21.955" y="151.883" textLength="54.209">
 [failure]
 </text>
 <g id="msg_Bob_Alice">
-<path d="M111.2226,192.56300000000002 L33.8329,192.56300000000002" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8329" y="187.56300000000002" textLength="32.204">
+<path d="M111.2226,178.823 L33.8329,178.823" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8329" y="173.823" textLength="32.204">
 Error
 </text>
 </g>
@@ -74,14 +74,14 @@ Bob
 </text>
 </g>
 <g id="footer_Alice">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="47.665800000000004" x="10" y="209.56300000000002"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="33.8329" y="224.71150000000003" textLength="33.666">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="47.665800000000004" x="10" y="209.81300000000002"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="33.8329" y="224.96150000000003" textLength="33.666">
 Alice
 </text>
 </g>
 <g id="footer_Bob">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="41.0564" x="90.6944" y="209.56300000000002"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="111.2226" y="224.71150000000003" textLength="27.056">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="41.0564" x="90.6944" y="209.81300000000002"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="111.2226" y="224.96150000000003" textLength="27.056">
 Bob
 </text>
 </g>

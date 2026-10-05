@@ -18,6 +18,29 @@ const FRAGMENT_HEADER_FILL: &str = "#EEE";
 /// Смещение кружка граничного элемента вправо от линии жизни.
 const BOUNDARY_CIRCLE_SHIFT: f64 = 8.5;
 
+/// Отступ типа фрагмента от левого края рамки.
+///
+/// Эталон `sequence_fragments`: «alt» на x = 31.95 при рамке от 16.955.
+const FRAGMENT_TYPE_INSET: f64 = 15.0;
+
+/// Базис типа фрагмента от верха рамки (эталон: 95.50 при 82.43).
+const FRAGMENT_TYPE_BASELINE: f64 = 13.07;
+
+/// Кегль типа фрагмента (эталон: `font-size="13"`).
+const FRAGMENT_LABEL_FONT_SIZE: f64 = 13.0;
+
+/// Кегль условия секции (эталон: `font-size="11"`).
+const FRAGMENT_CONDITION_FONT_SIZE: f64 = 11.0;
+
+/// Отступ условия от правого края рамки (эталон: 179.355 - 163.36).
+const FRAGMENT_CONDITION_INSET: f64 = 16.0;
+
+/// Базис условия от верха рамки (эталон: 94.64 при 82.43).
+const FRAGMENT_CONDITION_BASELINE: f64 = 12.21;
+
+/// Насколько разделитель секции выше её первого сообщения.
+const FRAGMENT_SEPARATOR_OFFSET: f64 = 38.94;
+
 /// Смещение подписи фигурного участника влево от его оси.
 const PARTICIPANT_ICON_LABEL_SHIFT: f64 = 3.0;
 
@@ -2256,10 +2279,10 @@ impl SvgRenderer {
 
         // Текст типа фрагмента ("alt", "opt", etc.)
         let type_text = svg::node::element::Text::new(label_text)
-            .set("x", bounds.x + 5.0)
-            .set("y", bounds.y + 14.0)
+            .set("x", bounds.x + FRAGMENT_TYPE_INSET)
+            .set("y", bounds.y + FRAGMENT_TYPE_BASELINE)
             .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size)
+            .set("font-size", FRAGMENT_LABEL_FONT_SIZE)
             // PlantUML использует числовую запись `700`; визуально то же,
             // но для точного соответствия эталону приводим к ней.
             .set("font-weight", if bold { "700" } else { "bold" })
@@ -2273,11 +2296,21 @@ impl SvgRenderer {
                 // Условие секции тоже ПОЛУЖИРНОЕ: в эталоне
                 // sequence_fragments элементы «[Успешно]» и «[Ошибка]»
                 // имеют font-weight="700", как и тип «alt».
-                let cond_text = svg::node::element::Text::new(format!("[{}]", condition))
-                    .set("x", bounds.x + label_width + 10.0)
-                    .set("y", bounds.y + 14.0)
+                // Условие прижато к ПРАВОМУ краю рамки с отступом 16,
+                // кегль 11: эталон `sequence_fragments` даёт «[Успешно]» на
+                // x = 96.40 при рамке 16.955..179.355 (96.40 + 66.96 + 16 =
+                // 179.36), базис — на 12.21 ниже верха.
+                let cond_value = format!("[{condition}]");
+                let cond_width = plantuml_layout::text::TextMeasurer::default()
+                    .width_bold(&cond_value, FRAGMENT_CONDITION_FONT_SIZE);
+                let cond_text = svg::node::element::Text::new(cond_value)
+                    .set(
+                        "x",
+                        bounds.x + bounds.width - FRAGMENT_CONDITION_INSET - cond_width,
+                    )
+                    .set("y", bounds.y + FRAGMENT_CONDITION_BASELINE)
                     .set("font-family", theme.font_family.as_str())
-                    .set("font-size", theme.font_size)
+                    .set("font-size", FRAGMENT_CONDITION_FONT_SIZE)
                     .set("font-weight", if bold { "700" } else { "bold" })
                     .set("fill", theme.text_color.to_css());
 
@@ -2295,7 +2328,11 @@ impl SvgRenderer {
                 // 1. Места для текста условия [else] над линией (~18px)
                 // 2. Отступа от линии до текста сообщения под ней (~10px)
                 // Итого: линия на section.start_y - 28px
-                let separator_y = section.start_y - 28.0;
+                // Эталон `sequence_fragments`: разделитель стоит на 38.94
+                // выше первого сообщения секции (178.63 - 139.69), а не на
+                // 28 — прежнее значение прижимало его к предыдущему
+                // сообщению и растягивало блок «else».
+                let separator_y = section.start_y - FRAGMENT_SEPARATOR_OFFSET;
 
                 // Пунктирная линия
                 let separator_line = Path::new()
@@ -2332,7 +2369,7 @@ impl SvgRenderer {
                     .set("y", separator_y + 12.0)
                     .set("font-family", theme.font_family.as_str())
                     // В эталоне размер 11 и жирный
-                    .set("font-size", theme.font_size - 2.0)
+                    .set("font-size", FRAGMENT_CONDITION_FONT_SIZE)
                     .set("font-weight", if bold { "700" } else { "bold" })
                     .set("fill", theme.text_color.to_css());
 
@@ -3063,7 +3100,12 @@ const PARTICIPANT_LABEL_BASELINE_GAP: f64 = 2.302;
 const PARTICIPANT_FOOTER_LABEL_BASELINE: f64 = 12.995;
 
 /// Вынос скобки boundary влево от центра.
-const BOUNDARY_BRACKET_OFFSET: f64 = 29.0;
+///
+/// Эталон `sequence_participants`: вертикаль скобки на 234.807 при линии
+/// жизни 255.307, то есть на 20.5 левее. Прежние 29 ставили её на 226.3,
+/// а перекладина всё равно доходила до кружка — скобка выглядела длиннее
+/// эталонной.
+const BOUNDARY_BRACKET_OFFSET: f64 = 20.5;
 
 /// Смещение центра кружка control от верха элемента.
 const CONTROL_CIRCLE_OFFSET: f64 = 17.0;

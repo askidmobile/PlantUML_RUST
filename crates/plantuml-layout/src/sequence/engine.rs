@@ -126,7 +126,37 @@ use crate::{EdgeType, ElementType, FragmentSection, LayoutConfig, LayoutElement,
 const FRAGMENT_TOP_OFFSET: f64 = 17.0;
 
 /// Насколько низ фрагмента поднимается над текущей позицией потока.
-const FRAGMENT_BOTTOM_OFFSET: f64 = 16.0;
+const FRAGMENT_BOTTOM_OFFSET: f64 = 21.14;
+
+/// Продвижение потока после низа фрагмента.
+///
+/// Эталон `sequence_fragments`: последнее сообщение на 178.63, низ рамки
+/// на 186.63, нижний блок участника — на 210.63. Формула
+/// `footer_y = current_y + FOOTER_GAP - message_spacing` даёт отсюда
+/// 35.13. Прежние 15 подбирались, когда рамка была на 19 выше нужного.
+const FRAGMENT_FOOTER_ADVANCE: f64 = 34.13;
+
+/// Отступ от верха фрагмента до первого сообщения.
+///
+/// Эталон `sequence_fragments`: 48.26 от верха рамки минус 17, на которые
+/// рамка поднята над потоком.
+const FRAGMENT_HEADER_GAP: f64 = 31.26;
+
+/// Кегль условий фрагмента: по нему считается ширина рамки.
+///
+/// Эталон `sequence_fragments` рисует условия кеглем 11.
+const FRAGMENT_CONDITION_FONT_SIZE: f64 = 11.0;
+
+/// Добавка к ширине условия при расчёте рамки фрагмента.
+///
+/// Проверено на сервере: 66.96 + 95.44 = 162.40 и 194.89 + 95.44 = 290.33.
+const FRAGMENT_CONDITION_EXTRA: f64 = 95.44;
+
+/// Насколько рамка фрагмента уже левого края участника.
+///
+/// Эталон `sequence_fragments`: рамка начинается на 16.955 при левом крае
+/// блока участника 10, то есть на 6.955 правее (прежние −10 давали 0).
+const FRAGMENT_FRAME_LEFT_INSET: f64 = 16.955;
 
 /// Layout engine для sequence diagrams
 pub struct SequenceLayoutEngine {
@@ -1346,10 +1376,13 @@ impl SequenceLayoutEngine {
         // а не следствие высоты строки.
         let start_y = metrics.current_y - FRAGMENT_TOP_OFFSET;
 
-        // Заголовок фрагмента (alt/opt/loop) + условие первой секции [текст]
-        // PlantUML делает значительный отступ от условия секции до первого сообщения
-        // fragment_header_height (22) + отступ для текста условия (18) + отступ до сообщения (8)
-        metrics.advance_y(self.config.fragment_header_height + 23.0);
+        // Отступ от верха фрагмента до первого сообщения.
+        //
+        // Эталон `sequence_fragments`: рамка начинается на 82.43, первая
+        // стрелка — на 130.69, то есть 48.26 от верха. При
+        // `start_y = current_y - 17` это даёт ровно 31.26. Прежняя формула
+        // `fragment_header_height + 23` = 45 растягивала блок на 13.7.
+        metrics.advance_y(FRAGMENT_HEADER_GAP);
 
         // Обрабатываем секции
         let mut layout_sections: Vec<FragmentSection> = Vec::new();
@@ -1391,15 +1424,44 @@ impl SequenceLayoutEngine {
 
         // ВАЖНО: Отступ ПОСЛЕ фрагмента до следующего элемента (между фрагментами или до footer)
         // PlantUML имеет заметный отступ между фрагментами
-        metrics.advance_y(15.0);
+        metrics.advance_y(FRAGMENT_FOOTER_ADVANCE);
 
         // Находим границы фрагмента
         let (min_x, max_x) = self.find_fragment_x_bounds(frag, metrics);
 
+        // Ширина рамки фрагмента задаётся УСЛОВИЕМ, а не участниками.
+        //
+        // Проверено на сервере двумя замерами: условие «[Успешно]» (66.96)
+        // даёт рамку 162.40, «[ОченьДлинноеУсловиеВетки]» (194.89) — 290.33,
+        // то есть ширина = условие + 95.44 в обоих случаях. Прежний расчёт
+        // по рамкам участников давал 0…179.87 и вылезал за левый край
+        // диаграммы.
+        let condition_width = frag
+            .sections
+            .iter()
+            .filter_map(|section| section.condition.as_deref())
+            .map(|condition| {
+                // Условие рисуется ПОЛУЖИРНЫМ, поэтому и ширина берётся
+                // по жирным метрикам.
+                self.config
+                    .text
+                    .width_bold(&format!("[{condition}]"), FRAGMENT_CONDITION_FONT_SIZE)
+            })
+            .fold(0.0_f64, f64::max);
+        let condition_width = condition_width.max(self.config.text.width_bold(
+            &format!("[{}]", frag.condition.clone().unwrap_or_default()),
+            FRAGMENT_CONDITION_FONT_SIZE,
+        ));
+
+        // Именно ширина ПО УСЛОВИЮ, без оглядки на рамки участников: в
+        // эталоне `sequence_fragments` рамка (162.40) УЖЕ суммы блоков
+        // участников (10…175.27).
+        let _ = (min_x, max_x);
+        let width = condition_width + FRAGMENT_CONDITION_EXTRA;
         let fragment_bounds = Rect::new(
-            min_x - self.config.fragment_padding,
+            min_x - self.config.fragment_padding + FRAGMENT_FRAME_LEFT_INSET,
             start_y,
-            max_x - min_x + self.config.fragment_padding * 2.0,
+            width,
             end_y - start_y,
         );
 
