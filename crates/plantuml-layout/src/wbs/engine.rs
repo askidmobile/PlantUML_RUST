@@ -229,6 +229,10 @@ impl WbsLayoutEngine {
 
         let mut properties = HashMap::new();
         properties.insert("level".to_string(), node.level.to_string());
+        // Размер шрифта подписи.  его не несёт,
+        // поэтому передаём свойством: в эталоне подписи WBS нарисованы
+        // при font-size=12, тогда как тема даёт 14.
+        properties.insert("font-size".to_string(), self.config.font_size.to_string());
         if node.style == WbsNodeStyle::Strikethrough {
             properties.insert("strikethrough".to_string(), "true".to_string());
         }

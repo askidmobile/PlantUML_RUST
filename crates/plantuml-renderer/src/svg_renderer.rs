@@ -615,13 +615,24 @@ impl SvgRenderer {
         }
 
         // Текст по центру
+        // Размер шрифта подписи.
+        //
+        // `ElementType::Rectangle` не несёт размер, поэтому используем
+        // свойство `font-size`, если layout его проставил. Иначе берём
+        // размер темы: так ведут себя все типы, кроме тех, у которых
+        // подписи меньше (WBS и salt используют 12 при теме 14).
+        let label_font_size = properties
+            .get("font-size")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(theme.font_size);
+
         let mut text = svg::node::element::Text::new(label)
             .set("x", bounds.x + bounds.width / 2.0)
             .set("y", bounds.y + bounds.height / 2.0)
             .set("text-anchor", "middle")
             .set("dominant-baseline", "middle")
             .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size)
+            .set("font-size", label_font_size)
             .set("fill", theme.text_color.to_css());
 
         // Рукописный стиль: `skinparam handwritten true`. PlantUML рисует
