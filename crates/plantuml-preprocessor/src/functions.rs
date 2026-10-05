@@ -261,8 +261,21 @@ fn split_call_arguments(text: &str) -> Vec<String> {
         }
     }
 
-    if !current.trim().is_empty() {
+    // ВНУТРЕННИЕ пустые части сохраняем: `$f(a, , c)` — три аргумента,
+    // иначе все последующие сдвинулись бы влево. Стандартная библиотека
+    // C4 вызывает макросы с пропущенными аргументами постоянно: после
+    // подстановки переменных получается `(Пользователь, , , person)`.
+    //
+    // ЗАВЕРШАЮЩАЯ пустая часть аргументом не считается: `$f(a, b, )` —
+    // два. Её отбрасываем.
+    let trailing_empty = current.trim().is_empty() && !parts.is_empty();
+    if !trailing_empty {
         parts.push(current.trim().to_string());
+    }
+
+    // `$f()` — без аргументов вовсе.
+    if parts.len() == 1 && parts[0].is_empty() {
+        parts.clear();
     }
 
     parts
@@ -382,6 +395,26 @@ mod tests {
         let (name, params) = parse_callable_definition("$greet()").unwrap();
         assert_eq!(name, "$greet");
         assert!(params.is_empty());
+    }
+
+    /// ВНУТРЕННИЕ пустые аргументы сохраняют позиции.
+    ///
+    /// В C4 аргументы становятся пустыми ПОСЛЕ подстановки переменных:
+    /// `$getElementBase($label, $type, $descr, $sprite)` при пустых
+    /// `$type` и `$descr` даёт `(Пользователь, , , person)`. Если пустые
+    /// части отбрасывать, все последующие аргументы сдвигаются влево.
+    #[test]
+    fn test_empty_arguments_keep_positions() {
+        let (_, args) = parse_callable_call("$f(1, , 3)").unwrap();
+        assert_eq!(args.len(), 3, "пустой аргумент потерян: {args:?}");
+        assert_eq!(args[1].value, "");
+    }
+
+    /// Завершающая пустая часть аргументом не считается.
+    #[test]
+    fn test_trailing_empty_argument_is_dropped() {
+        let (_, args) = parse_callable_call("$f(1, 2, )").unwrap();
+        assert_eq!(args.len(), 2, "лишний аргумент: {args:?}");
     }
 
     #[test]
