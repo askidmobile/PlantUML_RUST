@@ -1170,7 +1170,13 @@ impl<R: FileResolver> Preprocessor<R> {
                 .find(|argument| argument.name.as_deref() == Some(name.as_str()))
                 .map(|argument| argument.value.clone());
 
-            // Позиционный аргумент — только среди НЕИМЕНОВАННЫХ.
+            // Позиционный аргумент — номер СРЕДИ НЕИМЕНОВАННЫХ, но сам
+            // список не сжимается: именованные пропускаются при подсчёте.
+            //
+            // Проверено: `$g(X, Y, $d=W)` для `($a, $b, $c, $d)` даёт
+            // `[X|Y||W]` — третий параметр пуст, четвёртый равен `W`.
+            // Так и работает PlantUML: имя привязывается к своему
+            // параметру, а позиции считаются без именованных.
             let positional = args
                 .iter()
                 .filter(|argument| argument.name.is_none())
@@ -1636,7 +1642,38 @@ fn resolve_concat_part(part: &str, ctx: &PreprocessContext) -> String {
     let unquoted = strip_matching_quotes(trimmed);
     let substituted = variables::substitute(unquoted, &ctx.variables);
     // БЕЗ trim: значения вида "skinparam " несут значимый пробел на конце.
-    strip_matching_quotes(&substituted).to_string()
+    unescape_value(strip_matching_quotes(&substituted))
+}
+
+/// Заменяет управляющие последовательности в значении.
+///
+/// PlantUML трактует `"\n"` как РЕАЛЬНЫЙ перевод строки: `$breakText`
+/// ищет его через `%strpos($text, "\n")`. Без замены поиск не находил
+/// ничего, и метки связей C4 терялись.
+fn unescape_value(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('\\') => out.push('\\'),
+            Some('"') => out.push('"'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+
+    out
 }
 
 /// Снимает обрамляющие кавычки, если они парные и одного типа.

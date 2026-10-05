@@ -34,12 +34,21 @@
 //! - `plantuml-renderer` — SVG/PNG рендеринг
 //! - `plantuml-themes` — темы и skinparam
 
+pub mod alloc;
 mod error;
 mod options;
 mod pipeline;
 
+pub use alloc::{memory_limit, memory_used, set_memory_limit, DEFAULT_MEMORY_LIMIT};
 pub use error::{Error, Result};
 pub use options::RenderOptions;
+
+/// Жёсткий предел памяти приложения: 1 ГиБ.
+///
+/// Защищает машину от исчерпания памяти, если макрос PlantUML уйдёт в
+/// бесконечный рост. Обоснование и способы настройки — в модуле [`alloc`].
+#[global_allocator]
+static ALLOCATOR: alloc::LimitedAllocator = alloc::LimitedAllocator;
 
 // Re-exports для удобства
 pub use plantuml_ast::Diagram;

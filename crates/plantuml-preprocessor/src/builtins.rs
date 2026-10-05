@@ -167,13 +167,50 @@ fn process_substr(input: &str) -> String {
 }
 
 /// %strpos("haystack", "needle") -> позиция или -1
+/// Раскрывает управляющие последовательности в аргументе.
+///
+/// `%strpos($text, "\n")` ищет РЕАЛЬНЫЙ перевод строки: в тексте
+/// макроса записано `\n`, а искать нужно символ. Без раскрытия поиск
+/// всегда давал -1, и `$breakText` из C4 возвращал текст без метки —
+/// метки связей терялись, в выводе оставалось `user -->> sys :`.
+fn unescape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('\\') => out.push('\\'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+
+    out
+}
+
 fn process_strpos(input: &str) -> String {
     RE_STRPOS
         .replace_all(input, |caps: &regex::Captures| {
             let haystack = &caps[1];
-            let needle = &caps[2];
+            // Управляющие последовательности раскрываются ЗДЕСЬ.
+            //
+            // `%strpos($text, "\n")` ищет РЕАЛЬНЫЙ перевод строки:
+            // в тексте макроса записано `\n`, а искать нужно символ.
+            // Без раскрытия поиск всегда давал -1, и `$breakText` из C4
+            // возвращал текст без метки — метки связей терялись.
+            let needle = unescape(&caps[2]);
 
-            match haystack.find(needle) {
+            match haystack.find(needle.as_str()) {
                 Some(pos) => pos.to_string(),
                 None => "-1".to_string(),
             }
