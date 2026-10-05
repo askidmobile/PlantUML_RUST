@@ -21,11 +21,11 @@ impl Default for ObjectLayoutConfig {
     fn default() -> Self {
         Self {
             object_width: 140.0,
-            object_min_height: 60.0,
+            object_min_height: 36.3,
             field_height: 20.0,
             horizontal_spacing: 60.0,
-            vertical_spacing: 50.0,
-            padding: 30.0,
+            vertical_spacing: 77.0,
+            padding: 7.0,
         }
     }
 }

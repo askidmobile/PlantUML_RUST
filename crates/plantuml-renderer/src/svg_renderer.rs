@@ -55,7 +55,13 @@ impl SvgRenderer {
         /// нужно ещё 10, чтобы суммарное поле совпало с эталонным (20).
         const WBS: (f64, f64, f64, f64) = (10.0, 10.0, 10.0, 10.0);
 
+        /// CLASS: поля асимметричны — слева и сверху 7, справа и снизу
+        /// около 14.3 (измерено по class_inheritance, er_basic и
+        /// object_basic: 14.28/14.41, 14.49/14.11, 13.90/13.41).
+        const CLASS: (f64, f64, f64, f64) = (7.0, 7.0, 14.28, 14.41);
+
         match self.options.diagram_type.as_deref() {
+            Some("CLASS") => CLASS,
             Some("GANTT") => GANTT,
             Some("WBS") => WBS,
             _ => DEFAULT,

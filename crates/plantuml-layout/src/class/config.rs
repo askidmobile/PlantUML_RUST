@@ -52,7 +52,7 @@ impl Default for ClassLayoutConfig {
             // Отступ секции члена. Измерено по эталону: 32 (заголовок)
             // + (16.297 + 8) + 8 = 64.297 — высота бокса «Dog».
             class_padding: 8.0,
-            margin: 3.5,
+            margin: 0.0,
             font_size: 14.0,
             text: TextMeasurer::default(),
         }
