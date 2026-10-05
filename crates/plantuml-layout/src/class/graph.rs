@@ -71,7 +71,7 @@ impl Node {
         // иконку класса слева и отступ справа.
         let name_width =
             // Имя класса рисуется ЖИРНЫМ — шире обычного примерно на 8.3%.
-            config.text.width_bold(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
+            config.text.width(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
 
         let field_max_width = classifier
             .fields

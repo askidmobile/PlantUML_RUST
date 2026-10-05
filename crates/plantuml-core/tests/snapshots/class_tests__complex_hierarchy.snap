@@ -4,7 +4,7 @@ assertion_line: 147
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="CLASS" height="401px" preserveAspectRatio="none" style="width:478px;height:401px;background:#FFFFFF;" version="1.1" viewBox="2 2 477.71384 401.48499999999996" width="478px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="CLASS" height="398px" preserveAspectRatio="none" style="width:475px;height:398px;background:#FFFFFF;" version="1.1" viewBox="-3.5 -3.5 474.71384 398.48499999999996" width="475px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -24,91 +24,91 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Repository">
-<rect fill="#F1F1F1" height="92.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="115.32860648" x="176.19261675999996" y="291.89099999999996"/>
-<ellipse cx="192.19261675999996" cy="307.89099999999996" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="192.19261675999996" y="311.89099999999996" textLength="3.719">
+<rect fill="#F1F1F1" height="92.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="115.12539999999998" x="172.79422" y="288.39099999999996"/>
+<ellipse cx="188.79422" cy="304.39099999999996" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="188.79422" y="308.39099999999996" textLength="3.719">
 I
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="10" x="208.19261675999996" y="306.89099999999996" textLength="56.746">
+<text fill="#000000" font-family="sans-serif" font-size="10" x="204.79422" y="303.39099999999996" textLength="56.746">
 «interface»
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="208.19261675999996" y="322.89099999999996" textLength="76.957">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="204.79422" y="319.39099999999996" textLength="76.957">
 Repository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="177.19261675999996" x2="290.52122324" y1="329.89099999999996" y2="329.89099999999996"/>
-<line stroke="#181818" stroke-width="0.5" x1="177.19261675999996" x2="290.52122324" y1="334.89099999999996" y2="334.89099999999996"/>
-<ellipse cx="184.19261675999996" cy="347.89099999999996" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="192.19261675999996" y="351.89099999999996" textLength="89.125">
+<line stroke="#181818" stroke-width="0.5" x1="173.79422" x2="286.91962" y1="326.39099999999996" y2="326.39099999999996"/>
+<line stroke="#181818" stroke-width="0.5" x1="173.79422" x2="286.91962" y1="331.39099999999996" y2="331.39099999999996"/>
+<ellipse cx="180.79422" cy="344.39099999999996" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="188.79422" y="348.39099999999996" textLength="89.125">
 findById(): T
 </text>
-<ellipse cx="184.19261675999996" cy="363.89099999999996" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="192.19261675999996" y="367.89099999999996" textLength="64.04">
+<ellipse cx="180.79422" cy="360.39099999999996" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="188.79422" y="364.39099999999996" textLength="64.04">
 save(): T
 </text>
 </g>
 <g id="AbstractRepository">
-<rect fill="#F1F1F1" height="100.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="179.77491344" x="143.96946327999996" y="131.297"/>
-<ellipse cx="159.96946327999996" cy="147.297" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="159.96946327999996" y="151.297" textLength="6.853">
+<rect fill="#F1F1F1" height="100.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="168.47480000000002" x="146.11951999999997" y="127.797"/>
+<ellipse cx="162.11951999999997" cy="143.797" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="162.11951999999997" y="147.797" textLength="6.853">
 A
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="10" x="175.96946327999996" y="146.297" textLength="52.626">
+<text fill="#000000" font-family="sans-serif" font-size="10" x="178.11951999999997" y="142.797" textLength="52.626">
 «abstract»
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="175.96946327999996" y="162.297" textLength="136.475">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="178.11951999999997" y="158.797" textLength="136.475">
 AbstractRepository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="144.96946327999996" x2="322.74437672" y1="169.297" y2="169.297"/>
-<ellipse cx="151.96946327999996" cy="182.297" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="159.96946327999996" y="186.297" textLength="131.96">
+<line stroke="#181818" stroke-width="0.5" x1="147.11951999999997" x2="313.59432" y1="165.797" y2="165.797"/>
+<ellipse cx="154.11951999999997" cy="178.797" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="162.11951999999997" y="182.797" textLength="131.96">
 entityClass: Class
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="144.96946327999996" x2="322.74437672" y1="190.297" y2="190.297"/>
-<ellipse cx="151.96946327999996" cy="203.297" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="159.96946327999996" y="207.297" textLength="89.125">
+<line stroke="#181818" stroke-width="0.5" x1="147.11951999999997" x2="313.59432" y1="186.797" y2="186.797"/>
+<ellipse cx="154.11951999999997" cy="199.797" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="162.11951999999997" y="203.797" textLength="89.125">
 findById(): T
 </text>
 </g>
 <g id="UserRepository">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="163.92043999999996" x="7" y="7"/>
-<ellipse cx="23" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="23" y="27" textLength="7.572">
+<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="163.92043999999996" x="3.5" y="3.5"/>
+<ellipse cx="19.5" cy="19.5" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="19.5" y="23.5" textLength="7.572">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="39" y="26" textLength="108.602">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="35.5" y="22.5" textLength="108.602">
 UserRepository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="8" x2="169.92043999999996" y1="33" y2="33"/>
-<line stroke="#181818" stroke-width="0.5" x1="8" x2="169.92043999999996" y1="38" y2="38"/>
-<ellipse cx="15" cy="51" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="23" y="55" textLength="137.92">
+<line stroke="#181818" stroke-width="0.5" x1="4.5" x2="166.42043999999996" y1="29.5" y2="29.5"/>
+<line stroke="#181818" stroke-width="0.5" x1="4.5" x2="166.42043999999996" y1="34.5" y2="34.5"/>
+<ellipse cx="11.5" cy="47.5" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="19.5" y="51.5" textLength="137.92">
 findByName(): User
 </text>
 </g>
 <g id="ProductRepository">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="254.59340000000003" x="206.12043999999997" y="7"/>
-<ellipse cx="222.12043999999997" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="222.12043999999997" y="27" textLength="7.572">
+<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="254.59340000000003" x="202.62043999999997" y="3.5"/>
+<ellipse cx="218.62043999999997" cy="19.5" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="218.62043999999997" y="23.5" textLength="7.572">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="238.12043999999997" y="26" textLength="130.532">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="234.62043999999997" y="22.5" textLength="130.532">
 ProductRepository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="207.12043999999997" x2="459.71384" y1="33" y2="33"/>
-<line stroke="#181818" stroke-width="0.5" x1="207.12043999999997" x2="459.71384" y1="38" y2="38"/>
-<ellipse cx="214.12043999999997" cy="51" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="222.12043999999997" y="55" textLength="267.586">
+<line stroke="#181818" stroke-width="0.5" x1="203.62043999999997" x2="456.21384" y1="29.5" y2="29.5"/>
+<line stroke="#181818" stroke-width="0.5" x1="203.62043999999997" x2="456.21384" y1="34.5" y2="34.5"/>
+<ellipse cx="210.62043999999997" cy="47.5" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="218.62043999999997" y="51.5" textLength="267.586">
 findByCategory(): List&lt;Product&gt;
 </text>
 </g>
 <g id="edge_AbstractRepository_Repository">
-<path d="M233.85691999999997,291.89099999999996 L233.85691999999995,231.891" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M230.35692,288.39099999999996 L230.35691999999997,228.391" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
 </g>
 <g id="edge_UserRepository_AbstractRepository">
-<path d="M233.85691999999995,131.297 L233.85691999999995,101.297 L88.96021999999998,101.297 L88.96021999999998,71.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M230.35691999999997,127.797 L230.35691999999997,97.797 L85.46021999999998,97.797 L85.46021999999998,67.797" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="edge_ProductRepository_AbstractRepository">
-<path d="M233.85691999999995,131.297 L233.85691999999995,101.297 L333.41714,101.297 L333.41714,71.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M230.35691999999997,127.797 L230.35691999999997,97.797 L329.91714,97.797 L329.91714,67.797" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
 </g>
 </g>
 </svg>

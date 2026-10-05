@@ -42,7 +42,7 @@ impl SvgRenderer {
     /// PlantUML стиль: прозрачный/белый фон БЕЗ рамки вокруг диаграммы
     fn create_document(&self, layout: &LayoutResult, theme: &Theme) -> Document {
         let bounds = &layout.bounds;
-        let margin = 5.0; // Минимальный отступ от края (как в PlantUML)
+        let margin = 7.0; // Минимальный отступ от края (как в PlantUML)
 
         let width = (bounds.width + margin * 2.0) * self.options.scale;
         let height = (bounds.height + margin * 2.0) * self.options.scale;

@@ -36,7 +36,7 @@ impl Default for StateLayoutConfig {
             // (tests/golden/reference/state_simple.svg): начальный круг
             // занимает y=6..26 (margin 6), шаг от него до первого состояния
             // 61. Раньше стояло 30 и 60.
-            margin: 15.0,
+            margin: 13.0,
             state_width: 120.0,
             state_min_height: 50.0,
             vertical_spacing: 61.0,
