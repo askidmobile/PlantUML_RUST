@@ -531,8 +531,10 @@ impl<R: FileResolver> Preprocessor<R> {
             // `!return` завершает выполнение тела макроса. Значение
             // подставляется из переменных: полноценный разбор выражений
             // не нужен, библиотеки возвращают уже готовые строки.
-            let value = variables::substitute(rest.trim().trim_start_matches(' '), &ctx.variables);
-            ctx.return_value = Some(value.trim_matches('"').to_string());
+            // Значение тоже ВЫРАЖЕНИЕ: `!return "[" + $x + "]"` должно
+            // вернуть склеенную строку, а не текст выражения.
+            let value = evaluate_concat(rest.trim(), ctx);
+            ctx.return_value = Some(value);
             ctx.returning = true;
         } else if let Some(rest) = directive.strip_prefix("global ") {
             // `!global $ИМЯ ?= значение` — объявление переменной уровня
@@ -569,8 +571,15 @@ impl<R: FileResolver> Preprocessor<R> {
         } else if let Some(rest) = directive.strip_prefix("theme ") {
             self.handle_theme(rest.trim(), ctx)?;
         } else if directive.starts_with('$') {
-            // Переменная: !$var = value
-            variables::handle_variable_assignment(directive, ctx)?;
+            // Переменная: `!$var = выражение`.
+            //
+            // Вызовы функций в правой части раскрываются ДО присваивания:
+            // `!$x = $x + $elementTagSkinparams("rectangle", ...)` должен
+            // получить значение функции, а не её текст. Без этого в
+            // переменной оседал сырой вызов, и он попадал в диаграмму —
+            // именно так ломалась библиотека C4.
+            let expanded = self.process_function_calls(directive, ctx);
+            variables::handle_variable_assignment(&expanded, ctx)?;
         }
 
         Ok(None)
@@ -1053,7 +1062,7 @@ fn split_top_level_args(text: &str) -> (String, String) {
 ///
 /// Части соединяются через `+`; кавычки снимаются, переменные
 /// подставляются из контекста.
-fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> String {
+pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> String {
     let mut out = String::new();
     let mut depth = 0i32;
     let mut in_quotes = false;
@@ -1414,6 +1423,58 @@ MAIN_END
         assert!(result.contains("LEVEL2_CONTENT"));
         assert!(result.contains("LEVEL1_END"));
         assert!(result.contains("MAIN_END"));
+    }
+
+    /// Присваивание ВЫЧИСЛЯЕТ правую часть, а не хранит её текстом.
+    ///
+    /// Регрессия: `!$x = "a" + $v` сохраняло строку выражения, и в
+    /// диаграмму попадал текст вида `"rectangle<<" + $a`. На этом
+    /// ломалась библиотека C4.
+    #[test]
+    fn test_assignment_evaluates_expression() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !$v = Мир\n\
+            !$x = \"Привет, \" + $v\n\
+            class $x\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class Привет, Мир"),
+            "конкатенация не вычислена: {out}"
+        );
+    }
+
+    /// `+` внутри кавычек не считается конкатенацией.
+    #[test]
+    fn test_plus_inside_quotes_is_literal() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n!$x = \"a+b\"\nclass $x\n@enduml";
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class a+b"),
+            "плюс внутри кавычек потерян: {out}"
+        );
+    }
+
+    /// Вызов функции в правой части присваивания раскрывается.
+    #[test]
+    fn test_function_call_inside_assignment() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $f($x)\n\
+            !return \"[\" + $x + \"]\"\n\
+            !endfunction\n\
+            !$y = \"A\" + $f(B)\n\
+            class $y\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class A[B]"),
+            "вызов в присваивании не раскрыт: {out}"
+        );
     }
 
     /// Неразобранное условие не должно ВЫПОЛНЯТЬ блок.

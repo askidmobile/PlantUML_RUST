@@ -29,7 +29,15 @@ pub fn handle_variable_assignment(directive: &str, ctx: &mut PreprocessContext) 
     };
 
     let name = name_part.trim().trim_start_matches('$');
-    let value = value_part.trim().trim_matches('"');
+
+    // Правая часть — ВЫРАЖЕНИЕ, а не строка.
+    //
+    // PlantUML вычисляет её, включая конкатенацию через `+` и подстановку
+    // переменных: `!$tagSkin = $tagSkin + "skinparam " + $name` даёт
+    // склеенную строку. Прежний код сохранял текст как есть, поэтому
+    // библиотеки получали в переменной сырое выражение вида
+    // `"rectangle<<" + $a` — это ломало, например, C4.
+    let value = crate::evaluate_concat(value_part.trim(), ctx);
     let key = format!("${}", name);
 
     if default_only && ctx.variables.contains_key(&key) {

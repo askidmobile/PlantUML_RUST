@@ -12,14 +12,23 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 /// Регулярные выражения для парсинга функций с аргументами
+// ВАЖНО: аргументы могут быть заданы ПЕРЕМЕННОЙ, а не литералом.
+//
+// PlantUML хранит значение без кавычек (`!$s = "abc"` даёт `abc`,
+// проверено на сервере: `%strlen($s)` равно 3), поэтому после
+// подстановки вызов выглядит как `%strpos(a+b, "+")`. Прежние
+// выражения требовали кавычек и такие вызовы не срабатывали.
 static RE_STRLEN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%strlen\("([^"]*)"\)"#).unwrap());
-static RE_UPPER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"%upper\("([^"]*)"\)"#).unwrap());
-static RE_LOWER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"%lower\("([^"]*)"\)"#).unwrap());
-static RE_SUBSTR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%substr\("([^"]*)",\s*(\d+)(?:,\s*(\d+))?\)"#).unwrap());
+    LazyLock::new(|| Regex::new(r#"%strlen\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
+static RE_UPPER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"%upper\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
+static RE_LOWER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"%lower\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
+static RE_SUBSTR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"%substr\(\s*"?([^",)]*?)"?\s*,\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)"#).unwrap()
+});
 static RE_STRPOS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%strpos\("([^"]*)",\s*"([^"]*)"\)"#).unwrap());
+    LazyLock::new(|| Regex::new(r#"%strpos\(\s*"?([^",)]*?)"?\s*,\s*"?([^")]*?)"?\s*\)"#).unwrap());
 static RE_STRING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%string\(([^)]+)\)").unwrap());
 static RE_INTVAL: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"%intval\("?([^")]+)"?\)"#).unwrap());
