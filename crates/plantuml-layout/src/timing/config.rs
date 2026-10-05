@@ -31,7 +31,7 @@ impl Default for TimingLayoutConfig {
     fn default() -> Self {
         Self {
             padding: 20.0,
-            participant_label_width: 120.0,
+            participant_label_width: 71.732,
             lane_height: 60.0,
             lane_spacing: 5.0,
             // Измерено по эталону PlantUML

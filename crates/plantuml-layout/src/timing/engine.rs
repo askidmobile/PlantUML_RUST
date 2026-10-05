@@ -9,6 +9,18 @@ use plantuml_model::{Point, Rect};
 
 use super::TimingLayoutConfig;
 use crate::traits::LayoutResult;
+
+/// Смещение первого деления от начала оси.
+///
+/// Сверено по двум независимым замерам: в `timing_basic` ось на 91.732,
+/// деления на 141.732 и 191.732; в пробной диаграмме `@0/@100` ось на
+/// 32.635, деления на 82.635 и 132.635. В обоих случаях первое деление
+/// отстоит от оси ровно на 50, следующее — на 100.
+const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
+
+/// Шаг делений шкалы. Постоянный: не зависит ни от значений времени,
+/// ни от числа событий (проверено на пяти замерах с plantuml.com).
+const TIME_TICK_STEP: f64 = 50.0;
 use crate::{EdgeType, ElementType, LayoutElement};
 
 /// Layout engine для Timing Diagrams
@@ -153,11 +165,10 @@ impl TimingLayoutEngine {
 
         self.draw_time_axis(
             &mut elements,
+            diagram,
             timeline_start_x,
             axis_y,
             timeline_width,
-            min_time,
-            max_time,
         );
 
         // 6. Title
@@ -216,6 +227,35 @@ impl TimingLayoutEngine {
         }
 
         map
+    }
+
+    /// Собирает уникальные значения времени в порядке появления.
+    ///
+    /// Нужен для шкалы: PlantUML ставит подпись на КАЖДОЕ событие, а не
+    /// через равные интервалы значений (см. `draw_time_axis`).
+    fn collect_time_values(&self, diagram: &TimingDiagram) -> Vec<f64> {
+        let mut result: Vec<f64> = Vec::new();
+        let mut cumulative = 0.0;
+
+        for change in &diagram.state_changes {
+            let t = match &change.time {
+                TimeValue::Absolute(t) => {
+                    cumulative = *t;
+                    *t
+                }
+                TimeValue::Relative(delta) => {
+                    cumulative += delta;
+                    cumulative
+                }
+                TimeValue::Named(_) => continue,
+            };
+
+            if !result.iter().any(|v| (v - t).abs() < f64::EPSILON) {
+                result.push(t);
+            }
+        }
+
+        result
     }
 
     /// Вычисляет диапазон времени
@@ -437,11 +477,10 @@ impl TimingLayoutEngine {
     fn draw_time_axis(
         &self,
         elements: &mut Vec<LayoutElement>,
+        diagram: &TimingDiagram,
         start_x: f64,
         y: f64,
         width: f64,
-        min_time: f64,
-        max_time: f64,
     ) {
         // Горизонтальная линия оси
         elements.push(LayoutElement {
@@ -461,13 +500,27 @@ impl TimingLayoutEngine {
             },
         });
 
-        // Деления и метки времени
-        let time_range = max_time - min_time;
-        let step = self.calculate_time_step(time_range);
+        // Деления и метки времени.
+        //
+        // Правило снято с plantuml.com по пяти замерам (2, 3, 4 и 5
+        // событий, а также диапазоны @0/@50 и @0/@200):
+        //
+        //   * первое деление ВСЕГДА на x = 32.635 при колонке меток 20,
+        //     то есть шаг до него фиксирован;
+        //   * шаг делений ВСЕГДА 50.0 и не зависит ни от значений
+        //     времени, ни от их числа;
+        //   * подпись ставится на КАЖДОЕ событие: для 0/25/50/75 подписи
+        //     стоят на 29.14, 75.64, 125.64, 175.64 — шаг 50, а не
+        //     пропорционально значениям;
+        //   * диапазон времени на геометрию не влияет.
+        //
+        // Прежний код считал `(t - min_time) * time_scale`, то есть
+        // масштабировал по значениям времени — PlantUML так не делает.
+        let times = self.collect_time_values(diagram);
 
-        let mut t = (min_time / step).ceil() * step;
-        while t <= max_time {
-            let x = start_x + (t - min_time) * self.config.time_scale;
+        for (index, t) in times.iter().enumerate() {
+            let t = *t;
+            let x = start_x + TIME_FIRST_TICK_OFFSET + index as f64 * TIME_TICK_STEP;
 
             // Деление
             elements.push(LayoutElement {
@@ -489,7 +542,7 @@ impl TimingLayoutEngine {
 
             // Метка времени
             elements.push(LayoutElement {
-                id: format!("time_label_{}", t),
+                id: format!("time_label_{}", t as i64),
                 bounds: Rect::new(x - 15.0, y + 8.0, 30.0, 15.0),
                 text: None,
                 properties: std::collections::HashMap::new(),
@@ -498,31 +551,7 @@ impl TimingLayoutEngine {
                     font_size: self.config.time_font_size,
                 },
             });
-
-            t += step;
         }
-    }
-
-    /// Вычисляет шаг времени для делений
-    fn calculate_time_step(&self, range: f64) -> f64 {
-        let target_ticks = 10.0;
-        let rough_step = range / target_ticks;
-
-        // Округляем до красивого числа
-        let magnitude = 10.0_f64.powf(rough_step.log10().floor());
-        let normalized = rough_step / magnitude;
-
-        let nice_step = if normalized < 1.5 {
-            1.0
-        } else if normalized < 3.0 {
-            2.0
-        } else if normalized < 7.0 {
-            5.0
-        } else {
-            10.0
-        };
-
-        nice_step * magnitude
     }
 }
 
