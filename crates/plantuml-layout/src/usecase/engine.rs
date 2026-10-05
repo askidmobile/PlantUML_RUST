@@ -51,12 +51,15 @@ impl UseCaseLayoutEngine {
 
         let _is_left_to_right = diagram.direction == Direction::LeftToRight;
 
-        // Вычисляем максимальную ширину имён актёров для правильного позиционирования
-        // Кириллица занимает примерно 9 пикселей на символ (font-size 14)
+        // Максимальная ширина имён актёров.
+        //
+        // Раньше здесь была оценка «символ * 9.0». Для «Пользователь» она
+        // давала 108 при эталонных 103.1 — на 4.8% больше, причём ошибка
+        // зависела от алфавита: для латиницы 9px на символ завышает сильнее.
         let max_actor_label_width = diagram
             .actors
             .iter()
-            .map(|a| a.name.chars().count() as f64 * 9.0)
+            .map(|a| self.config.text.width(&a.name, self.config.font_size))
             .fold(0.0f64, f64::max);
 
         // Минимальная ширина для актёра с его label

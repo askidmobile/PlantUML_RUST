@@ -1,8 +1,14 @@
 //! Конфигурация layout для Use Case Diagrams
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация Use Case Layout Engine
 #[derive(Debug, Clone)]
 pub struct UseCaseLayoutConfig {
+    /// Измеритель текста.
+    pub text: TextMeasurer,
+    /// Размер шрифта подписей (в эталоне 14).
+    pub font_size: f64,
     /// Отступ от края диаграммы
     pub margin: f64,
     /// Ширина эллипса use case
@@ -27,6 +33,8 @@ impl Default for UseCaseLayoutConfig {
     fn default() -> Self {
         Self {
             margin: 16.0,
+            text: TextMeasurer::default(),
+            font_size: 14.0,
             usecase_width: 160.0,     // Wider for longer text
             usecase_height: 40.0,     // PlantUML style
             actor_width: 40.0,        // Narrow actor
