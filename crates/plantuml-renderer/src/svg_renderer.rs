@@ -478,7 +478,15 @@ impl SvgRenderer {
                 );
             }
             ElementType::Text { text, font_size } => {
-                group = self.render_text(&element.bounds, text, *font_size, theme, group);
+                let bold = element.properties.contains_key("font-weight");
+                group = self.render_text_weighted(
+                    &element.bounds,
+                    text,
+                    *font_size,
+                    bold,
+                    theme,
+                    group,
+                );
             }
             ElementType::Group { label, children } => {
                 group =
@@ -1498,20 +1506,31 @@ impl SvgRenderer {
     }
 
     /// Рендерит текст
-    fn render_text(
+    /// Рендерит текст с возможностью сделать его полужирным.
+    ///
+    /// PlantUML рисует метки состояний concise-дорожек timing полужирными
+    /// (`font-weight="700"`), тогда как robust — обычными. Проверено
+    /// прямым замером: одно слово даёт textLength 68.15 у robust и
+    /// 75.088 у concise при одинаковом размере шрифта.
+    fn render_text_weighted(
         &self,
         bounds: &Rect,
         text_content: &str,
         font_size: f64,
+        bold: bool,
         theme: &Theme,
         group: Group,
     ) -> Group {
-        let text = svg::node::element::Text::new(text_content)
+        let mut text = svg::node::element::Text::new(text_content)
             .set("x", bounds.x)
             .set("y", bounds.y + font_size)
             .set("font-family", theme.font_family.as_str())
             .set("font-size", font_size)
             .set("fill", theme.text_color.to_css());
+
+        if bold {
+            text = text.set("font-weight", "700");
+        }
 
         group.add(text)
     }

@@ -440,17 +440,28 @@ impl TimingLayoutEngine {
                 // Метка состояния.
                 //
                 // Ширина берётся по тексту: раньше здесь стояла константа
-                // 50.0, и подпись «Обработка» (68.15) вылезала за границы
+                // 50.0, и подпись «Обработка» вылезала за границы
                 // диаграммы на 11px — то есть обрезалась бы.
+                //
+                // ВАЖНО: метки CONCISE-дорожек PlantUML рисует ЖИРНЫМИ
+                // (`font-weight="700"`), а robust — обычными. Проверено
+                // прямым замером: одно слово «Обработка» даёт textLength
+                // 68.15 у robust и 75.088 у concise при одинаковом
+                // font-size=12.
                 let label_width = self
                     .config
                     .text
-                    .width(&change.state, self.config.label_font_size);
+                    .width_bold(&change.state, self.config.label_font_size);
+                // Жирность передаём свойством: `ElementType::Text` её не несёт,
+                // а PlantUML рисует метки concise-дорожек полужирными.
+                let mut properties = std::collections::HashMap::new();
+                properties.insert("font-weight".to_string(), "700".to_string());
+
                 elements.push(LayoutElement {
                     id: format!("state_label_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x + STATE_LABEL_OFFSET, line_y - 20.0, label_width, 15.0),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    properties,
                     element_type: ElementType::Text {
                         text: change.state.clone(),
                         font_size: self.config.label_font_size,
