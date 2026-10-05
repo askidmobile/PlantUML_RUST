@@ -32,6 +32,7 @@
 //! - `<tupadr3/common>` → Общие определения tupadr3
 //! - `<logos/rust>` → Логотип Rust
 
+mod azure;
 mod c4;
 mod common;
 pub mod inflate;
@@ -48,6 +49,7 @@ static STDLIB_REGISTRY: LazyLock<HashMap<&'static str, &'static str>> = LazyLock
     let mut registry = HashMap::new();
 
     // Добавляем все включения из модулей
+    azure::register(&mut registry);
     c4::register(&mut registry);
     kubernetes::register(&mut registry);
     tupadr3::register(&mut registry);
