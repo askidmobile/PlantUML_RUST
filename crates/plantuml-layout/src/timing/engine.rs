@@ -543,18 +543,25 @@ impl TimingLayoutEngine {
         // масштабировал по значениям времени — PlantUML так не делает.
         let times = self.collect_time_values(diagram);
 
+        // Подпись ставится на САМУ ОСЬ и далее каждые +50, по одной на
+        // событие; деления идут с +50. Сверено по двум замерам:
+        //   timing_basic: ось 91.732, подпись «0» центрирована на 91.73,
+        //                 «100» на 141.73 (ось + 50)
+        //   @0/@100:      ось 32.635, подпись «0» на 32.635,
+        //                 «100» на 82.635 (ось + 50)
         for (index, t) in times.iter().enumerate() {
             let t = *t;
-            let x = start_x + TIME_FIRST_TICK_OFFSET + index as f64 * TIME_TICK_STEP;
+            let x = start_x + index as f64 * TIME_TICK_STEP;
 
-            // Деление
+            // Деление — на 50 правее подписи этого события.
+            let tick_x = x + TIME_TICK_STEP;
             elements.push(LayoutElement {
                 id: format!("tick_{}", t),
-                bounds: Rect::new(x - 0.5, y, 1.0, 5.0),
+                bounds: Rect::new(tick_x - 0.5, y, 1.0, 5.0),
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Edge {
-                    points: vec![Point::new(x, y), Point::new(x, y + 5.0)],
+                    points: vec![Point::new(tick_x, y), Point::new(tick_x, y + 5.0)],
                     label: None,
                     arrow_start: false,
                     arrow_end: false,
@@ -565,10 +572,21 @@ impl TimingLayoutEngine {
                 },
             });
 
-            // Метка времени
+            // Метка времени.
+            //
+            // Ширина измеряется, а не берётся константой 30: подпись
+            // центрируется по делению, поэтому её правый край равен
+            // `x + ширина / 2`. При константе 30 для «100» (реальная
+            // ширина 20.996) правый край выходил на 15 вместо 10.5, и
+            // метка вылезала за шкалу. Эталон: подпись «100» стоит на
+            // x=131.24 при делении 141.732, то есть 141.732 − 20.996/2.
+            let label_width = self
+                .config
+                .text
+                .width(&format!("{}", t as i64), self.config.time_font_size);
             elements.push(LayoutElement {
                 id: format!("time_label_{}", t as i64),
-                bounds: Rect::new(x - 15.0, y + 8.0, 30.0, 15.0),
+                bounds: Rect::new(x - label_width / 2.0, y + 8.0, label_width, 15.0),
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Text {
