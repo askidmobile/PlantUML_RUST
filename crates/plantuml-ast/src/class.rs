@@ -17,6 +17,27 @@ pub struct ClassDiagram {
     pub packages: Vec<Package>,
     /// Заметки
     pub notes: Vec<Note>,
+    /// Спрайты: `sprite $имя [ШxВ/цветов] { ...hex... }`.
+    ///
+    /// Раньше грамматика их принимала, но парсер отбрасывал, и в AST они
+    /// не попадали — то есть содержимое библиотек иконок (logos, office,
+    /// tupadr3) разбиралось и молча терялось.
+    pub sprites: Vec<Sprite>,
+}
+
+/// Растровый спрайт из стандартной библиотеки.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Sprite {
+    /// Имя без ведущего `$`.
+    pub name: String,
+    /// Строки пикселей в шестнадцатеричном виде (`0`..`f` на пиксель).
+    pub rows: Vec<String>,
+    /// Ширина в пикселях (из заголовка `[ШxВ/цветов]`).
+    pub width: usize,
+    /// Высота в пикселях.
+    pub height: usize,
+    /// Палитра в порядке индексов `0`..`f`.
+    pub palette: Vec<String>,
 }
 
 impl ClassDiagram {

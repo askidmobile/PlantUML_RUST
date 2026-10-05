@@ -150,6 +150,14 @@ fn process_rule(
                 diagram.metadata.direction = Some(direction);
             }
         }
+        Rule::sprite_stmt => {
+            // Спрайт: `sprite $имя [ШxВ/цветов] { ...hex... }`.
+            // Грамматика его принимала, но парсер отбрасывал — содержимое
+            // библиотек иконок (logos, office, tupadr3) терялось.
+            if let Some(sprite) = parse_sprite(pair) {
+                diagram.sprites.push(sprite);
+            }
+        }
         Rule::note_stmt => {
             // Заметки class-диаграмм. Грамматика их знала и раньше
             // принимала, но парсер не обрабатывал — заметка молча терялась,
@@ -782,9 +790,88 @@ pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Directio
     }
 }
 
+/// Разбирает `sprite_stmt` в `Sprite`.
+///
+/// Формат заголовка: `[ШxВ/цветов]`, тело — строки шестнадцатеричных
+/// цифр, по одной на пиксель. Палитра задаётся отдельным ключевым словом
+/// (`sprite $имя [4x4/16] { ... }` использует стандартную палитру
+/// PlantUML), поэтому здесь храним только индексы.
+fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class::Sprite> {
+    let mut name = String::new();
+    let mut width = 0usize;
+    let mut height = 0usize;
+    let mut rows: Vec<String> = Vec::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier => name = inner.as_str().to_string(),
+            Rule::sprite_size => {
+                // `ШxВ/цветов`: берём часть до `/`.
+                let size = inner.as_str();
+                let dims = size.split('/').next().unwrap_or(size);
+                let mut parts = dims.split(['x', 'X']);
+                width = parts
+                    .next()
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(0);
+                height = parts
+                    .next()
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(0);
+            }
+            Rule::sprite_body => {
+                for line in inner.as_str().lines() {
+                    let trimmed = line.trim();
+                    // Строка пикселей — только шестнадцатеричные цифры.
+                    if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+                        rows.push(trimmed.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if name.is_empty() || rows.is_empty() {
+        return None;
+    }
+
+    // Если размер не указан или не согласуется с телом — берём из данных.
+    if width == 0 || height == 0 {
+        width = rows.iter().map(String::len).max().unwrap_or(0);
+        height = rows.len();
+    }
+
+    Some(plantuml_ast::class::Sprite {
+        name,
+        rows,
+        width,
+        height,
+        palette: Vec::new(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Определение спрайта доходит до AST.
+    ///
+    /// Регрессия: грамматика `sprite_stmt` существовала, но парсер его
+    /// не обрабатывал — спрайт молча терялся, и содержимое библиотек
+    /// иконок (logos, office, tupadr3) пропадало после разбора.
+    #[test]
+    fn test_sprite_reaches_ast() {
+        let source = "@startuml\nsprite $s [4x4/4] {\n0123\n1230\n2301\n3012\n}\nclass A\n@enduml";
+        let diagram = parse_class(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.sprites.len(), 1, "спрайт потерян");
+        let sprite = &diagram.sprites[0];
+        assert_eq!(sprite.name, "s");
+        assert_eq!(sprite.width, 4);
+        assert_eq!(sprite.height, 4);
+        assert_eq!(sprite.rows.len(), 4);
+        assert_eq!(sprite.rows[0], "0123");
+    }
 
     /// `left to right direction` и `top to bottom direction` сохраняются.
     ///
