@@ -129,6 +129,24 @@ enum DefiningCallable {
     Procedure(functions::UserCallable),
 }
 
+/// Разделитель элементов списка во внутреннем представлении.
+///
+/// `%splitstr` возвращает список, а значения у нас — строки. Элементы
+/// соединяются этим символом, и `!foreach` делит по нему. Символ выбран
+/// из управляющей области: в исходниках диаграмм он не встречается.
+pub const LIST_SEPARATOR: char = '\u{1}';
+
+/// Собираемое тело цикла `!foreach`.
+#[derive(Debug, Clone)]
+struct ForeachDef {
+    /// Имя переменной цикла (`$item`).
+    var: String,
+    /// Выражение коллекции (`$lines`).
+    collection: String,
+    /// Строки тела.
+    body: Vec<String>,
+}
+
 /// Макрос PlantUML, объявленный через `!define NAME(params) тело`.
 ///
 /// В отличие от переменной, макрос принимает аргументы: вызов
@@ -206,6 +224,8 @@ pub struct PreprocessContext {
     /// Поэтому областей две: `variables` — верхний уровень,
     /// `macro_variables` — общая для тел макросов.
     pub macro_variables: IndexMap<String, String>,
+    /// Стек собираемых циклов `!foreach` (вложенные поддерживаются).
+    foreach_stack: Vec<ForeachDef>,
     /// Имена переменных, которые нужно ПЕРЕНЕСТИ в вызывающий контекст.
     ///
     /// Переменные, заданные телом макроса, ЛОКАЛЬНЫ: проверено на сервере —
@@ -235,6 +255,7 @@ impl Default for PreprocessContext {
             returning: false,
             call_depth: 0,
             macro_variables: IndexMap::new(),
+            foreach_stack: Vec::new(),
             exported: Vec::new(),
         }
     }
@@ -491,6 +512,50 @@ impl<R: FileResolver> Preprocessor<R> {
                 continue;
             }
 
+            // СБОР ТЕЛА ЦИКЛА `!foreach`.
+            //
+            // Пока цикл собирается, строки не выполняются: они составят
+            // тело, которое затем прогоняется для каждого элемента.
+            if !ctx.foreach_stack.is_empty() {
+                // Вложенный цикл начинается с нуля: его тело собирается
+                // отдельно и выполнится на своей итерации.
+                if let Some(rest) = trimmed.strip_prefix("!foreach ") {
+                    let Some((var, collection)) = rest.split_once(" in ") else {
+                        continue;
+                    };
+                    ctx.foreach_stack.push(ForeachDef {
+                        var: var.trim().to_string(),
+                        collection: collection.trim().to_string(),
+                        body: Vec::new(),
+                    });
+                    continue;
+                }
+
+                if trimmed == "!endfor" {
+                    let Some(definition) = ctx.foreach_stack.pop() else {
+                        continue;
+                    };
+                    // Внешний цикл продолжает собирать СВОЁ тело —
+                    // результат вложенного попадёт в него как строка.
+                    let expanded = self.execute_foreach(&definition, ctx)?;
+                    match ctx.foreach_stack.last_mut() {
+                        Some(outer) => outer.body.push(expanded),
+                        None => {
+                            output.push_str(&expanded);
+                            if !expanded.is_empty() && !expanded.ends_with('\n') {
+                                output.push('\n');
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                if let Some(current) = ctx.foreach_stack.last_mut() {
+                    current.body.push(line.to_string());
+                }
+                continue;
+            }
+
             // Обработка директив препроцессора
             if trimmed.starts_with('!') {
                 let included_content = self.process_directive_with_output(trimmed, ctx)?;
@@ -572,6 +637,25 @@ impl<R: FileResolver> Preprocessor<R> {
     ) -> Result<Option<String>> {
         let directive = &line[1..]; // Убираем '!'
 
+        // ДИРЕКТИВЫ ВНУТРИ ЛОЖНОЙ ВЕТВИ НЕ ВЫПОЛНЯЮТСЯ.
+        //
+        // Исключение — директивы условий: они обязаны обновлять стек,
+        // иначе `!endif` не закроет блок. Раньше проверки не было вовсе,
+        // и `!return` срабатывал даже при ложном `!if`: в C4 макрос
+        // `$getProps` возвращал имя необъявленной переменной, потому что
+        // присваивание внутри ложной ветви пропускалось, а `!return`
+        // выполнялся.
+        let is_condition_directive = directive.starts_with("if ")
+            || directive.starts_with("ifdef ")
+            || directive.starts_with("ifndef ")
+            || directive.starts_with("elseif ")
+            || directive == "else"
+            || directive == "endif";
+
+        if !is_condition_directive && !ctx.should_output() {
+            return Ok(None);
+        }
+
         if let Some(rest) = directive.strip_prefix("return") {
             // `!return` завершает выполнение тела макроса. Значение
             // подставляется из переменных: полноценный разбор выражений
@@ -598,6 +682,21 @@ impl<R: FileResolver> Preprocessor<R> {
             directives::handle_ifdef(rest.trim(), ctx, true);
         } else if let Some(rest) = directive.strip_prefix("ifndef ") {
             directives::handle_ifdef(rest.trim(), ctx, false);
+        } else if let Some(rest) = directive.strip_prefix("foreach ") {
+            let Some((var, collection)) = rest.split_once(" in ") else {
+                return Err(PreprocessError::SyntaxError(
+                    "!foreach требует форму `!foreach $x in $коллекция`".to_string(),
+                ));
+            };
+            ctx.foreach_stack.push(ForeachDef {
+                var: var.trim().to_string(),
+                collection: collection.trim().to_string(),
+                body: Vec::new(),
+            });
+        } else if directive == "endfor" {
+            return Err(PreprocessError::SyntaxError(
+                "!endfor без соответствующего !foreach".to_string(),
+            ));
         } else if let Some(rest) = directive.strip_prefix("elseif ") {
             directives::handle_elseif(rest.trim(), ctx)?;
         } else if directive == "else" {
@@ -629,6 +728,13 @@ impl<R: FileResolver> Preprocessor<R> {
             // переменной оседал сырой вызов, и он попадал в диаграмму —
             // именно так ломалась библиотека C4.
             let expanded = self.process_function_calls(directive, ctx);
+            // ВСТРОЕННЫЕ функции в правой части тоже вычисляются.
+            //
+            // Раньше они применялись только к строкам вывода, поэтому
+            // `!$items = %splitstr("a,b,c", ",")` сохраняло ТЕКСТ вызова,
+            // и `!foreach` получал один элемент вместо трёх.
+            let expanded = self.process_context_builtins(&expanded, ctx);
+            let expanded = builtins::process_builtins(&expanded);
             variables::handle_variable_assignment(&expanded, ctx)?;
         }
 
@@ -935,6 +1041,7 @@ impl<R: FileResolver> Preprocessor<R> {
             returning: false,
             call_depth: ctx.call_depth + 1,
             macro_variables: IndexMap::new(),
+            foreach_stack: Vec::new(),
             exported: Vec::new(),
         };
 
@@ -1060,6 +1167,33 @@ impl<R: FileResolver> Preprocessor<R> {
             result = format!("{}{}{}", &result[..start], value, &result[close + 1..]);
         }
 
+        // %splitstr(ТЕКСТ, РАЗДЕЛИТЕЛЬ) — список элементов.
+        //
+        // Возвращаем элементы, соединённые LIST_SEPARATOR: `!foreach`
+        // делит значение именно по нему. Стандартная библиотека C4
+        // пользуется этим в `$fixHeaderColumns`.
+        while let Some(start) = result.find("%splitstr(") {
+            let Some(close) = find_closing_paren(&result, start) else {
+                break;
+            };
+            let inner = result[start + "%splitstr(".len()..close].to_string();
+            let (text, separator) = split_top_level_args(&inner);
+
+            let text = resolve_concat_part(&text, ctx);
+            let separator = resolve_concat_part(&separator, ctx);
+            let separator = separator.replace("\\n", "\n");
+
+            let value = if separator.is_empty() {
+                text
+            } else {
+                text.split(separator.as_str())
+                    .collect::<Vec<_>>()
+                    .join(&LIST_SEPARATOR.to_string())
+            };
+
+            result = format!("{}{}{}", &result[..start], value, &result[close + 1..]);
+        }
+
         // %set_variable_value(ИМЯ, ЗНАЧЕНИЕ) — устанавливает переменную и
         // НЕ печатает ничего: в библиотеках это оператор ради эффекта.
         while let Some(start) = result.find("%set_variable_value(") {
@@ -1085,6 +1219,43 @@ impl<R: FileResolver> Preprocessor<R> {
         }
 
         result
+    }
+
+    /// Выполняет тело цикла `!foreach` для каждого элемента коллекции.
+    ///
+    /// Коллекция — значение переменной или выражение; элементы разделены
+    /// `LIST_SEPARATOR` (так их отдаёт `%splitstr`). Если разделителя нет,
+    /// коллекция считается одним элементом.
+    fn execute_foreach(
+        &self,
+        definition: &ForeachDef,
+        ctx: &mut PreprocessContext,
+    ) -> Result<String> {
+        let collection = evaluate_concat(&definition.collection, ctx);
+        let items: Vec<&str> = collection.split(LIST_SEPARATOR).collect();
+
+        let mut output = String::new();
+        let saved = ctx.variables.get(&definition.var).cloned();
+
+        for item in items {
+            ctx.variables
+                .insert(definition.var.clone(), item.to_string());
+
+            let body = definition.body.join("\n");
+            output.push_str(&self.process_with_context(&body, ctx)?);
+        }
+
+        // Переменная цикла после завершения не сохраняется.
+        match saved {
+            Some(value) => {
+                ctx.variables.insert(definition.var.clone(), value);
+            }
+            None => {
+                ctx.variables.shift_remove(&definition.var);
+            }
+        }
+
+        Ok(output)
     }
 
     /// Обрабатывает вызовы пользовательских функций в строке
@@ -1855,6 +2026,63 @@ MAIN_END
         assert!(
             out.contains("class Готово"),
             "глобальная переменная не видна: {out}"
+        );
+    }
+
+    /// `!foreach` перебирает элементы списка от `%splitstr`.
+    #[test]
+    fn test_foreach_over_splitstr() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !$items = %splitstr(\"a,b,c\", \",\")\n\
+            !foreach $x in $items\n\
+            class $x\n\
+            !endfor\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        for name in ["a", "b", "c"] {
+            assert!(
+                out.contains(&format!("class {name}")),
+                "элемент {name} не развёрнут: {out}"
+            );
+        }
+    }
+
+    /// Встроенные функции вычисляются и в ПРИСВАИВАНИИ, не только в выводе.
+    ///
+    /// Регрессия: `!$items = %splitstr(...)` сохраняло ТЕКСТ вызова, и
+    /// `!foreach` получал один элемент вместо трёх.
+    #[test]
+    fn test_builtins_are_evaluated_in_assignment() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n!$s = %upper(\"abc\")\nclass $s\n@enduml";
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(out.contains("class ABC"), "встроенная не вычислена: {out}");
+    }
+
+    /// Директивы внутри ЛОЖНОЙ ветви не выполняются.
+    ///
+    /// Регрессия: `!return` срабатывал даже при ложном `!if`, потому что
+    /// проверка `should_output()` стояла только в присваивании. В C4 из-за
+    /// этого `$getProps` возвращал имя необъявленной переменной.
+    #[test]
+    fn test_directives_respect_false_branch() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $f()\n\
+            !if (\"a\" == \"b\")\n\
+            !return НЕВЕРНО\n\
+            !endif\n\
+            !return ВЕРНО\n\
+            !endfunction\n\
+            class \"$f()\"\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class \"ВЕРНО\""),
+            "выполнена ложная ветвь: {out}"
         );
     }
 
