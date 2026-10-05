@@ -196,6 +196,78 @@ const DISTANCE_BASE: [u32; 30] = [
     2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
 ];
 
+/// Алфавит base64, которым PlantUML кодирует сжатые спрайты.
+const PLANTUML_ALPHABET: &[u8; 64] =
+    b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+
+/// Стандартный алфавит base64 — цель перестановки.
+const STD_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/// Распаковывает тело сжатого спрайта PlantUML.
+///
+/// Формат разобран на реальном файле `k8s-sprites-unlabeled-25pct.iuml`:
+/// тело — base64 с алфавитом PlantUML, после декодирования поток
+/// `raw deflate`, после распаковки по одному байту на пиксель.
+///
+/// Возвращает строки пикселей в том же виде, что у несжатого формата:
+/// по одной шестнадцатеричной цифре на пиксель.
+pub fn decode_compressed_sprite(
+    body: &str,
+    width: usize,
+    height: usize,
+) -> Result<Vec<String>, InflateError> {
+    let compact: Vec<u8> = body.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+
+    // Переводим символы в стандартный алфавит.
+    let mut translated = Vec::with_capacity(compact.len());
+    for byte in compact {
+        if byte == b'=' {
+            break;
+        }
+        let index = PLANTUML_ALPHABET
+            .iter()
+            .position(|c| *c == byte)
+            .ok_or_else(|| InflateError(format!("недопустимый символ: {}", byte as char)))?;
+        translated.push(STD_ALPHABET[index]);
+    }
+
+    // Декодируем base64 в байты.
+    let mut bytes = Vec::with_capacity(translated.len() * 3 / 4);
+    let mut accumulator = 0u32;
+    let mut bits = 0u32;
+    for byte in translated {
+        let value = STD_ALPHABET
+            .iter()
+            .position(|c| *c == byte)
+            .ok_or_else(|| InflateError("сбой перестановки алфавита".into()))?
+            as u32;
+        accumulator = (accumulator << 6) | value;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            bytes.push(((accumulator >> bits) & 0xFF) as u8);
+        }
+    }
+
+    let pixels = inflate(&bytes)?;
+
+    // Раскладываем байты в строки по ширине спрайта.
+    let expected = width * height;
+    if pixels.len() < expected {
+        return Err(InflateError(format!(
+            "распаковалось {} байт, ожидалось {expected}",
+            pixels.len()
+        )));
+    }
+
+    let mut rows = Vec::with_capacity(height);
+    for row in pixels[..expected].chunks(width.max(1)) {
+        rows.push(row.iter().map(|b| format!("{b:x}")).collect::<String>());
+    }
+
+    Ok(rows)
+}
+
 /// Распаковывает поток `raw deflate`.
 pub fn inflate(data: &[u8]) -> Result<Vec<u8>, InflateError> {
     let mut reader = BitReader::new(data);
@@ -423,6 +495,21 @@ mod tests {
         assert!(
             out.iter().all(|b| *b < 16),
             "значения выходят за палитру 0..15"
+        );
+    }
+
+    /// Сжатый спрайт раскладывается в строки пикселей.
+    #[test]
+    fn test_compressed_sprite_decodes() {
+        const BODY: &str = "jLVRiiCW23G8Wa_v_xyjn5oCyP8qBNEcSzBfhkm2QkQv6N6F-Ok8ftY7VieGg_4EVPSXTkCTUiGGRyKxT8iXFeftw88XVXb_nqlmo5_Z5Jrf-21zV1VTPMZZ\nXM3Aei7GmaiuePiCTNoM-O2X1c-WwmnNl1HeXCbDkngK4JwSuHG5CGXkppp2unaVL0zdh660BzCdgmGUw-C5V_w2puK3zivMHRTPU36W9z-pB7oqqy80JwLx\nQVsE0UTdloQAYmyGEEa_y5JWY-hhhy6RJR9cJAmSYBijlhiZy59YrZuJM3BnQfXGLXIG7ZuaXO526a2Ch0b8NbNkuRNEBbKRHHYSDoxUnLGCkDeNU5r7lRTi\nxG_SrEYWmZu7MwrO0je3UhHFeXi6y6GPssgwifce_U2SMtBUDN3VFYJRVNHb2gaUgnXgTD2r-xnQ9pOAjBSZPdFPCJ2rkIfatVT9_y5zt_2j2QgCJ-3azx4-\nAUCsaN7G0FQZJMWgd3FGsaEXVwHbdGRc_w98pMHEscXq9cORYFUWSsIzh3e0XkAlEuYpOiinrY0tJkLy2r5001r_R7edBGzNX9M2rZhMl9kx7gwoeJavrUEJ\neNfwjGxGleU7b0SN21sxCzhLnBVlBu9G1FMkSBL6BEBtDy3VtJ-_8PX_Z7zv_tv8y8VtXmS4yv_mBz-VRXByzltl0m00";
+
+        let rows = decode_compressed_sprite(BODY, 64, 63).expect("спрайт должен распаковываться");
+        assert_eq!(rows.len(), 63, "число строк не совпало с высотой");
+        assert_eq!(rows[0].len(), 64, "длина строки не совпала с шириной");
+        assert!(
+            rows.iter()
+                .all(|r| r.chars().all(|c| c.is_ascii_hexdigit())),
+            "в строках есть символы вне hex"
         );
     }
 
