@@ -146,3 +146,43 @@ ProductRepository --|> AbstractRepository
 
     insta::assert_snapshot!("complex_hierarchy", svg);
 }
+
+/// `left to right direction` меняет оси раскладки.
+///
+/// Проверено на сервере: для `class A; class B; A --> B` эталон даёт
+/// 63x178 без директивы (рамки друг под другом) и 165x70 с ней (рамки
+/// рядом). Направление сохранялось в AST, но раскладка его не читала,
+/// поэтому вывод был одинаковым в обоих случаях.
+#[test]
+fn test_left_to_right_direction_transposes_layout() {
+    let vertical = "@startuml\nclass A\nclass B\nA --> B\n@enduml";
+    let horizontal = "@startuml\nleft to right direction\nclass A\nclass B\nA --> B\n@enduml";
+
+    let size_of = |source: &str| -> (f64, f64) {
+        let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
+        let view_box: Vec<f64> = svg
+            .split("viewBox=\"")
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .map(|value| {
+                value
+                    .split_whitespace()
+                    .filter_map(|part| part.parse().ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+        (view_box[2], view_box[3])
+    };
+
+    let (vertical_width, vertical_height) = size_of(vertical);
+    let (horizontal_width, horizontal_height) = size_of(horizontal);
+
+    assert!(
+        vertical_width < horizontal_width,
+        "без директивы диаграмма должна быть УЗКОЙ: {vertical_width} против {horizontal_width}"
+    );
+    assert!(
+        vertical_height > horizontal_height,
+        "без директивы диаграмма должна быть ВЫСОКОЙ: {vertical_height} против {horizontal_height}"
+    );
+}

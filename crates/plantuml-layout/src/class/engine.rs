@@ -1,6 +1,7 @@
 //! ClassLayoutEngine - layout engine для диаграмм классов.
 
 use plantuml_ast::class::{ClassDiagram, ClassifierType, RelationshipType};
+use plantuml_ast::common::Direction;
 use plantuml_model::{Point, Rect};
 
 use crate::traits::LayoutEngine;
@@ -104,6 +105,16 @@ impl ClassLayoutEngine {
         // грамматика заметки принимала, парсер их разбирал, а в раскладку
         // они не попадали, и в выводе не было ни текста, ни рамки.
         self.layout_notes(diagram, &mut elements);
+
+        // `left to right direction` МЕНЯЕТ ОСИ раскладки.
+        //
+        // Проверено на сервере: для `class A; class B; A --> B` эталон
+        // даёт 63x178 без директивы (рамки друг под другом) и 165x70 с
+        // ней (рамки рядом). Направление сохранялось в AST, но раскладка
+        // его не читала, поэтому вывод был одинаковым.
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            transpose_elements(&mut elements);
+        }
 
         let mut result = LayoutResult {
             elements,
@@ -551,6 +562,27 @@ impl LayoutEngine for ClassLayoutEngine {
 
     fn layout(&self, input: &Self::Input, _config: &LayoutConfig) -> LayoutResult {
         self.layout_diagram(input)
+    }
+}
+
+/// Меняет оси раскладки: `(x, y, ширина, высота)` → `(y, x, высота, ширина)`.
+///
+/// Так реализуется `left to right direction`: диаграмма строится обычным
+/// образом (сверху вниз), а затем оси меняются местами — PlantUML даёт
+/// именно транспонированный результат. Точки рёбер переносятся тоже,
+/// иначе стрелки остались бы на прежних местах.
+fn transpose_elements(elements: &mut [crate::LayoutElement]) {
+    for element in elements.iter_mut() {
+        let bounds = element.bounds;
+        element.bounds = Rect::new(bounds.y, bounds.x, bounds.height, bounds.width);
+
+        if let crate::ElementType::Edge { points, .. } = &mut element.element_type {
+            for point in points.iter_mut() {
+                let (x, y) = (point.x, point.y);
+                point.x = y;
+                point.y = x;
+            }
+        }
     }
 }
 
