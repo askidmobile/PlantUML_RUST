@@ -26,8 +26,8 @@
   "er_basic": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "e8b99c317ee0de66416ab54971db3c1574fdf6f948d0fc911cd3545c1cb04b1b",
-    "svg_bytes": "3547",
-    "svg_sha256": "148951435f19a37c79c2cc12bf3254e3366b52faa0a4467102d45ecd8f04c7c7"
+    "svg_bytes": "3654",
+    "svg_sha256": "c33639116b79b8446a760b52e5c07117c8342c33dc1b693aea0e85a055163831"
   },
   "gantt_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -39,7 +39,7 @@
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "ce12fc2bef47fcb2871639d2bfc4e467347f7d7c6bf2dd345e6457a32222c780",
     "svg_bytes": "2953",
-    "svg_sha256": "77da252eac0925d9179ef58d49319f5e43567575d6e0d2bd76d0350f44d72226"
+    "svg_sha256": "fa9b00b27f01d565e9f1f4699b89a0f97fc1f617b3c2916895e14e42de638cf3"
   },
   "mindmap_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -50,14 +50,14 @@
   "network_nwdiag": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "3b173b4ddb93a0f26d21459f6d61f3d6597dfea741e2f0dcabd9aa6796988fd5",
-    "svg_bytes": "1467",
-    "svg_sha256": "95a6ef165a3d4f8dc33ef278d73f39d76a0b372e5dbb7b1bf6180199437dc926"
+    "svg_bytes": "1603",
+    "svg_sha256": "2eb8c6f8842fcb739772a0d56f857a913a5dd79f1c1d998033c02aff4b297064"
   },
   "object_basic": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "bb065be1f8c190de67a1d8132d8e4abdf7745eb59595df278fb22ca0b1e059d6",
     "svg_bytes": "1859",
-    "svg_sha256": "183b036749de601cecb5ff076a953e52b3992eaadae4f6742c0ee27de9cc6a13"
+    "svg_sha256": "53e9b22a44c0ae33e32013f3bbbac50c03282c816c4c0e77062df58969d907cf"
   },
   "salt_basic": {
     "plantuml_version": "1.2026.9beta4",
