@@ -53,7 +53,7 @@ impl Default for SaltLayoutConfig {
             // в эталоне текст стоит на x=6.
             padding: 0.0,
             row_height: 17.968,
-            min_cell_width: 52.07,
+            min_cell_width: 35.0,
             // Минимальная ширина кнопки: в эталоне кнопка «OK» шириной 36
             // при тексте 17.314.
             min_button_width: 36.0,
