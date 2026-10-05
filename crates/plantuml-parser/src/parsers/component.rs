@@ -352,6 +352,12 @@ fn extract_connection_endpoint(pair: pest::iterators::Pair<Rule>) -> String {
             Rule::simple_identifier => {
                 return inner.as_str().to_string();
             }
+            // Имя в кавычках: `"app.jar" --> pg`. Грамматика эту форму
+            // принимала, но парсер её не знал — endpoint получался пустым,
+            // и связь отбрасывалась целиком из-за проверки на пустоту.
+            Rule::quoted_string => {
+                return inner.as_str().trim().trim_matches('"').to_string();
+            }
             _ => {}
         }
     }
@@ -525,6 +531,22 @@ fn extract_note_target(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Связь с именем в кавычках не теряется.
+    ///
+    /// Регрессия: `extract_connection_endpoint` не знал `quoted_string`,
+    /// поэтому endpoint получался пустым, и связь отбрасывалась целиком
+    /// из-за проверки `from.is_empty() || to.is_empty()`.
+    #[test]
+    fn test_connection_with_quoted_endpoints() {
+        let source = "@startuml\nnode \"Сервер\" {\n  artifact \"app.jar\"\n}\ndatabase pg as pg\n\"app.jar\" --> pg : JDBC\n@enduml";
+        let diagram = parse_component(source).expect("диаграмма должна разбираться");
+
+        assert_eq!(diagram.connections.len(), 1, "связь потеряна");
+        assert_eq!(diagram.connections[0].from, "app.jar");
+        assert_eq!(diagram.connections[0].to, "pg");
+        assert_eq!(diagram.connections[0].label.as_deref(), Some("JDBC"));
+    }
 
     #[test]
     fn test_parse_simple_component() {

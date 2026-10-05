@@ -531,11 +531,36 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     // Component Diagram
     // Проверяем характерные паттерны: [Component], component keyword, package без class
     // ВАЖНО: [Component] паттерн должен быть более точным — только [word] без других символов
-    if source_lower.contains("component ")
-        || source_lower.contains("cloud ")
-        || source_lower.contains("storage ")
-        || source_lower.contains("artifact ")
-        || source_lower.contains("interface ")
+    // Список ключевых слов совпадает с `container_keyword` и
+    // `non_container_keyword` грамматики component. Раньше здесь была лишь
+    // половина: `folder A`, `frame A`, `rectangle A`, `file A`, `card A`,
+    // `hexagon A`, `stack A`, `entity A` не давали определить тип вовсе.
+    if [
+        "component",
+        "cloud",
+        "storage",
+        "artifact",
+        "interface",
+        "node",
+        "folder",
+        "frame",
+        "rectangle",
+        "database",
+        "queue",
+        "file",
+        "card",
+        "hexagon",
+        "stack",
+        "collections",
+        "actor",
+        "device",
+        "agent",
+        "control",
+        "boundary",
+        "entity",
+    ]
+    .iter()
+    .any(|keyword| source_lower.contains(&format!("{keyword} ")))
         || (source_lower.contains("package ") && !source_lower.contains("class "))
     {
         return Ok(DiagramKind::Component);
@@ -662,6 +687,73 @@ fn parse_archimate_diagram(source: &str) -> Result<Diagram> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Все контейнерные ключевые слова грамматики component дают
+    /// определить тип диаграммы.
+    ///
+    /// Регрессия: в детекторе была только половина списка, поэтому
+    /// `folder A`, `frame A`, `rectangle A`, `file A`, `card A`,
+    /// `hexagon A`, `stack A`, `entity A` не разбирались вовсе.
+    #[test]
+    fn test_all_container_keywords_detected() {
+        let keywords = [
+            "component",
+            "node",
+            "folder",
+            "frame",
+            "cloud",
+            "rectangle",
+            "database",
+            "storage",
+            "queue",
+            "file",
+            "artifact",
+            "card",
+            "hexagon",
+            "stack",
+            "collections",
+            "actor",
+            "device",
+            "agent",
+            "control",
+            "boundary",
+            "entity",
+        ];
+
+        // Эти слова есть и в sequence (типы участников), поэтому без других
+        // признаков PlantUML трактует их как sequence. Для них проверяем
+        // только успешный разбор.
+        let ambiguous = [
+            "queue",
+            "collections",
+            "actor",
+            "boundary",
+            "control",
+            "entity",
+        ];
+
+        for keyword in keywords {
+            let source = format!("@startuml\n{keyword} A\n@enduml");
+            let diagram =
+                parse(&source).unwrap_or_else(|e| panic!("`{keyword} A` не разбирается: {e}"));
+
+            if ambiguous.contains(&keyword) {
+                continue;
+            }
+
+            // `device`/`node` относятся и к deployment — там своя ветка
+            // детектора, поэтому принимаем оба «структурных» типа.
+            assert!(
+                matches!(
+                    diagram.diagram_type(),
+                    plantuml_ast::diagram::DiagramType::Component
+                        | plantuml_ast::diagram::DiagramType::Deployment
+                ),
+                "`{keyword} A` должна быть Component- или Deployment-диаграммой, а не {:?}",
+                diagram.diagram_type()
+            );
+        }
+    }
 
     /// Позиция ошибки в `SyntaxError` должна быть настоящей, а не нулём.
     ///

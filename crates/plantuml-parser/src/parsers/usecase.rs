@@ -440,6 +440,27 @@ fn extract_note_target(pair: pest::iterators::Pair<Rule>) -> String {
 mod tests {
     use super::*;
 
+    /// `rectangle` без тела — обычный элемент, а не контейнер.
+    ///
+    /// Регрессия: правило требовало `{`, поэтому `rectangle R` не
+    /// разбирался вовсе, хотя в PlantUML это допустимая форма.
+    #[test]
+    fn test_rectangle_without_body() {
+        let source = "@startuml\nactor A\nrectangle R\nA --> R\n@enduml";
+        let diagram = parse_usecase(source).expect("диаграмма должна разбираться");
+        // Форма без тела разбирается и не теряется: элемент присутствует
+        // как контейнер без содержимого.
+        assert_eq!(diagram.packages.len(), 1, "rectangle без тела потерян");
+        assert_eq!(diagram.packages[0].name, "R");
+        assert!(diagram.packages[0].use_cases.is_empty());
+
+        // Форма с телом продолжает работать
+        let source = "@startuml\nrectangle \"Система\" {\n  usecase Вход\n}\n@enduml";
+        let diagram = parse_usecase(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.packages.len(), 1);
+        assert_eq!(diagram.packages[0].use_cases.len(), 1);
+    }
+
     #[test]
     fn test_parse_simple_actors() {
         let source = r#"

@@ -84,10 +84,17 @@ package_def = {
     "}"
 }
 
+// `rectangle` в PlantUML — и контейнер (с телом), и обычный элемент.
+// Форма без тела раньше не разбиралась вовсе.
+//
+// Альтернатива записана БЕЗ промежуточных правил: парсер читает прямых
+// потомков `rectangle_def` (`package_name`, `body`), и обёртка их скрыла бы.
 rectangle_def = {
-    "rectangle" ~ ws+ ~ package_name ~ alias_part? ~ stereotype_part? ~ color_part? ~ ws* ~ "{" ~ NEWLINE ~
-    body ~
-    "}"
+    "rectangle" ~ ws+ ~ package_name ~ alias_part? ~ stereotype_part? ~ color_part? ~
+    (
+        ws* ~ "{" ~ NEWLINE ~ body ~ "}"
+        | !(ws* ~ "{" ~ NEWLINE)
+    )
 }
 
 package_name = { quoted_string | simple_identifier }
