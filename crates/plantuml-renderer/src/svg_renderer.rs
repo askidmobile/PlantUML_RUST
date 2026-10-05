@@ -637,7 +637,7 @@ impl SvgRenderer {
                 fields,
                 methods,
             } => {
-                let sprite_table = parse_sprite_property(element.properties.get("sprites"));
+                let sprite_table = sprite_table(&element.properties);
                 group = self.render_class_box(
                     &element.bounds,
                     *classifier_type,
@@ -2133,12 +2133,15 @@ impl SvgRenderer {
                     let size = data.width as f64 * SPRITE_INLINE_PIXEL;
                     let height = data.height as f64 * SPRITE_INLINE_PIXEL;
                     let top = baseline - height + 2.0;
-                    group = self.render_sprite_data(
-                        &Rect::new(cursor, top, size, height),
-                        &data.rows,
-                        SPRITE_INLINE_PIXEL,
-                        group,
-                    );
+                    let bounds = Rect::new(cursor, top, size, height);
+
+                    group = match &data.svg {
+                        Some(vector) => self.render_vector_sprite(&bounds, vector, theme, group),
+                        None => {
+                            self.render_sprite_data(&bounds, &data.rows, SPRITE_INLINE_PIXEL, group)
+                        }
+                    };
+
                     cursor += size + SPRITE_INLINE_GAP;
                 }
             }
@@ -2407,6 +2410,8 @@ struct SpriteData {
     width: usize,
     height: usize,
     rows: Vec<String>,
+    /// Векторное тело: заполнено для `sprite имя <svg ...>...</svg>`.
+    svg: Option<plantuml_layout::SvgSprite>,
 }
 
 /// Часть подписи: обычный текст либо вставка спрайта.
@@ -2419,6 +2424,51 @@ enum SpritePart {
 ///
 /// Формат: `имя|ШxВ|строка,строка;имя2|...` — та же раскладка, что
 /// заполняет layout. Свойство отсутствует, если в подписях нет вставок.
+fn sprite_table(
+    properties: &std::collections::HashMap<String, String>,
+) -> std::collections::HashMap<String, SpriteData> {
+    let mut table = parse_sprite_property(properties.get("sprites"));
+
+    // Векторные спрайты лежат отдельными свойствами `sprite-svg-<имя>`:
+    // тело SVG содержит разделители `|`, `;` и `,`, поэтому упаковать
+    // их в общую строку нельзя.
+    for (key, value) in properties {
+        let Some(name) = key.strip_prefix("sprite-svg-") else {
+            continue;
+        };
+
+        let Some((attrs, body)) = value.split_once('\n') else {
+            continue;
+        };
+
+        let (width, height) = vector_extent(attrs);
+        table.insert(
+            name.to_string(),
+            SpriteData {
+                width,
+                height,
+                rows: Vec::new(),
+                svg: Some(plantuml_layout::SvgSprite {
+                    attrs: attrs.to_string(),
+                    body: body.to_string(),
+                }),
+            },
+        );
+    }
+
+    table
+}
+
+/// Размер векторного спрайта по его атрибутам (`viewBox`, затем `width`).
+fn vector_extent(attrs: &str) -> (usize, usize) {
+    let (_, _, width, height) = view_box(attrs);
+    if width > 0.0 && height > 0.0 {
+        return (width.round() as usize, height.round() as usize);
+    }
+    (0, 0)
+}
+
+/// Разбирает свойство `sprites` элемента в таблицу.
 fn parse_sprite_property(value: Option<&String>) -> std::collections::HashMap<String, SpriteData> {
     let mut table = std::collections::HashMap::new();
     let Some(raw) = value else {
@@ -2442,6 +2492,7 @@ fn parse_sprite_property(value: Option<&String>) -> std::collections::HashMap<St
                 width,
                 height,
                 rows: rows.split(',').map(str::to_string).collect(),
+                svg: None,
             },
         );
     }

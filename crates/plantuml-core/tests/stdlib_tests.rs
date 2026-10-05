@@ -164,6 +164,7 @@ fn sprite_renders_as_rectangles() {
         3012\n\
         }\n\
         class A\n\
+        class \"X <$s>\" as x\n\
         @enduml";
 
     let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
@@ -192,6 +193,7 @@ fn sprite_pixels_are_not_lost_when_merged() {
         def0\n\
         }\n\
         class A\n\
+        class \"X <$s>\" as x\n\
         @enduml";
 
     let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
@@ -226,6 +228,7 @@ fn vector_sprite_is_parsed_and_rendered() {
         <path d=\"M1 0l-1 1 1.5 1.5-1.5 1.5h4v-4l-1.5 1.5-1.5-1.5z\" />\n\
         </svg>\n\
         class A\n\
+        class \"X <$foo1>\" as x\n\
         @enduml";
 
     let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");

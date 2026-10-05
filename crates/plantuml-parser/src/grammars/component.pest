@@ -415,7 +415,10 @@ sprite_svg = {
     "</svg>"
 }
 
-sprite_name = @{ "$"? ~ identifier }
+// Имя спрайта может содержать ДЕФИСЫ: библиотека Archimate
+// использует имена вида `$application-collaboration-svg`, а общее
+// правило `identifier` дефис не допускает.
+sprite_name = @{ "$"? ~ (LETTER | "_") ~ (LETTER | NUMBER | "_" | "-")* }
 svg_attrs = @{ (!(">" | NEWLINE) ~ ANY)* }
 svg_body = { (!"</svg>" ~ ANY)* }
 

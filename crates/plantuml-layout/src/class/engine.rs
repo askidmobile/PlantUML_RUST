@@ -3,12 +3,6 @@
 use plantuml_ast::class::{ClassDiagram, ClassifierType, RelationshipType};
 use plantuml_model::{Point, Rect};
 
-/// Размер одного пикселя спрайта в единицах SVG.
-const SPRITE_PIXEL_SIZE: f64 = 1.0;
-
-/// Отступ между блоками объявленных спрайтов.
-const SPRITE_BLOCK_GAP: f64 = 10.0;
-
 use crate::traits::LayoutEngine;
 use crate::{
     ClassMember, ClassifierKind, EdgeType, ElementType, LayoutConfig, LayoutElement, LayoutResult,
@@ -69,32 +63,18 @@ impl ClassLayoutEngine {
         // Преобразуем результат в LayoutElements
         let mut elements = Vec::new();
 
-        // Спрайты: `sprite $имя [ШxВ] { ... }`.
+        // Объявленные спрайты НЕ рисуются отдельными блоками.
         //
-        // PlantUML ставит их в подписях через `<$имя>`, но и объявленный
-        // спрайт без подстановки стоит в выводе — поэтому размещаем их
-        // отдельным блоком под диаграммой, чтобы объявление не терялось.
-        let mut sprite_y = self.config.margin;
-        for sprite in &diagram.sprites {
-            let pixel_size = SPRITE_PIXEL_SIZE;
-            let width = sprite.width as f64 * pixel_size;
-            let height = sprite.height as f64 * pixel_size;
-
-            elements.push(LayoutElement {
-                id: format!("sprite_{}", sprite.name),
-                bounds: Rect::new(self.config.margin, sprite_y, width, height),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Sprite {
-                    rows: sprite.rows.clone(),
-                    pixel_size,
-                    svg: sprite.svg.clone(),
-                },
-            });
-
-            sprite_y += height + SPRITE_BLOCK_GAP;
-        }
-
+        // Проверено на сервере: `sprite $a {...}` без подстановки не
+        // оставляет в выводе ничего — спрайт появляется только там, где
+        // стоит `<$имя>`. Прежний код размещал каждый объявленный спрайт
+        // отдельным блоком, из-за чего диаграмма разрасталась: для двух
+        // объявленных спрайтов выходило 14 прямоугольников против 3 в
+        // эталоне.
+        //
+        // Подстановка в подписи обрабатывается ниже: движок кладёт
+        // спрайты в свойство элемента, а рендерер рисует их в тексте.
+        //
         // Добавляем узлы (классы)
         for node in &graph.nodes {
             // Ищем оригинальный classifier для получения деталей
@@ -334,6 +314,20 @@ impl ClassLayoutEngine {
                 })
                 .collect();
             properties.insert("sprites".to_string(), encoded.join(";"));
+
+            // Векторные спрайты передаются ОТДЕЛЬНЫМИ свойствами, по
+            // одному на спрайт: тело SVG содержит разделители `|`, `;`
+            // и `,`, поэтому упаковка в общую строку сломала бы разбор.
+            // Ключ — `sprite-svg-<имя>`, значение — атрибуты и тело.
+            for sprite in &diagram.sprites {
+                let Some(vector) = &sprite.svg else {
+                    continue;
+                };
+                properties.insert(
+                    format!("sprite-svg-{}", sprite.name),
+                    format!("{}\n{}", vector.attrs, vector.body),
+                );
+            }
         }
 
         LayoutElement {
