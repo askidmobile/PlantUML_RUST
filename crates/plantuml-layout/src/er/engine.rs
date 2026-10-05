@@ -117,7 +117,15 @@ impl ErLayoutEngine {
             .attributes
             .iter()
             .map(|a| {
-                let type_str = a.data_type.as_deref().unwrap_or("");
+                // ВАЖНО: измеряем РОВНО ту строку, которая рисуется.
+                // Здесь терялся разделитель « : », из-за чего «name :
+                // string» мерилось как «namestring» — блок «User» выходил
+                // 94.89 вместо эталонных 105.51.
+                let type_str = a
+                    .data_type
+                    .as_deref()
+                    .map(|t| format!(" : {t}"))
+                    .unwrap_or_default();
                 let stereo_str = a
                     .stereotype
                     .as_deref()
@@ -125,10 +133,12 @@ impl ErLayoutEngine {
                     .unwrap_or_default();
                 // Одна согласованная мера вместо двух разных констант
                 // (9.0 для имени и 7.5 для атрибутов)
+                // Без добавочных 3: эталон даёт ровно «текст + 12»
+                // (105.51 при «name : string» 93.51).
                 self.config.text.width(
                     &format!("{}{}{}", a.name, type_str, stereo_str),
                     self.config.font_size,
-                ) + 3.0
+                )
             })
             .fold(0.0, f64::max);
 
@@ -524,9 +534,9 @@ impl LayoutEngine for ErLayoutEngine {
         };
         result.calculate_bounds();
 
-        // Добавляем padding
-        result.bounds.width += self.config.padding;
-        result.bounds.height += self.config.padding;
+        // Добавочный padding здесь НЕ нужен: `calculate_bounds` уже вернул
+        // объединение фигур, а левый отступ 7 входит в него как `bounds.x`.
+        // Лишние 7 давали холст 138 вместо эталонных 127.
 
         result
     }
