@@ -17,6 +17,7 @@ statement = _{
     | title_stmt
     | hide_stmt
     | scale_stmt
+    | direction_stmt
     | state_def
     // Разделитель параллельных регионов внутри составного состояния.
     // Проверяется ДО transition, иначе `--` разбирается как стрелка.
@@ -65,8 +66,11 @@ state_composite = {
 // state Name
 // state "Long Name" as alias
 state_simple = {
-    "state" ~ ws+ ~ state_name_part ~ state_alias_part? ~ state_stereotype_part? ~ state_description_part?
+    "state" ~ ws+ ~ state_name_part ~ state_alias_part? ~ state_stereotype_part? ~ state_color_part? ~ state_description_part?
 }
+
+// Цвет состояния: `state A #FF0000`. Раньше не разбирался.
+state_color_part = { ws* ~ "#" ~ ASCII_HEX_DIGIT{3,8} }
 
 // Алиас состояния без ключевого слова state
 // alias : description
@@ -176,11 +180,15 @@ action_content = { (!NEWLINE ~ ANY)* }
 
 // === Заметки ===
 
+// Порядок важен: многострочная форма проверяется ПЕРВОЙ. Иначе
+// `note right of A` без двоеточия перехватывается однострочным правилом
+// (у него двоеточие необязательно), и следующая строка с текстом
+// оказывается неожиданной. Та же ошибка была в class и activity.
 note_stmt = {
-    note_on_link
+    note_multiline
+    | note_on_link
     | note_on_state
     | note_floating
-    | note_multiline
 }
 
 // note on link : text
@@ -236,3 +244,7 @@ rest_of_line = { (!NEWLINE ~ ANY)* }
 
 ws = _{ " " | "\t" }
 NEWLINE = _{ "\r\n" | "\n" | "\r" }
+
+// Направление раскладки: `top to bottom direction`, `left to right direction`.
+direction_stmt = { direction_kind ~ ws+ ~ "direction" }
+direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }

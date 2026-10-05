@@ -5,7 +5,7 @@
 use pest::Parser;
 use pest_derive::Parser;
 
-use plantuml_ast::common::{Note, NotePosition};
+use plantuml_ast::common::{Color, Note, NotePosition};
 use plantuml_ast::state::{State, StateDiagram, StateType, Transition};
 
 use crate::error::syntax_error_from_pest;
@@ -194,6 +194,7 @@ fn parse_state_simple(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     let mut name = String::new();
     let mut alias: Option<String> = None;
     let mut description: Option<String> = None;
+    let mut color: Option<Color> = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -205,6 +206,11 @@ fn parse_state_simple(pair: pest::iterators::Pair<Rule>) -> Option<State> {
             }
             Rule::state_description_part => {
                 description = extract_description(inner);
+            }
+            // `state A #FF0000`. Грамматика цвет принимала, но парсер его
+            // не читал — цвет молча терялся.
+            Rule::state_color_part => {
+                color = Some(Color::parse(inner.as_str().trim()));
             }
             _ => {}
         }
@@ -223,7 +229,7 @@ fn parse_state_simple(pair: pest::iterators::Pair<Rule>) -> Option<State> {
         substates: Vec::new(),
         internal_transitions: Vec::new(),
         regions: Vec::new(),
-        color: None,
+        color,
         entry_action: None,
         exit_action: None,
         do_action: None,
@@ -530,6 +536,37 @@ fn extract_quoted_string(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Цвет состояния и многострочная заметка.
+    ///
+    /// Регрессия, две причины сразу: (1) `state A #FF0000` грамматика не
+    /// принимала вовсе; после добавления правила выяснилось, что парсер его
+    /// не читает и цвет молча теряется. (2) Многострочная заметка
+    /// проверялась ПОСЛЕ однострочной, у которой двоеточие необязательно —
+    /// поэтому `note right of A` без двоеточия перехватывалось однострочным
+    /// правилом. Та же ошибка была в class и activity.
+    #[test]
+    fn test_state_color_and_multiline_note() {
+        let diagram = parse_state("@startuml\nstate A #FF0000\n@enduml")
+            .expect("диаграмма должна разбираться");
+        assert_eq!(diagram.states.len(), 1);
+        assert_eq!(
+            diagram.states[0].color.as_ref().map(|c| c.to_css()),
+            Some("#FF0000".to_string()),
+            "цвет состояния потерян"
+        );
+
+        let diagram =
+            parse_state("@startuml\nstate A\nnote right of A\n  текст\nend note\n@enduml")
+                .expect("многострочная заметка должна разбираться");
+        assert_eq!(diagram.notes.len(), 1, "заметка потеряна");
+        assert!(diagram.notes[0].text.contains("текст"));
+
+        // Однострочная форма продолжает работать
+        let diagram = parse_state("@startuml\nstate A\nnote right of A : текст\n@enduml")
+            .expect("однострочная заметка должна разбираться");
+        assert_eq!(diagram.notes.len(), 1);
+    }
 
     /// Разделитель `--` делит тело составного состояния на регионы.
     ///
