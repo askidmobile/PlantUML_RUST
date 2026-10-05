@@ -1416,6 +1416,49 @@ MAIN_END
         assert!(result.contains("MAIN_END"));
     }
 
+    /// Неразобранное условие не должно ВЫПОЛНЯТЬ блок.
+    ///
+    /// Регрессия: прежняя версия умела только `==` и `!=`, а всё прочее
+    /// молча считала истиной. Для условия с `&&` она делила строку по
+    /// `!=`, получала в операндах мусор и выполняла блок.
+    #[test]
+    fn test_unparsed_condition_does_not_execute() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !$a = 1\n\
+            !if ($a > 3 && $a < 10)\n\
+            class Лишняя\n\
+            !else\n\
+            class Верно\n\
+            !endif\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            !out.contains("class Лишняя"),
+            "выполнена ложная ветка: {out}"
+        );
+        assert!(
+            out.contains("class Верно"),
+            "не выполнена верная ветка: {out}"
+        );
+    }
+
+    /// Конъюнкция, дизъюнкция и числовые сравнения в условиях.
+    #[test]
+    fn test_condition_operators() {
+        let pp = Preprocessor::new();
+
+        let and_true = "@startuml\n!$a = 5\n!if ($a > 3 && $a < 10)\nclass Да\n!endif\n@enduml";
+        assert!(pp.process(and_true).unwrap().contains("class Да"));
+
+        let or_true = "@startuml\n!$a = 1\n!if ($a == 9 || $a == 1)\nclass Или\n!endif\n@enduml";
+        assert!(pp.process(or_true).unwrap().contains("class Или"));
+
+        let ge_false = "@startuml\n!$a = 1\n!if ($a >= 3)\nclass Нет\n!endif\n@enduml";
+        assert!(!pp.process(ge_false).unwrap().contains("class Нет"));
+    }
+
     /// `%set_variable_value` вычисляет конкатенацию и ничего не печатает.
     ///
     /// Стандартная библиотека зовёт её как оператор:

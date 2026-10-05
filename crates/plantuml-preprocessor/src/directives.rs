@@ -166,19 +166,93 @@ fn strip_enclosing_parens(text: &str) -> &str {
 /// логическими литералами `%true()`/`%false()` и строками. Этого
 /// достаточно для условий в стандартной библиотеке.
 fn evaluate_condition(expression: &str, ctx: &PreprocessContext) -> bool {
+    evaluate(expression, ctx).unwrap_or(false)
+}
+
+/// Разбирает условие. `None` означает, что выражение НЕ РАЗОБРАНО.
+///
+/// Раньше функция умела только `==` и `!=`, а всё остальное молча
+/// считала истиной. Для `!if (%strpos(...) >= 0 && $bgColor != "")`
+/// она делила строку по `!=`, получала в операндах мусор, видела их
+/// неравными — и ВЫПОЛНЯЛА блок. То есть неподдержанное выражение
+/// приводило к исполнению кода вместо пропуска. Теперь неразобранное
+/// условие даёт `false`.
+fn evaluate(expression: &str, ctx: &PreprocessContext) -> Option<bool> {
     let text = strip_enclosing_parens(expression.trim());
 
-    for (operator, negate) in [("==", false), ("!=", true)] {
-        if let Some((left, right)) = text.split_once(operator) {
-            let left = resolve_operand(left.trim(), ctx);
-            let right = resolve_operand(right.trim(), ctx);
-            let equal = left == right;
-            return if negate { !equal } else { equal };
+    // Дизъюнкция и конъюнкция — самый низкий приоритет.
+    if let Some((left, right)) = split_top_level(text, "||") {
+        return Some(evaluate(left, ctx)? || evaluate(right, ctx)?);
+    }
+    if let Some((left, right)) = split_top_level(text, "&&") {
+        return Some(evaluate(left, ctx)? && evaluate(right, ctx)?);
+    }
+
+    // Сравнения. Порядок важен: `>=` проверяем раньше `>`.
+    for operator in ["==", "!=", ">=", "<=", ">", "<"] {
+        if let Some((left, right)) = split_top_level(text, operator) {
+            let left = resolve_operand(left, ctx);
+            let right = resolve_operand(right, ctx);
+
+            return match operator {
+                "==" => Some(left == right),
+                "!=" => Some(left != right),
+                _ => {
+                    // Числовое сравнение; для нечисловых операндов
+                    // выражение считается неразобранным.
+                    let (a, b) = (
+                        left.trim().parse::<f64>().ok()?,
+                        right.trim().parse::<f64>().ok()?,
+                    );
+                    Some(match operator {
+                        ">=" => a >= b,
+                        "<=" => a <= b,
+                        ">" => a > b,
+                        _ => a < b,
+                    })
+                }
+            };
         }
     }
 
     // Без оператора значение приводится к булеву напрямую.
-    resolve_operand(text, ctx) == "true"
+    let value = resolve_operand(text, ctx);
+    match value.trim() {
+        "true" => Some(true),
+        "false" => Some(false),
+        // Непустая строка — истина, пустая — ложь.
+        other => Some(!other.is_empty()),
+    }
+}
+
+/// Делит выражение по оператору ВЕРХНЕГО уровня.
+///
+/// Операторы внутри скобок и кавычек не считаются разделителями:
+/// иначе `%strpos($a, "&&")` развалилось бы на части.
+fn split_top_level<'a>(text: &'a str, operator: &str) -> Option<(&'a str, &'a str)> {
+    let bytes = text.as_bytes();
+    let op = operator.as_bytes();
+    let mut depth = 0i32;
+    let mut in_quotes = false;
+    let mut index = 0;
+
+    while index + op.len() <= bytes.len() {
+        let byte = bytes[index];
+        match byte {
+            b'"' => in_quotes = !in_quotes,
+            b'(' if !in_quotes => depth += 1,
+            b')' if !in_quotes => depth -= 1,
+            _ => {}
+        }
+
+        if !in_quotes && depth == 0 && &bytes[index..index + op.len()] == op {
+            return Some((&text[..index], &text[index + op.len()..]));
+        }
+
+        index += 1;
+    }
+
+    None
 }
 
 /// Приводит операнд условия к строке.
@@ -218,6 +292,20 @@ fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
             || ctx.variables.contains_key(&format!("${name}"))
             || ctx.is_defined(name);
         return if exists { "true" } else { "false" }.to_string();
+    }
+
+    // Встроенные функции в операнде (`%strpos(...)`, `%strlen(...)`) —
+    // вычисляются теми же преобразованиями, что и в обычном тексте.
+    // Без этого числовые сравнения вроде `%strpos($x, "+") >= 0` не
+    // работали: операнд оставался текстом вызова.
+    // Сначала подставляем переменные: встроенные функции ожидают
+    // аргументы в кавычках, а в условиях первый аргумент часто задан
+    // переменной — `%strpos($s, "+")`.
+    let substituted = crate::variables::substitute(trimmed, &ctx.variables);
+
+    let computed = crate::builtins::process_builtins(&substituted);
+    if computed != substituted {
+        return computed.trim().trim_matches('"').to_string();
     }
 
     if trimmed.starts_with('$') {
