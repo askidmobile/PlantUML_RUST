@@ -21,10 +21,70 @@ const GANTT_MONTH_BOTTOM_ROW_Y: f64 = 127.55 - GANTT_MONTH_FONT_SIZE - 5.0;
 const GANTT_MONTH_FONT_SIZE: f64 = 12.0;
 
 /// Смещение ряда сокращённых дней недели от верха шапки (по эталону).
-const GANTT_WEEKDAY_ROW_Y: f64 = 93.696;
+const GANTT_WEEKDAY_ROW_Y: f64 = 83.7;
 
 /// Смещение ряда номеров дней месяца от верха шапки (по эталону).
-const GANTT_DAY_NUMBER_ROW_Y: f64 = 107.696;
+const GANTT_DAY_NUMBER_ROW_Y: f64 = 97.7;
+
+/// Смещение ряда дней недели в ШАПКЕ.
+///
+/// PlantUML повторяет календарь дважды: строки «Mo Tu We …» и номера дней
+/// стоят и над таблицей задач, и под ней. Эталон `gantt_basic` даёт базисы
+/// 23.282 и 35.3 сверху, 98.7 и 112.7 снизу. Раньше верхнего календаря
+/// не было вовсе — на диаграмме отсутствовала половина календаря.
+const GANTT_HEADER_WEEKDAY_ROW_Y: f64 = 8.282;
+
+/// Смещение ряда номеров дней месяца в шапке.
+const GANTT_HEADER_DAY_NUMBER_ROW_Y: f64 = 20.3;
+
+/// Смещение строки заголовков колонок (Start, End, Duration).
+///
+/// Эталон `gantt_basic`: базис 22.962 при кегле 10.
+const GANTT_TABLE_HEADER_ROW_Y: f64 = 7.962;
+
+/// Смещение базиса даты задачи от верха её строки.
+///
+/// Эталон `gantt_basic`: первая строка начинается на 39, базис — 50.864.
+const GANTT_CELL_BASELINE_OFFSET: f64 = 11.864;
+
+/// Смещение базиса подписи задачи от верха её полосы.
+///
+/// Эталон `gantt_basic`: полоса на 41, подпись — на 51.2 (кегль 11).
+const GANTT_TASK_LABEL_BASELINE_OFFSET: f64 = 10.2;
+
+/// Внутренний отступ полосы задачи от границ дней.
+///
+/// Эталон `gantt_basic`: сетка дней начинается на 136.07, полоса — на
+/// 138.069.
+const GANTT_BAR_INSET: f64 = 2.0;
+
+/// Насколько полоса КОРОЧЕ своего диапазона дней.
+///
+/// Эталон `gantt_basic`: 10 дней дают 156 при шаге 16, то есть `n * 16 - 4`.
+const GANTT_BAR_WIDTH_TRIM: f64 = 4.0;
+
+/// Насколько ломаная связи отступает назад от правого края предшественника.
+///
+/// Эталон `gantt_basic`: полоса кончается на 294.069, ломаная идёт по
+/// 288.069, то есть на 6 левее.
+const GANTT_LINK_BACK: f64 = 6.0;
+
+/// Насколько кончик стрелки связи не доходит до полосы последователя.
+const GANTT_LINK_HEAD: f64 = 2.0;
+
+/// Длина треугольника стрелки связи (эталон: 292.1 → 296.1).
+const GANTT_LINK_HEAD_LENGTH: f64 = 4.0;
+
+/// Половина высоты треугольника стрелки связи (эталон: 60.2 → 68.2).
+const GANTT_LINK_HALF_HEIGHT: f64 = 4.0;
+
+/// Цвет линий сетки (эталон `gantt_basic`: `#C0C0C0`, толщина 1).
+const GANTT_GRID_COLOR: &str = "#C0C0C0";
+
+/// Ширина средней колонки таблицы задач.
+///
+/// Эталон `gantt_basic`: вертикали рамки стоят на 0, 41.32, 82.64 и 136.07.
+const GANTT_TABLE_MID_COL: f64 = 41.32;
 
 /// Ширина колонки таблицы задач.
 ///
@@ -69,11 +129,15 @@ fn gantt_months(project_start: &GanttDate, total_days: u32) -> Vec<(u32, u32, St
 
     while day_index < total_days {
         let days = left_in_month.min(total_days - day_index);
-        result.push((
-            day_index,
-            days,
-            format!("{} {}", FULL_MONTHS[(month - 1) as usize], year),
-        ));
+        // Год PlantUML пишет только там, где он меняется: в эталоне
+        // `gantt_basic` подписи такие — «January 2024» и «February».
+        let name = FULL_MONTHS[(month - 1) as usize];
+        let label = if result.is_empty() || month == 1 {
+            format!("{name} {year}")
+        } else {
+            name.to_string()
+        };
+        result.push((day_index, days, label));
 
         day_index += days;
         month += 1;
@@ -85,6 +149,30 @@ fn gantt_months(project_start: &GanttDate, total_days: u32) -> Vec<(u32, u32, St
     }
 
     result
+}
+
+/// Номер дня ВНУТРИ месяца для смещения `offset` дней от старта проекта.
+///
+/// PlantUML начинает нумерацию каждого месяца заново: в эталоне
+/// `gantt_basic` после 31 января идут 1, 2, 3, 4 февраля.
+fn month_day_at(project_start: &GanttDate, offset: u32) -> u32 {
+    let mut year = project_start.year;
+    let mut month = project_start.month.clamp(1, 12);
+    let mut day = project_start.day;
+
+    for _ in 0..offset {
+        day += 1;
+        if day > gantt_days_in_month(year, month) {
+            day = 1;
+            month += 1;
+            if month > 12 {
+                month = 1;
+                year += 1;
+            }
+        }
+    }
+
+    day
 }
 
 /// Дней в месяце (тот же упрощённый календарь, что и в подписях дат).
@@ -249,9 +337,9 @@ impl GanttLayoutEngine {
                         id: format!("task_cell_{}_{}", i, col),
                         bounds: Rect::new(
                             self.config.padding + col as f64 * col_width,
-                            row_y,
+                            row_y + GANTT_CELL_BASELINE_OFFSET - self.config.label_font_size,
                             cell_w,
-                            self.config.row_height,
+                            self.config.label_font_size,
                         ),
                         text: None,
                         properties: std::collections::HashMap::new(),
@@ -265,16 +353,23 @@ impl GanttLayoutEngine {
 
             // Бар задачи
             if let Some((start_day, end_day)) = task_positions.get(&task.name) {
-                let bar_x = timeline_start_x + (*start_day as f64) * self.config.day_width;
-                let bar_width = ((*end_day - *start_day) as f64) * self.config.day_width;
-                let bar_y = row_y + (self.config.row_height - self.config.bar_height) / 2.0;
+                let bar_x = timeline_start_x
+                    + GANTT_BAR_INSET
+                    + (*start_day as f64) * self.config.day_width;
+                let bar_width = (((*end_day - *start_day) as f64) * self.config.day_width
+                    - GANTT_BAR_WIDTH_TRIM)
+                    .max(5.0);
+                let bar_y = row_y + GANTT_BAR_INSET;
 
-                // Основной бар
+                // Основной бар: заливка и обводка толщиной 1 — эталон
+                // `gantt_basic` рисует их двумя прямоугольниками.
                 elements.push(LayoutElement {
                     id: format!("task_bar_{}", i),
-                    bounds: Rect::new(bar_x, bar_y, bar_width.max(5.0), self.config.bar_height),
+                    bounds: Rect::new(bar_x, bar_y, bar_width, self.config.bar_height),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    properties: [("stroke-width".to_string(), "1".to_string())]
+                        .into_iter()
+                        .collect(),
                     element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 3.0,
@@ -304,7 +399,12 @@ impl GanttLayoutEngine {
 
                 elements.push(LayoutElement {
                     id: format!("task_label_{}", i),
-                    bounds: Rect::new(label_x, bar_y, label_width, self.config.bar_height),
+                    bounds: Rect::new(
+                        label_x,
+                        bar_y + GANTT_TASK_LABEL_BASELINE_OFFSET - self.config.date_font_size,
+                        label_width,
+                        self.config.date_font_size,
+                    ),
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {
@@ -330,6 +430,92 @@ impl GanttLayoutEngine {
                     }
                 }
             }
+        }
+
+        // 3.5. Связи «задача начинается с конца другой».
+        //
+        // PlantUML рисует их ломаной от низа предшественника к середине
+        // последователя со стрелкой: эталон `gantt_basic` даёт
+        // `M288.069,53.805 L288.069,64.207 L293.069,64.207` и треугольник
+        // 292.1..296.1. Раньше связи не рисовались вовсе.
+        for (i, task) in diagram.tasks.iter().enumerate() {
+            let TaskStart::AtEnd(ref predecessor) = task.start else {
+                continue;
+            };
+            let (Some((_, pred_end)), Some((succ_start, _))) = (
+                task_positions.get(predecessor),
+                task_positions.get(&task.name),
+            ) else {
+                continue;
+            };
+            let Some(pred_index) = diagram
+                .tasks
+                .iter()
+                .position(|candidate| &candidate.name == predecessor)
+            else {
+                continue;
+            };
+
+            let pred_start_day = task_positions
+                .get(predecessor)
+                .map(|(start, _)| *start)
+                .unwrap_or(0);
+            let pred_right = timeline_start_x
+                + GANTT_BAR_INSET
+                + (pred_start_day as f64) * self.config.day_width
+                + ((*pred_end - pred_start_day) as f64) * self.config.day_width
+                - GANTT_BAR_WIDTH_TRIM;
+            let succ_left =
+                timeline_start_x + GANTT_BAR_INSET + (*succ_start as f64) * self.config.day_width;
+
+            let line_x = pred_right - GANTT_LINK_BACK;
+            // Ломаная входит в СЕРЕДИНУ полосы последователя.
+            let center_y = self.row_bar_top(i) + self.config.bar_height / 2.0;
+            let pred_bottom = self.row_bar_top(pred_index) + self.config.bar_height;
+
+            elements.push(LayoutElement {
+                id: format!("task_link_{}", i),
+                bounds: Rect::new(line_x, pred_bottom, 1.0, (center_y - pred_bottom).max(1.0)),
+                text: None,
+                properties: HashMap::new(),
+                element_type: ElementType::Edge {
+                    points: vec![
+                        Point::new(line_x, pred_bottom),
+                        Point::new(line_x, center_y),
+                        Point::new(succ_left - GANTT_LINK_BACK + 1.0, center_y),
+                    ],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+
+            let tip_x = succ_left - GANTT_LINK_HEAD;
+            let back_x = tip_x - GANTT_LINK_HEAD_LENGTH;
+            elements.push(LayoutElement {
+                id: format!("task_link_head_{}", i),
+                bounds: Rect::new(
+                    back_x,
+                    center_y - GANTT_LINK_HALF_HEIGHT,
+                    GANTT_LINK_HEAD_LENGTH,
+                    GANTT_LINK_HALF_HEIGHT * 2.0,
+                ),
+                text: None,
+                properties: HashMap::new(),
+                element_type: ElementType::Polygon {
+                    points: vec![
+                        Point::new(0.0, 0.0),
+                        Point::new(GANTT_LINK_HEAD_LENGTH, GANTT_LINK_HALF_HEIGHT),
+                        Point::new(0.0, GANTT_LINK_HALF_HEIGHT * 2.0),
+                    ],
+                    label: None,
+                    font_size: 0.0,
+                },
+            });
         }
 
         // 4. Рисуем разделители
@@ -396,6 +582,14 @@ impl GanttLayoutEngine {
         };
         result.calculate_bounds();
         result
+    }
+
+    /// Верх полосы задачи в строке с номером `index`.
+    fn row_bar_top(&self, index: usize) -> f64 {
+        self.config.padding
+            + self.config.header_height
+            + (index as f64) * (self.config.row_height + self.config.row_spacing)
+            + GANTT_BAR_INSET
     }
 
     /// Вычисляет позиции задач (начало и конец в днях)
@@ -470,9 +664,9 @@ impl GanttLayoutEngine {
                 id: format!("table_header_{col}"),
                 bounds: Rect::new(
                     self.config.padding + col as f64 * GANTT_TABLE_COL_WIDTH,
-                    header_y,
+                    header_y + GANTT_TABLE_HEADER_ROW_Y,
                     GANTT_TABLE_COL_WIDTH,
-                    self.config.header_height,
+                    self.config.label_font_size,
                 ),
                 text: None,
                 properties: std::collections::HashMap::new(),
@@ -486,7 +680,6 @@ impl GanttLayoutEngine {
         // Метки дней
         for day in 0..total_days {
             let x = start_x + (day as f64) * self.config.day_width;
-            let date_day = project_start.day + day;
 
             // Проверяем выходной ли это день
             let day_of_week = (day % 7) as usize;
@@ -511,37 +704,50 @@ impl GanttLayoutEngine {
                 .copied()
                 .unwrap_or("Mo");
 
-            elements.push(LayoutElement {
-                id: format!("weekday_{}", day),
-                bounds: Rect::new(
-                    x,
-                    header_y + GANTT_WEEKDAY_ROW_Y,
-                    self.config.day_width,
-                    11.0,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: weekday_short.to_string(),
-                    font_size: self.config.date_font_size,
-                },
-            });
+            // Номер дня ВНУТРИ месяца: PlantUML начинает отсчёт заново
+            // с каждым месяцем. Раньше нумерация шла подряд до 35, из-за
+            // чего февральские дни были подписаны как 32…35.
+            let month_day = month_day_at(project_start, day);
 
-            // Номер дня месяца: в эталоне выводится под каждым днём.
-            {
+            // Календарь повторяется дважды: в шапке и под таблицей.
+            for (prefix, row_offset) in [
+                ("hdr_weekday", GANTT_HEADER_WEEKDAY_ROW_Y),
+                ("weekday", GANTT_WEEKDAY_ROW_Y),
+            ] {
                 elements.push(LayoutElement {
-                    id: format!("date_{}", day),
+                    id: format!("{prefix}_{day}"),
                     bounds: Rect::new(
                         x,
-                        header_y + GANTT_DAY_NUMBER_ROW_Y,
+                        header_y + row_offset,
                         self.config.day_width,
-                        14.0,
+                        self.config.calendar_font_size,
                     ),
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {
-                        text: format!("{}", date_day),
-                        font_size: self.config.date_font_size,
+                        text: weekday_short.to_string(),
+                        font_size: self.config.calendar_font_size,
+                    },
+                });
+            }
+
+            for (prefix, row_offset) in [
+                ("hdr_date", GANTT_HEADER_DAY_NUMBER_ROW_Y),
+                ("date", GANTT_DAY_NUMBER_ROW_Y),
+            ] {
+                elements.push(LayoutElement {
+                    id: format!("{prefix}_{day}"),
+                    bounds: Rect::new(
+                        x,
+                        header_y + row_offset,
+                        self.config.day_width,
+                        self.config.calendar_font_size,
+                    ),
+                    text: None,
+                    properties: std::collections::HashMap::new(),
+                    element_type: ElementType::Text {
+                        text: format!("{month_day}"),
+                        font_size: self.config.calendar_font_size,
                     },
                 });
             }
@@ -603,7 +809,17 @@ impl GanttLayoutEngine {
         }
     }
 
-    /// Рисует сетку
+    /// Рисует сетку таблицы.
+    ///
+    /// Структура снята с эталона `gantt_basic` (45 линий, все `#C0C0C0`
+    /// толщиной 1):
+    ///   * рамка таблицы задач — горизонтали на 0 и 39 от x=0 до 136.07,
+    ///     вертикали на 0, 41.32, 82.64 и 136.07 от y=0 до 89.41;
+    ///   * вертикаль КАЖДОГО дня от 136.07 до 696.07 между y=39 и 89.41;
+    ///   * горизонтали 39 и 89.41 от 136.07 до 696.07.
+    ///
+    /// Раньше рисовались только горизонтали по границам строк и редкие
+    /// пунктирные вертикали «раз в неделю», а рамки не было вовсе.
     fn draw_grid(
         &self,
         elements: &mut Vec<LayoutElement>,
@@ -613,55 +829,112 @@ impl GanttLayoutEngine {
         total_days: u32,
         _closed_days: &[Weekday],
     ) {
-        let grid_start_y = self.config.padding + self.config.header_height;
+        let table_left = 0.0;
+        let grid_top = self.config.padding + self.config.header_height;
+        let grid_bottom =
+            grid_top + (num_tasks as f64) * (self.config.row_height + self.config.row_spacing);
+        let table_right = start_x;
+        let grid_right = start_x + width;
 
-        // Горизонтальные линии
-        for i in 0..=num_tasks {
-            let y = grid_start_y + (i as f64) * (self.config.row_height + self.config.row_spacing);
-            elements.push(LayoutElement {
-                id: format!("grid_h_{}", i),
-                bounds: Rect::new(start_x, y, width, 1.0),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Edge {
-                    points: vec![Point::new(start_x, y), Point::new(start_x + width, y)],
-                    label: None,
-                    arrow_start: false,
-                    arrow_end: false,
-                    dashed: false,
-                    edge_type: EdgeType::Link,
-                    from_cardinality: None,
-                    to_cardinality: None,
-                },
-            });
+        let line =
+            |id: String, x1: f64, y1: f64, x2: f64, y2: f64, out: &mut Vec<LayoutElement>| {
+                out.push(LayoutElement {
+                    id,
+                    bounds: Rect::new(x1.min(x2), y1.min(y2), (x2 - x1).abs(), (y2 - y1).abs()),
+                    text: None,
+                    properties: [
+                        ("stroke".to_string(), GANTT_GRID_COLOR.to_string()),
+                        ("stroke-width".to_string(), "1".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    element_type: ElementType::Edge {
+                        points: vec![Point::new(x1, y1), Point::new(x2, y2)],
+                        label: None,
+                        arrow_start: false,
+                        arrow_end: false,
+                        dashed: false,
+                        edge_type: EdgeType::Link,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                    },
+                });
+            };
+
+        // Рамка таблицы задач
+        line(
+            "grid_h_top".to_string(),
+            table_left,
+            0.0,
+            table_right,
+            0.0,
+            elements,
+        );
+        line(
+            "grid_h_header".to_string(),
+            table_left,
+            grid_top,
+            table_right,
+            grid_top,
+            elements,
+        );
+        line(
+            "grid_h_bottom".to_string(),
+            table_left,
+            grid_bottom,
+            table_right,
+            grid_bottom,
+            elements,
+        );
+        for (i, x) in [
+            0.0,
+            GANTT_TABLE_MID_COL,
+            GANTT_TABLE_MID_COL * 2.0,
+            table_right,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            line(
+                format!("grid_v_table_{i}"),
+                x,
+                0.0,
+                x,
+                grid_bottom,
+                elements,
+            );
         }
 
-        // Вертикальные линии (каждую неделю)
-        for day in (0..=total_days).step_by(7) {
+        // Вертикали дней: день 0 уже нарисован как правая граница таблицы
+        for day in 1..=total_days {
             let x = start_x + (day as f64) * self.config.day_width;
-            let grid_height =
-                (num_tasks as f64) * (self.config.row_height + self.config.row_spacing);
-
-            elements.push(LayoutElement {
-                id: format!("grid_v_{}", day),
-                bounds: Rect::new(x, grid_start_y, 1.0, grid_height),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Edge {
-                    points: vec![
-                        Point::new(x, grid_start_y),
-                        Point::new(x, grid_start_y + grid_height),
-                    ],
-                    label: None,
-                    arrow_start: false,
-                    arrow_end: false,
-                    dashed: true,
-                    edge_type: EdgeType::Link,
-                    from_cardinality: None,
-                    to_cardinality: None,
-                },
-            });
+            line(
+                format!("grid_v_{day}"),
+                x,
+                grid_top,
+                x,
+                grid_bottom,
+                elements,
+            );
         }
+
+        // Горизонтали области задач
+        line(
+            "grid_h_tasks_top".to_string(),
+            start_x,
+            grid_top,
+            grid_right,
+            grid_top,
+            elements,
+        );
+        line(
+            "grid_h_tasks_bottom".to_string(),
+            start_x,
+            grid_bottom,
+            grid_right,
+            grid_bottom,
+            elements,
+        );
     }
 }
 
