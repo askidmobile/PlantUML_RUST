@@ -49,6 +49,17 @@ impl SvgRenderer {
         bounds: &Rect,
         rows: &[String],
         pixel_size: f64,
+        group: Group,
+    ) -> Group {
+        self.render_sprite_data(bounds, rows, pixel_size, group)
+    }
+
+    /// Рисует растр спрайта прямоугольниками палитры.
+    fn render_sprite_data(
+        &self,
+        bounds: &Rect,
+        rows: &[String],
+        pixel_size: f64,
         mut group: Group,
     ) -> Group {
         for (row_index, row) in rows.iter().enumerate() {
@@ -74,6 +85,13 @@ impl SvgRenderer {
         }
 
         group
+    }
+
+    /// Ширина текста при заданном размере шрифта.
+    ///
+    /// Нужна для раскладки частей подписи вокруг вставки спрайта.
+    fn measure_text(&self, text: &str, font_size: f64) -> f64 {
+        plantuml_layout::text::TextMeasurer::default().width(text, font_size)
     }
 
     /// Поля страницы `(слева, сверху, справа, снизу)` для текущего типа.
@@ -453,6 +471,7 @@ impl SvgRenderer {
                 fields,
                 methods,
             } => {
+                let sprite_table = parse_sprite_property(element.properties.get("sprites"));
                 group = self.render_class_box(
                     &element.bounds,
                     *classifier_type,
@@ -460,6 +479,7 @@ impl SvgRenderer {
                     stereotype.as_deref(),
                     fields,
                     methods,
+                    &sprite_table,
                     theme,
                     group,
                 );
@@ -1790,6 +1810,7 @@ impl SvgRenderer {
         stereotype: Option<&str>,
         fields: &[ClassMember],
         methods: &[ClassMember],
+        sprites: &std::collections::HashMap<String, SpriteData>,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
@@ -1868,13 +1889,41 @@ impl SvgRenderer {
         // 4. Название класса.
         // В эталоне PlantUML имя класса не жирное (font-size 14, обычное
         // начертание) — жирный был лишним.
-        let name_text = svg::node::element::Text::new(name)
-            .set("x", name_x)
-            .set("y", current_y + line_height - 2.0)
-            .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size)
-            .set("fill", theme.text_color.to_css());
-        group = group.add(name_text);
+        //
+        // Вставка `<$имя>` заменяется спрайтом: PlantUML разбивает строку
+        // на часть до вставки, растр и часть после. Растр рисуется
+        // прямоугольниками палитры, как и объявленный отдельно.
+        let baseline = current_y + line_height - 2.0;
+        let mut cursor = name_x;
+
+        for part in split_sprite_references(name, sprites) {
+            match part {
+                SpritePart::Text(text) => {
+                    if !text.is_empty() {
+                        let text_node = svg::node::element::Text::new(text.clone())
+                            .set("x", cursor)
+                            .set("y", baseline)
+                            .set("font-family", theme.font_family.as_str())
+                            .set("font-size", theme.font_size)
+                            .set("fill", theme.text_color.to_css());
+                        group = group.add(text_node);
+                        cursor += self.measure_text(&text, theme.font_size);
+                    }
+                }
+                SpritePart::Sprite(data) => {
+                    let size = data.width as f64 * SPRITE_INLINE_PIXEL;
+                    let height = data.height as f64 * SPRITE_INLINE_PIXEL;
+                    let top = baseline - height + 2.0;
+                    group = self.render_sprite_data(
+                        &Rect::new(cursor, top, size, height),
+                        &data.rows,
+                        SPRITE_INLINE_PIXEL,
+                        group,
+                    );
+                    cursor += size + SPRITE_INLINE_GAP;
+                }
+            }
+        }
         current_y += line_height + padding;
 
         // 5. Разделитель после имени
@@ -2054,6 +2103,96 @@ impl Renderer for SvgRenderer {
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
+
+/// Размер пикселя спрайта, вставленного внутрь подписи.
+const SPRITE_INLINE_PIXEL: f64 = 1.0;
+
+/// Отступ после спрайта внутри подписи.
+const SPRITE_INLINE_GAP: f64 = 2.0;
+
+/// Данные спрайта, разобранные из свойства элемента.
+#[derive(Debug, Clone)]
+struct SpriteData {
+    width: usize,
+    height: usize,
+    rows: Vec<String>,
+}
+
+/// Часть подписи: обычный текст либо вставка спрайта.
+enum SpritePart {
+    Text(String),
+    Sprite(SpriteData),
+}
+
+/// Разбирает свойство `sprites` элемента в таблицу.
+///
+/// Формат: `имя|ШxВ|строка,строка;имя2|...` — та же раскладка, что
+/// заполняет layout. Свойство отсутствует, если в подписях нет вставок.
+fn parse_sprite_property(value: Option<&String>) -> std::collections::HashMap<String, SpriteData> {
+    let mut table = std::collections::HashMap::new();
+    let Some(raw) = value else {
+        return table;
+    };
+
+    for entry in raw.split(';') {
+        let mut fields = entry.split('|');
+        let (Some(name), Some(size), Some(rows)) = (fields.next(), fields.next(), fields.next())
+        else {
+            continue;
+        };
+
+        let mut dims = size.split('x');
+        let width = dims.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let height = dims.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+
+        table.insert(
+            name.to_string(),
+            SpriteData {
+                width,
+                height,
+                rows: rows.split(',').map(str::to_string).collect(),
+            },
+        );
+    }
+
+    table
+}
+
+/// Разбивает подпись на текст и вставки `<$имя>`.
+fn split_sprite_references(
+    text: &str,
+    sprites: &std::collections::HashMap<String, SpriteData>,
+) -> Vec<SpritePart> {
+    let mut parts = Vec::new();
+    let mut rest = text;
+
+    while let Some(start) = rest.find("<$") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find('>') else {
+            break;
+        };
+
+        let name = &after[..end];
+        let Some(data) = sprites.get(name) else {
+            // Неизвестный спрайт: оставляем вставку как обычный текст.
+            parts.push(SpritePart::Text(rest[..start + 2 + end + 1].to_string()));
+            rest = &after[end + 1..];
+            continue;
+        };
+
+        if start > 0 {
+            parts.push(SpritePart::Text(rest[..start].to_string()));
+        }
+        parts.push(SpritePart::Sprite(data.clone()));
+        rest = &after[end + 1..];
+    }
+
+    if !rest.is_empty() {
+        parts.push(SpritePart::Text(rest.to_string()));
+    }
+
+    parts
+}
 
 /// Цвет и прозрачность пикселя спрайта по его шестнадцатеричной цифре.
 ///

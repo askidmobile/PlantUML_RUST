@@ -240,7 +240,7 @@ impl ClassLayoutEngine {
         &self,
         node: &super::graph::Node,
         classifier: Option<&plantuml_ast::class::Classifier>,
-        _diagram: &ClassDiagram,
+        diagram: &ClassDiagram,
     ) -> LayoutElement {
         // Определяем тип классификатора и стереотип
         let (classifier_kind, stereotype) = classifier
@@ -312,11 +312,34 @@ impl ClassLayoutEngine {
             })
             .unwrap_or_default();
 
+        // Спрайты, на которые ссылается подпись через `<$имя>`.
+        //
+        // Рендерер заменяет такие вставки прямоугольниками палитры —
+        // PlantUML рисует спрайт прямо внутри строки текста, разбивая её
+        // на часть до и часть после.
+        let mut properties = std::collections::HashMap::new();
+        if !diagram.sprites.is_empty() && node.classifier_name.contains("<$") {
+            let encoded: Vec<String> = diagram
+                .sprites
+                .iter()
+                .map(|sprite| {
+                    format!(
+                        "{}|{}x{}|{}",
+                        sprite.name,
+                        sprite.width,
+                        sprite.height,
+                        sprite.rows.join(",")
+                    )
+                })
+                .collect();
+            properties.insert("sprites".to_string(), encoded.join(";"));
+        }
+
         LayoutElement {
             id: node.id.clone(),
             bounds: Rect::new(node.x, node.y, node.size.width, node.size.height),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties,
             element_type: ElementType::ClassBox {
                 classifier_type: classifier_kind,
                 name: node.classifier_name.clone(),
