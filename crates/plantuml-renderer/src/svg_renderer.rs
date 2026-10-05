@@ -38,14 +38,42 @@ impl SvgRenderer {
         self.render(layout, theme)
     }
 
+    /// Поля страницы `(слева, сверху, справа, снизу)` для текущего типа.
+    ///
+    /// Значения измерены по эталонам PlantUML. Тип приходит в
+    /// `RenderOptions::diagram_type` теми же именами, что PlantUML пишет
+    /// в атрибут `data-diagram-type`.
+    fn page_margins(&self) -> (f64, f64, f64, f64) {
+        /// Поле по умолчанию: подходит class, state, sequence и другим,
+        /// где контент начинается с отступа 7.
+        const DEFAULT: (f64, f64, f64, f64) = (7.0, 7.0, 7.0, 7.0);
+        /// GANTT: таблица идёт от самого края, справа остаётся место под
+        /// подписи, снизу — небольшой отступ.
+        const GANTT: (f64, f64, f64, f64) = (0.0, 0.0, 20.8, 2.45);
+
+        match self.options.diagram_type.as_deref() {
+            Some("GANTT") => GANTT,
+            _ => DEFAULT,
+        }
+    }
+
     /// Создаёт SVG документ
     /// PlantUML стиль: прозрачный/белый фон БЕЗ рамки вокруг диаграммы
     fn create_document(&self, layout: &LayoutResult, theme: &Theme) -> Document {
         let bounds = &layout.bounds;
-        let margin = 7.0; // Минимальный отступ от края (как в PlantUML)
 
-        let width = (bounds.width + margin * 2.0) * self.options.scale;
-        let height = (bounds.height + margin * 2.0) * self.options.scale;
+        // Поля вокруг диаграммы зависят от типа: у PlantUML они разные.
+        // Измерено по эталонам, снятым с сервера:
+        //   class — слева 7, справа 14.28
+        //   gantt — слева 0, справа 20.8, сверху 0, снизу 2.45
+        // Раньше поле было фиксированным (7 со всех сторон), из-за чего
+        // одни диаграммы выходили шире эталона, другие уже.
+        let (left, top, right, bottom) = self.page_margins();
+        let margin_h = left + right;
+        let margin_v = top + bottom;
+
+        let width = (bounds.width + margin_h) * self.options.scale;
+        let height = (bounds.height + margin_v) * self.options.scale;
 
         // Набор атрибутов повторяет PlantUML: он важен для потребителей,
         // разбирающих вывод (contentStyleType), и для корректного
@@ -59,10 +87,10 @@ impl SvgRenderer {
             .set(
                 "viewBox",
                 (
-                    bounds.x - margin,
-                    bounds.y - margin,
-                    bounds.width + margin * 2.0,
-                    bounds.height + margin * 2.0,
+                    bounds.x - left,
+                    bounds.y - top,
+                    bounds.width + margin_h,
+                    bounds.height + margin_v,
                 ),
             )
             .set("zoomAndPan", "magnify")
@@ -88,10 +116,10 @@ impl SvgRenderer {
         // Фон добавляется только если явно указан через skinparam backgroundColor
         if let Some(bg) = &self.options.background_color {
             let bg_rect = Rectangle::new()
-                .set("x", bounds.x - margin)
-                .set("y", bounds.y - margin)
-                .set("width", bounds.width + margin * 2.0)
-                .set("height", bounds.height + margin * 2.0)
+                .set("x", bounds.x - left)
+                .set("y", bounds.y - top)
+                .set("width", bounds.width + margin_h)
+                .set("height", bounds.height + margin_v)
                 .set("fill", bg.as_str())
                 .set("stroke", "none");
             doc = doc.add(bg_rect);
