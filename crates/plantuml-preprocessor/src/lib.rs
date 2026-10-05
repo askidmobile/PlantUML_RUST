@@ -28,10 +28,13 @@ use indexmap::IndexMap;
 /// Ограничивает взаимную рекурсию макросов, чтобы препроцессор не зациклился.
 pub const MAX_MACRO_EXPANSIONS: usize = 32;
 
-/// Максимальная глубина вложенности `!include`.
+/// Предел раскрытия макросов по умолчанию, байт.
 ///
-/// Защищает от бесконечной рекурсии при взаимных включениях. Значение
-/// совпадает с `FsFileResolver::max_depth` по умолчанию.
+/// 64 МиБ — на два порядка больше самой большой библиотеки PlantUML
+/// (C4-PlantUML целиком ~136 КБ) и на порядок меньше порога, при котором
+/// разбор начинал выедать память машины.
+const DEFAULT_EXPANSION_LIMIT: usize = 64 * 1024 * 1024;
+
 pub const MAX_INCLUDE_DEPTH: usize = 10;
 
 /// Обрабатывает PlantUML исходный код (без поддержки !include)
@@ -77,6 +80,18 @@ impl FileResolver for NoopFileResolver {
     }
 }
 
+/// Сводит адрес файла C4-PlantUML на GitHub к пути в стандартной библиотеке.
+///
+/// `https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/
+/// C4_Context.puml` → `C4/C4_Context`.
+fn c4_url_to_stdlib(path: &str) -> Option<String> {
+    const PREFIX: &str = "https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/";
+    let rest = path.strip_prefix(PREFIX)?;
+    // Отбрасываем ветку (`master/`) и расширение.
+    let file = rest.rsplit('/').next()?.trim_end_matches(".puml");
+    Some(format!("C4/{file}"))
+}
+
 /// Резолвер, который обслуживает ТОЛЬКО встроенную стандартную библиотеку.
 ///
 /// Нужен по умолчанию: `!include <C4/C4_Context>` не требует файловой
@@ -100,6 +115,17 @@ impl FileResolver for StdlibResolver {
 
         if let Some(content) = plantuml_stdlib::get_include(stdlib_path) {
             return Ok(content.to_string());
+        }
+
+        // Библиотека C4-PlantUML подключает общий файл макросов по АБСОЛЮТНОМУ
+        // адресу GitHub (`!include https://raw.githubusercontent.com/
+        // plantuml-stdlib/C4-PlantUML/master/C4.puml`). В PlantUML такие
+        // ссылки разрешаются встроенной библиотекой, поэтому повторяем это:
+        // адрес сводится к пути внутри реестра.
+        if let Some(name) = c4_url_to_stdlib(path) {
+            if let Some(content) = plantuml_stdlib::get_include(&name) {
+                return Ok(content.to_string());
+            }
         }
 
         if path.starts_with('<') && path.ends_with('>') {
@@ -250,6 +276,19 @@ pub struct PreprocessContext {
     /// литерал, то есть переменная снаружи НЕ видна. Наружу переносятся
     /// только глобальные, заданные через `%set_variable_value`.
     pub exported: Vec<String>,
+    /// Сколько байт исходника уже прошло через раскрытие.
+    ///
+    /// Служит предохранителем от неконтролируемого роста: см.
+    /// `PreprocessError::ExpansionLimit`.
+    pub expanded_bytes: usize,
+    /// Предел раскрытия в байтах.
+    pub expansion_limit: usize,
+    /// Признак того, что бюджет уже превышен.
+    ///
+    /// `process_function_calls_impl` возвращает `String`, а не `Result`,
+    /// поэтому о превышении она сообщает флагом: ближайшая функция с
+    /// `Result` превратит его в ошибку.
+    pub budget_exceeded: bool,
 }
 
 impl Default for PreprocessContext {
@@ -275,6 +314,9 @@ impl Default for PreprocessContext {
             foreach_stack: Vec::new(),
             while_stack: Vec::new(),
             exported: Vec::new(),
+            expanded_bytes: 0,
+            expansion_limit: DEFAULT_EXPANSION_LIMIT,
+            budget_exceeded: false,
         }
     }
 }
@@ -612,6 +654,23 @@ impl<R: FileResolver> Preprocessor<R> {
                 continue;
             }
 
+            // Бюджет раскрытия: каждая прошедшая строка учитывается.
+            //
+            // Без этого несходящийся `!while` (как в `$breakText` из
+            // C4-PlantUML) раздувал память до гигабайтов; инцидент
+            // 2026-07-31 закончился пиком 8.5 ГБ.
+            if ctx.budget_exceeded {
+                return Err(PreprocessError::ExpansionLimit {
+                    limit: ctx.expansion_limit / (1024 * 1024),
+                });
+            }
+            ctx.expanded_bytes = ctx.expanded_bytes.saturating_add(line.len());
+            if ctx.expanded_bytes > ctx.expansion_limit {
+                return Err(PreprocessError::ExpansionLimit {
+                    limit: ctx.expansion_limit / (1024 * 1024),
+                });
+            }
+
             // Обработка директив препроцессора
             if trimmed.starts_with('!') {
                 let included_content = self.process_directive_with_output(trimmed, ctx)?;
@@ -642,7 +701,7 @@ impl<R: FileResolver> Preprocessor<R> {
             }
 
             // Подстановка переменных
-            let processed = self.substitute_variables(line, ctx);
+            let processed = self.substitute_checked(line, ctx)?;
 
             // Раскрытие макросов `!define NAME(params) тело`.
             // Выполняется после подстановки переменных: тело макроса может
@@ -812,6 +871,20 @@ impl<R: FileResolver> Preprocessor<R> {
             let expanded = builtins::process_builtins(&expanded);
             variables::handle_variable_assignment(&expanded, ctx)?;
 
+            // Бюджет проверяем и по ЗНАЧЕНИЯМ переменных: в C4-PlantUML
+            // переменная накапливает текст и удваивается на каждом вызове,
+            // из-за чего одна аллокация доходила до 654 МБ (инцидент
+            // 2026-07-31: пик 8.5 ГБ).
+            if let Some(name) = directive.split('=').next() {
+                let name = name.trim();
+                if let Some(value) = ctx.variables.get(name) {
+                    Self::check_budget(ctx, value.len())?;
+                }
+                if let Some(value) = ctx.macro_variables.get(name) {
+                    Self::check_budget(ctx, value.len())?;
+                }
+            }
+
             // `%chr` раскрывается ПОСЛЕ вычисления выражения: полученная
             // кавычка иначе работала бы как разделитель строк.
             let name = directive
@@ -930,6 +1003,16 @@ impl<R: FileResolver> Preprocessor<R> {
     /// Подставляет переменные в строку
     fn substitute_variables(&self, line: &str, ctx: &PreprocessContext) -> String {
         variables::substitute(line, &ctx.variables)
+    }
+
+    /// Проверяет бюджет после подстановки переменных.
+    ///
+    /// Подстановка может раздуть строку в один приём (значение переменной
+    /// подставляется в каждое вхождение), поэтому проверка нужна и здесь.
+    fn substitute_checked(&self, line: &str, ctx: &mut PreprocessContext) -> Result<String> {
+        let result = self.substitute_variables(line, ctx);
+        Self::check_budget(ctx, result.len())?;
+        Ok(result)
     }
 
     /// Обрабатывает !theme
@@ -1139,6 +1222,11 @@ impl<R: FileResolver> Preprocessor<R> {
             foreach_stack: Vec::new(),
             while_stack: Vec::new(),
             exported: Vec::new(),
+            // Счётчик и предел НАСЛЕДУЮТСЯ: иначе каждый макрос начинал бы
+            // с нуля и общий предел ничего не ограничивал.
+            expanded_bytes: ctx.expanded_bytes,
+            expansion_limit: ctx.expansion_limit,
+            budget_exceeded: ctx.budget_exceeded,
         };
 
         // Связываем параметры с аргументами. Значение по умолчанию берётся
@@ -1242,6 +1330,10 @@ impl<R: FileResolver> Preprocessor<R> {
             }
         }
 
+        // Счётчик раскрытия возвращаем наружу: иначе вложенный вызов
+        // начинал бы с значения родителя и общий предел не работал.
+        ctx.expanded_bytes = child.expanded_bytes;
+        ctx.budget_exceeded = child.budget_exceeded;
         ctx.callables = child.callables;
         ctx.macros = child.macros;
         ctx.included_files = child.included_files;
@@ -1331,6 +1423,19 @@ impl<R: FileResolver> Preprocessor<R> {
         }
 
         result
+    }
+
+    /// Проверяет, не превышен ли бюджет раскрытия.
+    ///
+    /// Вызывается там, где строки УЖЕ собраны: в одном выражении может
+    /// появиться строка в сотни мегабайт, и цикл по строкам её не увидит.
+    fn check_budget(ctx: &PreprocessContext, size: usize) -> Result<()> {
+        if ctx.budget_exceeded || size > ctx.expansion_limit {
+            return Err(PreprocessError::ExpansionLimit {
+                limit: ctx.expansion_limit / (1024 * 1024),
+            });
+        }
+        Ok(())
     }
 
     /// Выполняет тело цикла `!while`, пока условие истинно.
@@ -1523,6 +1628,9 @@ impl<R: FileResolver> Preprocessor<R> {
                 };
 
                 result = format!("{}{}{}", &result[..start], replacement, &result[end..]);
+                if result.len() > ctx.expansion_limit {
+                    ctx.budget_exceeded = true;
+                }
             }
         }
 
@@ -1741,6 +1849,22 @@ fn normalize_include_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Несходящийся `!while` даёт ОШИБКУ, а не рост памяти.
+    ///
+    /// Регрессия инцидента 2026-07-31: разбор библиотеки C4-PlantUML
+    /// разрастался до 8.5 ГБ, потому что цикл удваивал переменную и не
+    /// сходился. Теперь раскрытие ограничено бюджетом.
+    #[test]
+    fn test_runaway_while_hits_expansion_limit() {
+        let source = "@startuml\n!$s = \"x\"\n!while (%strlen($s) < 1000000000)\n!$s = $s + $s\n!endwhile\n@enduml\n";
+        let preprocessor = Preprocessor::new();
+        let result = preprocessor.process(source);
+        assert!(
+            matches!(result, Err(PreprocessError::ExpansionLimit { .. })),
+            "ожидалась ошибка бюджета раскрытия, получено: {result:?}"
+        );
+    }
 
     /// Кириллица перед вызовом процедуры не вызывает панику.
     ///
