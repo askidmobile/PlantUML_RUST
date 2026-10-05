@@ -88,6 +88,7 @@ impl ClassLayoutEngine {
                 element_type: ElementType::Sprite {
                     rows: sprite.rows.clone(),
                     pixel_size,
+                    svg: sprite.svg.clone(),
                 },
             });
 

@@ -214,3 +214,57 @@ fn sprite_pixels_are_not_lost_when_merged() {
 
     assert_eq!(area, 15.0, "площадь закраски не совпала с числом пикселей");
 }
+
+/// Векторный спрайт (`sprite имя <svg ...>...</svg>`) разбирается и рисуется.
+///
+/// Формат из официальной документации PlantUML: имя БЕЗ ведущего `$`,
+/// тело — встроенный SVG. Библиотека Archimate использует именно его.
+#[test]
+fn vector_sprite_is_parsed_and_rendered() {
+    let source = "@startuml\n\
+        sprite foo1 <svg width=\"8\" height=\"8\" viewBox=\"0 0 8 8\">\n\
+        <path d=\"M1 0l-1 1 1.5 1.5-1.5 1.5h4v-4l-1.5 1.5-1.5-1.5z\" />\n\
+        </svg>\n\
+        class A\n\
+        @enduml";
+
+    let svg = render(source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
+
+    assert!(
+        svg.contains("M1 0l-1 1"),
+        "тело векторного спрайта не перенесено в вывод"
+    );
+    assert!(
+        svg.contains("scale("),
+        "не найдено преобразование системы координат спрайта"
+    );
+}
+
+/// Размер векторного спрайта берётся из `viewBox`, а не из `width`.
+///
+/// Библиотека Archimate задаёт `width`/`height` в МИЛЛИМЕТРАХ
+/// (`width="19.995mm"`), а систему координат тела — в `viewBox`.
+/// Если брать миллиметры, спрайт получит неверный масштаб.
+#[test]
+fn vector_sprite_size_comes_from_view_box() {
+    let source = "@startuml\n\
+        sprite react <svg width=\"19.995mm\" height=\"19.928mm\" viewBox=\"0 0 230 230\">\n\
+        <circle cx=\"115\" cy=\"115\" r=\"20.5\" fill=\"#61dafb\"/>\n\
+        </svg>\n\
+        class A\n\
+        @enduml";
+
+    let diagram = plantuml_parser::parse(source).expect("диаграмма должна разбираться");
+    let plantuml_ast::Diagram::Class(class) = diagram else {
+        panic!("ожидалась class-диаграмма");
+    };
+
+    let sprite = class.sprites.first().expect("спрайт не найден");
+    assert_eq!(sprite.name, "react");
+    assert_eq!(
+        (sprite.width, sprite.height),
+        (230, 230),
+        "размер должен быть взят из viewBox, а не из миллиметров"
+    );
+    assert!(sprite.svg.is_some(), "векторное тело потеряно");
+}

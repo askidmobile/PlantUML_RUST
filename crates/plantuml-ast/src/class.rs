@@ -31,6 +31,8 @@ pub struct Sprite {
     /// Имя без ведущего `$`.
     pub name: String,
     /// Строки пикселей в шестнадцатеричном виде (`0`..`f` на пиксель).
+    ///
+    /// Пусто для векторных спрайтов — у них заполнен [`Sprite::svg`].
     pub rows: Vec<String>,
     /// Ширина в пикселях (из заголовка `[ШxВ/цветов]`).
     pub width: usize,
@@ -38,6 +40,21 @@ pub struct Sprite {
     pub height: usize,
     /// Палитра в порядке индексов `0`..`f`.
     pub palette: Vec<String>,
+    /// Векторное тело для формы `sprite имя <svg ...>...</svg>`.
+    pub svg: Option<SvgSprite>,
+}
+
+/// Векторный спрайт — встроенный SVG.
+///
+/// PlantUML поддерживает лишь небольшое подмножество SVG: примитивы
+/// `path`, `circle`, `ellipse`, `rect` и группировку `g` с `transform`.
+/// Библиотека Archimate использует именно эту форму.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SvgSprite {
+    /// Атрибуты открывающего тега `<svg ...>`; нужен `viewBox`.
+    pub attrs: String,
+    /// Содержимое между `<svg ...>` и `</svg>`.
+    pub body: String,
 }
 
 impl ClassDiagram {

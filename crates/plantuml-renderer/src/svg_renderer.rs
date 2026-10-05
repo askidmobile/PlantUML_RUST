@@ -54,6 +54,53 @@ impl SvgRenderer {
         self.render_sprite_data(bounds, rows, pixel_size, group)
     }
 
+    /// Рисует векторный спрайт (`sprite имя <svg ...>...</svg>`).
+    ///
+    /// PlantUML поддерживает лишь небольшое подмножество SVG, поэтому
+    /// тело переносится в вывод как есть, а система координат `viewBox`
+    /// приводится к прямоугольнику элемента через `transform`:
+    /// масштаб по обеим осям и сдвиг на минимум `viewBox`.
+    ///
+    /// Вложенные `transform` (например `translate(-19.992 -120.11)` в
+    /// спрайтах Archimate) применяются средствами SVG, поэтому
+    /// разбирать команды пути не требуется.
+    fn render_vector_sprite(
+        &self,
+        bounds: &Rect,
+        sprite: &plantuml_layout::SvgSprite,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let (min_x, min_y, box_width, box_height) = view_box(&sprite.attrs);
+
+        if box_width <= 0.0 || box_height <= 0.0 {
+            return group;
+        }
+
+        // Масштаб: из системы координат `viewBox` в размеры прямоугольника.
+        let scale_x = bounds.width / box_width;
+        let scale_y = bounds.height / box_height;
+        // Единый масштаб, чтобы не искажать пропорции; PlantUML вписывает
+        // спрайт целиком.
+        let scale = scale_x.min(scale_y);
+        let offset_x = bounds.x - min_x * scale;
+        let offset_y = bounds.y - min_y * scale;
+
+        let body = svg::node::element::Group::new()
+            .set(
+                "transform",
+                format!("translate({offset_x:.4} {offset_y:.4}) scale({scale:.6})"),
+            )
+            .set("fill", theme.text_color.to_css());
+
+        // Тело переносится как «сырая» разметка: подмножество SVG мало,
+        // а полноценный разбор путей не нужен.
+        let raw = svg::node::Text::new(sprite.body.clone());
+        group = group.add(body.add(raw));
+
+        group
+    }
+
     /// Рисует растр спрайта прямоугольниками палитры.
     fn render_sprite_data(
         &self,
@@ -411,8 +458,17 @@ impl SvgRenderer {
                     &element.properties,
                 );
             }
-            ElementType::Sprite { rows, pixel_size } => {
-                group = self.render_sprite(&element.bounds, rows, *pixel_size, group);
+            ElementType::Sprite {
+                rows,
+                pixel_size,
+                svg,
+            } => {
+                group = match svg {
+                    Some(vector) => {
+                        self.render_vector_sprite(&element.bounds, vector, theme, group)
+                    }
+                    None => self.render_sprite(&element.bounds, rows, *pixel_size, group),
+                };
             }
             ElementType::Ellipse { label } => {
                 group = self.render_ellipse(&element.bounds, label.as_deref(), theme, group);
@@ -2272,6 +2328,30 @@ const SPRITE_INLINE_PIXEL: f64 = 1.0;
 
 /// Отступ после спрайта внутри подписи.
 const SPRITE_INLINE_GAP: f64 = 2.0;
+
+/// Разбирает `viewBox` в `(minX, minY, ширина, высота)`.
+///
+/// Возвращает нули, если атрибут отсутствует или задан неполно.
+fn view_box(attrs: &str) -> (f64, f64, f64, f64) {
+    let Some(start) = attrs.find("viewBox=\"") else {
+        return (0.0, 0.0, 0.0, 0.0);
+    };
+    let rest = &attrs[start + 9..];
+    let Some(end) = rest.find('"') else {
+        return (0.0, 0.0, 0.0, 0.0);
+    };
+
+    let parts: Vec<f64> = rest[..end]
+        .split([' ', ','])
+        .filter_map(|value| value.trim().parse().ok())
+        .collect();
+
+    if parts.len() == 4 {
+        (parts[0], parts[1], parts[2], parts[3])
+    } else {
+        (0.0, 0.0, 0.0, 0.0)
+    }
+}
 
 /// Приводит цвета в свойствах элемента к форме PlantUML.
 ///

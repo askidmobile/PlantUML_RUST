@@ -361,11 +361,32 @@ scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
 // 30 из 39 включений реестра не разбирались: их содержимое — это
 // определения спрайтов.
 sprite_stmt = {
-    "sprite" ~ ws+ ~ "$" ~ identifier ~ ws+ ~ "[" ~ sprite_size ~ "]" ~ ws* ~
+    sprite_raster
+    | sprite_svg
+}
+
+// Растровый спрайт: `sprite $имя [ШxВ/цветов] { hex-строки }`
+sprite_raster = {
+    "sprite" ~ ws+ ~ sprite_name ~ ws+ ~ "[" ~ sprite_size ~ "]" ~ ws* ~
     "{" ~ NEWLINE ~
     sprite_body ~
     "}"
 }
+
+// Векторный спрайт: `sprite имя <svg ...> ... </svg>`.
+//
+// Формат из официальной документации: имя БЕЗ `$`, тело — встроенный
+// SVG. PlantUML поддерживает лишь небольшое подмножество SVG, поэтому
+// файлы предварительно сжимают (например, через vecta.io/nano).
+sprite_svg = {
+    "sprite" ~ ws+ ~ sprite_name ~ ws+ ~ "<svg" ~ svg_attrs ~ ">" ~
+    svg_body ~
+    "</svg>"
+}
+
+sprite_name = @{ "$"? ~ identifier }
+svg_attrs = @{ (!(">" | NEWLINE) ~ ANY)* }
+svg_body = { (!"</svg>" ~ ANY)* }
 
 sprite_size = @{ (!("]" | NEWLINE) ~ ANY)+ }
 sprite_body = { (!("}" ~ NEWLINE? ~ ("@" | "sprite" | NEWLINE? ~ ANY)) ~ ANY)* }

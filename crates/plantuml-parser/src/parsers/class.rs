@@ -797,6 +797,101 @@ pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Directio
 /// (`sprite $имя [4x4/16] { ... }` использует стандартную палитру
 /// PlantUML), поэтому здесь храним только индексы.
 fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class::Sprite> {
+    for inner in pair.clone().into_inner() {
+        match inner.as_rule() {
+            Rule::sprite_svg => return parse_svg_sprite(inner),
+            Rule::sprite_raster => return parse_raster_sprite(inner),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Разбирает векторный спрайт `sprite имя <svg ...> ... </svg>`.
+///
+/// Размер берётся из `viewBox` открывающего тега: он задаёт систему
+/// координат, в которой нарисовано тело. `width`/`height` тега при этом
+/// могут быть в миллиметрах (так делает библиотека Archimate), поэтому
+/// для геометрии используется именно `viewBox`.
+fn parse_svg_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class::Sprite> {
+    let mut name = String::new();
+    let mut attrs = String::new();
+    let mut body = String::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::sprite_name => name = inner.as_str().trim_start_matches('$').to_string(),
+            Rule::svg_attrs => attrs = inner.as_str().trim().to_string(),
+            Rule::svg_body => body = inner.as_str().to_string(),
+            _ => {}
+        }
+    }
+
+    if name.is_empty() || body.trim().is_empty() {
+        return None;
+    }
+
+    // `viewBox="minX minY ширина высота"`. Без него взять размер неоткуда,
+    // а PlantUML в таком случае использует width/height тега.
+    let (width, height) = parse_svg_extent(&attrs);
+
+    Some(plantuml_ast::class::Sprite {
+        name,
+        rows: Vec::new(),
+        width,
+        height,
+        palette: Vec::new(),
+        svg: Some(plantuml_ast::class::SvgSprite { attrs, body }),
+    })
+}
+
+/// Извлекает размер спрайта из атрибутов тега `<svg>`.
+///
+/// Сначала пробует `viewBox` (он задаёт систему координат тела), затем
+/// `width`/`height` с отбрасыванием единиц измерения.
+fn parse_svg_extent(attrs: &str) -> (usize, usize) {
+    if let Some(value) = attribute_value(attrs, "viewBox") {
+        let parts: Vec<f64> = value
+            .split([' ', ','])
+            .filter_map(|v| v.trim().parse().ok())
+            .collect();
+        if parts.len() == 4 && parts[2] > 0.0 && parts[3] > 0.0 {
+            return (parts[2].round() as usize, parts[3].round() as usize);
+        }
+    }
+
+    let parse_length = |raw: &str| -> Option<usize> {
+        let digits: String = raw
+            .trim()
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        digits.parse::<f64>().ok().map(|v| v.round() as usize)
+    };
+
+    let width = attribute_value(attrs, "width")
+        .and_then(|v| parse_length(&v))
+        .unwrap_or(0);
+    let height = attribute_value(attrs, "height")
+        .and_then(|v| parse_length(&v))
+        .unwrap_or(0);
+
+    (width, height)
+}
+
+/// Возвращает значение атрибута из строки вида `key="value"`.
+fn attribute_value(attrs: &str, key: &str) -> Option<String> {
+    // Ищем `key="` без вложенных кавычек в форматной строке:
+    // так надёжнее и читается проще.
+    let needle = String::from(key) + "=\"";
+    let start = attrs.find(&needle)? + needle.len();
+    let rest = &attrs[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+/// Разбирает растровый спрайт `sprite $имя [ШxВ/цветов] { ... }`.
+fn parse_raster_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class::Sprite> {
     let mut name = String::new();
     let mut width = 0usize;
     let mut height = 0usize;
@@ -806,7 +901,7 @@ fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::identifier => name = inner.as_str().to_string(),
+            Rule::sprite_name => name = inner.as_str().trim_start_matches('$').to_string(),
             Rule::sprite_size => {
                 // `ШxВ/цветов`, где суффикс цвета может оканчиваться на
                 // `z` — это признак СЖАТОГО тела (формат `16z`).
@@ -863,6 +958,7 @@ fn parse_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast::class
         width,
         height,
         palette: Vec::new(),
+        svg: None,
     })
 }
 

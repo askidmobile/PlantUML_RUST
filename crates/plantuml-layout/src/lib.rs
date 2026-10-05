@@ -35,6 +35,9 @@ pub use object::{ObjectLayoutConfig, ObjectLayoutEngine};
 pub use plantuml_model::{Point, Rect, Size};
 pub use salt::{SaltLayoutConfig, SaltLayoutEngine};
 pub use sequence::{SequenceLayoutConfig, SequenceLayoutEngine};
+
+/// Векторное тело спрайта; реэкспорт, чтобы рендерер не зависел от AST напрямую.
+pub use plantuml_ast::class::SvgSprite;
 pub use state::{StateLayoutConfig, StateLayoutEngine};
 pub use timing::{TimingLayoutConfig, TimingLayoutEngine};
 pub use traits::{LayoutEngine, LayoutResult};
@@ -179,9 +182,18 @@ pub enum ElementType {
     /// известна (16 оттенков серого), поэтому кодер PNG не нужен.
     Sprite {
         /// Строки пикселей, по цифре на пиксель.
+        ///
+        /// Пусто у векторных спрайтов — у них заполнено `svg`.
         rows: Vec<String>,
         /// Размер одного пикселя в единицах SVG.
         pixel_size: f64,
+        /// Векторное тело для формы `sprite имя <svg ...>...</svg>`.
+        ///
+        /// Хранится как есть: рендерер оборачивает тело в `<g>` с
+        /// преобразованием `viewBox` в пиксели, поэтому разбирать
+        /// команды пути не нужно — вложенные `transform` применяются
+        /// средствами SVG.
+        svg: Option<plantuml_ast::class::SvgSprite>,
     },
     /// Прямоугольник со скруглёнными углами (MindMap узлы)
     RoundedRectangle,
