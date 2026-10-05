@@ -201,6 +201,12 @@ pub enum ElementType {
     /// В PlantUML `database` рисуется именно цилиндром, а не прямоугольником
     /// со скруглёнными углами.
     Database { label: String },
+    /// Граничный элемент sequence: кружок со скобкой слева.
+    Boundary { label: String },
+    /// Управляющий элемент sequence: кружок со стрелкой сверху.
+    Control { label: String },
+    /// Сущность sequence: кружок с подчёркиванием.
+    Entity { label: String },
     /// Система/пакет для UseCase диаграмм (прямоугольник с заголовком сверху)
     System { title: String },
     /// Линия/стрелка

@@ -258,11 +258,27 @@ impl SvgRenderer {
                     group,
                 );
             }
+            // Фигуры участников sequence. Нижние блоки (`footer_`) PlantUML
+            // рисует зеркально: подпись сверху, фигура снизу.
             ElementType::Actor { label } => {
-                group = self.render_actor(&element.bounds, label, theme, group);
+                let footer = id.starts_with("footer_");
+                group = self.render_actor(&element.bounds, label, theme, group, footer);
             }
             ElementType::Database { label } => {
-                group = self.render_database(&element.bounds, label, theme, group);
+                let footer = id.starts_with("footer_");
+                group = self.render_database(&element.bounds, label, theme, group, footer);
+            }
+            ElementType::Boundary { label } => {
+                let footer = id.starts_with("footer_");
+                group = self.render_boundary(&element.bounds, label, theme, group, footer);
+            }
+            ElementType::Control { label } => {
+                let footer = id.starts_with("footer_");
+                group = self.render_control(&element.bounds, label, theme, group, footer);
+            }
+            ElementType::Entity { label } => {
+                let footer = id.starts_with("footer_");
+                group = self.render_entity(&element.bounds, label, theme, group, footer);
             }
             ElementType::System { title } => {
                 group = self.render_system(&element.bounds, title, theme, group);
@@ -661,80 +677,32 @@ impl SvgRenderer {
     }
 
     /// Рендерит актёра (stick figure) для UseCase диаграмм
-    fn render_actor(&self, bounds: &Rect, label: &str, theme: &Theme, mut group: Group) -> Group {
+    /// Рисует фигуру участника sequence и его подпись.
+    ///
+    /// Геометрия снята с эталона PlantUML. Верхние блоки рисуют фигуру НАД
+    /// подписью, нижние — зеркально, ПОД ней; подпись всегда прижата к
+    /// линии жизни.
+    fn render_participant_figure(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        mut group: Group,
+        footer: bool,
+    ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
-        let top_y = bounds.y;
+        let top = bounds.y;
+        let bottom = bounds.y + bounds.height;
 
-        // Размеры stick figure
-        let head_radius = 8.0;
-        let body_length = 20.0;
-        let arm_width = 18.0;
-        let leg_length = 15.0;
-        let leg_spread = 10.0;
-
-        // Позиции
-        let head_cy = top_y + head_radius + 2.0;
-        let neck_y = head_cy + head_radius;
-        let waist_y = neck_y + body_length;
-        let arms_y = neck_y + body_length * 0.3;
-        let feet_y = waist_y + leg_length;
-
-        // 1. Голова (круг)
-        let head = svg::node::element::Ellipse::new()
-            .set("cx", cx)
-            .set("cy", head_cy)
-            .set("rx", head_radius)
-            .set("ry", head_radius)
-            .set("fill", theme.node_background.to_css())
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
-        group = group.add(head);
-
-        // 2. Тело (вертикальная линия)
-        let body = svg::node::element::Line::new()
-            .set("x1", cx)
-            .set("y1", neck_y)
-            .set("x2", cx)
-            .set("y2", waist_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
-        group = group.add(body);
-
-        // 3. Руки (горизонтальная линия)
-        let arms = svg::node::element::Line::new()
-            .set("x1", cx - arm_width / 2.0)
-            .set("y1", arms_y)
-            .set("x2", cx + arm_width / 2.0)
-            .set("y2", arms_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
-        group = group.add(arms);
-
-        // 4. Левая нога
-        let left_leg = svg::node::element::Line::new()
-            .set("x1", cx)
-            .set("y1", waist_y)
-            .set("x2", cx - leg_spread)
-            .set("y2", feet_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
-        group = group.add(left_leg);
-
-        // 5. Правая нога
-        let right_leg = svg::node::element::Line::new()
-            .set("x1", cx)
-            .set("y1", waist_y)
-            .set("x2", cx + leg_spread)
-            .set("y2", feet_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
-        group = group.add(right_leg);
-
-        // 6. Текст имени под человечком
-        let text_y = feet_y + 15.0;
+        // Подпись
+        let label_y = if footer {
+            top + PARTICIPANT_FOOTER_LABEL_BASELINE
+        } else {
+            bottom - PARTICIPANT_LABEL_BASELINE_GAP
+        };
         let text = svg::node::element::Text::new(label)
             .set("x", cx)
-            .set("y", text_y)
+            .set("y", label_y)
             .set("text-anchor", "middle")
             .set("font-family", theme.font_family.as_str())
             .set("font-size", theme.font_size)
@@ -744,85 +712,304 @@ impl SvgRenderer {
         group
     }
 
-    /// Рендерит систему/пакет (rectangle с заголовком сверху) для UseCase диаграмм
-    /// Рендерит базу данных как цилиндр.
-    ///
-    /// PlantUML рисует `database` цилиндром: верхний и нижний эллипсы
-    /// соединены вертикальными боками. Раньше использовался прямоугольник
-    /// со скруглёнными углами, а в component-движке — эмодзи 🛢.
+    /// Стик-фигура актёра.
+    fn render_actor(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        group: Group,
+        footer: bool,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let stroke = theme.node_border.to_css();
+        let fill = theme.node_background.to_css();
+
+        // Все размеры сняты с эталона `sequence_participants`.
+        let head_radius = ACTOR_HEAD_RADIUS;
+        let (head_cy, neck_y, waist_y, arms_y, feet_y) = if footer {
+            let base = bounds.y;
+            (
+                base + ACTOR_FOOTER_HEAD_CY,
+                base + ACTOR_FOOTER_NECK,
+                base + ACTOR_FOOTER_WAIST,
+                base + ACTOR_FOOTER_ARMS,
+                base + ACTOR_FOOTER_FEET,
+            )
+        } else {
+            let base = bounds.y;
+            (
+                base + head_radius,
+                base + ACTOR_HEAD_RADIUS * 2.0,
+                base + ACTOR_WAIST_OFFSET,
+                base + ACTOR_ARMS_OFFSET,
+                base + ACTOR_FEET_OFFSET,
+            )
+        };
+
+        let body = format!(
+            "M{cx},{neck_y} L{cx},{waist_y} \
+             M{arm_l},{arms_y} L{arm_r},{arms_y} \
+             M{cx},{waist_y} L{leg_l},{feet_y} \
+             M{cx},{waist_y} L{leg_r},{feet_y}",
+            neck_y = fmt(neck_y),
+            waist_y = fmt(waist_y),
+            arms_y = fmt(arms_y),
+            feet_y = fmt(feet_y),
+            arm_l = fmt(cx - ACTOR_LIMB_SPREAD),
+            arm_r = fmt(cx + ACTOR_LIMB_SPREAD),
+            leg_l = fmt(cx - ACTOR_LIMB_SPREAD),
+            leg_r = fmt(cx + ACTOR_LIMB_SPREAD),
+        );
+
+        let mut group = group;
+        group = group.add(
+            svg::node::element::Ellipse::new()
+                .set("cx", cx)
+                .set("cy", head_cy)
+                .set("rx", head_radius)
+                .set("ry", head_radius)
+                .set("fill", fill)
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 0.5),
+        );
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", body)
+                .set("fill", "none")
+                .set("stroke", stroke)
+                .set("stroke-width", 0.5),
+        );
+
+        self.render_participant_figure(bounds, label, theme, group, footer)
+    }
+
+    /// Цилиндр базы данных.
     fn render_database(
         &self,
         bounds: &Rect,
         label: &str,
         theme: &Theme,
-        mut group: Group,
+        group: Group,
+        footer: bool,
     ) -> Group {
-        // Радиус вертикального «полуэллипса» крышки
-        let cap_ry = (bounds.height * 0.12).clamp(3.0, 12.0);
-        let rx = bounds.width / 2.0;
-        let cx = bounds.x + rx;
-
-        let fill = theme.node_background.to_css();
+        let cx = bounds.x + bounds.width / 2.0;
+        let rx = DATABASE_RX;
+        let ry = DATABASE_CAP_RY;
         let stroke = theme.node_border.to_css();
+        let fill = theme.node_background.to_css();
 
-        // Боковые линии между крышками
-        let left = svg::node::element::Line::new()
-            .set("x1", bounds.x)
-            .set("y1", bounds.y + cap_ry)
-            .set("x2", bounds.x)
-            .set("y2", bounds.y + bounds.height - cap_ry)
-            .set("stroke", stroke.clone())
-            .set("stroke-width", 1);
-        let right = svg::node::element::Line::new()
-            .set("x1", bounds.x + bounds.width)
-            .set("y1", bounds.y + cap_ry)
-            .set("x2", bounds.x + bounds.width)
-            .set("y2", bounds.y + bounds.height - cap_ry)
-            .set("stroke", stroke.clone())
-            .set("stroke-width", 1);
-        group = group.add(left).add(right);
+        let (top_cap, bottom_cap) = if footer {
+            // Зеркально: цилиндр висит под полосой подписи
+            (
+                bounds.y + bounds.height - DATABASE_FOOTER_TOP_CAP,
+                bounds.y + bounds.height - DATABASE_FOOTER_BOTTOM_CAP,
+            )
+        } else {
+            (bounds.y + ry, bounds.y + DATABASE_BODY_HEIGHT + ry)
+        };
 
-        // Нижняя крышка (видна частично)
-        let bottom = svg::node::element::Ellipse::new()
-            .set("cx", cx)
-            .set("cy", bounds.y + bounds.height - cap_ry)
-            .set("rx", rx)
-            .set("ry", cap_ry)
-            .set("fill", fill.clone())
-            .set("stroke", stroke.clone())
-            .set("stroke-width", 1);
-        group = group.add(bottom);
+        // Боковины и нижняя крышка
+        let body = format!(
+            "M{left},{top_cap} L{left},{bottom_cap} \
+             C{left},{bottom} {cx},{bottom} {cx},{bottom} \
+             C{cx},{bottom} {right},{bottom} {right},{bottom_cap} \
+             L{right},{top_cap}",
+            left = fmt(cx - rx),
+            right = fmt(cx + rx),
+            top_cap = fmt(top_cap),
+            bottom_cap = fmt(bottom_cap),
+            bottom = fmt(bottom_cap + ry),
+        );
 
-        // Тело цилиндра — прямоугольник без границ по бокам крышек
-        let body = Rectangle::new()
-            .set("x", bounds.x)
-            .set("y", bounds.y + cap_ry)
-            .set("width", bounds.width)
-            .set("height", bounds.height - cap_ry * 2.0)
-            .set("fill", fill.clone())
-            .set("stroke", "none");
-        group = group.add(body);
-
+        let mut group = group;
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", body)
+                .set("fill", fill)
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 0.5),
+        );
         // Верхняя крышка
-        let top = svg::node::element::Ellipse::new()
-            .set("cx", cx)
-            .set("cy", bounds.y + cap_ry)
-            .set("rx", rx)
-            .set("ry", cap_ry)
-            .set("fill", fill)
-            .set("stroke", stroke)
-            .set("stroke-width", 1);
-        group = group.add(top);
+        group = group.add(
+            svg::node::element::Path::new()
+                .set(
+                    "d",
+                    format!(
+                        "M{left},{top_cap} C{left},{top_bulge} {cx},{top_bulge} {cx},{top_bulge} \
+                         C{cx},{top_bulge} {right},{top_bulge} {right},{top_cap}",
+                        left = fmt(cx - rx),
+                        right = fmt(cx + rx),
+                        top_cap = fmt(top_cap),
+                        top_bulge = fmt(top_cap - ry),
+                    ),
+                )
+                .set("fill", "none")
+                .set("stroke", stroke)
+                .set("stroke-width", 0.5),
+        );
 
-        // Подпись
-        let text = svg::node::element::Text::new(label)
-            .set("x", cx)
-            .set("y", bounds.y + bounds.height / 2.0 + theme.font_size / 3.0)
-            .set("text-anchor", "middle")
-            .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size)
-            .set("fill", theme.text_color.to_css());
-        group.add(text)
+        self.render_participant_figure(bounds, label, theme, group, footer)
+    }
+
+    /// Граничный элемент: кружок со скобкой слева.
+    fn render_boundary(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        group: Group,
+        footer: bool,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let stroke = theme.node_border.to_css();
+        let fill = theme.node_background.to_css();
+
+        // Кружок прижат к линии жизни: сверху центр на 12 ниже верха,
+        // снизу — на 12 выше низа.
+        let circle_cy = if footer {
+            bounds.y + bounds.height - PARTICIPANT_ICON_RADIUS
+        } else {
+            bounds.y + PARTICIPANT_ICON_RADIUS
+        };
+        let bracket_top = circle_cy - PARTICIPANT_ICON_RADIUS;
+        let bracket_bottom = circle_cy + PARTICIPANT_ICON_RADIUS;
+
+        let mut group = group;
+        group = group.add(
+            svg::node::element::Path::new()
+                .set(
+                    "d",
+                    format!(
+                        "M{bar},{top} L{bar},{bottom} M{bar},{mid} L{left_of_circle},{mid}",
+                        bar = fmt(cx - BOUNDARY_BRACKET_OFFSET),
+                        top = fmt(bracket_top),
+                        bottom = fmt(bracket_bottom),
+                        mid = fmt(circle_cy),
+                        left_of_circle = fmt(cx - PARTICIPANT_ICON_RADIUS),
+                    ),
+                )
+                .set("fill", "none")
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 0.5),
+        );
+        group = group.add(
+            svg::node::element::Ellipse::new()
+                .set("cx", cx)
+                .set("cy", circle_cy)
+                .set("rx", PARTICIPANT_ICON_RADIUS)
+                .set("ry", PARTICIPANT_ICON_RADIUS)
+                .set("fill", fill)
+                .set("stroke", stroke)
+                .set("stroke-width", 0.5),
+        );
+
+        self.render_participant_figure(bounds, label, theme, group, footer)
+    }
+
+    /// Управляющий элемент: кружок со стрелкой сверху.
+    fn render_control(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        group: Group,
+        footer: bool,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let stroke = theme.node_border.to_css();
+        let fill = theme.node_background.to_css();
+
+        let circle_cy = if footer {
+            bounds.y + bounds.height - PARTICIPANT_ICON_RADIUS
+        } else {
+            bounds.y + CONTROL_CIRCLE_OFFSET
+        };
+        // Стрелка прижата к внешнему краю фигуры
+        let arrow_mid = if footer {
+            bounds.y + bounds.height - CONTROL_FOOTER_ARROW_MID
+        } else {
+            bounds.y + CONTROL_ARROW_MID
+        };
+
+        let chevron = format!(
+            "{x1},{y_mid} {x2},{y_top} {cx},{y_mid} {x2},{y_bot} {x1},{y_mid}",
+            x1 = fmt(cx - CONTROL_ARROW_BACK),
+            x2 = fmt(cx + CONTROL_ARROW_TIP),
+            cx = fmt(cx),
+            y_mid = fmt(arrow_mid),
+            y_top = fmt(arrow_mid - CONTROL_ARROW_HALF),
+            y_bot = fmt(arrow_mid + CONTROL_ARROW_HALF),
+        );
+
+        let mut group = group;
+        group = group.add(
+            svg::node::element::Ellipse::new()
+                .set("cx", cx)
+                .set("cy", circle_cy)
+                .set("rx", PARTICIPANT_ICON_RADIUS)
+                .set("ry", PARTICIPANT_ICON_RADIUS)
+                .set("fill", fill)
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 0.5),
+        );
+        group = group.add(
+            svg::node::element::Polygon::new()
+                .set("points", chevron)
+                .set("fill", stroke.clone())
+                .set("stroke", stroke)
+                .set("stroke-width", 1.0),
+        );
+
+        self.render_participant_figure(bounds, label, theme, group, footer)
+    }
+
+    /// Сущность: кружок с подчёркиванием.
+    fn render_entity(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        group: Group,
+        footer: bool,
+    ) -> Group {
+        let cx = bounds.x + bounds.width / 2.0;
+        let stroke = theme.node_border.to_css();
+        let fill = theme.node_background.to_css();
+
+        let circle_cy = if footer {
+            bounds.y + bounds.height - PARTICIPANT_ICON_RADIUS - ENTITY_FOOTER_GAP
+        } else {
+            bounds.y + PARTICIPANT_ICON_RADIUS
+        };
+        let underline_y = if footer {
+            bounds.y + bounds.height
+        } else {
+            bounds.y + ENTITY_UNDERLINE_OFFSET
+        };
+
+        let mut group = group;
+        group = group.add(
+            svg::node::element::Ellipse::new()
+                .set("cx", cx)
+                .set("cy", circle_cy)
+                .set("rx", PARTICIPANT_ICON_RADIUS)
+                .set("ry", PARTICIPANT_ICON_RADIUS)
+                .set("fill", fill)
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 0.5),
+        );
+        group = group.add(
+            svg::node::element::Line::new()
+                .set("x1", cx - PARTICIPANT_ICON_RADIUS)
+                .set("y1", underline_y)
+                .set("x2", cx + PARTICIPANT_ICON_RADIUS)
+                .set("y2", underline_y)
+                .set("stroke", stroke)
+                .set("stroke-width", 0.5),
+        );
+
+        self.render_participant_figure(bounds, label, theme, group, footer)
     }
 
     fn render_system(&self, bounds: &Rect, title: &str, theme: &Theme, mut group: Group) -> Group {
@@ -1733,6 +1920,88 @@ impl Renderer for SvgRenderer {
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
+
+/// Смещение тени от фигуры (`skinparam shadowing true`).
+/// Форматирует координату для атрибута SVG.
+///
+/// Убирает хвостовые нули: PlantUML пишет `26.5`, а не `26.500000`.
+fn fmt(value: f64) -> String {
+    let text = format!("{value:.3}");
+    let trimmed = text.trim_end_matches('0').trim_end_matches('.');
+    if trimmed.is_empty() || trimmed == "-" {
+        "0".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+// === Геометрия фигур участников sequence ===
+//
+// Все числа сняты с эталона `sequence_participants` (PlantUML 1.2026.9beta4):
+// верхняя полоса подписи 55..85.297, нижняя 249.961..280.258.
+
+/// Радиус головы стик-фигуры.
+const ACTOR_HEAD_RADIUS: f64 = 8.0;
+
+/// Полуразнос рук и ног стик-фигуры.
+const ACTOR_LIMB_SPREAD: f64 = 13.0;
+
+/// Смещения стик-фигуры от верха элемента (верхний блок).
+const ACTOR_WAIST_OFFSET: f64 = 43.0;
+const ACTOR_ARMS_OFFSET: f64 = 24.0;
+const ACTOR_FEET_OFFSET: f64 = 58.0;
+
+/// Смещения стик-фигуры от верха элемента (нижний блок, зеркально).
+const ACTOR_FOOTER_HEAD_CY: f64 = 24.797;
+const ACTOR_FOOTER_NECK: f64 = 32.797;
+const ACTOR_FOOTER_WAIST: f64 = 59.797;
+const ACTOR_FOOTER_ARMS: f64 = 40.797;
+const ACTOR_FOOTER_FEET: f64 = 74.797;
+
+/// Полуширина цилиндра базы данных.
+const DATABASE_RX: f64 = 18.0;
+
+/// Полувысота крышки цилиндра.
+const DATABASE_CAP_RY: f64 = 10.0;
+
+/// Высота тела цилиндра между крышками.
+const DATABASE_BODY_HEIGHT: f64 = 26.0;
+
+/// Смещения крышек цилиндра в нижнем блоке.
+const DATABASE_FOOTER_TOP_CAP: f64 = 36.0;
+const DATABASE_FOOTER_BOTTOM_CAP: f64 = 10.0;
+
+/// Радиус кружка у boundary/control/entity.
+const PARTICIPANT_ICON_RADIUS: f64 = 12.0;
+
+/// Отступ подписи от низа верхней полосы.
+const PARTICIPANT_LABEL_BASELINE_GAP: f64 = 2.302;
+
+/// Отступ подписи от верха нижней полосы.
+const PARTICIPANT_FOOTER_LABEL_BASELINE: f64 = 12.995;
+
+/// Вынос скобки boundary влево от центра.
+const BOUNDARY_BRACKET_OFFSET: f64 = 29.0;
+
+/// Смещение центра кружка control от верха элемента.
+const CONTROL_CIRCLE_OFFSET: f64 = 17.0;
+
+/// Смещение стрелки control от верха элемента.
+const CONTROL_ARROW_MID: f64 = 5.0;
+
+/// Смещение стрелки control в нижнем блоке от низа элемента.
+const CONTROL_FOOTER_ARROW_MID: f64 = 24.0;
+
+/// Размеры стрелки control.
+const CONTROL_ARROW_BACK: f64 = 4.0;
+const CONTROL_ARROW_TIP: f64 = 2.0;
+const CONTROL_ARROW_HALF: f64 = 5.0;
+
+/// Смещение подчёркивания entity от верха элемента.
+const ENTITY_UNDERLINE_OFFSET: f64 = 26.0;
+
+/// Зазор между кружком entity и подчёркиванием в нижнем блоке.
+const ENTITY_FOOTER_GAP: f64 = 2.0;
 
 /// Смещение тени от фигуры (`skinparam shadowing true`).
 const SHADOW_OFFSET: f64 = 3.0;

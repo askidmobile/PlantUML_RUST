@@ -2,6 +2,7 @@
 
 use super::SequenceLayoutConfig;
 use indexmap::IndexMap;
+use plantuml_ast::sequence::ParticipantType;
 use plantuml_model::Rect;
 
 /// Информация о позиции участника
@@ -19,6 +20,10 @@ pub struct ParticipantMetrics {
     /// Прямоугольник заголовка (для будущего использования)
     #[allow(dead_code)]
     pub header_bounds: Rect,
+    /// Тип участника. Нужен и заголовку, и нижнему блоку: PlantUML рисует
+    /// `actor`/`boundary`/`control`/`entity`/`database` фигурами, а не
+    /// прямоугольниками, причём и сверху, и снизу.
+    pub participant_type: ParticipantType,
 }
 
 /// Информация об активации
@@ -291,6 +296,7 @@ impl DiagramMetrics {
             self.participants.insert(
                 name.to_string(),
                 ParticipantMetrics {
+                    participant_type: ParticipantType::Participant,
                     id: name.to_string(),
                     display_name: name.to_string(), // Для автоматических участников display_name = id
                     center_x: x,

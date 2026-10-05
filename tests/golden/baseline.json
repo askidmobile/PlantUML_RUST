@@ -12,7 +12,7 @@
   "salt_basic": { "width_diff": 13.0, "height_diff": 1.0, "missing_texts": 0 },
   "sequence_fragments": { "width_diff": 4.0, "height_diff": 46.0, "missing_texts": 0 },
   "sequence_notes": { "width_diff": 13.0, "height_diff": 11.0, "missing_texts": 0 },
-  "sequence_participants": { "width_diff": 64.0, "height_diff": 102.0, "missing_texts": 0 },
+  "sequence_participants": { "width_diff": 64.0, "height_diff": 13.0, "missing_texts": 0 },
   "sequence_simple": { "width_diff": 7.0, "height_diff": 12.0, "missing_texts": 0 },
   "state_simple": { "width_diff": 18.0, "height_diff": 14.0, "missing_texts": 0 },
   "timing_basic": { "width_diff": 1.0, "height_diff": 18.0, "missing_texts": 2 },

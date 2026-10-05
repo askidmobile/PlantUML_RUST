@@ -42,6 +42,41 @@ const FOOTER_GAP: f64 = 18.0;
 /// PlantUML освобождает место для стик-фигуры над прямоугольником.
 const ACTOR_HEAD_OFFSET: f64 = 45.0;
 
+/// Насколько фигура участника выступает НАД полосой подписи.
+///
+/// В PlantUML `participant` рисуется прямоугольником, а остальные типы —
+/// фигурами, которые стоят выше подписи. Числа сняты с эталона
+/// `sequence_participants`: полоса подписи занимает y 55..85.297, а фигуры
+/// поднимаются до указанных значений.
+fn figure_extra_above(participant_type: ParticipantType) -> f64 {
+    match participant_type {
+        // Голова стик-фигуры на y=10.5
+        ParticipantType::Actor => 44.5,
+        // Кружок со скобкой и кружок с подчёркиванием: верх на y=42
+        ParticipantType::Boundary | ParticipantType::Entity => 13.0,
+        // Кружок со стрелкой: стрелка выше кружка, верх на y=37
+        ParticipantType::Control => 18.0,
+        // Цилиндр: верх на y=24
+        ParticipantType::Database => 31.0,
+        // Прямоугольник занимает полосу целиком
+        _ => 0.0,
+    }
+}
+
+/// Насколько фигура участника выступает ПОД нижней полосой.
+///
+/// Нижние блоки PlantUML рисует зеркально: подпись сверху, фигура снизу.
+/// Числа сняты с эталона `sequence_participants` (полоса 249.961..280.258).
+fn figure_extra_below(participant_type: ParticipantType) -> f64 {
+    match participant_type {
+        ParticipantType::Actor => 44.5,
+        ParticipantType::Boundary | ParticipantType::Control => 14.0,
+        ParticipantType::Entity => 16.0,
+        ParticipantType::Database => 32.0,
+        _ => 0.0,
+    }
+}
+
 /// Цвет подложки легенды в PlantUML.
 const SEQUENCE_LEGEND_BACKGROUND: &str = "#DDDDDD";
 
@@ -584,6 +619,7 @@ impl SequenceLayoutEngine {
                     center_x,
                     width,
                     header_bounds: bounds,
+                    participant_type: ptype,
                 },
             );
 
@@ -872,6 +908,17 @@ impl SequenceLayoutEngine {
         bounds: &Rect,
         participant_type: ParticipantType,
     ) -> LayoutElement {
+        // Фигура выступает над полосой подписи, поэтому элемент получает
+        // расширенные границы: иначе рисунок вышел бы за пределы диаграммы
+        // и не попал в её габариты.
+        let extra = figure_extra_above(participant_type);
+        let bounds = Rect::new(
+            bounds.x,
+            bounds.y - extra,
+            bounds.width,
+            bounds.height + extra,
+        );
+
         match participant_type {
             ParticipantType::Actor => {
                 // Актёр рисуется как стик-фигура (человечек), а не эллипс:
@@ -880,7 +927,7 @@ impl SequenceLayoutEngine {
                 // упрощения», что визуально не соответствовало оригиналу.
                 LayoutElement {
                     id: format!("participant_{}", id),
-                    bounds: *bounds,
+                    bounds,
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Actor {
@@ -893,7 +940,7 @@ impl SequenceLayoutEngine {
                 // со скруглёнными углами
                 LayoutElement {
                     id: format!("participant_{}", id),
-                    bounds: *bounds,
+                    bounds,
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Database {
@@ -901,12 +948,39 @@ impl SequenceLayoutEngine {
                     },
                 }
             }
+            ParticipantType::Boundary => LayoutElement {
+                id: format!("participant_{}", id),
+                bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Boundary {
+                    label: display_name.to_string(),
+                },
+            },
+            ParticipantType::Control => LayoutElement {
+                id: format!("participant_{}", id),
+                bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Control {
+                    label: display_name.to_string(),
+                },
+            },
+            ParticipantType::Entity => LayoutElement {
+                id: format!("participant_{}", id),
+                bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::Entity {
+                    label: display_name.to_string(),
+                },
+            },
             _ => {
                 // Остальные типы - обычный прямоугольник
                 // PlantUML использует rx/ry = 2.5 для скругления углов
                 LayoutElement {
                     id: format!("participant_{}", id),
-                    bounds: *bounds,
+                    bounds,
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Rectangle {
@@ -1643,22 +1717,47 @@ impl SequenceLayoutEngine {
         let y = metrics.current_y + FOOTER_GAP - self.config.message_spacing;
 
         for (id, participant) in &metrics.participants {
-            let footer = LayoutElement {
-                id: format!("footer_{}", id),
-                bounds: Rect::new(
-                    participant.center_x - participant.width / 2.0,
-                    y,
-                    participant.width,
-                    self.config.participant_height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Rectangle {
+            // Нижний блок повторяет тип участника: PlantUML рисует и сверху,
+            // и снизу одну и ту же фигуру (стик-фигура, кружок, цилиндр).
+            // Раньше здесь всегда стоял прямоугольник, поэтому `actor` и
+            // `database` снизу выглядели неправильно.
+            let extra = figure_extra_below(participant.participant_type);
+            let bounds = Rect::new(
+                participant.center_x - participant.width / 2.0,
+                y,
+                participant.width,
+                self.config.participant_height + extra,
+            );
+
+            let element_type = match participant.participant_type {
+                ParticipantType::Actor => ElementType::Actor {
+                    label: participant.display_name.clone(),
+                },
+                ParticipantType::Database => ElementType::Database {
+                    label: participant.display_name.clone(),
+                },
+                ParticipantType::Boundary => ElementType::Boundary {
+                    label: participant.display_name.clone(),
+                },
+                ParticipantType::Control => ElementType::Control {
+                    label: participant.display_name.clone(),
+                },
+                ParticipantType::Entity => ElementType::Entity {
+                    label: participant.display_name.clone(),
+                },
+                _ => ElementType::Rectangle {
                     label: participant.display_name.clone(),
                     corner_radius: 2.5, // PlantUML style
                 },
             };
-            elements.push(footer);
+
+            elements.push(LayoutElement {
+                id: format!("footer_{}", id),
+                bounds,
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type,
+            });
         }
     }
 }
