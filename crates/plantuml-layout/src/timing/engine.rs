@@ -25,6 +25,9 @@ const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
 /// текстовых элементов имеют `fill="#333"`.
 const TIMING_TEXT_COLOR: &str = "#333";
 
+/// Цвет перехода состояния в concise-дорожках (эталон: `stroke:#006400`).
+const TIMING_TRANSITION_COLOR: &str = "#006400";
+
 /// Отступ метки состояния от вертикали перехода (измерено по эталону:
 /// переход на 141.732, метка «Обработка» на 153.73 — разница 12).
 const STATE_LABEL_OFFSET: f64 = 12.0;
@@ -413,7 +416,10 @@ impl TimingLayoutEngine {
             id: format!("baseline_{}_{}", participant_name, participant_idx),
             bounds: Rect::new(start_x, line_y - 1.0, width, 2.0),
             text: None,
-            properties: std::collections::HashMap::new(),
+            // Линии дорожек timing нарисованы цветом #333 (эталон).
+            properties: [("stroke".to_string(), TIMING_TEXT_COLOR.to_string())]
+                .into_iter()
+                .collect(),
             element_type: ElementType::Edge {
                 points: vec![
                     Point::new(start_x, line_y),
@@ -439,7 +445,13 @@ impl TimingLayoutEngine {
                     id: format!("transition_{}_{}_{}", participant_name, participant_idx, i),
                     bounds: Rect::new(x - 1.0, line_y - 10.0, 2.0, 20.0),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    // Переход состояния: тёмно-зелёный толщиной 2 (эталон).
+                    properties: [
+                        ("stroke".to_string(), TIMING_TRANSITION_COLOR.to_string()),
+                        ("stroke-width".to_string(), "2".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
                     element_type: ElementType::Edge {
                         points: vec![Point::new(x, line_y - 10.0), Point::new(x, line_y + 10.0)],
                         label: None,
@@ -548,7 +560,9 @@ impl TimingLayoutEngine {
             id: "time_axis".to_string(),
             bounds: Rect::new(start_x, y, width, 2.0),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties: [("stroke".to_string(), TIMING_TEXT_COLOR.to_string())]
+                .into_iter()
+                .collect(),
             element_type: ElementType::Edge {
                 points: vec![Point::new(start_x, y), Point::new(start_x + width, y)],
                 label: None,
@@ -595,7 +609,13 @@ impl TimingLayoutEngine {
                 id: format!("tick_{}", t),
                 bounds: Rect::new(tick_x - 0.5, y, 1.0, 5.0),
                 text: None,
-                properties: std::collections::HashMap::new(),
+                // Деления оси: цвет #333, толщина 2 (эталон).
+                properties: [
+                    ("stroke".to_string(), TIMING_TEXT_COLOR.to_string()),
+                    ("stroke-width".to_string(), "2".to_string()),
+                ]
+                .into_iter()
+                .collect(),
                 element_type: ElementType::Edge {
                     points: vec![Point::new(tick_x, y), Point::new(tick_x, y + 5.0)],
                     label: None,

@@ -463,6 +463,16 @@ impl SvgRenderer {
                 to_cardinality,
             } => {
                 let autonumber = element.properties.get("autonumber").map(|s| s.as_str());
+                // Цвет и толщину линия может нести свойствами: PlantUML
+                // рисует переходы состояний timing зелёным (#006400)
+                // толщиной 2, деления оси — толщиной 2.
+                let style = EdgeStyle {
+                    color: element.properties.get("stroke").map(String::as_str),
+                    width: element
+                        .properties
+                        .get("stroke-width")
+                        .and_then(|value| value.parse().ok()),
+                };
                 group = self.render_edge(
                     points,
                     label.as_deref(),
@@ -473,6 +483,7 @@ impl SvgRenderer {
                     *edge_type,
                     from_cardinality.as_deref(),
                     to_cardinality.as_deref(),
+                    style,
                     theme,
                     group,
                 );
@@ -1269,6 +1280,7 @@ impl SvgRenderer {
         edge_type: EdgeType,
         from_cardinality: Option<&str>,
         to_cardinality: Option<&str>,
+        style: EdgeStyle<'_>,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
@@ -1317,14 +1329,27 @@ impl SvgRenderer {
             d
         };
 
+        // Цвет и толщина могут быть переопределены свойствами: PlantUML
+        // рисует переходы состояний timing зелёным (#006400) толщиной 2,
+        // деления оси — толщиной 2, а линии дорожек — цветом #333.
         // PlantUML использует stroke-width: 0.5 для lifelines, 1 для сообщений
         // Определяем по наличию стрелки - если есть стрелка, это сообщение
-        let stroke_width = if arrow_end || arrow_start { 1.0 } else { 0.5 };
+        // Толщину можно переопределить свойством: PlantUML рисует
+        // переходы состояний timing и деления оси толщиной 2.
+        let stroke_width = style
+            .width
+            .unwrap_or(if arrow_end || arrow_start { 1.0 } else { 0.5 });
 
         let mut path = Path::new()
             .set("d", d)
             .set("fill", "none")
-            .set("stroke", theme.arrow_color.to_css())
+            .set(
+                "stroke",
+                style
+                    .color
+                    .map(str::to_string)
+                    .unwrap_or_else(|| theme.arrow_color.to_css()),
+            )
             .set("stroke-width", stroke_width);
 
         // Пунктирная линия для lifelines и dashed arrows
@@ -2230,6 +2255,16 @@ const SPRITE_INLINE_PIXEL: f64 = 1.0;
 
 /// Отступ после спрайта внутри подписи.
 const SPRITE_INLINE_GAP: f64 = 2.0;
+
+/// Оформление линии: цвет и толщина.
+///
+/// Оба поля необязательны: если не заданы, берутся значения по умолчанию
+/// (цвет темы и толщина 0.5/1 в зависимости от наличия наконечника).
+#[derive(Default)]
+struct EdgeStyle<'a> {
+    color: Option<&'a str>,
+    width: Option<f64>,
+}
 
 /// Оформление текста: жирность и цвет.
 ///
