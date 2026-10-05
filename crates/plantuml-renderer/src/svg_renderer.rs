@@ -1393,6 +1393,11 @@ impl SvgRenderer {
     }
 
     /// Рендерит группу (устаревший, для совместимости)
+    /// Рисует контейнер (узел deployment, пакет component) объёмной рамкой.
+    ///
+    /// PlantUML рисует узлы deployment трёхмерными: основной прямоугольник
+    /// плюс скошенный верхний правый угол со смещением 10px. Раньше здесь
+    /// был плоский прямоугольник с полосой заголовка.
     fn render_group(
         &self,
         bounds: &Rect,
@@ -1401,36 +1406,69 @@ impl SvgRenderer {
         theme: &Theme,
         mut group: Group,
     ) -> Group {
-        // Рамка группы - СПЛОШНАЯ (как в PlantUML)
-        let rect = Rectangle::new()
-            .set("x", bounds.x)
-            .set("y", bounds.y)
-            .set("width", bounds.width)
-            .set("height", bounds.height)
-            .set("fill", "none")
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1);
+        let offset = NODE_3D_OFFSET;
+        let stroke = theme.node_border.to_css();
 
-        group = group.add(rect);
+        // Основной прямоугольник смещён вниз на величину скоса
+        let left = bounds.x;
+        let top = bounds.y + offset;
+        let right = bounds.x + bounds.width - offset;
+        let bottom = bounds.y + bounds.height;
 
-        // Заголовок
+        // Контур объёмной фигуры. Порядок точек снят с эталона
+        // deployment_basic: (left,top) -> (left+offset,y) -> (right+offset,y)
+        // -> (right+offset,bottom-offset) -> (right,bottom) -> (left,bottom).
+        let polygon = format!(
+            "{l},{t} {lo},{y} {ro},{y} {ro},{bo} {r},{b} {l},{b} {l},{t}",
+            l = fmt(left),
+            t = fmt(top),
+            lo = fmt(left + offset),
+            ro = fmt(right + offset),
+            y = fmt(bounds.y),
+            bo = fmt(bottom - offset),
+            r = fmt(right),
+            b = fmt(bottom),
+        );
+
+        group = group.add(
+            svg::node::element::Polygon::new()
+                .set("points", polygon)
+                .set("fill", "none")
+                .set("stroke", stroke.clone())
+                .set("stroke-width", 1)
+                .set("stroke-linejoin", "miter"),
+        );
+
+        // Внутренние рёбра объёма
+        let edges = format!(
+            "M{r},{t} L{ro},{y} M{l},{t} L{r},{t} M{r},{t} L{r},{b}",
+            l = fmt(left),
+            r = fmt(right),
+            ro = fmt(right + offset),
+            t = fmt(top),
+            y = fmt(bounds.y),
+            b = fmt(bottom),
+        );
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", edges)
+                .set("fill", "none")
+                .set("stroke", stroke)
+                .set("stroke-width", 1),
+        );
+
+        // Заголовок по центру основного прямоугольника
         if let Some(label) = label {
-            let header_bg = Rectangle::new()
-                .set("x", bounds.x)
-                .set("y", bounds.y)
-                .set("width", bounds.width)
-                .set("height", 20.0)
-                .set("fill", theme.node_background.to_css());
-
             let text = svg::node::element::Text::new(label)
-                .set("x", bounds.x + 5.0)
-                .set("y", bounds.y + 14.0)
+                .set("x", (left + right) / 2.0)
+                .set("y", top + NODE_TITLE_BASELINE)
+                .set("text-anchor", "middle")
                 .set("font-family", theme.font_family.as_str())
                 .set("font-size", theme.font_size)
                 .set("font-weight", "bold")
                 .set("fill", theme.text_color.to_css());
 
-            group = group.add(header_bg).add(text);
+            group = group.add(text);
         }
 
         // Дочерние элементы
@@ -1920,6 +1958,12 @@ impl Renderer for SvgRenderer {
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
+
+/// Величина скоса объёмной рамки узла deployment.
+const NODE_3D_OFFSET: f64 = 10.0;
+
+/// Отступ базовой линии заголовка узла от верха основного прямоугольника.
+const NODE_TITLE_BASELINE: f64 = 16.0;
 
 /// Смещение тени от фигуры (`skinparam shadowing true`).
 /// Форматирует координату для атрибута SVG.
