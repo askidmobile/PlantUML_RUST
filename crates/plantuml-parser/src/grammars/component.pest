@@ -383,10 +383,15 @@ skinparam = {
     | "skinparam" ~ ws+ ~ skinparam_name ~ ws* ~ "{" ~ ws* ~ NEWLINE ~ (skinparam_line ~ NEWLINE)* ~ "}"
 }
 
-// Имя skinparam может нести СТЕРЕОТИП: `skinparam rectangle<<boundary>>`.
-// Стандартная библиотека C4 пишет именно так. Пробел ВНУТРЬ имени
-// добавлять нельзя — он конфликтует с разделителем перед значением.
-skinparam_name = { (LETTER | NUMBER | "_")+ ~ ("<<" ~ (!">>" ~ ANY)* ~ ">>")? }
+// Имя skinparam — ЛЮБОЙ токен без пробелов.
+//
+// Стандартная библиотека C4 использует формы, которые разбор по частям
+// не покрывал:
+//   `skinparam rectangle<<boundary>>`            — имя со стереотипом;
+//   `skinparam package<<enterprise'_boundary'>>StereotypeFontColor transparent`
+//                                                — ещё и СУФФИКС после `>>`.
+// Поэтому имя — всё до пробела или `{`.
+skinparam_name = @{ (!(" " | "\t" | NEWLINE | "{") ~ ANY)+ }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
 skinparam_line = { ws* ~ skinparam_name ~ ws+ ~ skinparam_value }
 

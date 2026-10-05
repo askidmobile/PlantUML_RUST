@@ -1169,7 +1169,11 @@ pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> Stri
 
     for ch in expression.chars() {
         match ch {
-            '"' => {
+            // ОДИНАРНЫЕ кавычки в PlantUML — тоже строковый литерал:
+            // проверено на сервере, `'A' + 'B'` даёт `AB`. Стандартная
+            // библиотека C4 строит стереотипы именно так:
+            // `!$stereos = '<<' + $tag + '>>'`.
+            '"' | '\'' => {
                 in_quotes = !in_quotes;
                 part.push(ch);
             }
@@ -1196,9 +1200,31 @@ pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> Stri
 /// Приводит одну часть конкатенации к значению.
 fn resolve_concat_part(part: &str, ctx: &PreprocessContext) -> String {
     let trimmed = part.trim();
-    let unquoted = trimmed.trim_matches('"');
+    // Снимаем кавычки — и двойные, и ОДИНАРНЫЕ. Внутренние кавычки
+    // другого типа не трогаем: `"..."` может содержать `'`.
+    let unquoted = strip_matching_quotes(trimmed);
     let substituted = variables::substitute(unquoted, &ctx.variables);
-    substituted.trim_matches('"').to_string()
+    // БЕЗ trim: значения вида "skinparam " несут значимый пробел на конце.
+    strip_matching_quotes(&substituted).to_string()
+}
+
+/// Снимает обрамляющие кавычки, если они парные и одного типа.
+///
+/// Внутренние кавычки другого типа сохраняются: значение `"a'b"` должно
+/// остаться `a'b`.
+fn strip_matching_quotes(text: &str) -> &str {
+    for quote in ['"', '\''] {
+        if let Some(inner) = text
+            .strip_prefix(quote)
+            .and_then(|rest| rest.strip_suffix(quote))
+        {
+            if !inner.contains(quote) {
+                return inner;
+            }
+        }
+    }
+
+    text
 }
 
 /// Нормализует путь включения: убирает `.` и разворачивает `..`.
