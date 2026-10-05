@@ -4,7 +4,7 @@ assertion_line: 88
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="273px" preserveAspectRatio="none" style="width:164px;height:273px;background:#FFFFFF;" version="1.1" viewBox="-7 0 164 272.735" width="164px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:164px;height:252px;background:#FFFFFF;" version="1.1" viewBox="-7 0 164 251.735" width="164px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -24,10 +24,10 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="lifeline_Alice">
-<path d="M35,40.297 L35,230.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M35,40.297 L35,209.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="lifeline_Bob">
-<path d="M115,40.297 L115,230.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
+<path d="M115,40.297 L115,209.56300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="msg_Alice_Bob">
 <path d="M35,70.297 L115,70.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
@@ -36,12 +36,12 @@ Request
 </text>
 </g>
 <g id="fragment_alt">
-<rect fill="none" height="127.26600000000003" stroke="#000" stroke-width="1.5" width="150" x="0" y="99.42999999999999"/>
-<path d="M0,99.42999999999999 L62.957800000000006,99.42999999999999 L62.957800000000006,106.56299999999999 L52.957800000000006,116.56299999999999 L0,116.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
-<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="113.42999999999999" textLength="17.958">
+<rect fill="none" height="123.26600000000003" stroke="#000" stroke-width="1.5" width="150" x="0" y="82.42999999999999"/>
+<path d="M0,82.42999999999999 L62.957800000000006,82.42999999999999 L62.957800000000006,89.56299999999999 L52.957800000000006,99.56299999999999 L0,99.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
+<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="96.42999999999999" textLength="17.958">
 alt
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="72.9578" y="113.42999999999999" textLength="71.616">
+<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="72.9578" y="96.42999999999999" textLength="71.616">
 [success]
 </text>
 <g id="msg_Bob_Alice">
@@ -74,14 +74,14 @@ Bob
 </text>
 </g>
 <g id="footer_Alice">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="230.56300000000002"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="245.71150000000003" textLength="33.666">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="209.56300000000002"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="224.71150000000003" textLength="33.666">
 Alice
 </text>
 </g>
 <g id="footer_Bob">
-<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="90" y="230.56300000000002"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="245.71150000000003" textLength="27.056">
+<rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="90" y="209.56300000000002"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="224.71150000000003" textLength="27.056">
 Bob
 </text>
 </g>

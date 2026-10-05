@@ -98,6 +98,12 @@ use super::config::SequenceLayoutConfig;
 use super::metrics::{DiagramMetrics, ParticipantMetrics};
 use crate::{EdgeType, ElementType, FragmentSection, LayoutConfig, LayoutElement, LayoutResult};
 
+/// Насколько рамка фрагмента поднимается над текущей позицией потока.
+const FRAGMENT_TOP_OFFSET: f64 = 17.0;
+
+/// Насколько низ фрагмента поднимается над текущей позицией потока.
+const FRAGMENT_BOTTOM_OFFSET: f64 = 16.0;
+
 /// Layout engine для sequence diagrams
 pub struct SequenceLayoutEngine {
     config: SequenceLayoutConfig,
@@ -1299,7 +1305,13 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        let start_y = metrics.current_y;
+        // Рамка фрагмента начинается ВЫШЕ точки, до которой дошёл поток.
+        //
+        // Измерено на трёх случаях: наш фрагмент оказывался ровно на
+        // 17px ниже эталонного — и когда перед ним нет сообщения, и
+        // когда есть. Значение одинаково, поэтому это постоянный отступ,
+        // а не следствие высоты строки.
+        let start_y = metrics.current_y - FRAGMENT_TOP_OFFSET;
 
         // Заголовок фрагмента (alt/opt/loop) + условие первой секции [текст]
         // PlantUML делает значительный отступ от условия секции до первого сообщения
@@ -1336,8 +1348,12 @@ impl SequenceLayoutEngine {
             });
         }
 
-        // Отступ внизу фрагмента (внутренний padding)
-        let end_y = metrics.current_y + self.config.fragment_padding - 5.0;
+        // Низ фрагмента тоже поднимается над текущей позицией потока.
+        //
+        // Измерено: эталон заканчивает фрагмент на 16.06px ВЫШЕ, чем
+        // дошёл поток после последнего сообщения. Прежняя формула
+        // (`current_y + padding - 5`) давала низ на 21px ниже нужного.
+        let end_y = metrics.current_y - FRAGMENT_BOTTOM_OFFSET;
         metrics.current_y = end_y;
 
         // ВАЖНО: Отступ ПОСЛЕ фрагмента до следующего элемента (между фрагментами или до footer)
