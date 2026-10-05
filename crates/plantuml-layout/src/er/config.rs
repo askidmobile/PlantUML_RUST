@@ -38,12 +38,18 @@ impl Default for ErLayoutConfig {
             // в эталоне «User» занимает 63.9, «Order» — 32. Минимум оставлен
             // небольшим, только чтобы фигура не выродилась.
             min_entity_width: 32.0,
-            entity_header_height: 30.0,
-            attribute_height: 22.0,
+            // Эталон `er_basic`: высота блока = 48.01 + 16.29 * (число
+            // атрибутов) — 80.59 при двух и 64.30 при одном. Отсюда
+            // шапка 32 (по разделителю на 39 при рамке от 7) и строка
+            // атрибута 16.29.
+            entity_header_height: 32.0,
+            attribute_height: 16.29,
             horizontal_spacing: 80.0,
             vertical_spacing: 60.0,
-            entity_padding: 10.0,
-            font_size: 13.0,
+            entity_padding: 16.01,
+            // Текст сущности PlantUML пишет кеглем 14 (эталон: «User» и
+            // «name : string» с `font-size="14"`).
+            font_size: 14.0,
             text: TextMeasurer::default(),
             entity_bg_color: "#FEFECE",
             header_bg_color: "#E2E2F0",
