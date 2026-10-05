@@ -7,6 +7,12 @@ use std::collections::{HashMap, HashSet};
 
 /// Заливка устройств сети: измерено по эталону PlantUML
 /// (`tests/golden/reference/network_nwdiag.svg`), едина для всех типов.
+/// Зазор между столбцом подписей и левым краем полосы (измерено по эталону).
+const NETWORK_LABEL_GAP: f64 = 5.0;
+
+/// Смещение базовой линии адреса сети от верха полосы (измерено по эталону).
+const NETWORK_ADDRESS_BASELINE: f64 = 13.638;
+
 const NETWORK_DEVICE_FILL: &str = "#F1F1F1";
 
 /// Заливка полосы сети: измерено по тому же эталону.
@@ -82,12 +88,36 @@ impl NetworkLayoutEngine {
     }
 
     /// Вычисляет X позицию для сервера по индексу
-    fn server_x_position(&self, index: usize) -> f64 {
-        // Измерено по эталону: полоса занимает 10..110, а серверы стоят
-        // на x=25 и 75, то есть с отступом 15 от края полосы.
-        self.config.padding
+    fn server_x_position(&self, diagram: &NetworkDiagram, index: usize) -> f64 {
+        // Серверы стоят с отступом SERVER_BAND_INSET от левого края полосы.
+        self.band_x(diagram)
             + SERVER_BAND_INSET
             + index as f64 * (self.config.server_width + self.config.server_spacing)
+    }
+
+    /// Левый край полосы сети.
+    ///
+    /// Слева от полосы стоит столбец подписей (имя сети и адрес),
+    /// выровненный по правому краю. Его ширина определяется самым длинным
+    /// текстом среди всех сетей.
+    fn band_x(&self, diagram: &NetworkDiagram) -> f64 {
+        self.config.padding + self.label_column_width(diagram) + NETWORK_LABEL_GAP
+    }
+
+    /// Ширина столбца подписей слева от полос.
+    fn label_column_width(&self, diagram: &NetworkDiagram) -> f64 {
+        let mut width = 0.0_f64;
+        for network in &diagram.networks {
+            width = width.max(
+                self.config
+                    .text
+                    .width(&network.id.name, self.config.font_size),
+            );
+            if let Some(address) = &network.address {
+                width = width.max(self.config.text.width(address, self.config.font_size));
+            }
+        }
+        width
     }
 
     /// Вычисляет Y позицию для сети по индексу
@@ -117,10 +147,14 @@ impl NetworkLayoutEngine {
             // Ширина полосы измерена по эталону: 10..110, то есть 100 при
             // двух серверах. Раньше к сумме серверов добавлялся ещё padding,
             // из-за чего полоса выходила на 10px шире.
-            let network_width = server_order.len() as f64
-                * (self.config.server_width + self.config.server_spacing)
-                + self.config.server_width
-                - self.config.server_spacing;
+            // Ширина полосы: серверы плюс отступы по краям.
+            //
+            // Измерено по эталону network_nwdiag: полоса 86.564..266.732
+            // (180.168) при двух серверах по 60.084 с зазором 30 и отступом
+            // 15 с каждой стороны: 2*60.084 + 30 + 2*15 = 180.168.
+            let servers_span = server_order.len() as f64 * self.config.server_width
+                + (server_order.len().saturating_sub(1)) as f64 * self.config.server_spacing;
+            let network_width = servers_span + SERVER_BAND_INSET * 2.0;
 
             // Фон сети
             let network_bg = LayoutElement {
@@ -130,7 +164,7 @@ impl NetworkLayoutEngine {
                     corner_radius: 5.0,
                 },
                 bounds: Rect::new(
-                    self.config.padding,
+                    self.band_x(diagram),
                     y,
                     network_width,
                     self.config.network_band_height,
@@ -152,19 +186,30 @@ impl NetworkLayoutEngine {
                 label = format!("{}\n{}", label, addr);
             }
 
-            let network_label = LayoutElement {
-                id: format!("network_{}_label", network.id.name),
+            // Подписи сети — СЛЕВА от полосы, выровнены по правому краю.
+            //
+            // В эталоне имя сети (55.959..81.564) и адрес (5..81.564) имеют
+            // общий правый край 81.564, а полоса начинается на 86.564.
+            // Раньше обе подписи рисовались одной строкой НАД полосой.
+            let right_edge = self.band_x(diagram) - NETWORK_LABEL_GAP;
+            let name_width = self
+                .config
+                .text
+                .width(&network.id.name, self.config.font_size);
+
+            let name_label = LayoutElement {
+                id: format!("network_{}_name", network.id.name),
                 element_type: ElementType::Text {
-                    text: label.clone(),
+                    text: network.id.name.clone(),
                     font_size: self.config.font_size,
                 },
                 bounds: Rect::new(
-                    self.config.padding + 10.0,
-                    y + 5.0,
-                    150.0,
-                    self.config.network_header_height,
+                    right_edge - name_width,
+                    y,
+                    name_width,
+                    self.config.font_size,
                 ),
-                text: Some(label),
+                text: Some(network.id.name.clone()),
                 properties: [
                     ("fill".to_string(), "#000000".to_string()),
                     ("font-weight".to_string(), "bold".to_string()),
@@ -172,9 +217,33 @@ impl NetworkLayoutEngine {
                 .into_iter()
                 .collect(),
             };
-            elements.push(network_label);
+            elements.push(name_label);
 
-            max_width = max_width.max(network_width + self.config.padding * 2.0);
+            if let Some(ref addr) = network.address {
+                let addr_width = self.config.text.width(addr, self.config.font_size);
+                let addr_label = LayoutElement {
+                    id: format!("network_{}_addr", network.id.name),
+                    element_type: ElementType::Text {
+                        text: addr.clone(),
+                        font_size: self.config.font_size,
+                    },
+                    bounds: Rect::new(
+                        right_edge - addr_width,
+                        y + NETWORK_ADDRESS_BASELINE,
+                        addr_width,
+                        self.config.font_size,
+                    ),
+                    text: Some(addr.clone()),
+                    properties: std::collections::HashMap::new(),
+                };
+                elements.push(addr_label);
+            }
+
+            // Ширина диаграммы складывается из столбца подписей, полосы
+            // и правого поля. Раньше здесь было только `network_width +
+            // padding * 2` — без сдвига полосы, поэтому подписи слева
+            // вылезали за пределы диаграммы.
+            max_width = max_width.max(self.band_x(diagram) + network_width - self.config.padding);
             total_height = y
                 + self.config.network_band_height
                 + self.config.server_top_offset
@@ -206,7 +275,7 @@ impl NetworkLayoutEngine {
         }
 
         for (srv_idx, server_name) in server_order.iter().enumerate() {
-            let x = self.server_x_position(srv_idx);
+            let x = self.server_x_position(diagram, srv_idx);
 
             if let Some(net_indices) = server_networks.get(server_name) {
                 let server = server_data.get(server_name);
@@ -420,7 +489,7 @@ impl NetworkLayoutEngine {
 
             for server_name in &group.servers {
                 if let Some(idx) = server_order.iter().position(|s| s == server_name) {
-                    let x = self.server_x_position(idx);
+                    let x = self.server_x_position(diagram, idx);
                     min_x = min_x.min(x);
                     max_x = max_x.max(x + self.config.server_width);
                 }

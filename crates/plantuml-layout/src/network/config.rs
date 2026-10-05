@@ -1,8 +1,12 @@
 //! Конфигурация layout для Network диаграмм
 
+use crate::text::TextMeasurer;
+
 /// Конфигурация для Network layout engine
 #[derive(Debug, Clone)]
 pub struct NetworkLayoutConfig {
+    /// Измеритель текста (нужен для контентных размеров, а не констант).
+    pub text: TextMeasurer,
     /// Отступ от краёв диаграммы
     pub padding: f64,
     /// Верхний отступ: в эталоне полоса стоит на y=12.5, а не на 10.
@@ -45,7 +49,8 @@ impl Default for NetworkLayoutConfig {
             // диаграмма была почти втрое шире и выше эталона.
             // Полоса начинается на y=12.5 (наш padding даёт 10), поэтому
             // верхний отступ задан отдельно от бокового.
-            padding: 10.0,
+            padding: 5.0,
+            text: TextMeasurer::default(),
             padding_top: 12.5,
             network_band_height: 5.0,
             network_spacing: 35.0,
