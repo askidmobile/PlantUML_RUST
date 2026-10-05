@@ -3,7 +3,7 @@
 
 // === Основные правила ===
 
-diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ (ws* ~ statement ~ NEWLINE*)* ~ end_tag ~ NEWLINE* ~ EOI }
+diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ (ws* ~ statement? ~ NEWLINE)* ~ ws* ~ end_tag ~ NEWLINE* ~ EOI }
 
 start_tag = { "@startuml" ~ identifier? }
 end_tag = { "@enduml" }

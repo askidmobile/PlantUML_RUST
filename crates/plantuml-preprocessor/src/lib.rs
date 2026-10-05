@@ -499,6 +499,9 @@ impl<R: FileResolver> Preprocessor<R> {
             // Обработка вызовов пользовательских функций
             let processed = self.process_function_calls(&processed, ctx);
 
+            // Встроенные функции, которым нужен контекст
+            let processed = self.process_context_builtins(&processed, ctx);
+
             // Обработка builtin функций
             let processed = builtins::process_builtins(&processed);
 
@@ -890,6 +893,57 @@ impl<R: FileResolver> Preprocessor<R> {
         Ok((output, child.return_value))
     }
 
+    /// Обрабатывает встроенные функции, которым нужен ДОСТУП К КОНТЕКСТУ.
+    ///
+    /// `builtins::process_builtins` — чистые преобразования строки, они не
+    /// могут менять переменные. А стандартная библиотека активно
+    /// пользуется именно такими функциями:
+    ///
+    /// ```text
+    /// %set_variable_value("$" + $tag + "_LineLegend", %true())
+    /// %function_exists("%breakline")
+    /// ```
+    ///
+    /// Первый аргумент `%set_variable_value` — КОНКАТЕНАЦИЯ через `+`,
+    /// поэтому она вычисляется, а не берётся как строка.
+    fn process_context_builtins(&self, line: &str, ctx: &mut PreprocessContext) -> String {
+        let mut result = line.to_string();
+
+        // %function_exists("имя") — объявлена ли такая функция/процедура
+        while let Some(start) = result.find("%function_exists(") {
+            let Some(close) = find_closing_paren(&result, start) else {
+                break;
+            };
+            let inner = result[start + "%function_exists(".len()..close].to_string();
+            let name = inner.trim().trim_matches('"');
+            let known =
+                ctx.get_callable(name).is_some() || ctx.get_callable(&format!("${name}")).is_some();
+            let value = if known { "true" } else { "false" };
+            result = format!("{}{}{}", &result[..start], value, &result[close + 1..]);
+        }
+
+        // %set_variable_value(ИМЯ, ЗНАЧЕНИЕ) — устанавливает переменную и
+        // НЕ печатает ничего: в библиотеках это оператор ради эффекта.
+        while let Some(start) = result.find("%set_variable_value(") {
+            let Some(close) = find_closing_paren(&result, start) else {
+                break;
+            };
+            let inner = result[start + "%set_variable_value(".len()..close].to_string();
+            let (name, value) = split_top_level_args(&inner);
+
+            let name = evaluate_concat(&name, ctx);
+            let value = evaluate_concat(&value, ctx);
+
+            if name.starts_with('$') {
+                ctx.variables.insert(name, value);
+            }
+
+            result = format!("{}{}", &result[..start], &result[close + 1..]);
+        }
+
+        result
+    }
+
     /// Обрабатывает вызовы пользовательских функций в строке
     fn process_function_calls(&self, line: &str, ctx: &mut PreprocessContext) -> String {
         let calls = functions::find_function_calls(line);
@@ -943,6 +997,100 @@ impl<R: FileResolver> Preprocessor<R> {
 
         result
     }
+}
+
+/// Возвращает индекс закрывающей скобки для открывающей на `open`.
+///
+/// Учитывает вложенность: аргументы встроенных функций сами содержат
+/// скобки (`%function_exists("%breakline")`).
+fn find_closing_paren(text: &str, open: usize) -> Option<usize> {
+    let bytes = text.as_bytes();
+    let mut depth = 0i32;
+
+    for (offset, byte) in bytes.iter().enumerate().skip(open) {
+        match byte {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(offset);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+/// Делит аргументы функции по запятой ВЕРХНЕГО уровня.
+///
+/// Запятые внутри вложенных вызовов и кавычек не считаются разделителями.
+fn split_top_level_args(text: &str) -> (String, String) {
+    let bytes = text.as_bytes();
+    let mut depth = 0i32;
+    let mut in_quotes = false;
+
+    for (offset, byte) in bytes.iter().enumerate() {
+        match byte {
+            b'"' => in_quotes = !in_quotes,
+            b'(' if !in_quotes => depth += 1,
+            b')' if !in_quotes => depth -= 1,
+            b',' if !in_quotes && depth == 0 => {
+                return (
+                    text[..offset].trim().to_string(),
+                    text[offset + 1..].trim().to_string(),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    (text.trim().to_string(), String::new())
+}
+
+/// Вычисляет конкатенацию вида `"$" + $tag + "_LineLegend"`.
+///
+/// Части соединяются через `+`; кавычки снимаются, переменные
+/// подставляются из контекста.
+fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> String {
+    let mut out = String::new();
+    let mut depth = 0i32;
+    let mut in_quotes = false;
+    let mut part = String::new();
+
+    for ch in expression.chars() {
+        match ch {
+            '"' => {
+                in_quotes = !in_quotes;
+                part.push(ch);
+            }
+            '(' if !in_quotes => {
+                depth += 1;
+                part.push(ch);
+            }
+            ')' if !in_quotes => {
+                depth -= 1;
+                part.push(ch);
+            }
+            '+' if !in_quotes && depth == 0 => {
+                out.push_str(&resolve_concat_part(&part, ctx));
+                part.clear();
+            }
+            _ => part.push(ch),
+        }
+    }
+
+    out.push_str(&resolve_concat_part(&part, ctx));
+    out.trim().to_string()
+}
+
+/// Приводит одну часть конкатенации к значению.
+fn resolve_concat_part(part: &str, ctx: &PreprocessContext) -> String {
+    let trimmed = part.trim();
+    let unquoted = trimmed.trim_matches('"');
+    let substituted = variables::substitute(unquoted, &ctx.variables);
+    substituted.trim_matches('"').to_string()
 }
 
 /// Нормализует путь включения: убирает `.` и разворачивает `..`.
@@ -1266,6 +1414,63 @@ MAIN_END
         assert!(result.contains("LEVEL2_CONTENT"));
         assert!(result.contains("LEVEL1_END"));
         assert!(result.contains("MAIN_END"));
+    }
+
+    /// `%set_variable_value` вычисляет конкатенацию и ничего не печатает.
+    ///
+    /// Стандартная библиотека зовёт её как оператор:
+    /// `%set_variable_value("$" + $tag + "_LineLegend", %true())`.
+    #[test]
+    fn test_set_variable_value() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !unquoted function $F()\n\
+            !$tag = Важное\n\
+            %set_variable_value(\"$\" + $tag + \"_Флаг\", %true())\n\
+            !return \"\"\n\
+            !endfunction\n\
+            $F()\n\
+            !if ($Важное_Флаг == true)\n\
+            class Установлено\n\
+            !endif\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            !out.contains("%set_variable_value"),
+            "вызов просочился в вывод: {out}"
+        );
+        assert!(
+            out.contains("class Установлено"),
+            "переменная не установлена: {out}"
+        );
+    }
+
+    /// `%function_exists` работает и в условии `!if`.
+    #[test]
+    fn test_function_exists_in_condition() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $Есть()\n\
+            !return 1\n\
+            !endfunction\n\
+            !if (%function_exists(\"$Есть\"))\n\
+            class Найдена\n\
+            !endif\n\
+            !if (%function_exists(\"$Нет\"))\n\
+            class Лишняя\n\
+            !endif\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class Найдена"),
+            "известная функция не найдена: {out}"
+        );
+        assert!(
+            !out.contains("class Лишняя"),
+            "неизвестная функция найдена: {out}"
+        );
     }
 
     /// Тело макроса ВЫПОЛНЯЕТСЯ, а не подставляется текстом.

@@ -736,4 +736,16 @@ node "Outer" {
             "Should have 1 component"
         );
     }
+
+    /// Строка из одних пробелов не обрывает разбор.
+    ///
+    /// В развёрнутом выводе стандартной библиотеки встречаются строки
+    /// с отступом без содержимого. Раньше `ws*` съедал пробелы, правило
+    /// оператора не срабатывало, и разбор падал на `@enduml`.
+    #[test]
+    fn test_whitespace_only_line_is_allowed() {
+        let source = "@startuml\ncomponent A\n    \ncomponent B\n@enduml";
+        let diagram = parse_component(source).expect("строка из пробелов не должна ломать разбор");
+        assert_eq!(diagram.components.len(), 2);
+    }
 }

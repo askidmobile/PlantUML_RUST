@@ -194,6 +194,18 @@ fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
         _ => {}
     }
 
+    // `%function_exists("ИМЯ")` — объявлена ли такая функция или процедура.
+    // Библиотека C4 выбирает поведение по наличию необязательных функций.
+    if let Some(inner) = trimmed
+        .strip_prefix("%function_exists(")
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
+        let name = inner.trim().trim_matches('"');
+        let known =
+            ctx.get_callable(name).is_some() || ctx.get_callable(&format!("${name}")).is_some();
+        return if known { "true" } else { "false" }.to_string();
+    }
+
     // `%variable_exists("ИМЯ")` — встроенная проверка наличия переменной.
     // Нужна стандартной библиотеке: C4 выбирает относительный include
     // именно так.
