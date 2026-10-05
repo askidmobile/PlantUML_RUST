@@ -18,6 +18,10 @@ use crate::traits::LayoutResult;
 /// отстоит от оси ровно на 50, следующее — на 100.
 const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
 
+/// Отступ метки состояния от вертикали перехода (измерено по эталону:
+/// переход на 141.732, метка «Обработка» на 153.73 — разница 12).
+const STATE_LABEL_OFFSET: f64 = 12.0;
+
 /// Шаг делений шкалы. Постоянный: не зависит ни от значений времени,
 /// ни от числа событий (проверено на пяти замерах с plantuml.com).
 const TIME_TICK_STEP: f64 = 50.0;
@@ -325,18 +329,23 @@ impl TimingLayoutEngine {
         lane_y: f64,
         start_x: f64,
         _width: f64,
-        min_time: f64,
+        _min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
         let state_y = lane_y + (self.config.lane_height - self.config.robust_state_height) / 2.0;
 
+        // Позиция = начало шкалы + ИНДЕКС события * шаг деления.
+        //
+        // Шкала строится по числу событий, а не по значениям времени
+        // (правило выведено по замерам, см. `draw_time_axis`). Здесь
+        // раньше оставался старый расчёт `(t - min_time) * time_scale`,
+        // из-за чего переходы стояли на 7 меньше эталонных.
         if let Some(changes) = changes {
             for (i, window) in changes.windows(2).enumerate() {
                 let current = window[0];
-                let next = window[1];
 
-                let x1 = start_x + (current.time.as_f64() - min_time) * self.config.time_scale;
-                let x2 = start_x + (next.time.as_f64() - min_time) * self.config.time_scale;
+                let x1 = start_x + i as f64 * TIME_TICK_STEP;
+                let x2 = start_x + (i + 1) as f64 * TIME_TICK_STEP;
                 let width = (x2 - x1).max(20.0);
 
                 // Прямоугольник состояния
@@ -354,7 +363,7 @@ impl TimingLayoutEngine {
 
             // Последнее состояние
             if let Some(last) = changes.last() {
-                let x = start_x + (last.time.as_f64() - min_time) * self.config.time_scale;
+                let x = start_x + changes.len().saturating_sub(1) as f64 * TIME_TICK_STEP;
                 elements.push(LayoutElement {
                     id: format!("state_{}_last", participant_name),
                     bounds: Rect::new(x, state_y, 50.0, self.config.robust_state_height),
@@ -379,7 +388,7 @@ impl TimingLayoutEngine {
         lane_y: f64,
         start_x: f64,
         width: f64,
-        min_time: f64,
+        _min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
         let line_y = lane_y + self.config.lane_height / 2.0;
@@ -408,7 +417,7 @@ impl TimingLayoutEngine {
         // Метки состояний
         if let Some(changes) = changes {
             for (i, change) in changes.iter().enumerate() {
-                let x = start_x + (change.time.as_f64() - min_time) * self.config.time_scale;
+                let x = start_x + i as f64 * TIME_TICK_STEP;
 
                 // Вертикальная линия перехода
                 elements.push(LayoutElement {
@@ -439,7 +448,7 @@ impl TimingLayoutEngine {
                     .width(&change.state, self.config.label_font_size);
                 elements.push(LayoutElement {
                     id: format!("state_label_{}_{}_{}", participant_name, participant_idx, i),
-                    bounds: Rect::new(x + 5.0, line_y - 20.0, label_width, 15.0),
+                    bounds: Rect::new(x + STATE_LABEL_OFFSET, line_y - 20.0, label_width, 15.0),
                     text: None,
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {
