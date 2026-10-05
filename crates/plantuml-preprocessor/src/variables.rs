@@ -37,7 +37,13 @@ pub fn handle_variable_assignment(directive: &str, ctx: &mut PreprocessContext) 
     // склеенную строку. Прежний код сохранял текст как есть, поэтому
     // библиотеки получали в переменной сырое выражение вида
     // `"rectangle<<" + $a` — это ломало, например, C4.
-    let value = crate::evaluate_concat(value_part.trim(), ctx);
+    // ПОДСТАНОВКА ПЕРЕМЕННЫХ В ПРАВОЙ ЧАСТИ.
+    //
+    // `!$i = $i + 1` должно взять ТЕКУЩЕЕ значение `$i`. Раньше
+    // `evaluate_concat` видел `$i` как имя и оставлял его как есть —
+    // переменная не менялась вовсе, и циклы `!while` не завершались.
+    let substituted = crate::variables::substitute(value_part.trim(), &ctx.variables);
+    let value = crate::evaluate_concat(&substituted, ctx);
     let key = format!("${}", name);
 
     if default_only && ctx.variables.contains_key(&key) {

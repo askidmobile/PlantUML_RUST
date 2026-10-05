@@ -136,6 +136,15 @@ enum DefiningCallable {
 /// из управляющей области: в исходниках диаграмм он не встречается.
 pub const LIST_SEPARATOR: char = '\u{1}';
 
+/// Собираемое тело цикла `!while`.
+#[derive(Debug, Clone)]
+struct WhileDef {
+    /// Условие продолжения.
+    condition: String,
+    /// Строки тела.
+    body: Vec<String>,
+}
+
 /// Собираемое тело цикла `!foreach`.
 #[derive(Debug, Clone)]
 struct ForeachDef {
@@ -159,6 +168,12 @@ pub struct MacroDefinition {
     /// Тело макроса (то, что идёт после закрывающей скобки)
     pub body: String,
 }
+
+/// Предел итераций цикла `!while`.
+///
+/// Защищает от зацикливания: без него опечатка в условии останавливает
+/// разбор навсегда, а в WASM это падение вкладки.
+const MAX_WHILE_ITERATIONS: usize = 10_000;
 
 /// Максимальная глубина вызовов макросов.
 ///
@@ -226,6 +241,8 @@ pub struct PreprocessContext {
     pub macro_variables: IndexMap<String, String>,
     /// Стек собираемых циклов `!foreach` (вложенные поддерживаются).
     foreach_stack: Vec<ForeachDef>,
+    /// Стек собираемых циклов `!while`.
+    while_stack: Vec<WhileDef>,
     /// Имена переменных, которые нужно ПЕРЕНЕСТИ в вызывающий контекст.
     ///
     /// Переменные, заданные телом макроса, ЛОКАЛЬНЫ: проверено на сервере —
@@ -256,6 +273,7 @@ impl Default for PreprocessContext {
             call_depth: 0,
             macro_variables: IndexMap::new(),
             foreach_stack: Vec::new(),
+            while_stack: Vec::new(),
             exported: Vec::new(),
         }
     }
@@ -512,6 +530,44 @@ impl<R: FileResolver> Preprocessor<R> {
                 continue;
             }
 
+            // СБОР ТЕЛА ЦИКЛА `!while`.
+            //
+            // Пока цикл собирается, строки не выполняются: они составят
+            // тело, которое затем прогоняется, пока условие истинно.
+            // Нужно для `$breakText` в C4: он ищет переводы строки
+            // в цикле.
+            if !ctx.while_stack.is_empty() {
+                if let Some(rest) = trimmed.strip_prefix("!while ") {
+                    ctx.while_stack.push(WhileDef {
+                        condition: rest.trim().to_string(),
+                        body: Vec::new(),
+                    });
+                    continue;
+                }
+
+                if trimmed == "!endwhile" {
+                    let Some(definition) = ctx.while_stack.pop() else {
+                        continue;
+                    };
+                    let expanded = self.execute_while(&definition, ctx)?;
+                    match ctx.while_stack.last_mut() {
+                        Some(outer) => outer.body.push(expanded),
+                        None => {
+                            output.push_str(&expanded);
+                            if !expanded.is_empty() && !expanded.ends_with('\n') {
+                                output.push('\n');
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                if let Some(current) = ctx.while_stack.last_mut() {
+                    current.body.push(line.to_string());
+                }
+                continue;
+            }
+
             // СБОР ТЕЛА ЦИКЛА `!foreach`.
             //
             // Пока цикл собирается, строки не выполняются: они составят
@@ -683,6 +739,15 @@ impl<R: FileResolver> Preprocessor<R> {
             directives::handle_ifdef(rest.trim(), ctx, true);
         } else if let Some(rest) = directive.strip_prefix("ifndef ") {
             directives::handle_ifdef(rest.trim(), ctx, false);
+        } else if let Some(rest) = directive.strip_prefix("while ") {
+            ctx.while_stack.push(WhileDef {
+                condition: rest.trim().to_string(),
+                body: Vec::new(),
+            });
+        } else if directive == "endwhile" {
+            return Err(PreprocessError::SyntaxError(
+                "!endwhile без соответствующего !while".to_string(),
+            ));
         } else if let Some(rest) = directive.strip_prefix("foreach ") {
             let Some((var, collection)) = rest.split_once(" in ") else {
                 return Err(PreprocessError::SyntaxError(
@@ -734,6 +799,15 @@ impl<R: FileResolver> Preprocessor<R> {
             // Раньше они применялись только к строкам вывода, поэтому
             // `!$items = %splitstr("a,b,c", ",")` сохраняло ТЕКСТ вызова,
             // и `!foreach` получал один элемент вместо трёх.
+            // Переменные подставляем ДО встроенных: их аргументы заданы
+            // переменными (`%strpos($t, "|")`), а встроенные ожидают
+            // готовые значения.
+            //
+            // ПОДСТАНОВКА ИДЁТ ТОЛЬКО В ПРАВУЮ ЧАСТЬ. По всей строке она
+            // затирала ИМЯ переменной: `!$i = $i + 1` превращалось в
+            // `5 = 5 + 1`, и присваивание не выполнялось вовсе — циклы
+            // `!while` не завершались.
+            let expanded = substitute_assignment_value(&expanded, &ctx.variables);
             let expanded = self.process_context_builtins(&expanded, ctx);
             let expanded = builtins::process_builtins(&expanded);
             variables::handle_variable_assignment(&expanded, ctx)?;
@@ -1063,6 +1137,7 @@ impl<R: FileResolver> Preprocessor<R> {
             call_depth: ctx.call_depth + 1,
             macro_variables: IndexMap::new(),
             foreach_stack: Vec::new(),
+            while_stack: Vec::new(),
             exported: Vec::new(),
         };
 
@@ -1110,7 +1185,7 @@ impl<R: FileResolver> Preprocessor<R> {
             // `$getRel($down("-","->>"), ...)` вместо готовой стрелки.
             let mut value = match named.or(positional) {
                 Some(value) if !value.trim().is_empty() => {
-                    let expanded = self.process_function_calls(&value, ctx);
+                    let expanded = self.expand_calls_in_expression(&value, ctx);
                     let expanded = self.process_chr_builtin(&expanded, ctx);
                     evaluate_concat(&expanded, ctx)
                 }
@@ -1252,6 +1327,28 @@ impl<R: FileResolver> Preprocessor<R> {
         result
     }
 
+    /// Выполняет тело цикла `!while`, пока условие истинно.
+    ///
+    /// Предел итераций обязателен: без него опечатка в условии
+    /// (`%strpos` никогда не станет отрицательным) зациклит разбор,
+    /// а в WASM это падение вкладки без возможности перехватить ошибку.
+    fn execute_while(&self, definition: &WhileDef, ctx: &mut PreprocessContext) -> Result<String> {
+        use crate::directives::evaluate_condition_public;
+
+        let mut output = String::new();
+        let body = definition.body.join("\n");
+
+        for _ in 0..MAX_WHILE_ITERATIONS {
+            if !evaluate_condition_public(&definition.condition, ctx) {
+                break;
+            }
+
+            output.push_str(&self.process_with_context(&body, ctx)?);
+        }
+
+        Ok(output)
+    }
+
     /// Выполняет тело цикла `!foreach` для каждого элемента коллекции.
     ///
     /// Коллекция — значение переменной или выражение; элементы разделены
@@ -1322,8 +1419,30 @@ impl<R: FileResolver> Preprocessor<R> {
         result
     }
 
-    /// Обрабатывает вызовы пользовательских функций в строке
+    /// Обрабатывает вызовы пользовательских функций в строке.
+    ///
+    /// Значения вызовов-операторов здесь ОТБРАСЫВАЮТСЯ: так PlantUML
+    /// поступает с вызовом во всю строку на верхнем уровне.
     fn process_function_calls(&self, line: &str, ctx: &mut PreprocessContext) -> String {
+        self.process_function_calls_impl(line, ctx, true)
+    }
+
+    /// Раскрывает вызовы В ВЫРАЖЕНИИ: значения сохраняются.
+    ///
+    /// Нужно при раскрытии аргументов и вложенных вызовов. Без этого
+    /// `$outer($inner(1))` терял значение `$inner`: строка `$inner(1)`
+    /// занимает аргумент целиком, и правило «вызов-оператор» ошибочно
+    /// считало его оператором.
+    fn expand_calls_in_expression(&self, line: &str, ctx: &mut PreprocessContext) -> String {
+        self.process_function_calls_impl(line, ctx, false)
+    }
+
+    fn process_function_calls_impl(
+        &self,
+        line: &str,
+        ctx: &mut PreprocessContext,
+        drop_statement_values: bool,
+    ) -> String {
         let calls = functions::find_function_calls(line);
 
         if calls.is_empty() {
@@ -1346,7 +1465,7 @@ impl<R: FileResolver> Preprocessor<R> {
             let args: Vec<functions::CallArgument> = args
                 .into_iter()
                 .map(|argument| {
-                    let expanded = self.process_function_calls(&argument.value, ctx);
+                    let expanded = self.expand_calls_in_expression(&argument.value, ctx);
                     functions::CallArgument {
                         name: argument.name,
                         value: expanded,
@@ -1383,7 +1502,7 @@ impl<R: FileResolver> Preprocessor<R> {
                 // `!return $inner()`, ВОЗВРАЩАЕТ значение. Прежде правило
                 // «вызов во всю строку — оператор» применялось и внутри
                 // тел, поэтому вложенный вызов терялся.
-                let drop_value = is_statement && ctx.call_depth == 0;
+                let drop_value = drop_statement_values && is_statement && ctx.call_depth == 0;
 
                 let replacement = match callable.kind {
                     functions::CallableKind::Function if drop_value => String::new(),
@@ -1491,7 +1610,21 @@ pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> Stri
         }
     }
 
-    out.push_str(&resolve_concat_part(&part, ctx));
+    let last = resolve_concat_part(&part, ctx);
+
+    // ЧИСЛОВОЕ сложение: PlantUML складывает числа, а не склеивает их.
+    //
+    // Проверено на сервере: `!$i = 5`, затем `!$i = $i + 1` даёт 6.
+    // Проверять надо ПО ЧАСТЯМ: если все слагаемые — числа, результат
+    // тоже число. Соединённая строка «51» уже не содержит `+`, поэтому
+    // проверка по ней не срабатывала.
+    if let Ok(left) = out.trim().parse::<i64>() {
+        if let Ok(right) = last.trim().parse::<i64>() {
+            return (left + right).to_string();
+        }
+    }
+
+    out.push_str(&last);
     out.trim().to_string()
 }
 
@@ -1523,6 +1656,28 @@ fn strip_matching_quotes(text: &str) -> &str {
     }
 
     text
+}
+
+/// Подставляет переменные ТОЛЬКО в правую часть присваивания.
+///
+/// Левая часть — имя переменной, её подставлять нельзя: `!$i = $i + 1`
+/// иначе станет `5 = 5 + 1`.
+fn substitute_assignment_value(directive: &str, variables: &IndexMap<String, String>) -> String {
+    let Some(separator) = directive
+        .find("?=")
+        .map(|at| (at, 2))
+        .or_else(|| directive.find('=').map(|at| (at, 1)))
+    else {
+        return directive.to_string();
+    };
+
+    let (at, width) = separator;
+    format!(
+        "{}{}{}",
+        &directive[..at + width],
+        variables::substitute(&directive[at + width..], variables),
+        ""
+    )
 }
 
 /// Нормализует путь включения: убирает `.` и разворачивает `..`.
@@ -2118,6 +2273,75 @@ MAIN_END
         assert!(
             out.contains("class Готово"),
             "глобальная переменная не видна: {out}"
+        );
+    }
+
+    /// `!while` выполняется, пока условие истинно.
+    #[test]
+    fn test_while_loop() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !$i = 0\n\
+            !while ($i < 3)\n\
+            class шаг\n\
+            !$i = $i + 1\n\
+            !endwhile\n\
+            class \"i=$i\"\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert_eq!(
+            out.matches("class шаг").count(),
+            3,
+            "неверное число итераций: {out}"
+        );
+        assert!(
+            out.contains("class \"i=3\""),
+            "счётчик не дошёл до 3: {out}"
+        );
+    }
+
+    /// Присваивание берёт ТЕКУЩЕЕ значение: `!$i = $i + 1`.
+    ///
+    /// Регрессия: подстановка шла по ВСЕЙ строке, поэтому `!$i = $i + 1`
+    /// превращалось в `5 = 5 + 1` — имя переменной затиралось, и значение
+    /// не менялось. Из-за этого циклы `!while` не завершались.
+    #[test]
+    fn test_assignments_use_current_value() {
+        let pp = Preprocessor::new();
+
+        // Числовое сложение.
+        let numeric = "@startuml\n!$i = 5\n!$i = $i + 1\nclass \"i=$i\"\n@enduml";
+        let out = pp.process(numeric).unwrap();
+        assert!(out.contains("class \"i=6\""), "число не сложилось: {out}");
+
+        // Конкатенация строк.
+        let text = "@startuml\n!$s = a\n!$s = $s + b\nclass \"s=$s\"\n@enduml";
+        let out = pp.process(text).unwrap();
+        assert!(out.contains("class \"s=ab\""), "строки не склеились: {out}");
+    }
+
+    /// Вложенный вызов в аргументе раскрывается.
+    ///
+    /// Регрессия: правило «вызов-оператор» отбрасывало значение, потому
+    /// что аргумент `$inner(1)` занимает строку целиком.
+    #[test]
+    fn test_nested_call_in_argument() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $inner($a)\n\
+            !return \"[\" + $a + \"]\"\n\
+            !endfunction\n\
+            !function $outer($x)\n\
+            !return \"<\" + $x + \">\"\n\
+            !endfunction\n\
+            class \"$outer($inner(1))\"\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class \"<[1]>\""),
+            "вложенный вызов не раскрыт: {out}"
         );
     }
 

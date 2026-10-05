@@ -167,6 +167,11 @@ fn strip_enclosing_parens(text: &str) -> &str {
 /// Поддерживаются сравнения `==` и `!=` над переменными (`$имя`),
 /// логическими литералами `%true()`/`%false()` и строками. Этого
 /// достаточно для условий в стандартной библиотеке.
+/// Оценка условия для внешних модулей (циклы ).
+pub fn evaluate_condition_public(expression: &str, ctx: &PreprocessContext) -> bool {
+    evaluate_condition(expression, ctx)
+}
+
 fn evaluate_condition(expression: &str, ctx: &PreprocessContext) -> bool {
     evaluate(expression, ctx).unwrap_or(false)
 }
