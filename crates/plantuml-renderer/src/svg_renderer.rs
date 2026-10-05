@@ -524,7 +524,13 @@ impl SvgRenderer {
                 };
             }
             ElementType::Ellipse { label } => {
-                group = self.render_ellipse(&element.bounds, label.as_deref(), theme, group);
+                group = self.render_ellipse(
+                    &element.bounds,
+                    label.as_deref(),
+                    theme,
+                    group,
+                    &element.properties,
+                );
             }
             ElementType::InitialState => {
                 group = self.render_initial_state(&element.bounds, theme, group);
@@ -918,19 +924,31 @@ impl SvgRenderer {
         label: Option<&str>,
         theme: &Theme,
         mut group: Group,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let cy = bounds.y + bounds.height / 2.0;
         let rx = bounds.width / 2.0;
         let ry = bounds.height / 2.0;
 
+        // Цвета могут быть переопределены: кружок обязательного атрибута
+        // в ER-диаграмме — ЧЁРНЫЙ, тогда как тема даёт светлый фон.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+
         let ellipse = svg::node::element::Ellipse::new()
             .set("cx", cx)
             .set("cy", cy)
             .set("rx", rx)
             .set("ry", ry)
-            .set("fill", theme.node_background.to_css())
-            .set("stroke", theme.node_border.to_css())
+            .set("fill", fill)
+            .set("stroke", stroke)
             .set("stroke-width", 1);
 
         group = group.add(ellipse);

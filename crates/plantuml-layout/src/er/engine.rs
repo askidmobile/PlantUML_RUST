@@ -12,6 +12,26 @@ use crate::er::config::ErLayoutConfig;
 use crate::traits::{LayoutEngine, LayoutResult};
 use crate::{EdgeType, ElementType, LayoutConfig, LayoutElement};
 
+/// Радиус кружка, помечающего обязательный атрибут.
+///
+/// Измерено по эталону `er_basic`: `rx=3`, `fill=#000`.
+const ER_REQUIRED_MARKER_RADIUS: f64 = 3.0;
+
+/// Положение центра кружка обязательного атрибута от левого края рамки.
+const ER_REQUIRED_MARKER_X: f64 = 11.0;
+
+/// Смещение кружка по вертикали внутри строки атрибута.
+///
+/// Эталон: кружок на 45.648 от верха рамки, подпись на 48.995 —
+/// то есть кружок на 3.347 выше базовой линии.
+const ER_REQUIRED_MARKER_DY: f64 = 15.648;
+
+/// Отступ подписи обязательного атрибута от края рамки.
+const ER_REQUIRED_TEXT_OFFSET: f64 = 20.0;
+
+/// Отступ подписи обычного атрибута от края рамки.
+const ER_PLAIN_TEXT_OFFSET: f64 = 6.0;
+
 /// Layout engine для ER диаграмм
 pub struct ErLayoutEngine {
     config: ErLayoutConfig,
@@ -193,7 +213,6 @@ impl ErLayoutEngine {
         // Атрибуты
         let mut attr_y = bounds.y + self.config.entity_header_height;
         for (i, attr) in entity.attributes.iter().enumerate() {
-            let prefix = if attr.is_required { "* " } else { "  " };
             let type_str = attr
                 .data_type
                 .as_ref()
@@ -205,7 +224,36 @@ impl ErLayoutEngine {
                 .map(|s| format!(" <<{}>>", s))
                 .unwrap_or_default();
 
-            let attr_text = format!("{}{}{}{}", prefix, attr.name, type_str, stereo_str);
+            // Обязательный атрибут помечается КРУЖКОМ, а не звёздочкой в тексте.
+            //
+            // Измерено по эталону `er_basic`: для `*id : int` нарисован
+            // чёрный кружок r=3 в точке (рамка + 11), а подпись — «id : int»
+            // без звёздочки, с отступом 20 от края рамки. Прежний код
+            // подставлял «* » прямо в текст.
+            let text_offset = if attr.is_required {
+                ER_REQUIRED_TEXT_OFFSET
+            } else {
+                ER_PLAIN_TEXT_OFFSET
+            };
+
+            if attr.is_required {
+                elements.push(LayoutElement {
+                    id: format!("entity_{}_attr_{}_marker", entity_id, i),
+                    element_type: ElementType::Ellipse { label: None },
+                    bounds: Rect::new(
+                        bounds.x + ER_REQUIRED_MARKER_X - ER_REQUIRED_MARKER_RADIUS,
+                        attr_y + ER_REQUIRED_MARKER_DY - ER_REQUIRED_MARKER_RADIUS,
+                        ER_REQUIRED_MARKER_RADIUS * 2.0,
+                        ER_REQUIRED_MARKER_RADIUS * 2.0,
+                    ),
+                    text: None,
+                    properties: [("fill".to_string(), "#000000".to_string())]
+                        .into_iter()
+                        .collect(),
+                });
+            }
+
+            let attr_text = format!("{}{}{}", attr.name, type_str, stereo_str);
 
             let attr_element = LayoutElement {
                 id: format!("entity_{}_attr_{}", entity_id, i),
@@ -214,9 +262,9 @@ impl ErLayoutEngine {
                     font_size: self.config.font_size - 1.0,
                 },
                 bounds: Rect::new(
-                    bounds.x + self.config.entity_padding,
+                    bounds.x + text_offset,
                     attr_y,
-                    bounds.width - self.config.entity_padding * 2.0,
+                    bounds.width - text_offset - self.config.entity_padding,
                     self.config.attribute_height,
                 ),
                 text: Some(attr_text),
