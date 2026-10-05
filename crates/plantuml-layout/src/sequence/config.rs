@@ -102,10 +102,15 @@ impl SequenceLayoutConfig {
     ///
     /// В эталоне PlantUML: textLength="33.667" при width="47.667", то есть
     /// по 7px внутреннего отступа с каждой стороны.
+    ///
+    /// Минимальной ширины у PlantUML НЕТ: проверено на сервере, имя из
+    /// одной буквы даёт рамку 23.58, из двух — 33.18, «Alice» — 47.67,
+    /// кириллическое имя из 25 букв — 229.76, то есть всегда ровно
+    /// «ширина текста + 14». Прежний `max(participant_width = 50)` держал
+    /// все короткие имена в рамках на 50, из-за чего и позиции линий
+    /// жизни, и ширина диаграммы расходились с эталоном.
     pub fn participant_width_for_name(&self, name: &str) -> f64 {
-        let text_width =
-            self.text.width(name, self.participant_font_size) + PARTICIPANT_PADDING * 2.0;
-        self.participant_width.max(text_width)
+        self.text.width(name, self.participant_font_size) + PARTICIPANT_PADDING * 2.0
     }
 
     /// Вычисляет ширину текста сообщения с отступами

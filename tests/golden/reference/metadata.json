@@ -39,7 +39,7 @@
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "ce12fc2bef47fcb2871639d2bfc4e467347f7d7c6bf2dd345e6457a32222c780",
     "svg_bytes": "2953",
-    "svg_sha256": "fa9b00b27f01d565e9f1f4699b89a0f97fc1f617b3c2916895e14e42de638cf3"
+    "svg_sha256": "77da252eac0925d9179ef58d49319f5e43567575d6e0d2bd76d0350f44d72226"
   },
   "mindmap_basic": {
     "plantuml_version": "1.2026.9beta4",
@@ -57,7 +57,7 @@
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "bb065be1f8c190de67a1d8132d8e4abdf7745eb59595df278fb22ca0b1e059d6",
     "svg_bytes": "1859",
-    "svg_sha256": "53e9b22a44c0ae33e32013f3bbbac50c03282c816c4c0e77062df58969d907cf"
+    "svg_sha256": "183b036749de601cecb5ff076a953e52b3992eaadae4f6742c0ee27de9cc6a13"
   },
   "salt_basic": {
     "plantuml_version": "1.2026.9beta4",

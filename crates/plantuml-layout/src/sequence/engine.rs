@@ -17,7 +17,9 @@ const SELF_MESSAGE_LOOP_HEIGHT: f64 = 13.0;
 /// Отступ от петли self-message до текста сообщения.
 const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 
-/// Цвет фона заметки в PlantUML.
+/// Кегль текста примечания (эталон `sequence_notes`: `font-size="13"`).
+const NOTE_FONT_SIZE: f64 = 13.0;
+
 /// Отступ текста примечания от левого края рамки.
 ///
 /// Измерено по эталону `sequence_notes`: рамка на x = 110.987,
@@ -729,8 +731,15 @@ impl SequenceLayoutEngine {
         // раздувало ширину: PlantUML отводит под стрелку примерно
         // `текст + 20`, и при 50 зазор всегда упирался в минимум.
         // 30 оставляет место между блоками, но не искажает раскладку.
-        let min_spacing = 30.0;
-        let mut spacing: Vec<f64> = vec![min_spacing; n - 1];
+        // Минимальный ЗАЗОР между рамками соседних участников.
+        //
+        // Проверено на сервере: два длинных имени и сообщение из одной
+        // буквы дают рамки 150.40 и 166.70 с зазором ровно 10.
+        let min_gap = 10.0;
+        // Начинаем с минимального зазора: требования сообщений только
+        // УВЕЛИЧИВАЮТ его, поэтому старт с 30 не давал опуститься ниже 30
+        // даже там, где эталон держит 27.
+        let mut spacing: Vec<f64> = vec![min_gap; n - 1];
 
         // Отслеживаем пары с ПРЯМЫМИ сообщениями
         let mut direct_pairs: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -769,7 +778,11 @@ impl SequenceLayoutEngine {
                     // spacing >= required_length - (width_start + width_end) / 2
                     let half_widths =
                         (participant_widths[start_idx] + participant_widths[end_idx]) / 2.0;
-                    let required_spacing = (required_length - half_widths).max(min_spacing);
+                    // Прямое сообщение задаёт РАССТОЯНИЕ МЕЖДУ ЦЕНТРАМИ:
+                    // эталон `sequence_participants` держит шаг 100.261 при
+                    // любой ширине рамок, поэтому зазор может оказаться
+                    // меньше 30. Прежний порог 30 поднимал шаг до 103.17.
+                    let required_spacing = (required_length - half_widths).max(min_gap);
                     spacing[start_idx] = spacing[start_idx].max(required_spacing);
                     direct_pairs.insert(start_idx);
                 } else {
@@ -805,12 +818,10 @@ impl SequenceLayoutEngine {
             std::collections::HashMap::new();
         for i in 0..n - 1 {
             let key = format!("{}_{}", participant_order[i], participant_order[i + 1]);
-            // Для пар без прямых сообщений можно использовать меньший spacing
-            let final_spacing = if direct_pairs.contains(&i) {
-                spacing[i]
-            } else {
-                spacing[i].min(30.0) // минимум для промежуточных
-            };
+
+            // Пары без прямых сообщений уже ограничены сверху значением
+            // по умолчанию, отдельная ветка не нужна.
+            let final_spacing = spacing[i];
             spacing_map.insert(key, final_spacing);
         }
 
@@ -1534,6 +1545,10 @@ impl SequenceLayoutEngine {
         // центрировался и при длинной подписи выходил за рамку.
         properties.insert("text-align".to_string(), "left".to_string());
         properties.insert("text-inset".to_string(), NOTE_TEXT_INSET.to_string());
+        // Текст примечания PlantUML пишет кеглем 13, а не темой (14):
+        // эталон `sequence_notes` даёт `font-size="13"` и textLength 73.830
+        // против наших 79.509.
+        properties.insert("font-size".to_string(), NOTE_FONT_SIZE.to_string());
 
         let note_elem = LayoutElement {
             id: format!("note_{}", y as u32),

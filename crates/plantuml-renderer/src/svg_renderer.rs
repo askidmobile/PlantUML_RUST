@@ -15,6 +15,22 @@ const FRAGMENT_BORDER: &str = "#000";
 /// Цвет заливки заголовка фрагмента в эталоне PlantUML.
 const FRAGMENT_HEADER_FILL: &str = "#EEE";
 
+/// Смещение кружка граничного элемента вправо от линии жизни.
+const BOUNDARY_CIRCLE_SHIFT: f64 = 8.5;
+
+/// Смещение подписи фигурного участника влево от его оси.
+const PARTICIPANT_ICON_LABEL_SHIFT: f64 = 3.0;
+
+/// Отступ подписи сообщения от левого конца стрелки.
+const MESSAGE_LABEL_INSET: f64 = 7.0;
+
+/// Длина наконечника стрелки: на столько подпись отодвигается от
+/// левого конца, если наконечник стоит именно слева.
+const MESSAGE_ARROW_HEAD: f64 = 10.0;
+
+/// Насколько подпись сообщения поднята над линией.
+const MESSAGE_LABEL_RISE: f64 = 5.0;
+
 /// Цвет начального и конечного узлов UML (PlantUML пишет `#222`, а не
 /// цвет границы темы: эталоны `activity_basic` и `state_simple` дают
 /// `fill="#222" stroke="#222"`).
@@ -250,7 +266,11 @@ impl SvgRenderer {
         /// на 206.125 при общей высоте 218, то есть поля 10 сверху и
         /// 11.875 снизу. Прежний профиль брал общие 7 — отсюда
         /// недобор высоты на 8 у всех sequence-диаграмм.
-        const SEQUENCE: (f64, f64, f64, f64) = (7.0, 10.0, 7.0, 11.875);
+        /// ЛЕВОЕ и ВЕРХНЕЕ поля равны внутреннему отступу движка (10):
+        /// только тогда `viewBox` начинается с нуля и рамка первого
+        /// участника стоит на x=10, как в эталоне. Прежние 7 сдвигали
+        /// содержимое на 3px влево — на картинке это заметно.
+        const SEQUENCE: (f64, f64, f64, f64) = (10.0, 10.0, 10.879, 11.875);
 
         /// ACTIVITY: измерено по эталону `activity_basic`.
         ///
@@ -299,7 +319,7 @@ impl SvgRenderer {
             // Снизу запас больше: подписи времени описываются
             // прямоугольником высотой в кегль НАД базисом, а у эталона
             // холст учитывает ещё и вынос строки под базисом (около 17).
-            Some("TIMING") => (7.0, 7.0, 12.0, 30.0),
+            Some("TIMING") => (7.0, 7.0, 12.0, 29.0),
             _ => DEFAULT,
         }
     }
@@ -1330,8 +1350,11 @@ impl SvgRenderer {
         } else {
             bottom - PARTICIPANT_LABEL_BASELINE_GAP
         };
+        // Подпись фигурных участников PlantUML смещает на 3 влево от оси:
+        // эталон `sequence_participants` даёт центр «Database» на 553.089
+        // при линии жизни 556.089 (у участника-рамки смещения нет).
         let text = svg::node::element::Text::new(label)
-            .set("x", cx)
+            .set("x", cx - PARTICIPANT_ICON_LABEL_SHIFT)
             .set("y", label_y)
             .set("text-anchor", "middle")
             .set("font-family", theme.font_family.as_str())
@@ -1504,6 +1527,10 @@ impl SvgRenderer {
         };
         let bracket_top = circle_cy - PARTICIPANT_ICON_RADIUS;
         let bracket_bottom = circle_cy + PARTICIPANT_ICON_RADIUS;
+        // Кружок сдвинут ВПРАВО от линии жизни: эталон
+        // `sequence_participants` даёт центр на 263.807 при линии 255.307,
+        // то есть +8.5, а перекладина доходит до его левого края.
+        let boundary_cx = cx + BOUNDARY_CIRCLE_SHIFT;
 
         let mut group = group;
         group = group.add(
@@ -1516,7 +1543,7 @@ impl SvgRenderer {
                         top = fmt(bracket_top),
                         bottom = fmt(bracket_bottom),
                         mid = fmt(circle_cy),
-                        left_of_circle = fmt(cx - PARTICIPANT_ICON_RADIUS),
+                        left_of_circle = fmt(boundary_cx - PARTICIPANT_ICON_RADIUS),
                     ),
                 )
                 .set("fill", "none")
@@ -1525,7 +1552,7 @@ impl SvgRenderer {
         );
         group = group.add(
             svg::node::element::Ellipse::new()
-                .set("cx", cx)
+                .set("cx", boundary_cx)
                 .set("cy", circle_cy)
                 .set("rx", PARTICIPANT_ICON_RADIUS)
                 .set("ry", PARTICIPANT_ICON_RADIUS)
@@ -1850,14 +1877,21 @@ impl SvgRenderer {
                 let text_x = points[0].x + 5.0;
                 (text_x, mid_y, "start")
             } else if is_horizontal {
-                // Горизонтальная стрелка (sequence diagrams)
+                // Горизонтальная стрелка (sequence diagrams).
+                //
+                // Отступ подписи от левого конца разный: у стрелки слева
+                // направо 7, у обратной — 17, потому что там наконечник
+                // занимает 10 и подпись начинается за ним. Эталон
+                // `sequence_simple`: «Authentication Request» на 40.833
+                // (33.833 + 7), «Authentication Response» на 50.833
+                // (33.833 + 17).
                 let is_left_to_right = dx > 0.0;
                 let left_x = if is_left_to_right {
-                    points[0].x + 5.0
+                    points[0].x + MESSAGE_LABEL_INSET
                 } else {
-                    points[1].x + 5.0
+                    points[1].x + MESSAGE_LABEL_INSET + MESSAGE_ARROW_HEAD
                 };
-                let top_y = points[0].y - 5.0;
+                let top_y = points[0].y - MESSAGE_LABEL_RISE;
                 (left_x, top_y, "start")
             } else {
                 // Fallback: середина первого сегмента
