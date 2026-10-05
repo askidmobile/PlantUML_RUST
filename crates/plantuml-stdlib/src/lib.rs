@@ -33,6 +33,7 @@
 //! - `<logos/rust>` → Логотип Rust
 
 mod archimate;
+mod aws;
 mod azure;
 mod c4;
 mod common;
@@ -51,6 +52,7 @@ static STDLIB_REGISTRY: LazyLock<HashMap<&'static str, &'static str>> = LazyLock
 
     // Добавляем все включения из модулей
     archimate::register(&mut registry);
+    aws::register(&mut registry);
     azure::register(&mut registry);
     c4::register(&mut registry);
     kubernetes::register(&mut registry);

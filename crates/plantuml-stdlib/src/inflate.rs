@@ -513,6 +513,22 @@ mod tests {
         );
     }
 
+    /// Обрезанный спрайт из библиотеки AWS даёт ошибку, а не панику.
+    ///
+    /// В репозитории `aws-icons-for-plantuml` часть файлов содержит
+    /// спрайт-заглушку с неполным потоком deflate, а реальная иконка
+    /// лежит в PNG внутри `!function $ИМЯIMG`. Разбор должен вернуть
+    /// ошибку и отбросить такой спрайт — не падать.
+    #[test]
+    fn test_truncated_sprite_is_rejected() {
+        // Поток EC2 из исходного репозитория обрезан.
+        const BODY: &str = "xPO30WCn402t_l-BwpPSn9mp9jQjMpQRCtWvItr0aFl8sybzHHiVu7jIH-S-tshFOX_yiBwoiK1B--exyZBUdph_gjN4-_0cFltgA-v_BfHFf__hd-DyHKcV\nBxzqV-hy8_0-FtxIFZD-T-JtDolljGuW9AzLksMpUG";
+        assert!(
+            decode_compressed_sprite(BODY, 64, 64).is_err(),
+            "обрезанный поток должен давать ошибку"
+        );
+    }
+
     #[test]
     fn test_error_on_bad_block_type() {
         // BTYPE=3 недопустим.
