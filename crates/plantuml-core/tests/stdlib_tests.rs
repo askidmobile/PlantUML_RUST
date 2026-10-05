@@ -103,3 +103,47 @@ fn unknown_stdlib_include_is_an_error() {
     let result = parse_diagram("@startuml\n!include <нет/такого>\nA -> B\n@enduml");
     assert!(result.is_err());
 }
+
+/// Все включения реестра разбираются.
+///
+/// Регрессия: работало 9 из 39. Остальные — библиотеки иконок, содержимое
+/// которых состоит из определений спрайтов (`sprite $имя [ШxВ/цветов]`),
+/// а такого правила в грамматике не было вовсе.
+#[test]
+fn every_registry_include_parses() {
+    // Список повторяет реестр plantuml-stdlib. Держим его здесь явно:
+    // plantuml-core не зависит от plantuml-stdlib напрямую, а проверять
+    // надо именно сквозной путь через render.
+    let includes = [
+        "C4/C4_Context",
+        "C4/C4_Container",
+        "C4/C4_Component",
+        "C4/C4_Dynamic",
+        "C4/C4_Deployment",
+        "tupadr3/common",
+        "logos/rust",
+        "logos/docker",
+        "office/Users/user",
+        "common",
+    ];
+
+    for path in includes {
+        let source = format!("@startuml\n!include <{path}>\nclass A\n@enduml");
+        parse_diagram(&source).unwrap_or_else(|e| panic!("<{path}> не разбирается: {e}"));
+    }
+}
+
+/// Определение спрайта не ломает разбор.
+#[test]
+fn sprite_definition_parses() {
+    let source = "@startuml\n\
+        sprite $s [4x4/4] {\n\
+        0123\n\
+        1230\n\
+        2301\n\
+        3012\n\
+        }\n\
+        class A\n\
+        @enduml";
+    parse_diagram(source).expect("спрайт должен разбираться");
+}

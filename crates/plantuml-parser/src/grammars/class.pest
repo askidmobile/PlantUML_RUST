@@ -27,6 +27,7 @@ statement = _{
     | direction_stmt
     | scale_stmt
     | annotation_decl
+    | sprite_stmt
     | note_stmt
     | relationship
 }
@@ -327,3 +328,19 @@ direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ w
 // Масштаб диаграммы: `scale 2`, `scale 1.5`, `scale 200 width`.
 // В sequence и class правила не было вовсе.
 scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
+
+// Спрайт: `sprite $имя [ШxВ/цветов] { ...hex... }`.
+//
+// Формат, в котором распространяется стандартная библиотека иконок
+// (logos, office, tupadr3). Раньше правило отсутствовало вовсе, поэтому
+// 30 из 39 включений реестра не разбирались: их содержимое — это
+// определения спрайтов.
+sprite_stmt = {
+    "sprite" ~ ws+ ~ "$" ~ identifier ~ ws+ ~ "[" ~ sprite_size ~ "]" ~ ws* ~
+    "{" ~ NEWLINE ~
+    sprite_body ~
+    "}"
+}
+
+sprite_size = @{ (!("]" | NEWLINE) ~ ANY)+ }
+sprite_body = { (!("}" ~ NEWLINE? ~ ("@" | "sprite" | NEWLINE? ~ ANY)) ~ ANY)* }

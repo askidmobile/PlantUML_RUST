@@ -25,6 +25,7 @@ statement = _{
     | archimate_def
     | connection
     | component_def
+    | sprite_stmt
     | note_stmt
 }
 
@@ -382,3 +383,19 @@ rest_of_line = { (!NEWLINE ~ ANY)* }
 
 ws = _{ " " | "\t" }
 NEWLINE = _{ "\r\n" | "\n" | "\r" }
+
+// Спрайт: `sprite $имя [ШxВ/цветов] { ...hex... }`.
+//
+// Формат, в котором распространяется стандартная библиотека иконок
+// (logos, office, tupadr3). Раньше правило отсутствовало вовсе, поэтому
+// 30 из 39 включений реестра не разбирались: их содержимое — это
+// определения спрайтов.
+sprite_stmt = {
+    "sprite" ~ ws+ ~ "$" ~ identifier ~ ws+ ~ "[" ~ sprite_size ~ "]" ~ ws* ~
+    "{" ~ NEWLINE ~
+    sprite_body ~
+    "}"
+}
+
+sprite_size = @{ (!("]" | NEWLINE) ~ ANY)+ }
+sprite_body = { (!("}" ~ NEWLINE? ~ ("@" | "sprite" | NEWLINE? ~ ANY)) ~ ANY)* }
