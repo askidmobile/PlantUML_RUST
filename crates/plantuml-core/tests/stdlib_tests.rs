@@ -271,3 +271,61 @@ fn vector_sprite_size_comes_from_view_box() {
     );
     assert!(sprite.svg.is_some(), "векторное тело потеряно");
 }
+
+/// Масштаб спрайта во вставке: `*N`, `{scale=N}` и `,scale=N`.
+///
+/// Проверено на сервере: все три формы дают одинаковый размер. Масштаб
+/// умножает и прямоугольник вставки, и размер пикселя — иначе растр
+/// нарисовался бы в углу увеличенной области.
+#[test]
+fn sprite_scale_forms_are_equivalent() {
+    /// Площадь закраски спрайта: сумма площадей прямоугольников палитры.
+    fn sprite_area(svg: &str) -> f64 {
+        let mut area = 0.0;
+        for part in svg.split("<rect").skip(1) {
+            let tag = part.split("/>").next().unwrap_or("");
+            if !tag.contains("fill-opacity") {
+                continue;
+            }
+            let number = |attribute: &str| -> f64 {
+                let key = format!(" {attribute}=\"");
+                tag.find(&key)
+                    .and_then(|index| tag[index + key.len()..].split('"').next())
+                    .and_then(|value| value.parse().ok())
+                    .unwrap_or(0.0)
+            };
+            area += number("width") * number("height");
+        }
+        area
+    }
+
+    // Спрайт 4x4, где цифра `0` прозрачна: непрозрачных 15.
+    let cases = [
+        ("<$s>", 15.0),
+        ("<$s*2>", 60.0),
+        ("<$s{scale=3}>", 135.0),
+        ("<$s,scale=4>", 240.0),
+    ];
+
+    for (usage, expected) in cases {
+        let source = format!(
+            "@startuml\n\
+             sprite $s [4x4/16] {{\n\
+             1234\n\
+             5678\n\
+             9abc\n\
+             def0\n\
+             }}\n\
+             class \"X {usage}\" as x\n\
+             @enduml"
+        );
+
+        let svg = render(&source, &RenderOptions::default()).expect("диаграмма должна рисоваться");
+        let area = sprite_area(&svg);
+
+        assert!(
+            (area - expected).abs() < 0.01,
+            "для {usage} площадь {area}, ожидалось {expected}"
+        );
+    }
+}

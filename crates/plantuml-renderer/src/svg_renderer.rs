@@ -2129,17 +2129,18 @@ impl SvgRenderer {
                         cursor += self.measure_text(&text, theme.font_size);
                     }
                 }
-                SpritePart::Sprite(data) => {
-                    let size = data.width as f64 * SPRITE_INLINE_PIXEL;
-                    let height = data.height as f64 * SPRITE_INLINE_PIXEL;
+                SpritePart::Sprite(data, scale) => {
+                    // Масштаб увеличивает и прямоугольник, и размер пикселя:
+                    // иначе растр нарисуется в углу увеличенной области.
+                    let pixel = SPRITE_INLINE_PIXEL * scale;
+                    let size = data.width as f64 * pixel;
+                    let height = data.height as f64 * pixel;
                     let top = baseline - height + 2.0;
                     let bounds = Rect::new(cursor, top, size, height);
 
                     group = match &data.svg {
                         Some(vector) => self.render_vector_sprite(&bounds, vector, theme, group),
-                        None => {
-                            self.render_sprite_data(&bounds, &data.rows, SPRITE_INLINE_PIXEL, group)
-                        }
+                        None => self.render_sprite_data(&bounds, &data.rows, pixel, group),
                     };
 
                     cursor += size + SPRITE_INLINE_GAP;
@@ -2417,7 +2418,45 @@ struct SpriteData {
 /// Часть подписи: обычный текст либо вставка спрайта.
 enum SpritePart {
     Text(String),
-    Sprite(SpriteData),
+    /// Вставка спрайта и её масштаб (по умолчанию 1.0).
+    Sprite(SpriteData, f64),
+}
+
+/// Разбирает масштаб из модификаторов вставки спрайта.
+///
+/// PlantUML поддерживает три равнозначные формы (проверено на сервере —
+/// все дают одинаковый размер):
+///
+/// ```text
+/// <$имя*3>              — звёздочка
+/// <$имя{scale=3}>       — в фигурных скобках
+/// <$имя,scale=3,...>    — в списке опций через запятую
+/// ```
+fn sprite_scale(modifiers: &str) -> f64 {
+    // `*N`
+    if let Some(rest) = modifiers.strip_prefix('*') {
+        let digits: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        if let Ok(value) = digits.parse::<f64>() {
+            return value;
+        }
+    }
+
+    // `scale=N` — в любой из форм с разделителями.
+    if let Some(index) = modifiers.find("scale=") {
+        let rest = &modifiers[index + 6..];
+        let digits: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        if let Ok(value) = digits.parse::<f64>() {
+            return value;
+        }
+    }
+
+    1.0
 }
 
 /// Разбирает свойство `sprites` элемента в таблицу.
@@ -2514,7 +2553,14 @@ fn split_sprite_references(
             break;
         };
 
-        let name = &after[..end];
+        // Тело вставки: имя плюс необязательные модификаторы
+        // (`*N`, `{scale=N}`, `,scale=N`). Имя заканчивается на первом
+        // символе-разделителе.
+        let body = &after[..end];
+        let name_end = body.find(['*', '{', ',']).unwrap_or(body.len());
+        let name = &body[..name_end];
+        let modifiers = &body[name_end..];
+
         let Some(data) = sprites.get(name) else {
             // Неизвестный спрайт: оставляем вставку как обычный текст.
             parts.push(SpritePart::Text(rest[..start + 2 + end + 1].to_string()));
@@ -2525,7 +2571,7 @@ fn split_sprite_references(
         if start > 0 {
             parts.push(SpritePart::Text(rest[..start].to_string()));
         }
-        parts.push(SpritePart::Sprite(data.clone()));
+        parts.push(SpritePart::Sprite(data.clone(), sprite_scale(modifiers)));
         rest = &after[end + 1..];
     }
 

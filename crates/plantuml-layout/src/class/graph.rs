@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use plantuml_ast::class::{ClassDiagram, Classifier, Relationship, RelationshipType};
+use plantuml_ast::class::{ClassDiagram, Classifier, Relationship, RelationshipType, Sprite};
 use plantuml_model::Size;
 
 /// Добавка к ширине строки имени: иконка класса слева и отступ справа.
@@ -12,6 +12,81 @@ use plantuml_model::Size;
 /// Измерено по эталону class_inheritance: «Dog» 28.232 → 68.3,
 /// «Animal» 48.446 → 80.446.
 const CLASS_NAME_EXTRA: f64 = 32.0;
+
+/// Ширина пикселя спрайта, вставленного в подпись.
+const SPRITE_LABEL_PIXEL: f64 = 1.0;
+
+/// Отступ после спрайта внутри подписи.
+const SPRITE_LABEL_GAP: f64 = 2.0;
+
+/// Ширина строки имени с учётом вставок спрайтов.
+///
+/// Вставка `<$имя>` занимает ширину РАСТРА, а не текста: прежний код
+/// измерял сам текст `<$имя>`, из-за чего рамка класса распухала.
+/// Проверено на сервере: для `class "X <$s*3>"` со спрайтом 4x4 эталон
+/// даёт рамку 77.563, а измерение текста как есть — заметно больше.
+///
+/// Модификаторы масштаба разбираются так же, как в рендерере:
+/// `*N`, `{scale=N}` и `,scale=N`.
+fn name_width_with_sprites(name: &str, sprites: &[Sprite], config: &ClassLayoutConfig) -> f64 {
+    let mut plain = String::new();
+    let mut extra = 0.0;
+    let mut rest = name;
+
+    while let Some(start) = rest.find("<$") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find('>') else {
+            break;
+        };
+
+        let body = &after[..end];
+        let name_end = body.find(['*', '{', ',']).unwrap_or(body.len());
+        let sprite_name = &body[..name_end];
+        let scale = sprite_scale_of(&body[name_end..]);
+
+        match sprites.iter().find(|sprite| sprite.name == sprite_name) {
+            Some(sprite) => {
+                plain.push_str(&rest[..start]);
+                extra += sprite.width as f64 * SPRITE_LABEL_PIXEL * scale + SPRITE_LABEL_GAP;
+            }
+            // Неизвестный спрайт рендерер оставляет текстом — учитываем так же.
+            None => plain.push_str(&rest[..start + 2 + end + 1]),
+        }
+
+        rest = &after[end + 1..];
+    }
+
+    plain.push_str(rest);
+    config.text.width(&plain, config.font_size) + extra
+}
+
+/// Разбирает масштаб из модификаторов вставки спрайта.
+///
+/// Повторяет разбор из рендерера: крейты не могут импортировать друг
+/// друга (рендерер зависит от раскладки), поэтому правило продублировано.
+fn sprite_scale_of(modifiers: &str) -> f64 {
+    let number_after = |text: &str| -> Option<f64> {
+        let digits: String = text
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        digits.parse().ok()
+    };
+
+    if let Some(rest) = modifiers.strip_prefix('*') {
+        if let Some(value) = number_after(rest) {
+            return value;
+        }
+    }
+
+    if let Some(index) = modifiers.find("scale=") {
+        if let Some(value) = number_after(&modifiers[index + 6..]) {
+            return value;
+        }
+    }
+
+    1.0
+}
 
 /// Добавка к ширине строки содержимого (поля и методы).
 ///
@@ -48,8 +123,9 @@ impl Node {
         index: usize,
         classifier: &Classifier,
         config: &ClassLayoutConfig,
+        sprites: &[Sprite],
     ) -> Self {
-        let size = Self::calculate_size(classifier, config);
+        let size = Self::calculate_size(classifier, config, sprites);
         Self {
             id: id.clone(),
             index,
@@ -63,7 +139,11 @@ impl Node {
     }
 
     /// Вычисляет размер узла на основе содержимого класса
-    fn calculate_size(classifier: &Classifier, config: &ClassLayoutConfig) -> Size {
+    fn calculate_size(
+        classifier: &Classifier,
+        config: &ClassLayoutConfig,
+        sprites: &[Sprite],
+    ) -> Size {
         // Ширина: max(имя класса, поля, методы)
         // Добавляем место для иконки класса (~30px)
         // Ширина строки имени: измерено по эталону — ширина имени плюс 32
@@ -71,7 +151,7 @@ impl Node {
         // иконку класса слева и отступ справа.
         let name_width =
             // Имя класса рисуется ЖИРНЫМ — шире обычного примерно на 8.3%.
-            config.text.width(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
+            name_width_with_sprites(&classifier.id.name, sprites, config) + CLASS_NAME_EXTRA;
 
         let field_max_width = classifier
             .fields
@@ -202,6 +282,7 @@ impl Graph {
     pub fn from_diagram(diagram: &ClassDiagram, config: &ClassLayoutConfig) -> Self {
         let mut nodes = Vec::new();
         let mut node_index = HashMap::new();
+        let sprites = diagram.sprites.as_slice();
 
         // Создаём узлы из классификаторов
         for classifier in &diagram.classifiers {
@@ -209,7 +290,7 @@ impl Graph {
             if !node_index.contains_key(&id) {
                 let index = nodes.len();
                 node_index.insert(id.clone(), index);
-                nodes.push(Node::new(id, index, classifier, config));
+                nodes.push(Node::new(id, index, classifier, config, sprites));
             }
         }
 
@@ -219,6 +300,7 @@ impl Graph {
             &mut nodes,
             &mut node_index,
             config,
+            sprites,
         );
 
         // Создаём фиктивные узлы для классов, упомянутых в отношениях, но не объявленных
@@ -293,6 +375,7 @@ impl Graph {
         nodes: &mut Vec<Node>,
         node_index: &mut HashMap<String, usize>,
         config: &ClassLayoutConfig,
+        sprites: &[Sprite],
     ) {
         for package in packages {
             for classifier in &package.classifiers {
@@ -300,11 +383,17 @@ impl Graph {
                 if !node_index.contains_key(&id) {
                     let index = nodes.len();
                     node_index.insert(id.clone(), index);
-                    nodes.push(Node::new(id, index, classifier, config));
+                    nodes.push(Node::new(id, index, classifier, config, sprites));
                 }
             }
             // Рекурсивно обрабатываем вложенные пакеты
-            Self::collect_classifiers_from_packages(&package.packages, nodes, node_index, config);
+            Self::collect_classifiers_from_packages(
+                &package.packages,
+                nodes,
+                node_index,
+                config,
+                sprites,
+            );
         }
     }
 
@@ -384,7 +473,7 @@ mod tests {
         classifier.add_field(Member::field("name", "String").with_visibility(Visibility::Private));
         classifier.add_method(Member::method("getId").with_visibility(Visibility::Public));
 
-        let node = Node::new("TestClass".to_string(), 0, &classifier, &config);
+        let node = Node::new("TestClass".to_string(), 0, &classifier, &config, &[]);
 
         assert!(node.size.width >= config.min_class_width);
         assert!(node.size.height >= config.min_class_height);
