@@ -269,6 +269,10 @@ impl SvgRenderer {
             Some("WBS") => WBS,
             Some("SEQUENCE") => SEQUENCE,
             Some("ACTIVITY") => ACTIVITY,
+            // STATE: измерено по эталону `state A` — холст 72x71 при
+            // рамке 50x50 в точке (7, 7). Движок добавляет свои 7,
+            // здесь остаётся довести до эталонных размеров.
+            Some("STATE") => (0.0, 0.0, 8.0, 7.0),
             _ => DEFAULT,
         }
     }

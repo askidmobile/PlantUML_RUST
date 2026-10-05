@@ -12,6 +12,12 @@ const STATE_CHAR_WIDTH: f64 = 6.002;
 use plantuml_ast::state::{State, StateDiagram, StateType};
 use plantuml_model::{Point, Rect};
 
+/// Высота строки подписи перехода в диаграмме состояний.
+///
+/// Измерено по эталону `state_simple`: разрыв между уровнями с подписью
+/// на 16.297 больше, чем без неё.
+const STATE_TRANSITION_LABEL_HEIGHT: f64 = 16.297;
+
 use super::config::StateLayoutConfig;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
@@ -200,6 +206,23 @@ impl StateLayoutEngine {
         let diagram_center_x = self.config.margin + max_width / 2.0;
 
         // Вычисляем начальную Y позицию для каждого уровня на основе предыдущих
+        // Подпись перехода занимает ОТДЕЛЬНУЮ строку между уровнями.
+        //
+        // Измерено по эталону `state_simple`: разрыв Active→Inactive равен
+        // 127 = 50 (состояние) + 61 (отступ) + 16.297 (строка подписи),
+        // тогда как разрыв старт→Active без подписи — 61.
+        let mut level_has_label: IndexMap<usize, bool> = IndexMap::new();
+        for (from, _, label) in &top_level_transitions {
+            if label.is_none() {
+                continue;
+            }
+            for (level, states) in &level_states {
+                if states.iter().any(|name| name == from) {
+                    level_has_label.insert(*level, true);
+                }
+            }
+        }
+
         let mut level_y_positions: IndexMap<usize, f64> = IndexMap::new();
         let mut current_y = self.config.margin;
         for level in 0..=max_level {
@@ -209,6 +232,10 @@ impl StateLayoutEngine {
                 .copied()
                 .unwrap_or(self.config.state_min_height);
             current_y += height + self.config.vertical_spacing;
+
+            if level_has_label.get(&level).copied().unwrap_or(false) {
+                current_y += STATE_TRANSITION_LABEL_HEIGHT;
+            }
         }
 
         for level in 0..=max_level {
