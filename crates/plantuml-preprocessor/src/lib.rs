@@ -142,6 +142,13 @@ pub struct MacroDefinition {
     pub body: String,
 }
 
+/// Максимальная глубина вызовов макросов.
+///
+/// Защищает от взаимной рекурсии процедур: без неё разбор уходит в
+/// бесконечность и роняет процесс переполнением стека, а в WASM это
+/// падение вкладки без возможности перехватить ошибку.
+const MAX_CALL_DEPTH: usize = 64;
+
 /// Контекст препроцессора
 #[derive(Debug)]
 pub struct PreprocessContext {
@@ -177,6 +184,12 @@ pub struct PreprocessContext {
     pub include_stack: Vec<String>,
     /// Максимальная глубина вложенности включений
     pub max_include_depth: usize,
+    /// Значение, возвращённое `!return` при выполнении тела макроса.
+    pub return_value: Option<String>,
+    /// Признак того, что встречен `!return`: разбор тела прекращается.
+    pub returning: bool,
+    /// Текущая глубина вызовов макросов (защита от рекурсии).
+    pub call_depth: usize,
 }
 
 impl Default for PreprocessContext {
@@ -194,6 +207,9 @@ impl Default for PreprocessContext {
             macros: IndexMap::new(),
             include_stack: Vec::new(),
             max_include_depth: MAX_INCLUDE_DEPTH,
+            return_value: None,
+            returning: false,
+            call_depth: 0,
         }
     }
 }
@@ -426,6 +442,11 @@ impl<R: FileResolver> Preprocessor<R> {
         for line in source.lines() {
             let trimmed = line.trim();
 
+            // `!return` в теле макроса прекращает его выполнение.
+            if ctx.returning {
+                break;
+            }
+
             // Если мы определяем функцию/процедуру, собираем тело
             if ctx.is_defining_callable() {
                 if trimmed == "!endfunction" || trimmed == "!endprocedure" {
@@ -503,7 +524,14 @@ impl<R: FileResolver> Preprocessor<R> {
     ) -> Result<Option<String>> {
         let directive = &line[1..]; // Убираем '!'
 
-        if let Some(rest) = directive.strip_prefix("global ") {
+        if let Some(rest) = directive.strip_prefix("return") {
+            // `!return` завершает выполнение тела макроса. Значение
+            // подставляется из переменных: полноценный разбор выражений
+            // не нужен, библиотеки возвращают уже готовые строки.
+            let value = variables::substitute(rest.trim().trim_start_matches(' '), &ctx.variables);
+            ctx.return_value = Some(value.trim_matches('"').to_string());
+            ctx.returning = true;
+        } else if let Some(rest) = directive.strip_prefix("global ") {
             // `!global $ИМЯ ?= значение` — объявление переменной уровня
             // библиотеки. Разбирается тем же кодом, что и присваивание.
             variables::handle_variable_assignment(rest.trim(), ctx)?;
@@ -783,8 +811,87 @@ impl<R: FileResolver> Preprocessor<R> {
         Ok(())
     }
 
+    /// ВЫПОЛНЯЕТ тело макроса, а не подставляет его текстом.
+    ///
+    /// Возвращает `(вывод, возвращённое значение)`. Важное отличие от
+    /// текстовой подстановки: директивы тела (`!if`, `!$x = ...`,
+    /// вложенные вызовы) обрабатываются по-настоящему. Именно этого не
+    /// хватало стандартной библиотеке: например C4 строит таблицы
+    /// свойств условными блоками внутри процедур.
+    ///
+    /// Побочные эффекты (изменённые `!$переменные`) переносятся в
+    /// ВЫЗЫВАЮЩИЙ контекст: библиотеки рассчитывают на то, что переменная,
+    /// установленная внутри процедуры, видна снаружи.
+    fn execute_callable(
+        &self,
+        callable: &functions::UserCallable,
+        args: &[String],
+        ctx: &mut PreprocessContext,
+    ) -> Result<(String, Option<String>)> {
+        if ctx.call_depth >= MAX_CALL_DEPTH {
+            return Err(PreprocessError::RecursiveInclude(format!(
+                "превышена глубина вызовов макросов ({MAX_CALL_DEPTH})"
+            )));
+        }
+
+        let mut child = PreprocessContext {
+            // Переменные и объявления наследуются, но условия начинаются
+            // заново: тело макроса не должно зависеть от того, внутри
+            // какого `!if` он вызван.
+            variables: ctx.variables.clone(),
+            included_files: ctx.included_files.clone(),
+            condition_depth: 0,
+            condition_stack: Vec::new(),
+            callables: ctx.callables.clone(),
+            defining: DefiningCallable::None,
+            defining_unquoted: false,
+            theme: ctx.theme.clone(),
+            skin_params: ctx.skin_params.clone(),
+            macros: ctx.macros.clone(),
+            include_stack: ctx.include_stack.clone(),
+            max_include_depth: ctx.max_include_depth,
+            return_value: None,
+            returning: false,
+            call_depth: ctx.call_depth + 1,
+        };
+
+        // Связываем параметры с аргументами. Значение по умолчанию берётся
+        // из объявления (`$b = ""`), если аргумент не передан.
+        for (index, parameter) in callable.parameters.iter().enumerate() {
+            let (name, default) = match parameter.split_once('=') {
+                Some((name, default)) => (
+                    name.trim().to_string(),
+                    default.trim().trim_matches('"').to_string(),
+                ),
+                None => (parameter.trim().to_string(), String::new()),
+            };
+
+            let mut value = match args.get(index) {
+                Some(value) if !value.trim().is_empty() => value.clone(),
+                _ => default,
+            };
+
+            if callable.unquoted {
+                let trimmed = value.trim();
+                if trimmed.len() >= 2 && trimmed.starts_with('"') && trimmed.ends_with('"') {
+                    value = trimmed[1..trimmed.len() - 1].to_string();
+                }
+            }
+
+            child.variables.insert(name, value);
+        }
+
+        let body = callable.body.join("\n");
+        let output = self.process_with_context(&body, &mut child)?;
+
+        // Побочные эффекты — наружу.
+        ctx.variables = child.variables;
+
+        Ok((output, child.return_value))
+    }
+
     /// Обрабатывает вызовы пользовательских функций в строке
-    fn process_function_calls(&self, line: &str, ctx: &PreprocessContext) -> String {
+    fn process_function_calls(&self, line: &str, ctx: &mut PreprocessContext) -> String {
         let calls = functions::find_function_calls(line);
 
         if calls.is_empty() {
@@ -795,8 +902,17 @@ impl<R: FileResolver> Preprocessor<R> {
 
         // Обрабатываем вызовы в обратном порядке (чтобы не сбивались индексы)
         for (start, end, name, args) in calls.into_iter().rev() {
-            if let Some(callable) = ctx.get_callable(&name) {
-                let (output_lines, return_value) = callable.call(&args);
+            // Клонируем: дальше нужен изменяемый доступ к контексту,
+            // потому что тело макроса меняет переменные.
+            if let Some(callable) = ctx.get_callable(&name).cloned() {
+                // При ошибке выполнения ОСТАВЛЯЕМ исходный текст вызова:
+                // подставить пустоту значило бы молча потерять содержимое
+                // диаграммы. Так сбой виден в выводе.
+                let Ok((output_text, return_value)) = self.execute_callable(&callable, &args, ctx)
+                else {
+                    continue;
+                };
+                let output_lines: Vec<String> = output_text.lines().map(str::to_string).collect();
 
                 // Вызов во всю строку — это ОПЕРАТОР, а не выражение.
                 //
@@ -1151,8 +1267,103 @@ MAIN_END
         assert!(result.contains("LEVEL1_END"));
         assert!(result.contains("MAIN_END"));
     }
-}
 
+    /// Тело макроса ВЫПОЛНЯЕТСЯ, а не подставляется текстом.
+    ///
+    /// Регрессия: раньше `UserCallable::call` делал только текстовую
+    /// подстановку аргументов, поэтому директивы тела (`!if`, `!$x = ...`)
+    /// попадали в вывод как есть. На этом падала стандартная библиотека:
+    /// C4 строит таблицы свойств условными блоками внутри процедур.
+    #[test]
+    fn test_macro_body_is_executed_not_substituted() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !procedure $P($x)\n\
+            !if ($x == 1)\n\
+            class Один\n\
+            !else\n\
+            class Другой\n\
+            !endif\n\
+            !endprocedure\n\
+            $P(1)\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class Один"),
+            "условие в теле не сработало: {out}"
+        );
+        assert!(
+            !out.contains("class Другой"),
+            "выполнена лишняя ветка: {out}"
+        );
+        assert!(!out.contains("!if"), "директива просочилась в вывод: {out}");
+    }
+
+    /// Переменная, установленная внутри процедуры, видна снаружи.
+    ///
+    /// Библиотеки на это рассчитывают: C4 вызывает `SetPropertyHeader`
+    /// ради побочного эффекта и потом читает установленные переменные.
+    #[test]
+    fn test_macro_variable_leaks_outward() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !procedure $Set()\n\
+            !$глоб = Готово\n\
+            !endprocedure\n\
+            $Set()\n\
+            class $глоб\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class Готово"),
+            "переменная не видна снаружи: {out}"
+        );
+    }
+
+    /// `!return` вычисляется, параметр по умолчанию подставляется.
+    #[test]
+    fn test_macro_return_and_default_parameter() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $F($a, $b = Умолчание)\n\
+            !if ($a == 1)\n\
+            !return $b\n\
+            !endif\n\
+            !return Другое\n\
+            !endfunction\n\
+            class $F(1)\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(
+            out.contains("class Умолчание"),
+            "return/умолчание не сработали: {out}"
+        );
+    }
+
+    /// Взаимная рекурсия макросов не роняет процесс.
+    ///
+    /// В WASM переполнение стека означает падение вкладки, поэтому нужен
+    /// явный предел глубины вызовов.
+    #[test]
+    fn test_macro_recursion_is_bounded() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !procedure $A()\n\
+            $B()\n\
+            !endprocedure\n\
+            !procedure $B()\n\
+            $A()\n\
+            !endprocedure\n\
+            $A()\n\
+            @enduml";
+
+        // Главное — не паника и не зависание: допустим и Result::Err.
+        let _ = pp.process(source);
+    }
+}
 #[cfg(test)]
 mod include_tests {
     use super::*;
