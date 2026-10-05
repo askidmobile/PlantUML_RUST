@@ -965,6 +965,38 @@ fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
 mod tests {
     use super::*;
 
+    /// Задержка: `...` и `delay: текст` — обе формы проверены на
+    /// plantuml.com.
+    ///
+    /// Регрессия: ранее была добавлена форма `delay текст` БЕЗ двоеточия.
+    /// Проверка на сервере показала, что такого синтаксиса нет (HTTP 400);
+    /// правильная форма — с двоеточием.
+    #[test]
+    fn test_delay_forms() {
+        // Допустимые формы
+        for source in [
+            "@startuml\nA -> B\ndelay: 10 минут\nB -> A\n@enduml",
+            "@startuml\nA -> B\n... текст\nB -> A\n@enduml",
+            "@startuml\nA -> B\n... 5 минут ...\nB -> A\n@enduml",
+        ] {
+            assert!(
+                parse_sequence(source).is_ok(),
+                "форма должна разбираться: {source}"
+            );
+        }
+
+        // Формы, которых в PlantUML нет
+        for source in [
+            "@startuml\nA -> B\ndelay 10 минут\n@enduml",
+            "@startuml\nA -> B\ndelay 10\n@enduml",
+        ] {
+            assert!(
+                parse_sequence(source).is_err(),
+                "формы без двоеточия в PlantUML нет: {source}"
+            );
+        }
+    }
+
     /// `legend`, `mainframe` и `newpage` попадают в метаданные.
     ///
     /// Регрессия: правила грамматики были добавлены, но парсер их не

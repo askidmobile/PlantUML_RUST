@@ -19,7 +19,6 @@ statement = _{
     | footer_stmt
     | direction_stmt
     | scale_stmt
-    | language_stmt
     | legend_stmt
     | mainframe_stmt
     | newpage_stmt
@@ -319,10 +318,14 @@ note_body = { (!("end" ~ ws* ~ "note") ~ ANY)* }
 divider = { "==" ~ ws* ~ divider_text? ~ ws* ~ "==" }
 divider_text = { (!("==" | NEWLINE) ~ ANY)* }
 
-// Две формы задержки: `...` (без слова delay) и `delay 10 минут`.
-// Вторая — обычная запись PlantUML, которая раньше не разбиралась.
+// Две формы задержки:
+//   `...`            — многоточие, необязательный текст до или после
+//   `delay: <текст>` — слово delay С ДВОЕТОЧИЕМ
+//
+// Форма без двоеточия (`delay 10 минут`) в PlantUML не существует:
+// сервер отвечает 400. Проверено на plantuml.com.
 delay = {
-    "delay" ~ ws+ ~ delay_text
+    "delay" ~ ws* ~ ":" ~ ws* ~ delay_text
     | "..." ~ ws* ~ delay_text? ~ ws* ~ "..."?
 }
 delay_text = { (!("..." | NEWLINE) ~ ANY)* }
@@ -423,6 +426,3 @@ direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ w
 // Масштаб диаграммы: `scale 2`, `scale 1.5`, `scale 200 width`.
 // В sequence и class правила не было вовсе.
 scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
-
-// Язык подписей: `language ru`, `language en`.
-language_stmt = { "language" ~ ws+ ~ simple_identifier }
