@@ -11,6 +11,12 @@ use plantuml_ast::activity::{
 use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
 
+/// Сторона ромба слияния после ветвления (измерено по эталону).
+const MERGE_DIAMOND_SIZE: f64 = 24.0;
+
+/// Отступ от конца ветвей до ромба слияния (измерено по эталону).
+const MERGE_DIAMOND_GAP: f64 = 6.0;
+
 /// Насколько конечный узел больше начального (измерено по эталону).
 const END_RADIUS_EXTRA: f64 = 1.0;
 
@@ -745,20 +751,52 @@ impl ActivityLayoutEngine {
             }
         }
 
-        // Точка слияния
-        let merge_y = then_end_y.max(else_end_y);
+        // Низ ветвей.
+        //
+        // `layout_element` возвращает уже продвинутый курсор — с запасом
+        // `vertical_spacing` под следующую стрелку. Для точки слияния нужен
+        // ФАКТИЧЕСКИЙ низ последнего элемента, иначе ветви «висят» на 20px
+        // ниже своего содержимого и соединение уезжает вниз.
+        let then_bottom = then_end_y - self.config.vertical_spacing;
+        let else_bottom = else_end_y - self.config.vertical_spacing;
 
-        // Стрелки к точке слияния
-        if then_end_y < merge_y {
-            self.add_arrow(left_x, then_end_y, center_x, merge_y, None, elements);
+        // Точка слияния
+        let merge_y = then_bottom.max(else_bottom);
+
+        // Стрелки к точке слияния (нужны только при разной длине ветвей)
+        if then_bottom < merge_y {
+            self.add_arrow(left_x, then_bottom, center_x, merge_y, None, elements);
         }
-        if cond.else_branch.is_some() && else_end_y < merge_y {
+        if cond.else_branch.is_some() && else_bottom < merge_y {
             let right_x = center_x
                 + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
-            self.add_arrow(right_x, else_end_y, center_x, merge_y, None, elements);
+            self.add_arrow(right_x, else_bottom, center_x, merge_y, None, elements);
         }
 
-        merge_y + self.config.vertical_spacing
+        // Ромб слияния.
+        //
+        // PlantUML ставит между ветвями и следующим действием ромб 24x24:
+        // в эталоне activity_basic ветви кончаются на 176.94, ромб занимает
+        // 182.94..206.94, следующее действие начинается на 226.94 —
+        // то есть отступы 6 сверху и 20 снизу.
+        let merge_top = merge_y + MERGE_DIAMOND_GAP;
+        elements.push(LayoutElement {
+            id: format!("merge_diamond_{}", elements.len()),
+            bounds: Rect::new(
+                center_x - MERGE_DIAMOND_SIZE / 2.0,
+                merge_top,
+                MERGE_DIAMOND_SIZE,
+                MERGE_DIAMOND_SIZE,
+            ),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Text {
+                text: String::new(),
+                font_size: 12.0,
+            },
+        });
+
+        merge_top + MERGE_DIAMOND_SIZE + self.config.vertical_spacing
     }
 
     /// Располагает цикл while
