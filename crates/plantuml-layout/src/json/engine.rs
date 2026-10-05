@@ -46,10 +46,13 @@ impl JsonLayoutEngine {
         }
 
         // Ширина колонок: измерено по эталону — максимум по колонке плюс 10
+        // Ключи PlantUML рисует ПОЛУЖИРНЫМИ, и ширину колонки считает по
+        // жирным метрикам: эталон `yaml_basic` даёт разделитель на 78.24 =
+        // 10 + 58.242 («version» жирным) + 10.
         let key_width = entries
             .iter()
             .filter_map(|(key, _)| key.as_deref())
-            .map(|key| self.config.text.width(key, self.config.font_size))
+            .map(|key| self.config.text.width_bold(key, self.config.font_size))
             .fold(0.0_f64, f64::max)
             + TABLE_CELL_PADDING;
 
@@ -259,7 +262,9 @@ impl JsonLayoutEngine {
         match value {
             JsonValue::String(s) => Some(s.clone()),
             JsonValue::Number(n) => Some(format!("{n}")),
-            JsonValue::Boolean(b) => Some(if *b {
+            JsonValue::Boolean(b) => Some(if self.config.bool_as_text {
+                b.to_string()
+            } else if *b {
                 "☑ true".to_string()
             } else {
                 "☐ false".to_string()

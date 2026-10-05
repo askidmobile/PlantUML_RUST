@@ -17,15 +17,19 @@ pub struct YamlLayoutEngine {
 impl YamlLayoutEngine {
     /// Создаёт новый engine с конфигурацией по умолчанию
     pub fn new() -> Self {
-        Self {
-            // YAML и JSON в PlantUML выводятся одной и той же двухколоночной
-            // таблицей, поэтому отдельная нотация больше не нужна.
-            json_engine: JsonLayoutEngine::new(),
-        }
+        // YAML и JSON в PlantUML выводятся одной и той же двухколоночной
+        // таблицей, поэтому отдельная нотация больше не нужна. Отличие
+        // одно: boolean в YAML пишется текстом, а в JSON — флажком.
+        Self::with_config(JsonLayoutConfig::default())
     }
 
     /// Создаёт engine с указанной конфигурацией
     pub fn with_config(config: JsonLayoutConfig) -> Self {
+        // YAML выводит boolean обычным текстом — флажок PlantUML рисует
+        // только в JSON (проверено на сервере).
+        let mut config = config;
+        config.bool_as_text = true;
+
         Self {
             json_engine: JsonLayoutEngine::with_config(config),
         }

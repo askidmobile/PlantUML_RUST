@@ -28,6 +28,11 @@ pub struct JsonLayoutConfig {
     pub string_color: &'static str,
     /// Цвет числа
     pub number_color: &'static str,
+    /// Рисовать boolean обычным текстом, а не флажком.
+    ///
+    /// PlantUML ставит «☑ true» только в JSON; в YAML то же значение
+    /// выводится как `true`. Проверено на сервере для обеих диаграмм.
+    pub bool_as_text: bool,
     /// Цвет boolean/null
     pub keyword_color: &'static str,
 }
@@ -48,12 +53,15 @@ impl Default for JsonLayoutConfig {
             font_size: 14.0,
             text: TextMeasurer::default(),
             corner_radius: 3.0,
-            object_bg_color: "#FEFECE",
+            // Эталон `json_basic`: заливка таблицы `#F1F1F1` — та же,
+            // что у блоков activity и классов, а не «жёлтая» тема.
+            object_bg_color: "#F1F1F1",
             array_bg_color: "#E8F4E8",
             key_color: "#000080",
             string_color: "#008000",
             number_color: "#0000FF",
             keyword_color: "#800080",
+            bool_as_text: false,
         }
     }
 }

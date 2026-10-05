@@ -231,7 +231,11 @@ impl SvgRenderer {
         /// JSON и YAML: таблица с отступом 10 со всех сторон и небольшим
         /// запасом справа и снизу (измерено 10/10/11.11/11.81 и
         /// 10/10/11.55/11.11).
-        const TABLE: (f64, f64, f64, f64) = (10.0, 10.0, 11.11, 11.81);
+        // Правый запас пересчитан после того, как колонка ключей стала
+        // считаться по ЖИРНЫМ метрикам: ширина содержимого выросла на 6.36
+        // и совпала с эталонной (131.45), а прежний запас давал холст
+        // на 4 шире эталонного.
+        const TABLE: (f64, f64, f64, f64) = (10.0, 10.0, 7.11, 11.81);
 
         /// MINDMAP: движок сам добавляет `padding = 10` со всех сторон,
         /// поэтому рендерер дополняет до эталонных 10/20/20.14/20.81.
@@ -665,11 +669,21 @@ impl SvgRenderer {
                     .get("text-fill")
                     .cloned()
                     .unwrap_or_else(|| theme.text_color.to_css());
+                // Таблицы JSON и YAML кладут строку по своему базису,
+                // а не по низу ячейки.
+                let baseline = element
+                    .properties
+                    .get("baseline")
+                    .and_then(|value| value.parse::<f64>().ok());
                 group = self.render_text_weighted(
                     &element.bounds,
                     text,
                     *font_size,
-                    TextStyle { bold, fill: &fill },
+                    TextStyle {
+                        bold,
+                        fill: &fill,
+                        baseline,
+                    },
                     theme,
                     group,
                 );
@@ -1961,9 +1975,13 @@ impl SvgRenderer {
         theme: &Theme,
         group: Group,
     ) -> Group {
+        // Базис можно задать свойством: таблицы JSON/YAML кладут строку
+        // по `row + line_height - 5.302`, а не по низу прямоугольника.
+        let baseline = style.baseline.unwrap_or(bounds.y + font_size);
+
         let mut text = svg::node::element::Text::new(text_content)
             .set("x", bounds.x)
-            .set("y", bounds.y + font_size)
+            .set("y", baseline)
             .set("font-family", theme.font_family.as_str())
             .set("font-size", font_size)
             // Цвет можно переопределить свойством: PlantUML рисует
@@ -2719,6 +2737,8 @@ struct EdgeStyle<'a> {
 struct TextStyle<'a> {
     bold: bool,
     fill: &'a str,
+    /// Явный базис строки; `None` — считать от `bounds`.
+    baseline: Option<f64>,
 }
 
 /// Данные спрайта, разобранные из свойства элемента.
