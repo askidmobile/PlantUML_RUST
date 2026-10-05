@@ -27,8 +27,11 @@ pub fn parse_network(source: &str) -> crate::Result<NetworkDiagram> {
     for pair in pairs {
         if pair.as_rule() == Rule::network_diagram {
             for inner in pair.into_inner() {
-                if inner.as_rule() == Rule::nwdiag_block {
-                    parse_nwdiag_block(inner, &mut diagram)?;
+                match inner.as_rule() {
+                    Rule::nwdiag_block => parse_nwdiag_block(inner, &mut diagram)?,
+                    // Форма `@startnwdiag` без обёртки `nwdiag { }`
+                    Rule::diagram_content => parse_diagram_content(inner, &mut diagram)?,
+                    _ => {}
                 }
             }
         }
@@ -61,23 +64,35 @@ fn parse_nwdiag_block(
 ) -> crate::Result<()> {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::diagram_content {
-            for element in inner.into_inner() {
-                match element.as_rule() {
-                    Rule::network_definition => {
-                        let network = parse_network_definition(element)?;
-                        diagram.add_network(network);
-                    }
-                    Rule::group_definition => {
-                        let group = parse_group_definition(element)?;
-                        diagram.groups.push(group);
-                    }
-                    Rule::server_definition => {
-                        let server = parse_server_definition(element)?;
-                        diagram.add_server(server);
-                    }
-                    _ => {}
-                }
+            parse_diagram_content(inner, diagram)?;
+        }
+    }
+    Ok(())
+}
+
+/// Разбирает содержимое диаграммы (список сетей, групп и серверов).
+///
+/// Вынесено отдельно: содержимое встречается и внутри обёртки
+/// `nwdiag { }`, и непосредственно при форме `@startnwdiag` без обёртки.
+fn parse_diagram_content(
+    pair: pest::iterators::Pair<Rule>,
+    diagram: &mut NetworkDiagram,
+) -> crate::Result<()> {
+    for element in pair.into_inner() {
+        match element.as_rule() {
+            Rule::network_definition => {
+                let network = parse_network_definition(element)?;
+                diagram.add_network(network);
             }
+            Rule::group_definition => {
+                let group = parse_group_definition(element)?;
+                diagram.groups.push(group);
+            }
+            Rule::server_definition => {
+                let server = parse_server_definition(element)?;
+                diagram.add_server(server);
+            }
+            _ => {}
         }
     }
     Ok(())
@@ -270,6 +285,25 @@ fn parse_color_value(s: &str) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Официальная форма `@startnwdiag` без обёртки `nwdiag { }`.
+    ///
+    /// Регрессия: грамматика требовала обёртку, поэтому такая диаграмма
+    /// не разбиралась вовсе, хотя именно эта форма описана в документации
+    /// PlantUML.
+    #[test]
+    fn test_nwdiag_without_wrapper() {
+        let source =
+            "@startnwdiag\nnetwork LAN {\n  address = \"10.0.0.0/24\"\n  server s1\n}\n@endnwdiag";
+        let diagram = parse_network(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.networks.len(), 1);
+        assert_eq!(diagram.networks[0].id.name, "LAN");
+
+        // Форма с обёрткой продолжает работать
+        let source = "@startnwdiag\nnwdiag {\n  network LAN {\n    server s1\n  }\n}\n@endnwdiag";
+        let diagram = parse_network(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.networks.len(), 1);
+    }
 
     #[test]
     fn test_parse_simple_network() {

@@ -28,7 +28,9 @@
 // Тег @startnwdiag обязателен для сервера PlantUML: с @startuml он отвечает
 // ошибкой «This looks like a network diagram. Please use @startnwdiag».
 // Раньше поддерживалась только вторая форма.
-network_diagram = { SOI ~ ws ~ diagram_start? ~ ws ~ nwdiag_block ~ ws ~ diagram_end? ~ ws ~ EOI }
+// Официальная форма `@startnwdiag` НЕ требует обёртки `nwdiag { }` —
+// содержимое идёт сразу. Раньше принималась только форма с обёрткой.
+network_diagram = { SOI ~ ws ~ diagram_start? ~ ws ~ (nwdiag_block | diagram_content) ~ ws ~ diagram_end? ~ ws ~ EOI }
 
 diagram_start = _{ "@startnwdiag" | "@startuml" }
 diagram_end = _{ "@endnwdiag" | "@enduml" }
