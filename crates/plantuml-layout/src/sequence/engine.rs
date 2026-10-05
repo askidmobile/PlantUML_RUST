@@ -1304,7 +1304,7 @@ impl SequenceLayoutEngine {
         // Заголовок фрагмента (alt/opt/loop) + условие первой секции [текст]
         // PlantUML делает значительный отступ от условия секции до первого сообщения
         // fragment_header_height (22) + отступ для текста условия (18) + отступ до сообщения (8)
-        metrics.advance_y(self.config.fragment_header_height + 26.0);
+        metrics.advance_y(self.config.fragment_header_height + 23.0);
 
         // Обрабатываем секции
         let mut layout_sections: Vec<FragmentSection> = Vec::new();
@@ -1316,7 +1316,7 @@ impl SequenceLayoutEngine {
                 // 2. Разделительной линии ~5px
                 // 3. Отступа от линии до первого сообщения следующей секции ~20px (увеличено!)
                 // Общий отступ: 18 + 5 + 20 = 43px
-                metrics.advance_y(43.0);
+                metrics.advance_y(19.0);
             }
 
             let section_start_y = metrics.current_y;
@@ -1337,7 +1337,7 @@ impl SequenceLayoutEngine {
         }
 
         // Отступ внизу фрагмента (внутренний padding)
-        let end_y = metrics.current_y + self.config.fragment_padding + 5.0;
+        let end_y = metrics.current_y + self.config.fragment_padding - 5.0;
         metrics.current_y = end_y;
 
         // ВАЖНО: Отступ ПОСЛЕ фрагмента до следующего элемента (между фрагментами или до footer)

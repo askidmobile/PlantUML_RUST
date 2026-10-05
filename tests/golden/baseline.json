@@ -10,7 +10,7 @@
   "network_nwdiag": { "width_diff": 7.0, "height_diff": 23.0, "missing_texts": 2 },
   "object_basic": { "width_diff": 7.0, "height_diff": 14.0, "missing_texts": 1 },
   "salt_basic": { "width_diff": 17.0, "height_diff": 3.0, "missing_texts": 0 },
-  "sequence_fragments": { "width_diff": 4.0, "height_diff": 50.0, "missing_texts": 0 },
+  "sequence_fragments": { "width_diff": 4.0, "height_diff": 13.0, "missing_texts": 0 },
   "sequence_notes": { "width_diff": 3.0, "height_diff": 7.0, "missing_texts": 0 },
   "sequence_participants": { "width_diff": 7.0, "height_diff": 9.0, "missing_texts": 0 },
   "sequence_simple": { "width_diff": 1.0, "height_diff": 8.0, "missing_texts": 0 },
