@@ -14,9 +14,39 @@ impl Color {
         Self(s.into())
     }
 
-    /// Возвращает CSS представление
+    /// Возвращает CSS представление цвета.
+    ///
+    /// PlantUML записывает шестнадцатеричные цвета в СОКРАЩЁННОЙ форме,
+    /// когда это возможно: `#000000` → `#000`, `#FFFFFF` → `#FFF`,
+    /// `#AABBCC` → `#ABC`. Проверено на сервере: заданные в полной
+    /// записи цвета возвращаются сокращёнными.
+    ///
+    /// Остальные формы (`rgb(...)`, именованные цвета, 6 цифр без
+    /// повторов) возвращаются как есть.
     pub fn to_css(&self) -> String {
-        // Возвращаем значение as-is: hex (#fff), rgb(...), или именованные цвета
+        let value = self.0.trim();
+
+        let Some(digits) = value.strip_prefix('#') else {
+            return self.0.clone();
+        };
+
+        if digits.len() != 6 || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+            return self.0.clone();
+        }
+
+        // Сокращаем, только если оба символа каждой пары совпадают.
+        let bytes = digits.as_bytes();
+        if bytes[0].eq_ignore_ascii_case(&bytes[1])
+            && bytes[2].eq_ignore_ascii_case(&bytes[3])
+            && bytes[4].eq_ignore_ascii_case(&bytes[5])
+        {
+            let mut out = String::from("#");
+            out.push(bytes[0] as char);
+            out.push(bytes[2] as char);
+            out.push(bytes[4] as char);
+            return out;
+        }
+
         self.0.clone()
     }
 }
@@ -365,6 +395,7 @@ mod tests {
         let mut theme = Theme::default();
         params.apply_to(&mut theme);
 
-        assert_eq!(theme.background_color.to_css(), "#FF0000");
+        // PlantUML записывает цвета в сокращённой форме: #FF0000 -> #F00.
+        assert_eq!(theme.background_color.to_css(), "#F00");
     }
 }

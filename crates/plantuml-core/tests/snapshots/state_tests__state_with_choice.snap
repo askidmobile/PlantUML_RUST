@@ -13,13 +13,13 @@ expression: svg
 <path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
 </marker>
 <marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
@@ -28,20 +28,20 @@ expression: svg
 </g>
 <g id="state_Valid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="57.55" x="13" y="205"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="37.083">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="37.083">
 Valid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="13" x2="70.55" y1="231.297" y2="231.297"/>
 </g>
 <g id="state_Invalid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="69.554" x="158.764" y="205"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="193.541" y="223.1485" textLength="49.276">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="193.541" y="223.1485" textLength="49.276">
 Invalid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="158.764" x2="228.318" y1="231.297" y2="231.297"/>
 </g>
 <g id="final_final">
-<ellipse cx="120.65899999999999" cy="326" fill="#FFFFFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
+<ellipse cx="120.65899999999999" cy="326" fill="#FFF" rx="10" ry="10" stroke="#181818" stroke-width="1.5"/>
 <ellipse cx="120.65899999999999" cy="326" fill="#181818" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="trans_initial_check">
@@ -49,13 +49,13 @@ Invalid
 </g>
 <g id="trans_check_Valid">
 <path d="M151.884,114 L41.775,205" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="end" x="99.84039999999999" y="150.4" textLength="49.565">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="99.84039999999999" y="150.4" textLength="49.565">
 [valid]
 </text>
 </g>
 <g id="trans_check_Invalid">
 <path d="M151.884,114 L193.541,205" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="176.5468" y="150.4" textLength="62.288">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="176.5468" y="150.4" textLength="62.288">
 [invalid]
 </text>
 </g>
@@ -66,7 +66,7 @@ Invalid
 <path d="M193.541,255 L120.65899999999999,316" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="choice_check">
-<text fill="#000000" font-family="sans-serif" font-size="16" x="141.884" y="110" textLength="7.696">
+<text fill="#000" font-family="sans-serif" font-size="16" x="141.884" y="110" textLength="7.696">
 ◇
 </text>
 </g>

@@ -13,13 +13,13 @@ expression: svg
 <path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
 </marker>
 <marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
@@ -31,57 +31,57 @@ expression: svg
 </g>
 <g id="msg_Alice_Bob">
 <path d="M35,70.297 L115,70.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="65.297" textLength="52.978">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="65.297" textLength="52.978">
 Request
 </text>
 </g>
 <g id="fragment_alt">
 <rect fill="none" height="127.26600000000003" stroke="#000" stroke-width="1.5" width="150" x="0" y="99.42999999999999"/>
 <path d="M0,99.42999999999999 L64.2962,99.42999999999999 L64.2962,106.56299999999999 L54.2962,116.56299999999999 L0,116.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="113.42999999999999" textLength="19.296">
+<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="113.42999999999999" textLength="19.296">
 alt
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="700" x="74.2962" y="113.42999999999999" textLength="75.548">
+<text fill="#000" font-family="sans-serif" font-size="14" font-weight="700" x="74.2962" y="113.42999999999999" textLength="75.548">
 [success]
 </text>
 <g id="msg_Bob_Alice">
 <path d="M115,144.43 L35,144.43" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="139.43" textLength="17.662">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="139.43" textLength="17.662">
 OK
 </text>
 </g>
 <path d="M0,164.56300000000002 L150,164.56300000000002" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="700" x="5" y="176.56300000000002" textLength="55.396">
+<text fill="#000" font-family="sans-serif" font-size="12" font-weight="700" x="5" y="176.56300000000002" textLength="55.396">
 [failure]
 </text>
 <g id="msg_Bob_Alice">
 <path d="M115,192.56300000000002 L35,192.56300000000002" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="187.56300000000002" textLength="32.781">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="187.56300000000002" textLength="32.781">
 Error
 </text>
 </g>
 </g>
 <g id="participant_Alice">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="10"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="25.1485" textLength="34.908">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="25.1485" textLength="34.908">
 Alice
 </text>
 </g>
 <g id="participant_Bob">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="90" y="10"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="25.1485" textLength="26.585">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="25.1485" textLength="26.585">
 Bob
 </text>
 </g>
 <g id="footer_Alice">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="230.56300000000002"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="245.71150000000003" textLength="34.908">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="245.71150000000003" textLength="34.908">
 Alice
 </text>
 </g>
 <g id="footer_Bob">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="90" y="230.56300000000002"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="245.71150000000003" textLength="26.585">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="115" y="245.71150000000003" textLength="26.585">
 Bob
 </text>
 </g>

@@ -322,8 +322,11 @@ mod tests {
         )
         .unwrap();
 
-        assert!(svg.contains("#FFFFFF"), "нет белого фона при monochrome");
-        assert!(svg.contains("#000000"), "нет чёрных границ при monochrome");
+        // PlantUML записывает цвета в сокращённой форме: `#FFFFFF` → `#FFF`,
+        // `#000000` → `#000`. Проверено на сервере: заданный в полной
+        // записи цвет возвращается сокращённым.
+        assert!(svg.contains("#FFF"), "нет белого фона при monochrome");
+        assert!(svg.contains("#000"), "нет чёрных границ при monochrome");
     }
 
     /// Тема из исходника переопределяет тему из опций.

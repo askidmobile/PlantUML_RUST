@@ -7,7 +7,7 @@ use crate::{
     ClassMember, ClassifierKind, EdgeType, ElementType, FragmentSection, LayoutElement,
     LayoutResult, MemberVisibility, Point, Rect, RenderOptions, Renderer, ZLayer,
 };
-use plantuml_themes::Theme;
+use plantuml_themes::{Color, Theme};
 
 /// Цвет рамки фрагмента (alt/opt/loop) в эталоне PlantUML.
 const FRAGMENT_BORDER: &str = "#000";
@@ -322,7 +322,12 @@ impl SvgRenderer {
                 Path::new()
                     // Треугольник: верх, кончик, низ
                     .set("d", "M0,0 L20,10 L0,20 Z")
-                    .set("fill", theme.background_color.to_css()) // белый внутри
+                    // PlantUML рисует полый треугольник с `fill="none"`,
+                    // а не белой заливкой. Проверено по эталону
+                    // class_inheritance: `<polygon ... fill="none">`.
+                    // Разница видна, когда линия проходит через фигуру:
+                    // белая заливка перекрывает её, `none` — нет.
+                    .set("fill", "none")
                     .set("stroke", arrow_color.as_str())
                     .set("stroke-width", 1),
             );
@@ -379,6 +384,18 @@ impl SvgRenderer {
     /// не изменяя сам элемент layout.
     fn render_element_with_id(&self, element: &LayoutElement, theme: &Theme, id: &str) -> Group {
         let mut group = Group::new().set("id", id);
+
+        // Цвета из свойств приводим к форме PlantUML ОДИН раз здесь:
+        // сервер записывает их сокращённо (`#000000` → `#000`), а движки
+        // раскладки задают полную запись. Нормализация в одной точке
+        // избавляет от правок в каждом движке.
+        let normalized;
+        let element = if let Some(value) = normalize_element_colors(element) {
+            normalized = value;
+            &normalized
+        } else {
+            element
+        };
 
         match &element.element_type {
             ElementType::Rectangle {
@@ -646,7 +663,7 @@ impl SvgRenderer {
                     .set("height", bounds.height)
                     .set("rx", corner_radius)
                     .set("ry", corner_radius)
-                    .set("fill", "#000000")
+                    .set("fill", Color::new("#000000").to_css())
                     .set("fill-opacity", 0.2)
                     .set("stroke", "none"),
             );
@@ -2016,7 +2033,7 @@ impl SvgRenderer {
             .set("font-family", theme.font_family.as_str())
             .set("font-size", 12)
             .set("font-weight", "bold")
-            .set("fill", "#000000");
+            .set("fill", Color::new("#000000").to_css());
         group = group.add(icon_text);
 
         // 3. Стереотип (если есть)
@@ -2255,6 +2272,35 @@ const SPRITE_INLINE_PIXEL: f64 = 1.0;
 
 /// Отступ после спрайта внутри подписи.
 const SPRITE_INLINE_GAP: f64 = 2.0;
+
+/// Приводит цвета в свойствах элемента к форме PlantUML.
+///
+/// Возвращает `None`, если менять нечего — тогда вызывающий использует
+/// исходный элемент и лишней копии не создаётся.
+fn normalize_element_colors(element: &LayoutElement) -> Option<LayoutElement> {
+    const COLOR_KEYS: [&str; 3] = ["fill", "stroke", "text-fill"];
+
+    let mut changed = false;
+    let mut properties = element.properties.clone();
+
+    for key in COLOR_KEYS {
+        if let Some(value) = properties.get(key) {
+            let shortened = Color::new(value.as_str()).to_css();
+            if &shortened != value {
+                properties.insert(key.to_string(), shortened);
+                changed = true;
+            }
+        }
+    }
+
+    changed.then(|| LayoutElement {
+        id: element.id.clone(),
+        bounds: element.bounds,
+        element_type: element.element_type.clone(),
+        text: element.text.clone(),
+        properties,
+    })
+}
 
 /// Оформление линии: цвет и толщина.
 ///

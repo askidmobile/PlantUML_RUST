@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(diagram.networks.len(), 1);
         assert_eq!(
             diagram.networks[0].color.as_ref().map(|c| c.to_css()),
-            Some("#FFAAAA".to_string())
+            Some("#FAA".to_string())
         );
         assert_eq!(diagram.networks[0].members.len(), 1);
 

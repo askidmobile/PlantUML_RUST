@@ -130,16 +130,22 @@ impl Color {
         }
     }
 
-    /// Преобразует в CSS строку
+    /// Преобразует в CSS строку.
+    ///
+    /// Шестнадцатеричные цвета записываются в СОКРАЩЁННОЙ форме, когда
+    /// это возможно: `#000000` → `#000`, `#FFFFFF` → `#FFF`. Так делает
+    /// PlantUML — проверено на сервере для `skinparam` и объявлений
+    /// элементов.
     pub fn to_css(&self) -> String {
         match self {
             Color::Named(name) => name.clone(),
             Color::Hex(hex) => {
-                if hex.starts_with('#') {
+                let value = if hex.starts_with('#') {
                     hex.clone()
                 } else {
                     format!("#{}", hex)
-                }
+                };
+                shorten_hex(&value)
             }
             Color::Rgb { r, g, b } => format!("rgb({}, {}, {})", r, g, b),
             Color::Rgba { r, g, b, a } => {
@@ -252,6 +258,34 @@ pub struct DiagramMetadata {
     pub newpage: Option<String>,
 }
 
+/// Сокращает шестнадцатеричный цвет, если все пары цифр совпадают.
+///
+/// `#000000` → `#000`, `#AABBCC` → `#ABC`. Остальные значения
+/// возвращаются без изменений.
+fn shorten_hex(value: &str) -> String {
+    let Some(digits) = value.strip_prefix('#') else {
+        return value.to_string();
+    };
+
+    if digits.len() != 6 || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return value.to_string();
+    }
+
+    let bytes = digits.as_bytes();
+    if bytes[0].eq_ignore_ascii_case(&bytes[1])
+        && bytes[2].eq_ignore_ascii_case(&bytes[3])
+        && bytes[4].eq_ignore_ascii_case(&bytes[5])
+    {
+        let mut out = String::from("#");
+        out.push(bytes[0] as char);
+        out.push(bytes[2] as char);
+        out.push(bytes[4] as char);
+        return out;
+    }
+
+    value.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,16 +302,17 @@ mod tests {
     #[test]
     fn test_color_to_css() {
         assert_eq!(Color::named("red").to_css(), "red");
-        assert_eq!(Color::from_hex("#FF0000").to_css(), "#FF0000");
-        assert_eq!(Color::from_hex("FF0000").to_css(), "#FF0000");
+        // Шестнадцатеричные цвета записываются сокращённо: #FF0000 -> #F00.
+        assert_eq!(Color::from_hex("#FF0000").to_css(), "#F00");
+        assert_eq!(Color::from_hex("FF0000").to_css(), "#F00");
         assert_eq!(Color::Rgb { r: 255, g: 0, b: 0 }.to_css(), "rgb(255, 0, 0)");
     }
 
     #[test]
     fn test_color_parse() {
         // Hex цвета
-        assert_eq!(Color::parse("#FF0000").to_css(), "#FF0000");
-        assert_eq!(Color::parse("FF0000").to_css(), "#FF0000");
+        assert_eq!(Color::parse("#FF0000").to_css(), "#F00");
+        assert_eq!(Color::parse("FF0000").to_css(), "#F00");
         assert_eq!(Color::parse("#FFF").to_css(), "#FFF");
         assert_eq!(Color::parse("ABC").to_css(), "#ABC");
         assert_eq!(Color::parse("#AABBCCDD").to_css(), "#AABBCCDD");

@@ -808,7 +808,8 @@ stop
         assert_eq!(swimlanes[2].name, "Swimlane3");
         assert!(swimlanes[2].color.is_some(), "Expected color for Swimlane3");
         // Проверяем, что hex цвет правильно распарсен
-        assert_eq!(swimlanes[2].color.as_ref().unwrap().to_css(), "#FF0000");
+        // PlantUML записывает цвета сокращённо: #FF0000 -> #F00.
+        assert_eq!(swimlanes[2].color.as_ref().unwrap().to_css(), "#F00");
     }
 
     #[test]

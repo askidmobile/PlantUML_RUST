@@ -580,7 +580,7 @@ mod tests {
         assert_eq!(diagram.states.len(), 1);
         assert_eq!(
             diagram.states[0].color.as_ref().map(|c| c.to_css()),
-            Some("#FF0000".to_string()),
+            Some("#F00".to_string()),
             "цвет состояния потерян"
         );
 

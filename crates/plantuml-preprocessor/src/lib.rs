@@ -400,7 +400,8 @@ impl<R: FileResolver> Preprocessor<R> {
     ///     .process_with_theme("@startuml\nskinparam monochrome true\nA -> B\n@enduml")
     ///     .unwrap();
     /// assert!(text.contains("A -> B"));
-    /// assert_eq!(theme.node_border.to_css(), "#000000");
+    /// // PlantUML записывает цвета сокращённо: #000000 -> #000.
+    /// assert_eq!(theme.node_border.to_css(), "#000");
     /// ```
     pub fn process_with_theme(&self, source: &str) -> Result<(String, Theme)> {
         let mut ctx = PreprocessContext::new();
@@ -970,7 +971,9 @@ skinparam backgroundColor #FF0000
 "#;
         preprocessor.process_with_context(source, &mut ctx).unwrap();
 
-        assert_eq!(ctx.theme.background_color.to_css(), "#FF0000");
+        // PlantUML записывает цвета в сокращённой форме: `#FF0000` → `#F00`
+        // (проверено на сервере для skinparam).
+        assert_eq!(ctx.theme.background_color.to_css(), "#F00");
     }
 
     #[test]
@@ -988,7 +991,7 @@ skinparam backgroundColor #00FF00
 
         // Тема dark, но backgroundColor переопределён
         assert_eq!(ctx.theme.name, "dark");
-        assert_eq!(ctx.theme.background_color.to_css(), "#00FF00");
+        assert_eq!(ctx.theme.background_color.to_css(), "#0F0");
     }
 
     #[test]

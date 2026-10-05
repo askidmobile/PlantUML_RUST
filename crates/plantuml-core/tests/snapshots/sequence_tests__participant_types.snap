@@ -13,13 +13,13 @@ expression: svg
 <path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
 </marker>
 <marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
 <path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
 </marker>
 <marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFFFFF" stroke="#181818" stroke-width="1"/>
+<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
 </marker>
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
@@ -35,64 +35,64 @@ expression: svg
 <g id="participant_Admin">
 <ellipse cx="121.55600000000001" cy="18.5" fill="#E2E2F0" rx="8" ry="8" stroke="#181818" stroke-width="0.5"/>
 <path d="M121.55600000000001,26.5 L121.55600000000001,53.5 M108.556,34.5 L134.556,34.5 M121.55600000000001,53.5 L108.556,68.5 M121.55600000000001,53.5 L134.556,68.5" fill="none" stroke="#181818" stroke-width="0.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="121.55600000000001" y="82.99499999999999" textLength="42.93">
+<text fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="121.55600000000001" y="82.99499999999999" textLength="42.93">
 Admin
 </text>
 </g>
 <g id="participant_DB">
 <path d="M187.021,34 L187.021,60 C187.021,70 205.0208,70 205.0208,70 C205.0208,70 223.021,70 223.021,60 L223.021,34" fill="#E2E2F0" stroke="#181818" stroke-width="0.5"/>
 <path d="M187.021,34 C187.021,24 205.0208,24 205.0208,24 C205.0208,24 223.021,24 223.021,34" fill="none" stroke="#181818" stroke-width="0.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="205.0208" y="82.99499999999999" textLength="17.513">
+<text fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="205.0208" y="82.99499999999999" textLength="17.513">
 DB
 </text>
 </g>
 <g id="msg_User_Admin">
 <path d="M35,115.297 L121.55600000000001,115.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="110.297" textLength="52.978">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="110.297" textLength="52.978">
 Request
 </text>
 </g>
 <g id="msg_Admin_DB">
 <path d="M121.55600000000001,144.43 L205.0208,144.43" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="126.55600000000001" y="139.43" textLength="38.947">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="126.55600000000001" y="139.43" textLength="38.947">
 Query
 </text>
 </g>
 <g id="msg_DB_Admin">
 <path d="M205.0208,173.56300000000002 L121.55600000000001,173.56300000000002" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="126.55600000000001" y="168.56300000000002" textLength="29.505">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="126.55600000000001" y="168.56300000000002" textLength="29.505">
 Data
 </text>
 </g>
 <g id="msg_Admin_User">
 <path d="M121.55600000000001,202.69600000000003 L35,202.69600000000003" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="197.69600000000003" textLength="62.556">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40" y="197.69600000000003" textLength="62.556">
 Response
 </text>
 </g>
 <g id="footer_Admin">
 <ellipse cx="121.55600000000001" cy="245.49300000000002" fill="#E2E2F0" rx="8" ry="8" stroke="#181818" stroke-width="0.5"/>
 <path d="M121.55600000000001,253.493 L121.55600000000001,280.493 M108.556,261.493 L134.556,261.493 M121.55600000000001,280.493 L108.556,295.493 M121.55600000000001,280.493 L134.556,295.493" fill="none" stroke="#181818" stroke-width="0.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="121.55600000000001" y="233.69100000000003" textLength="42.93">
+<text fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="121.55600000000001" y="233.69100000000003" textLength="42.93">
 Admin
 </text>
 </g>
 <g id="footer_DB">
 <path d="M187.021,246.993 L187.021,272.993 C187.021,282.993 205.0208,282.993 205.0208,282.993 C205.0208,282.993 223.021,282.993 223.021,272.993 L223.021,246.993" fill="#E2E2F0" stroke="#181818" stroke-width="0.5"/>
 <path d="M187.021,246.993 C187.021,236.993 205.0208,236.993 205.0208,236.993 C205.0208,236.993 223.021,236.993 223.021,246.993" fill="none" stroke="#181818" stroke-width="0.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="205.0208" y="233.69100000000003" textLength="17.513">
+<text fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="205.0208" y="233.69100000000003" textLength="17.513">
 DB
 </text>
 </g>
 <g id="participant_User">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="55"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="70.1485" textLength="31.646">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="70.1485" textLength="31.646">
 User
 </text>
 </g>
 <g id="footer_User">
 <rect fill="#E2E2F0" height="30.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="50" x="10" y="220.69600000000003"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="235.84450000000004" textLength="31.646">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35" y="235.84450000000004" textLength="31.646">
 User
 </text>
 </g>
