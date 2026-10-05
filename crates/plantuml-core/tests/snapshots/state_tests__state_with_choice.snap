@@ -28,14 +28,14 @@ expression: svg
 </g>
 <g id="state_Valid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="57.55" x="13" y="205"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="37.083">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="34.822">
 Valid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="13" x2="70.55" y1="231.297" y2="231.297"/>
 </g>
 <g id="state_Invalid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="69.554" x="158.764" y="205"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="193.541" y="223.1485" textLength="49.276">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="193.541" y="223.1485" textLength="46.532">
 Invalid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="158.764" x2="228.318" y1="231.297" y2="231.297"/>
@@ -49,13 +49,13 @@ Invalid
 </g>
 <g id="trans_check_Valid">
 <path d="M151.884,114 L41.775,205" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="99.84039999999999" y="150.4" textLength="49.565">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="99.84039999999999" y="150.4" textLength="46.784">
 [valid]
 </text>
 </g>
 <g id="trans_check_Invalid">
 <path d="M151.884,114 L193.541,205" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="176.5468" y="150.4" textLength="62.288">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="176.5468" y="150.4" textLength="58.635">
 [invalid]
 </text>
 </g>

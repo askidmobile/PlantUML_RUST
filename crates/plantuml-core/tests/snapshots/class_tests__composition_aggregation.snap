@@ -4,7 +4,7 @@ assertion_line: 110
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="CLASS" height="226px" preserveAspectRatio="none" style="width:243px;height:226px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 243.21040000000002 226.301" width="243px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="CLASS" height="226px" preserveAspectRatio="none" style="width:238px;height:226px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 238.14379999999997 226.301" width="238px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818"/>
@@ -24,66 +24,66 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Car">
-<rect fill="#F1F1F1" height="80.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="174.67159999999998" x="23.629400000000018" y="0"/>
-<ellipse cx="39.62940000000002" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="39.62940000000002" y="20" textLength="7.572">
+<rect fill="#F1F1F1" height="80.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="167.87459999999996" x="24.494600000000005" y="0"/>
+<ellipse cx="40.494600000000005" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="40.494600000000005" y="20" textLength="8.38">
 C
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="55.62940000000002" y="19" textLength="23.643">
+<text fill="#000" font-family="sans-serif" font-size="14" x="56.494600000000005" y="19" textLength="24.112">
 Car
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="24.629400000000018" x2="197.301" y1="26" y2="26"/>
-<ellipse cx="31.629400000000018" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="39.62940000000002" y="43" textLength="108.345">
+<line stroke="#181818" stroke-width="0.5" x1="25.494600000000005" x2="191.36919999999998" y1="26" y2="26"/>
+<ellipse cx="32.494600000000005" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="40.494600000000005" y="43" textLength="107.101">
 engine: Engine
 </text>
-<ellipse cx="31.629400000000018" cy="55" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="39.62940000000002" y="59" textLength="187.664">
+<ellipse cx="32.494600000000005" cy="55" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="40.494600000000005" y="59" textLength="179.098">
 wheels: List&lt;Wheel&gt;
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="24.629400000000018" x2="197.301" y1="63" y2="63"/>
+<line stroke="#181818" stroke-width="0.5" x1="25.494600000000005" x2="191.36919999999998" y1="63" y2="63"/>
 </g>
 <g id="Engine">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="100.5262" x="0" y="140.594"/>
+<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="98.89519999999999" x="0" y="140.594"/>
 <ellipse cx="16" cy="156.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="160.594" textLength="7.572">
+<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="160.594" textLength="8.38">
 C
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="159.594" textLength="48.331">
+<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="159.594" textLength="47.981">
 Engine
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="99.5262" y1="166.594" y2="166.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="97.89519999999999" y1="166.594" y2="166.594"/>
 <ellipse cx="8" cy="179.594" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="183.594" textLength="74.526">
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="183.594" textLength="72.895">
 power: int
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="99.5262" y1="187.594" y2="187.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="97.89519999999999" y1="187.594" y2="187.594"/>
 </g>
 <g id="Wheel">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="86.2042" x="135.7262" y="140.594"/>
-<ellipse cx="151.7262" cy="156.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="151.7262" y="160.594" textLength="7.572">
+<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="82.76859999999999" x="134.09519999999998" y="140.594"/>
+<ellipse cx="150.09519999999998" cy="156.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="150.09519999999998" y="160.594" textLength="8.38">
 C
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="167.7262" y="159.594" textLength="44.106">
+<text fill="#000" font-family="sans-serif" font-size="14" x="166.09519999999998" y="159.594" textLength="43.83">
 Wheel
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="136.7262" x2="220.93040000000002" y1="166.594" y2="166.594"/>
-<ellipse cx="143.7262" cy="179.594" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="151.7262" y="183.594" textLength="60.204">
+<line stroke="#181818" stroke-width="0.5" x1="135.09519999999998" x2="215.86379999999997" y1="166.594" y2="166.594"/>
+<ellipse cx="142.09519999999998" cy="179.594" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="150.09519999999998" y="183.594" textLength="56.769">
 size: int
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="136.7262" x2="220.93040000000002" y1="187.594" y2="187.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="135.09519999999998" x2="215.86379999999997" y1="187.594" y2="187.594"/>
 </g>
 <g id="edge_Car_Engine">
-<path d="M110.96520000000001,80.594 L110.96520000000001,110.594 L50.2631,110.594 L50.2631,140.594" fill="none" marker-start="url(#composition)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="115.96520000000001" y="75.594" textLength="56.963">
+<path d="M108.43189999999998,80.594 L108.43189999999998,110.594 L49.447599999999994,110.594 L49.447599999999994,140.594" fill="none" marker-start="url(#composition)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="113.43189999999998" y="75.594" textLength="55.028">
 contains
 </text>
 </g>
 <g id="edge_Car_Wheel">
-<path d="M110.96520000000001,80.594 L110.96520000000001,110.594 L178.8283,110.594 L178.8283,140.594" fill="none" marker-start="url(#aggregation)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="115.96520000000001" y="75.594" textLength="23.923">
+<path d="M108.43189999999998,80.594 L108.43189999999998,110.594 L175.47949999999997,110.594 L175.47949999999997,140.594" fill="none" marker-start="url(#aggregation)" stroke="#181818" stroke-width="1"/>
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="113.43189999999998" y="75.594" textLength="22.979">
 has
 </text>
 </g>

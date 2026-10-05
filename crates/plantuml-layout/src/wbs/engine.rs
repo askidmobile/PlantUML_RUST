@@ -12,6 +12,13 @@ use super::WbsLayoutConfig;
 use crate::traits::LayoutResult;
 use crate::{ElementType, LayoutElement};
 
+/// Отступ детей не-корневого узла вправо от его середины.
+///
+/// Измерено по эталону: `R[A[B]]` — 20.00 + 28.21/2 + 10 = 44.10;
+/// `wbs_basic` Phase 2 → Task 2.1 — 154.42 + 67.28/2 + 10 = 198.06.
+/// Оба совпадают.
+const WBS_CHILD_INDENT: f64 = 10.0;
+
 /// Сдвигает все координаты SVG-пути на заданное смещение.
 ///
 /// Путь хранится строкой вида `M10,20 L10,30 L40,30 L40,50`. Все числа в
@@ -134,6 +141,21 @@ impl WbsLayoutEngine {
         node: &WbsNode,
         widths: &mut HashMap<*const WbsNode, f64>,
     ) -> f64 {
+        self.subtree_width_of(node, true, widths)
+    }
+
+    /// Ширина поддерева по модели раскладки.
+    ///
+    /// Дети КОРНЯ разводятся по горизонтали, поэтому их ширины
+    /// складываются с зазором. Дети прочих узлов стоят в ОДНОМ столбце,
+    /// поэтому ширина поддерева — это смещение столбца плюс самая широкая
+    /// ветвь, а не сумма.
+    fn subtree_width_of(
+        &self,
+        node: &WbsNode,
+        is_root: bool,
+        widths: &mut HashMap<*const WbsNode, f64>,
+    ) -> f64 {
         let node_width = self.calculate_node_width(&node.text);
 
         if node.children.is_empty() {
@@ -141,15 +163,22 @@ impl WbsLayoutEngine {
             return node_width;
         }
 
-        let children_width: f64 = node
+        let child_widths: Vec<f64> = node
             .children
             .iter()
-            .map(|c| self.calculate_subtree_width_recursive(c, widths))
-            .sum();
-        let spacing = (node.children.len() - 1) as f64 * self.config.sibling_spacing;
-        let total_children_width = children_width + spacing;
+            .map(|c| self.subtree_width_of(c, false, widths))
+            .collect();
 
-        let subtree_width = node_width.max(total_children_width);
+        let subtree_width = if is_root {
+            let sum: f64 = child_widths.iter().sum();
+            let spacing = (node.children.len() - 1) as f64 * self.config.sibling_spacing;
+            node_width.max(sum + spacing)
+        } else {
+            let widest = child_widths.iter().copied().fold(0.0_f64, f64::max);
+            let offset = node_width / 2.0 + WBS_CHILD_INDENT;
+            node_width.max(offset + widest)
+        };
+
         widths.insert(node as *const WbsNode, subtree_width);
         subtree_width
     }
@@ -188,8 +217,13 @@ impl WbsLayoutEngine {
 
         let node_width = self.calculate_node_width(&node.text);
 
-        // Центрируем узел в пределах его поддерева
-        let node_x = x + (subtree_width - node_width) / 2.0;
+        // Корень центрируется в пределах своего поддерева; остальные
+        // узлы уже размещены родителем, поэтому берём x как есть.
+        let node_x = if is_root {
+            x + (subtree_width - node_width) / 2.0
+        } else {
+            x
+        };
         let node_rect = Rect::new(node_x, y, node_width, self.config.node_height);
 
         let node_id = elements.len();
@@ -197,7 +231,10 @@ impl WbsLayoutEngine {
 
         // Располагаем детей
         if !node.children.is_empty() {
-            let mut child_x = x;
+            // Дети не-корня стоят в ОДНОМ столбце: измерено на сервере —
+            // `Task 1.1` и `Task 1.2` имеют одинаковый x.
+            let stacked_x = node_x + node_width / 2.0 + WBS_CHILD_INDENT;
+            let mut child_x = if is_root { x } else { stacked_x };
 
             for (k, child) in node.children.iter().enumerate() {
                 let child_subtree_width = subtree_widths
@@ -235,7 +272,9 @@ impl WbsLayoutEngine {
                     child_start_id,
                 ));
 
-                child_x += child_subtree_width + self.config.sibling_spacing;
+                if is_root {
+                    child_x += child_subtree_width + self.config.sibling_spacing;
+                }
             }
         }
     }
