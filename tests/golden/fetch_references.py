@@ -20,6 +20,7 @@ import pathlib
 import re
 import sys
 import urllib.error
+import time
 import urllib.request
 import zlib
 
@@ -29,6 +30,9 @@ REF_DIR = ROOT / "tests" / "golden" / "reference"
 META_FILE = REF_DIR / "metadata.json"
 
 SERVER = "https://www.plantuml.com/plantuml/svg/"
+
+# Сколько раз перезапрашивать эталон при вырожденном ответе сервера.
+FETCH_ATTEMPTS = 3
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -102,7 +106,36 @@ def fetch(source: str) -> str:
         )
     if "<svg" not in svg:
         raise ValueError("ответ сервера не содержит SVG")
+    if is_degenerate(svg):
+        raise DegenerateResponse(
+            "сервер вернул вырожденный SVG: у всех подписей textLength=\"0\""
+        )
     return svg
+
+
+class DegenerateResponse(ValueError):
+    """Сервер отдал SVG, в котором не измерена ни одна подпись.
+
+    Такое случается: PlantUML иногда возвращает ответ, где у ВСЕХ элементов
+    `<text>` стоит `textLength="0"`, а габариты занижены. Пример —
+    `network_nwdiag`: вырожденный ответ 117x129 против правильного 273x140.
+
+    Такой файл нельзя сохранять как эталон: расхождения по нему
+    недостоверны. Раньше проверки не было, и четыре эталона из двадцати
+    оказались вырожденными, потому что скрипт по умолчанию пропускает уже
+    существующие файлы и не перезапрашивал их.
+    """
+
+
+def is_degenerate(svg: str) -> bool:
+    """Все подписи без длины — признак вырожденного ответа."""
+    texts = re.findall(r"<text\b", svg)
+    if not texts:
+        return False
+    lengths = re.findall(r'textLength="([\d.]+)"', svg)
+    if not lengths:
+        return False
+    return all(float(value) == 0.0 for value in lengths)
 
 
 def plantuml_version(svg: str) -> str | None:
@@ -147,10 +180,24 @@ def main() -> int:
             continue
 
         source = case.read_text(encoding="utf-8")
-        try:
-            svg = fetch(source)
-        except (urllib.error.URLError, TimeoutError) as exc:
-            print(f"  ОШИБКА {case.name}: {exc}", file=sys.stderr)
+        svg = None
+        for attempt in range(1, FETCH_ATTEMPTS + 1):
+            try:
+                svg = fetch(source)
+                break
+            except DegenerateResponse as exc:
+                # Вырожденный ответ обычно разовый — пробуем ещё раз.
+                print(
+                    f"  попытка {attempt}/{FETCH_ATTEMPTS} {case.name}: {exc}",
+                    file=sys.stderr,
+                )
+                time.sleep(1.5)
+            except (urllib.error.URLError, TimeoutError) as exc:
+                print(f"  ОШИБКА {case.name}: {exc}", file=sys.stderr)
+                break
+
+        if svg is None:
+            print(f"  ПРОПУЩЕНО {case.name}: эталон не получен", file=sys.stderr)
             failed += 1
             continue
 

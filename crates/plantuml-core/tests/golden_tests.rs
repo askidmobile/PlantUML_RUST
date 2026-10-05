@@ -322,6 +322,53 @@ fn golden_references_exist() {
     }
 }
 
+/// Ни один эталон не вырожден.
+///
+/// PlantUML иногда возвращает SVG, где у ВСЕХ подписей стоит
+/// `textLength="0"`, а габариты занижены: например `network_nwdiag`
+/// 117x129 вместо правильных 273x140. Такой файл нельзя использовать как
+/// эталон — расхождения по нему недостоверны.
+///
+/// Проверка появилась после того, как выяснилось, что четыре эталона из
+/// двадцати были вырожденными: `fetch_references.py` по умолчанию
+/// пропускает существующие файлы, поэтому однажды сохранённый плохой
+/// ответ оставался навсегда.
+#[test]
+fn golden_references_are_not_degenerate() {
+    let dir = golden_dir();
+    for name in available_cases() {
+        let path = dir.join("reference").join(format!("{name}.svg"));
+        let Ok(svg) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+
+        let text_count = svg.matches("<text").count();
+        if text_count == 0 {
+            continue;
+        }
+
+        let lengths: Vec<f64> = svg
+            .match_indices("textLength=\"")
+            .filter_map(|(index, prefix)| {
+                let rest = &svg[index + prefix.len()..];
+                let end = rest.find('"')?;
+                rest[..end].parse::<f64>().ok()
+            })
+            .collect();
+
+        if lengths.is_empty() {
+            continue;
+        }
+
+        assert!(
+            lengths.iter().any(|value| *value > 0.0),
+            "эталон {name} вырожден: у всех {} подписей textLength=0.\n\
+             Перезапросите: python3 tests/golden/fetch_references.py --force",
+            lengths.len()
+        );
+    }
+}
+
 /// Метаданные эталонов читаются и содержат версию PlantUML.
 #[test]
 fn golden_metadata_is_valid() {
