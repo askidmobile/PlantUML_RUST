@@ -450,6 +450,25 @@ mod tests {
     }
 
     #[test]
+
+    /// В списке оказывается ТОЛЬКО внешний вызов.
+    ///
+    /// Вложенный раскрывается отдельно, при вычислении аргумента: его
+    /// границы лежат внутри внешнего, и прямая замена внутреннего
+    /// сдвинула бы границы внешнего — это давало искажение вывода или
+    /// зацикливание.
+    #[test]
+    fn test_only_outer_call_is_listed() {
+        let calls = find_function_calls("$outer($inner(1))");
+        let names: Vec<&str> = calls.iter().map(|(_, _, n, _)| n.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["$outer"],
+            "ожидался только внешний вызов: {names:?}"
+        );
+    }
+
+    #[test]
     fn test_find_function_calls() {
         let calls = find_function_calls("result = $add(1, 2) + $mul(3, 4)");
         assert_eq!(calls.len(), 2);

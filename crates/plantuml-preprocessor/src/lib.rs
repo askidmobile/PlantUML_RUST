@@ -1025,8 +1025,13 @@ impl<R: FileResolver> Preprocessor<R> {
         // стандартной библиотеки C4 (сотни макросов с телами по несколько
         // килобайт) это давало взрывной рост: раскрытие одной диаграммы
         // не завершалось за минуты. Перенос стоит O(1).
-        let callables = std::mem::take(&mut ctx.callables);
-        let macros = std::mem::take(&mut ctx.macros);
+        // Реестры КЛОНИРУЕМ, а не забираем: связывание аргументов ниже
+        // раскрывает ВЛОЖЕННЫЕ вызовы, и им нужен доступ к реестру.
+        // Перенос (`mem::take`) обнулял `ctx.callables` заранее, поэтому
+        // `$outer($inner(1))` не находил `$inner` и оставлял его текстом.
+        // Клонирование здесь допустимо: реестр читается, а не растёт.
+        let callables = ctx.callables.clone();
+        let macros = ctx.macros.clone();
         let included_files = std::mem::take(&mut ctx.included_files);
         let include_stack = std::mem::take(&mut ctx.include_stack);
 
@@ -1097,8 +1102,18 @@ impl<R: FileResolver> Preprocessor<R> {
                 .nth(index)
                 .map(|argument| argument.value.clone());
 
+            // В аргументе раскрываются ВЛОЖЕННЫЕ ВЫЗОВЫ.
+            //
+            // Проверено на сервере: `$outer($inner(1))` даёт `<[1]>`.
+            // Прежде аргумент только подставлял переменные, поэтому
+            // вложенный вызов попадал в результат текстом, и C4 получал
+            // `$getRel($down("-","->>"), ...)` вместо готовой стрелки.
             let mut value = match named.or(positional) {
-                Some(value) if !value.trim().is_empty() => evaluate_concat(&value, ctx),
+                Some(value) if !value.trim().is_empty() => {
+                    let expanded = self.process_function_calls(&value, ctx);
+                    let expanded = self.process_chr_builtin(&expanded, ctx);
+                    evaluate_concat(&expanded, ctx)
+                }
                 _ => default,
             };
 
@@ -1317,8 +1332,28 @@ impl<R: FileResolver> Preprocessor<R> {
 
         let mut result = line.to_string();
 
-        // Обрабатываем вызовы в обратном порядке (чтобы не сбивались индексы)
+        // Обрабатываем вызовы в обратном порядке, чтобы не сбивались
+        // индексы замен.
+        //
+        // ВЛОЖЕННЫЕ ВЫЗОВЫ РАСКРЫВАЮТСЯ ДО ВНЕШНЕГО. `find_function_calls`
+        // отдаёт только внешний вызов, но его АРГУМЕНТЫ могут содержать
+        // другие вызовы — их нужно раскрыть первыми, иначе внешний вызов
+        // получит текст вида `$inner(1)` вместо значения.
+        //
+        // Проверено на сервере: `$outer($inner(1))` даёт `<[1]>`.
         for (start, end, name, args) in calls.into_iter().rev() {
+            // Раскрываем вложенные вызовы В АРГУМЕНТАХ до вызова внешнего.
+            let args: Vec<functions::CallArgument> = args
+                .into_iter()
+                .map(|argument| {
+                    let expanded = self.process_function_calls(&argument.value, ctx);
+                    functions::CallArgument {
+                        name: argument.name,
+                        value: expanded,
+                    }
+                })
+                .collect();
+
             // Клонируем: дальше нужен изменяемый доступ к контексту,
             // потому что тело макроса меняет переменные.
             if let Some(callable) = ctx.get_callable(&name).cloned() {
