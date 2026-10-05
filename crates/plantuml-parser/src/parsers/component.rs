@@ -532,6 +532,41 @@ fn extract_note_target(pair: pest::iterators::Pair<Rule>) -> String {
 mod tests {
     use super::*;
 
+    /// Все типы связей и направлений из документации разбираются.
+    ///
+    /// Регрессия: 14 из 15 задокументированных форм (`--*`, `--o`, `--+`,
+    /// `--#`, `-->>`, `--0`, `--^`, `--(0`, `-0-`, `-0)-`, `-(0-`,
+    /// `-(0)-`, `~~`, `==`) не разбирались вовсе, а `arrow_direction`
+    /// знал только `up`/`down`/`left`/`right` без сокращений `ri`/`le`/`do`.
+    #[test]
+    fn test_documented_arrow_types() {
+        let arrows = [
+            "-->", "--*", "--o", "--+", "--#", "-->>", "--0", "--^", "--(0", "-0-", "-0)-", "-(0-",
+            "-(0)-", "~~", "==",
+        ];
+        for arrow in arrows {
+            let source = format!("@startuml\nnode A\nnode B\nA {arrow} B\n@enduml");
+            let diagram = parse_component(&source)
+                .unwrap_or_else(|e| panic!("связь `{arrow}` не разбирается: {e}"));
+            assert_eq!(diagram.connections.len(), 1, "связь `{arrow}` потеряна");
+        }
+
+        // Направления, включая двухбуквенные сокращения
+        for direction in [
+            "down", "left", "right", "up", "ri", "le", "do", "u", "d", "l", "r",
+        ] {
+            let source = format!("@startuml\nnode A\nnode B\nA -{direction}-> B\n@enduml");
+            assert!(
+                parse_component(&source).is_ok(),
+                "направление `{direction}` не разбирается"
+            );
+        }
+
+        // `-ri(0)->` из документации: направление внутри кружковой связи
+        let source = "@startuml\nnode A\nnode B\nA -ri(0)-> B\n@enduml";
+        assert!(parse_component(source).is_ok());
+    }
+
     /// Связь с именем в кавычках не теряется.
     ///
     /// Регрессия: `extract_connection_endpoint` не знал `quoted_string`,
