@@ -512,13 +512,31 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         // `queue` есть и в sequence, и в component. Если в исходнике есть
         // `component`, это component-диаграмма: раньше она уходила в sequence,
         // и разбор падал на `component A`.
-        || (source_lower.contains("queue ")
-            && !source_lower.contains("component ")
-            && !source_lower.contains("package "))
-        // `collections` — то же самое: есть и в sequence, и в component.
-        || (source_lower.contains("collections ")
-            && !source_lower.contains("component ")
-            && !source_lower.contains("package "))
+        // `queue` и `collections` есть и в sequence, и в component. Если в
+        // исходнике есть ЛЮБОЕ контейнерное ключевое слово component,
+        // это структурная диаграмма: раньше проверялись только `component`
+        // и `package`, поэтому `queue A { node N }` уходило в sequence.
+        || ((source_lower.contains("queue ") || source_lower.contains("collections "))
+            && ![
+                "component ",
+                "package ",
+                "node ",
+                "artifact ",
+                "folder ",
+                "frame ",
+                "cloud ",
+                "database ",
+                "storage ",
+                "file ",
+                "card ",
+                "hexagon ",
+                "stack ",
+                "rectangle ",
+                "action ",
+                "process ",
+            ]
+            .iter()
+            .any(|keyword| source_lower.contains(keyword)))
         || (source_lower.contains("box ") && source_lower.contains("end box"))
         // `ref over ...` — ссылка на другую диаграмму, признак sequence.
         // Без участников тип диаграммы не определялся вовсе.
@@ -576,8 +594,12 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         "hexagon",
         "stack",
         "collections",
+        "action",
+        "circle",
+        "label",
+        "person",
+        "process",
         "actor",
-        "device",
         "agent",
         "control",
         "boundary",
@@ -712,41 +734,53 @@ fn parse_archimate_diagram(source: &str) -> Result<Diagram> {
 mod tests {
     use super::*;
 
-    /// Все контейнерные ключевые слова грамматики component дают
-    /// определить тип диаграммы.
+    /// Все объявляемые элементы из официальной документации разбираются.
     ///
-    /// Регрессия: в детекторе была только половина списка, поэтому
-    /// `folder A`, `frame A`, `rectangle A`, `file A`, `card A`,
+    /// Список сверен с plantuml.com/en/deployment-diagram («Declaring
+    /// element»). Ранее в детекторе была лишь половина ключевых слов,
+    /// поэтому `folder A`, `frame A`, `rectangle A`, `file A`, `card A`,
     /// `hexagon A`, `stack A`, `entity A` не разбирались вовсе.
+    ///
+    /// Отдельно проверяется, что `device` — которого в PlantUML НЕТ —
+    /// больше не принимается: сервер отвечает 400 на любую его форму.
     #[test]
-    fn test_all_container_keywords_detected() {
+    fn test_all_documented_keywords_parse() {
         let keywords = [
+            "action",
+            "actor",
+            "agent",
+            "artifact",
+            "boundary",
+            "card",
+            "circle",
+            "cloud",
+            "collections",
             "component",
-            "node",
+            "control",
+            "database",
+            "entity",
+            "file",
             "folder",
             "frame",
-            "cloud",
-            "rectangle",
-            "database",
-            "storage",
-            "queue",
-            "file",
-            "artifact",
-            "card",
             "hexagon",
+            "interface",
+            "label",
+            "node",
+            "package",
+            "person",
+            "process",
+            "queue",
+            "rectangle",
             "stack",
-            "collections",
-            "actor",
-            "device",
-            "agent",
-            "control",
-            "boundary",
-            "entity",
+            "storage",
+            "usecase",
         ];
 
         // Эти слова есть и в sequence (типы участников), поэтому без других
-        // признаков PlantUML трактует их как sequence. Для них проверяем
-        // только успешный разбор.
+        // признаков PlantUML трактует их как sequence — проверяем только
+        // успешный разбор.
+        // `interface` общий для class- и component-диаграмм: в одиночку
+        // PlantUML трактует его как class-элемент, и это допустимо.
         let ambiguous = [
             "queue",
             "collections",
@@ -754,10 +788,17 @@ mod tests {
             "boundary",
             "control",
             "entity",
+            "interface",
+            "usecase",
         ];
 
         for keyword in keywords {
-            let source = format!("@startuml\n{keyword} A\n@enduml");
+            // `package` требует тела — он проверяется отдельно ниже
+            let source = if keyword == "package" {
+                format!("@startuml\n{keyword} A {{\n  node N\n}}\n@enduml")
+            } else {
+                format!("@startuml\n{keyword} A\n@enduml")
+            };
             let diagram =
                 parse(&source).unwrap_or_else(|e| panic!("`{keyword} A` не разбирается: {e}"));
 
@@ -765,8 +806,6 @@ mod tests {
                 continue;
             }
 
-            // `device`/`node` относятся и к deployment — там своя ветка
-            // детектора, поэтому принимаем оба «структурных» типа.
             assert!(
                 matches!(
                     diagram.diagram_type(),
@@ -776,6 +815,59 @@ mod tests {
                 "`{keyword} A` должна быть Component- или Deployment-диаграммой, а не {:?}",
                 diagram.diagram_type()
             );
+        }
+
+        // `device` в PlantUML не существует
+        assert!(
+            parse("@startuml\ndevice D1\n@enduml").is_err(),
+            "`device` не должен приниматься: такого ключевого слова в PlantUML нет"
+        );
+    }
+
+    /// Контейнерные элементы принимают тело, неконтейнерные — нет.
+    ///
+    /// Списки сверены с разделами «Nestable elements» официальной
+    /// документации.
+    #[test]
+    fn test_nestable_elements() {
+        let nestable = [
+            "action",
+            "artifact",
+            "card",
+            "cloud",
+            "component",
+            "database",
+            "file",
+            "folder",
+            "frame",
+            "hexagon",
+            "node",
+            "package",
+            "process",
+            "queue",
+            "rectangle",
+            "stack",
+            "storage",
+        ];
+        for keyword in nestable {
+            let source = format!("@startuml\n{keyword} A {{\n  node N\n}}\n@enduml");
+            assert!(parse(&source).is_ok(), "`{keyword}` должен принимать тело");
+        }
+
+        let flat = [
+            "collections",
+            "actor",
+            "agent",
+            "boundary",
+            "control",
+            "entity",
+            "circle",
+            "label",
+            "person",
+        ];
+        for keyword in flat {
+            let source = format!("@startuml\n{keyword} A {{\n  node N\n}}\n@enduml");
+            assert!(parse(&source).is_err(), "`{keyword}` тела не принимает");
         }
     }
 

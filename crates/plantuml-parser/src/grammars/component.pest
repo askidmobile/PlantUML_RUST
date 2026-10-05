@@ -66,6 +66,14 @@ component_def = {
 
 // Ключевые слова, которые МОГУТ быть контейнерами (с телом {})
 // Для них нужна проверка на отсутствие { чтобы отличить компонент от контейнера
+// Ключевые слова, которые могут быть КОНТЕЙНЕРАМИ (принимать тело).
+//
+// Список сверен с официальной документацией (plantuml.com/en/deployment-diagram,
+// раздел «Nestable elements»): action, artifact, card, cloud, component,
+// database, file, folder, frame, hexagon, node, package, process, queue,
+// rectangle, stack, storage.
+//
+// `collections` в него НЕ входит: у него тела не бывает.
 container_keyword = {
     "node"
     | "folder"
@@ -80,18 +88,29 @@ container_keyword = {
     | "card"
     | "hexagon"
     | "stack"
-    | "collections"
+    | "action"
+    | "process"
+    | "component"
 }
 
 // Ключевые слова, которые НЕ могут быть контейнерами (всегда компоненты)
+// Элементы, которые телом НЕ обладают.
+//
+// `device` убран: такого ключевого слова в PlantUML нет — сервер отвечает
+// 400 на любую форму (`device D1`, `device "D" as d`, `device D { ... }`),
+// и в официальном списке объявляемых элементов его тоже нет.
+// Добавлены отсутствовавшие circle, label, person, collections.
 non_container_keyword = {
     "component"
     | "actor"
-    | "device"
     | "agent"
     | "control"
     | "boundary"
     | "entity"
+    | "circle"
+    | "label"
+    | "person"
+    | "collections"
 }
 
 // Ключевые слова для типов компонентов (все вместе для parse_component_type)
@@ -162,23 +181,14 @@ package_statement = _{
     | note_stmt
 }
 
+// Контейнерные ключевые слова. Ссылаемся на `container_keyword`, чтобы
+// списки не разъезжались: раньше это был отдельный перечень, и добавление
+// `action`/`process` в один список не давало эффекта во втором.
+//
+// `collections` здесь больше нет: тела он не принимает.
 package_keyword = {
     "package"
-    // `component` и `artifact` принимают тело (проверено на сервере),
-    // поэтому они — контейнерные. `device` и `agent` тела НЕ принимают:
-    // `agent A { }` и любая форма `device` дают 400.
-    | "component"
-    | "cloud"
-    | "rectangle"
-    | "database"
-    | "storage"
-    | "queue"
-    | "file"
-    | "artifact"
-    | "card"
-    | "hexagon"
-    | "stack"
-    | "collections"
+    | container_keyword
 }
 
 // Ключевые слова, которые могут быть и компонентом, и контейнером
