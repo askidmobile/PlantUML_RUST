@@ -29,8 +29,16 @@ statement = _{
     | annotation_decl
     | sprite_stmt
     | note_stmt
+    | class_description
     | relationship
 }
+
+// Описание элемента: `A : текст` или `A : <$спрайт>`.
+//
+// PlantUML добавляет строку к телу класса такой записью. Раньше правила
+// не было вовсе, поэтому `A : текст` не разбиралось.
+class_description = { (identifier | quoted_string) ~ ws* ~ ":" ~ ws* ~ description_text }
+description_text = { (!NEWLINE ~ ANY)+ }
 
 // === Заметки ===
 // В PlantUML заметки есть у всех UML-диаграмм. Раньше класс их не знал
@@ -179,7 +187,19 @@ member = {
     separator
     | method    // method должен идти ПЕРЕД field (из-за скобок)
     | field
+    | free_line // произвольная строка — ПОСЛЕ field, иначе перехватит поля
 }
+
+// Произвольная строка тела класса.
+//
+// PlantUML разрешает в теле любую строку, в том числе со вставкой
+// спрайта: `текст <$имя>`. Правила `field`/`method` требуют имени,
+// начинающегося с буквы, поэтому такая строка ими не покрывается.
+//
+// ВАЖНО: правило стоит ПОСЛЕ `field`. Первая версия ставила его перед
+// полем, и тогда `-id: Long` разбиралось как свободная строка, а поля
+// исчезали из вывода (высота класса падала со 121 до 80).
+free_line = { (!NEWLINE ~ !"}" ~ ANY)+ }
 
 // Разделители в теле класса:
 // -- или -- text -- (сплошная линия)
@@ -220,7 +240,11 @@ visibility = { "+" | "-" | "#" | "~" | "{method}" | "{field}" }
 modifier = { "{static}" | "{abstract}" | "static" | "abstract" }
 
 field_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
-field_type = { (!NEWLINE ~ !("}" | ",") ~ ANY)+ }
+field_type = { sprite_inline | (!NEWLINE ~ !("}" | ",") ~ ANY)+ }
+
+// Вставка спрайта в подписи: `<$имя>`. PlantUML рисует её растром
+// прямо внутри строки текста.
+sprite_inline = { "<$" ~ (!(">") ~ ANY)+ ~ ">" }
 
 method_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 method_params = { method_param ~ ("," ~ ws* ~ method_param)* }
