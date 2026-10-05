@@ -462,9 +462,15 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
 
     if !has_usecase_marker
         && (!has_component_marker || source_lower.contains("class "))
+        // Список ключевых слов объявлений совпадает с грамматикой class:
+        // class, abstract, interface, enum, annotation. Раньше `enum` и
+        // `annotation` не проверялись, поэтому такая диаграмма не давала
+        // определить тип вовсе.
         && (source_lower.contains("class ")
             || source_lower.contains("interface ")
-            || source_lower.contains("abstract class")
+            || source_lower.contains("enum ")
+            || source_lower.contains("annotation ")
+            || source_lower.contains("abstract ")
             || source_lower.contains("<|--")
             || source_lower.contains("..|>"))
     {
