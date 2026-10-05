@@ -26,6 +26,10 @@ const ARTIFACT_HEIGHT: f64 = 39.297;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для component diagrams
+/// Добавка к ширине для плоских компонентов (эталон 13.81 при поле
+/// рендерера 7).
+const COMPONENT_RIGHT_EXTRA: f64 = 6.81;
+
 /// Дополнительное правое поле для диаграмм с объёмными узлами.
 ///
 /// Эталон: правый край узла на 25 от края холста при поле рендерера 7,
@@ -143,7 +147,11 @@ impl ComponentLayoutEngine {
             let content_right = result.bounds.x + result.bounds.width;
             result.bounds.width = (content_right - result.bounds.x) + NODE_RIGHT_EXTRA;
         } else {
-            result.bounds.width += self.config.margin * 2.0;
+            // Плоские компоненты: добавки к габаритам измерены отдельно по
+            // осям. Эталон component_basic имеет поля слева 7, справа 13.81,
+            // сверху 7, снизу 29.42; поле рендерера даёт по 7, остальное
+            // добавляет движок.
+            result.bounds.width += COMPONENT_RIGHT_EXTRA;
         }
         result.bounds.height += self.config.margin * 2.0;
 
