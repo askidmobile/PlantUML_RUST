@@ -98,6 +98,83 @@ pub fn handle_ifdef(name: &str, ctx: &mut PreprocessContext, is_ifdef: bool) {
     ctx.condition_depth += 1;
 }
 
+/// Обрабатывает `!if (выражение)`.
+///
+/// PlantUML поддерживает не только `!ifdef`, но и полноценное условие:
+///
+/// ```text
+/// !if ($ARCH_LOCAL == %true())
+///     !include локальный.puml
+/// !else
+///     !include <stdlib/путь>
+/// !endif
+/// ```
+///
+/// Раньше `!if` не обрабатывался вовсе: строка попадала в вывод как
+/// обычный текст, а `!endif` затем сообщал о несбалансированных
+/// условиях. Именно поэтому библиотека Archimate не подключалась.
+pub fn handle_if(expression: &str, ctx: &mut PreprocessContext) {
+    let value = evaluate_condition(expression, ctx);
+    let effective = ctx.should_output() && value;
+
+    ctx.condition_stack.push(effective);
+    ctx.condition_depth += 1;
+}
+
+/// Вычисляет условие `!if` в булево значение.
+///
+/// Поддерживаются сравнения `==` и `!=` над переменными (`$имя`),
+/// логическими литералами `%true()`/`%false()` и строками. Этого
+/// достаточно для условий в стандартной библиотеке.
+fn evaluate_condition(expression: &str, ctx: &PreprocessContext) -> bool {
+    let text = expression
+        .trim()
+        .trim_start_matches('(')
+        .trim_end_matches(')');
+
+    for (operator, negate) in [("==", false), ("!=", true)] {
+        if let Some((left, right)) = text.split_once(operator) {
+            let left = resolve_operand(left.trim(), ctx);
+            let right = resolve_operand(right.trim(), ctx);
+            let equal = left == right;
+            return if negate { !equal } else { equal };
+        }
+    }
+
+    // Без оператора значение приводится к булеву напрямую.
+    resolve_operand(text, ctx) == "true"
+}
+
+/// Приводит операнд условия к строке.
+///
+/// Переменные подставляются из контекста, `%true()`/`%false()` — к
+/// `true`/`false`, кавычки снимаются.
+fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
+    let trimmed = operand.trim().trim_matches('"');
+
+    match trimmed {
+        "%true()" | "true" => return "true".to_string(),
+        "%false()" | "false" => return "false".to_string(),
+        _ => {}
+    }
+
+    if trimmed.starts_with('$') {
+        // Переменные хранятся ВМЕСТЕ со знаком `$` — так их записывает
+        // `handle_variable_assignment`. Искать по имени без `$` было
+        // ошибкой: условие всегда получалось ложным.
+        if let Some(value) = ctx.get_variable(trimmed) {
+            let value = value.trim().trim_matches('"');
+            return match value {
+                "%true()" | "true" => "true".to_string(),
+                "%false()" | "false" => "false".to_string(),
+                other => other.to_string(),
+            };
+        }
+    }
+
+    trimmed.to_string()
+}
+
 /// Обрабатывает !else
 pub fn handle_else(ctx: &mut PreprocessContext) -> Result<()> {
     if ctx.condition_stack.is_empty() {

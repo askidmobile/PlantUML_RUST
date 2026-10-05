@@ -500,6 +500,8 @@ impl<R: FileResolver> Preprocessor<R> {
             directives::handle_define(rest, ctx)?;
         } else if let Some(rest) = directive.strip_prefix("undef ") {
             directives::handle_undef(rest.trim(), ctx);
+        } else if let Some(rest) = directive.strip_prefix("if ") {
+            directives::handle_if(rest.trim(), ctx);
         } else if let Some(rest) = directive.strip_prefix("ifdef ") {
             directives::handle_ifdef(rest.trim(), ctx, true);
         } else if let Some(rest) = directive.strip_prefix("ifndef ") {
@@ -589,7 +591,31 @@ impl<R: FileResolver> Preprocessor<R> {
             )));
         }
 
-        let content = self.resolver.read_file(&normalized)?;
+        // Пробуем прочитать как есть, затем — ОТНОСИТЕЛЬНО текущего файла.
+        //
+        // Библиотеки stdlib включают друг друга относительными путями:
+        // `Archimate.puml` содержит `!include themes/shared_style.puml`.
+        // Такой путь нужно разрешать внутри того же каталога stdlib.
+        let content = match self.resolver.read_file(&normalized) {
+            Ok(content) => content,
+            Err(first_error) => {
+                let parent = ctx
+                    .include_stack
+                    .last()
+                    .and_then(|current| current.rsplit_once('/'))
+                    .map(|(dir, _)| dir.to_string());
+
+                match parent {
+                    Some(dir) => {
+                        let relative = format!("{}/{}", dir, key);
+                        self.resolver
+                            .read_file(&relative)
+                            .map_err(|_| first_error)?
+                    }
+                    None => return Err(first_error),
+                }
+            }
+        };
 
         ctx.included_files.push(key.clone());
         ctx.include_stack.push(key);

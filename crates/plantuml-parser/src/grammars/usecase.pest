@@ -27,6 +27,7 @@ statement = _{
     | actor_def
     | usecase_def
     | relationship
+    | style_stmt
     | note_stmt
 }
 
@@ -233,3 +234,14 @@ rest_of_line = { (!NEWLINE ~ ANY)* }
 
 ws = _{ " " | "\t" }
 NEWLINE = _{ "\r\n" | "\n" | "\r" }
+
+// Блок стилей: `<style> ... </style>`.
+//
+// PlantUML применяет его к элементам диаграммы; содержимое — CSS-подобные
+// правила. Раньше правило отсутствовало, и диаграмма со `<style>` не
+// разбиралась вовсе — из-за этого, например, не подключалась библиотека
+// Archimate, которая начинает вывод с такого блока.
+//
+// Содержимое пропускается: поддержка самих правил — отдельная задача.
+style_stmt = { "<style>" ~ NEWLINE ~ style_body ~ "</style>" ~ ws* ~ NEWLINE? }
+style_body = { (!("</style>") ~ ANY)* }

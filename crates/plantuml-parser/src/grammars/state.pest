@@ -23,6 +23,7 @@ statement = _{
     // Проверяется ДО transition, иначе `--` разбирается как стрелка.
     | region_separator
     | transition
+    | style_stmt
     | note_stmt
 }
 
@@ -248,3 +249,14 @@ NEWLINE = _{ "\r\n" | "\n" | "\r" }
 // Направление раскладки: `top to bottom direction`, `left to right direction`.
 direction_stmt = { direction_kind ~ ws+ ~ "direction" }
 direction_kind = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" | "left" ~ ws+ ~ "to" ~ ws+ ~ "right" }
+
+// Блок стилей: `<style> ... </style>`.
+//
+// PlantUML применяет его к элементам диаграммы; содержимое — CSS-подобные
+// правила. Раньше правило отсутствовало, и диаграмма со `<style>` не
+// разбиралась вовсе — из-за этого, например, не подключалась библиотека
+// Archimate, которая начинает вывод с такого блока.
+//
+// Содержимое пропускается: поддержка самих правил — отдельная задача.
+style_stmt = { "<style>" ~ NEWLINE ~ style_body ~ "</style>" ~ ws* ~ NEWLINE? }
+style_body = { (!("</style>") ~ ANY)* }

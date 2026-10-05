@@ -257,6 +257,14 @@ fn structural_skeleton(source: &str) -> String {
         if line_lower == "legend" || line_lower.starts_with("legend ") {
             return Some("endlegend");
         }
+        // Блок стилей: `<style> ... </style>`.
+        //
+        // Без него содержимое стилей попадает в структурный скелет, и
+        // ключевые слова внутри (например строка «archimate {» в стилях
+        // библиотеки Archimate) ломают определение типа диаграммы.
+        if line_lower.starts_with("<style>") {
+            return Some("</style>");
+        }
         // Блочные формы заголовков: ключевое слово без текста на той же строке
         for (open, close) in [
             ("title", "end title"),
@@ -357,8 +365,19 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Salt);
     }
 
-    // Archimate Diagram — проверяем по archimate keyword
-    if source_lower.contains("archimate ") || source_lower.contains("!include <archimate") {
+    // Archimate Diagram — проверяем по archimate keyword.
+    //
+    // ВАЖНО: проверяем НАЧАЛО строки, а не вхождение подстроки.
+    // Раньше здесь было `contains("archimate ")`, и диаграмма с блоком
+    // `<style>` ломалась: внутри стилей Archimate есть строка
+    // «archimate {», из-за которой обычная class-диаграмма с этим
+    // include уходила в archimate-парсер и не разбиралась.
+    if source_lower
+        .lines()
+        .any(|line| line.trim_start().starts_with("archimate "))
+        || source_lower.contains("!include <archimate")
+        || source_lower.contains("<archimate/")
+    {
         return Ok(DiagramKind::Archimate);
     }
 

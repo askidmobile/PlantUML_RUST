@@ -28,6 +28,7 @@ statement = _{
     | scale_stmt
     | annotation_decl
     | sprite_stmt
+    | style_stmt
     | note_stmt
     | class_description
     | relationship
@@ -368,3 +369,14 @@ sprite_stmt = {
 
 sprite_size = @{ (!("]" | NEWLINE) ~ ANY)+ }
 sprite_body = { (!("}" ~ NEWLINE? ~ ("@" | "sprite" | NEWLINE? ~ ANY)) ~ ANY)* }
+
+// Блок стилей: `<style> ... </style>`.
+//
+// PlantUML применяет его к элементам диаграммы; содержимое — CSS-подобные
+// правила. Раньше правило отсутствовало, и диаграмма со `<style>` не
+// разбиралась вовсе — из-за этого, например, не подключалась библиотека
+// Archimate, которая начинает вывод с такого блока.
+//
+// Содержимое пропускается: поддержка самих правил — отдельная задача.
+style_stmt = { "<style>" ~ NEWLINE ~ style_body ~ "</style>" ~ ws* ~ NEWLINE? }
+style_body = { (!("</style>") ~ ANY)* }
