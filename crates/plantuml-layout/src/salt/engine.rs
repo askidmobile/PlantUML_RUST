@@ -5,6 +5,12 @@
 use plantuml_ast::salt::{BorderStyle, Container, SaltDiagram, SaltWidget, SeparatorType};
 use plantuml_model::{Point, Rect};
 
+/// Смещение подчёркивания поля ввода от низа ячейки.
+///
+/// Измерено по эталону `salt_basic`: ячейка кончается на 17.969,
+/// а линия поля идёт на 19.969.
+const SALTFIELD_LINE_OFFSET: f64 = 2.0;
+
 use crate::salt::config::SaltLayoutConfig;
 use crate::traits::{LayoutEngine, LayoutResult};
 use crate::{EdgeType, ElementType, LayoutConfig, LayoutElement};
@@ -357,23 +363,56 @@ impl SaltLayoutEngine {
         let width = width.max(self.config.min_cell_width);
         let height = self.config.textfield_height;
 
-        // Фон поля
-        let bg = LayoutElement {
-            id: self.next_id("field_bg"),
-            element_type: ElementType::Rectangle {
-                label: String::new(),
-                corner_radius: 2.0,
+        // Поле ввода: ЛИНИЯ с засечками по краям, а не прямоугольник.
+        //
+        // Измерено по эталону `salt_basic`: подчёркивание идёт на
+        // y = 19.969 (то есть на 2 ниже низа ячейки), а засечки — от
+        // y = 16.969 до 18.969. Раньше поле рисовалось залитым
+        // прямоугольником, что визуально отличается от PlantUML.
+        let line_y = y + height + SALTFIELD_LINE_OFFSET;
+
+        elements.push(LayoutElement {
+            id: self.next_id("field_line"),
+            element_type: ElementType::Edge {
+                points: vec![Point::new(x, line_y), Point::new(x + width, line_y)],
+                label: None,
+                arrow_start: false,
+                arrow_end: false,
+                dashed: false,
+                edge_type: EdgeType::Link,
+                from_cardinality: None,
+                to_cardinality: None,
             },
-            bounds: Rect::new(x, y, width, height),
+            bounds: Rect::new(x, line_y, width, 1.0),
             text: None,
-            properties: [
-                ("fill".to_string(), self.config.textfield_color.to_string()),
-                ("stroke".to_string(), self.config.border_color.to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        };
-        elements.push(bg);
+            properties: [("stroke".to_string(), self.config.border_color.to_string())]
+                .into_iter()
+                .collect(),
+        });
+
+        for tick_x in [x, x + width] {
+            elements.push(LayoutElement {
+                id: self.next_id("field_tick"),
+                element_type: ElementType::Edge {
+                    points: vec![
+                        Point::new(tick_x, line_y - 3.0),
+                        Point::new(tick_x, line_y - 1.0),
+                    ],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+                bounds: Rect::new(tick_x, line_y - 3.0, 1.0, 2.0),
+                text: None,
+                properties: [("stroke".to_string(), self.config.border_color.to_string())]
+                    .into_iter()
+                    .collect(),
+            });
+        }
 
         // Текст
         let text_elem = LayoutElement {
