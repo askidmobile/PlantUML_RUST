@@ -95,6 +95,26 @@ pub struct Container {
     pub border_style: BorderStyle,
 }
 
+impl SaltWidget {
+    /// Приписывает виджету подпись (`(X) Да`, `[X] Включено`).
+    ///
+    /// Подпись приходит отдельным узлом грамматики и относится только к
+    /// переключателям и флажкам. Для остальных виджетов вызов ничего не
+    /// делает — их содержимое уже несёт текст.
+    pub fn set_label(&mut self, label: &str) {
+        if label.is_empty() {
+            return;
+        }
+        match self {
+            SaltWidget::Radio { label: l, .. } | SaltWidget::Checkbox { label: l, .. } => {
+                *l = label.to_string();
+            }
+            SaltWidget::Text(text) if text.is_empty() => *text = label.to_string(),
+            _ => {}
+        }
+    }
+}
+
 impl Container {
     /// Создаёт новый контейнер
     pub fn new() -> Self {

@@ -165,8 +165,31 @@ fn parse_row(pair: pest::iterators::Pair<Rule>) -> crate::Result<Vec<SaltWidget>
     for cell_pair in pair.into_inner() {
         if cell_pair.as_rule() == Rule::cell {
             for widget_pair in cell_pair.into_inner() {
-                // widget теперь silent (_), так что мы получаем напрямую типы виджетов
-                if let Some(w) = parse_widget_inner(widget_pair)? {
+                // Виджет с подписью обёрнут в промежуточный узел
+                // `labeled_widget`; разворачиваем его, иначе виджет
+                // терялся бы вместе с подписью.
+                if widget_pair.as_rule() == Rule::labeled_widget {
+                    // Подпись — СЕСТРА виджета внутри `labeled_widget`,
+                    // поэтому собираем её здесь и приписываем виджету.
+                    let mut label = String::new();
+                    let mut parsed: Option<SaltWidget> = None;
+
+                    for inner_pair in widget_pair.into_inner() {
+                        if inner_pair.as_rule() == Rule::widget_label {
+                            label = inner_pair.as_str().trim().to_string();
+                        } else if let Some(w) = parse_widget_inner(inner_pair)? {
+                            parsed = Some(w);
+                        }
+                    }
+
+                    if let Some(mut widget) = parsed {
+                        let _ = &mut label;
+                        widget.set_label(&label);
+                        widgets.push(widget);
+                    }
+                } else if let Some(w) = parse_widget_inner(widget_pair)? {
+                    // widget немой (_), поэтому сюда приходят напрямую
+                    // конкретные типы виджетов
                     widgets.push(w);
                 }
             }
@@ -174,6 +197,17 @@ fn parse_row(pair: pest::iterators::Pair<Rule>) -> crate::Result<Vec<SaltWidget>
     }
 
     Ok(widgets)
+}
+
+/// Извлекает подпись виджета (`widget_label`) из узла переключателя.
+///
+/// Возвращает пустую строку, если подписи нет.
+fn extract_widget_label(pair: &pest::iterators::Pair<Rule>) -> String {
+    pair.clone()
+        .into_inner()
+        .find(|inner| inner.as_rule() == Rule::widget_label)
+        .map(|inner| inner.as_str().trim().to_string())
+        .unwrap_or_default()
 }
 
 /// Парсит внутренний виджет
@@ -195,26 +229,33 @@ fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option
             }
         }
         Rule::checkbox_checked => {
+            let label = extract_widget_label(&pair);
             return Ok(Some(SaltWidget::Checkbox {
-                label: String::new(),
+                label,
                 checked: true,
             }));
         }
         Rule::checkbox_unchecked => {
+            let label = extract_widget_label(&pair);
             return Ok(Some(SaltWidget::Checkbox {
-                label: String::new(),
+                label,
                 checked: false,
             }));
         }
         Rule::radio_checked => {
+            // Подпись переключателя: `(X) Да`. Раньше она жёстко
+            // затиралась пустой строкой, поэтому текст не попадал в вывод,
+            // хотя грамматика его разбирала.
+            let label = extract_widget_label(&pair);
             return Ok(Some(SaltWidget::Radio {
-                label: String::new(),
+                label,
                 checked: true,
             }));
         }
         Rule::radio_unchecked => {
+            let label = extract_widget_label(&pair);
             return Ok(Some(SaltWidget::Radio {
-                label: String::new(),
+                label,
                 checked: false,
             }));
         }
