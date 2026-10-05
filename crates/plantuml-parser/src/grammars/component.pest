@@ -56,12 +56,12 @@ scale_stmt = { "scale" ~ ws+ ~ rest_of_line }
 // Компоненты с телом {} обрабатываются через package_def/nested_package_def
 // ВАЖНО: Используем negative lookahead чтобы не захватывать node/folder/frame с телом {}
 component_def = {
-    container_keyword ~ ws+ ~ component_name ~ alias_part? ~ stereotype_part? ~ color_part? ~ !("{")
+    container_keyword ~ ws+ ~ component_name ~ name_suffix? ~ color_part? ~ !("{")
     // `device`/`agent` могут быть и контейнерами (с телом) — тогда их
     // разбирает package_def. Здесь они принимаются только БЕЗ тела.
-    | non_container_keyword ~ ws+ ~ component_name ~ alias_part? ~ stereotype_part? ~ color_part?
+    | non_container_keyword ~ ws+ ~ component_name ~ name_suffix? ~ color_part?
         ~ !(ws* ~ "{" ~ NEWLINE)
-    | bracket_component ~ alias_part? ~ stereotype_part? ~ color_part?
+    | bracket_component ~ name_suffix? ~ color_part?
 }
 
 // Ключевые слова, которые МОГУТ быть контейнерами (с телом {})
@@ -147,14 +147,14 @@ interface_name = { quoted_string | simple_identifier }
 
 // Основной package (верхнего уровня или вложенный)
 package_def = {
-    package_keyword ~ ws+ ~ package_name ~ alias_part? ~ stereotype_part? ~ color_part? ~ ws* ~ "{" ~ NEWLINE ~
+    package_keyword ~ ws+ ~ package_name ~ name_suffix? ~ color_part? ~ ws* ~ "{" ~ NEWLINE ~
     package_body ~
     "}"
 }
 
 // Вложенный package (может содержать другие packages)
 nested_package_def = {
-    nested_package_keyword ~ ws+ ~ package_name ~ alias_part? ~ stereotype_part? ~ color_part? ~ ws* ~ "{" ~ NEWLINE ~
+    nested_package_keyword ~ ws+ ~ package_name ~ name_suffix? ~ color_part? ~ ws* ~ "{" ~ NEWLINE ~
     package_body ~
     "}"
 }
@@ -274,6 +274,14 @@ arrow_style = { "[" ~ (!("]" | NEWLINE) ~ ANY)+ ~ "]" }
 arrow_solid = { 
     "-->" 
     | "->" 
+    // Двунаправленные стрелки проверяются ПЕРЕД однонаправленными: иначе
+    // `<-` перехватывает начало `<->` и `<-->`, оставляя `>`.
+    // Эти формы порождает макрос C4 `BiRel`.
+    | "<-->"
+    | "<->"
+    // `<-down->` — двунаправленная стрелка с направлением. Проверено на
+    // сервере: именно эта форма валидна, `<->down->` даёт 400.
+    | "<-" ~ arrow_direction ~ "->"
     | "<--" 
     | "<-"
     | "--" ~ arrow_direction? ~ "->"
@@ -303,6 +311,15 @@ label_text = { (!NEWLINE ~ ANY)* }
 // === Общие части ===
 
 alias_part = { ws+ ~ "as" ~ ws+ ~ simple_identifier }
+
+// Алиас и стереотип допустимы в ЛЮБОМ порядке: PlantUML принимает и
+// `rectangle "X" as a <<person>>`, и `rectangle "X" <<person>> as a`
+// (проверено на сервере). Стандартная библиотека C4 порождает вторую
+// форму, и без неё весь её вывод не разбирался.
+//
+// Правило немое (`_`), поэтому его содержимое остаётся прямыми потомками
+// объявления — парсер читает их как раньше.
+name_suffix = _{ (alias_part ~ stereotype_part?) | (stereotype_part ~ alias_part?) }
 stereotype_part = { ws* ~ "<<" ~ stereotype_name ~ ">>" }
 stereotype_name = { (LETTER | NUMBER | "_" | " ")+ }
 color_part = { ws* ~ color }

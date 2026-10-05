@@ -1298,7 +1298,24 @@ fn split_macro_args(args: &str) -> Vec<String> {
 fn substitute_macro_args(body: &str, params: &[String], args: &[String]) -> String {
     let mut result = body.to_string();
     for (i, param) in params.iter().enumerate() {
-        let value = args.get(i).map(String::as_str).unwrap_or("");
+        let raw = args.get(i).map(String::as_str).unwrap_or("");
+
+        // Обрамляющие кавычки снимаются — это проверено на plantuml.com:
+        // `!define M(a) class "PRE a POST"` даёт одинаковый результат и при
+        // вызове `M("Имя")`, и при `M(Имя)`, то есть кавычки PlantUML
+        // отбрасывает.
+        //
+        // Без этого вызов `Person(a, "Имя")` подставлял аргумент внутрь уже
+        // закавыченной строки макроса, и получалось `"=="Имя""` —
+        // неразбираемая конструкция. Именно так ломалась стандартная
+        // библиотека C4, объявляющая макросы через `!define`.
+        let trimmed = raw.trim();
+        let value = if trimmed.len() >= 2 && trimmed.starts_with('"') && trimmed.ends_with('"') {
+            &trimmed[1..trimmed.len() - 1]
+        } else {
+            raw
+        };
+
         result = replace_word(&result, param, value);
     }
     result

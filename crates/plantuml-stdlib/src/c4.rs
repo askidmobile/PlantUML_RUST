@@ -73,10 +73,10 @@ skinparam rectangle {
 !define System_Ext(e_alias, e_label, e_descr) rectangle "==e_label\n<size:12>[External System]</size>\n\ne_descr" <<external_system>> as e_alias
 
 ' System_Boundary - граница системы
-!define System_Boundary(e_alias, e_label) rectangle "e_label" <<boundary>> as e_alias {
+!define System_Boundary(e_alias, e_label) rectangle "e_label" <<boundary>> as e_alias
 
 ' Enterprise_Boundary - граница предприятия
-!define Enterprise_Boundary(e_alias, e_label) rectangle "e_label" <<enterprise>> as e_alias {
+!define Enterprise_Boundary(e_alias, e_label) rectangle "e_label" <<enterprise>> as e_alias
 
 ' ===== СВЯЗИ =====
 
@@ -123,15 +123,15 @@ skinparam rectangle {
 
 !define Rel_Back_Neighbor(e_from, e_to, e_label) e_from <- e_to : e_label
 
-!define BiRel_D(e_from, e_to, e_label) e_from <->down-> e_to : e_label
-!define BiRel_U(e_from, e_to, e_label) e_from <->up-> e_to : e_label
-!define BiRel_L(e_from, e_to, e_label) e_from <->left-> e_to : e_label
-!define BiRel_R(e_from, e_to, e_label) e_from <->right-> e_to : e_label
+!define BiRel_D(e_from, e_to, e_label) e_from <-down-> e_to : e_label
+!define BiRel_U(e_from, e_to, e_label) e_from <-up-> e_to : e_label
+!define BiRel_L(e_from, e_to, e_label) e_from <-left-> e_to : e_label
+!define BiRel_R(e_from, e_to, e_label) e_from <-right-> e_to : e_label
 !define BiRel_Neighbor(e_from, e_to, e_label) e_from <-> e_to : e_label
 !define BiRel_Back_Neighbor(e_from, e_to, e_label) e_from <-> e_to : e_label
 
 ' Boundary - граница с произвольным типом
-!define Boundary(e_alias, e_label, e_type) rectangle "e_label" <<e_type>> as e_alias {
+!define Boundary(e_alias, e_label, e_type) rectangle "e_label" <<e_type>> as e_alias
 
 ' Lay_* — псевдонимы для указания направления раскладки
 !define Lay_D(e_from, e_to) e_from -down-> e_to
@@ -214,7 +214,7 @@ const C4_CONTAINER: &str = r#"' C4_Container.puml
 !define Container_Ext(e_alias, e_label, e_techn) rectangle "==e_label\n<size:12>[External Container: e_techn]</size>" <<external_container>> as e_alias
 
 ' Container_Boundary - граница контейнера
-!define Container_Boundary(e_alias, e_label) rectangle "e_label" <<container_boundary>> as e_alias {
+!define Container_Boundary(e_alias, e_label) rectangle "e_label" <<container_boundary>> as e_alias
 
 skinparam rectangle<<container>> {
     BackgroundColor CONTAINER_BG_COLOR
@@ -315,15 +315,15 @@ const C4_DEPLOYMENT: &str = r#"' C4_Deployment.puml
 !define NODE_BORDER_COLOR #444444
 
 ' Deployment_Node - узел развёртывания (сервер, VM, контейнер)
-!define Deployment_Node(e_alias, e_label) node "e_label" <<deployment_node>> as e_alias {
-!define Deployment_Node(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias {
-!define Deployment_Node(e_alias, e_label, e_type, e_descr) node "e_label\n<size:10>[e_type]</size>\n\ne_descr" <<deployment_node>> as e_alias {
+!define Deployment_Node(e_alias, e_label) node "e_label" <<deployment_node>> as e_alias
+!define Deployment_Node(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias
+!define Deployment_Node(e_alias, e_label, e_type, e_descr) node "e_label\n<size:10>[e_type]</size>\n\ne_descr" <<deployment_node>> as e_alias
 
 ' Deployment_Node_L - узел развёртывания (левый)
-!define Deployment_Node_L(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias {
+!define Deployment_Node_L(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias
 
 ' Deployment_Node_R - узел развёртывания (правый)  
-!define Deployment_Node_R(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias {
+!define Deployment_Node_R(e_alias, e_label, e_type) node "e_label\n<size:10>[e_type]</size>" <<deployment_node>> as e_alias
 
 ' Node - альтернативное имя для Deployment_Node
 !define Node(e_alias, e_label) Deployment_Node(e_alias, e_label)

@@ -183,11 +183,19 @@ mod tests {
     }
 
     /// Запятая внутри кавычек не разрывает аргумент.
+    ///
+    /// Сами кавычки при подстановке СНИМАЮТСЯ — проверено на plantuml.com:
+    /// `!define M(a) class "PRE a POST"` даёт `PRE Имя POST` и при вызове
+    /// `M("Имя")`, и при `M(Имя)`. Раньше тест ожидал сохранения кавычек,
+    /// что фиксировало неверное поведение и мешало работать стандартной
+    /// библиотеке C4.
     #[test]
     fn test_macro_args_respect_quotes() {
         let mut ctx = PreprocessContext::new();
         handle_define("M(a, b) a + b", &mut ctx).unwrap();
-        assert_eq!(ctx.expand_macros("M(\"x, y\", Z)"), "\"x, y\" + Z");
+        assert_eq!(ctx.expand_macros("M(\"x, y\", Z)"), "x, y + Z");
+        // Аргумент без кавычек передаётся как есть
+        assert_eq!(ctx.expand_macros("M(x, Z)"), "x + Z");
     }
 
     /// Имя параметра не заменяется внутри более длинного имени.
