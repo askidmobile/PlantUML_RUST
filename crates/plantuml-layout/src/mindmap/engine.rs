@@ -176,10 +176,13 @@ impl MindMapLayoutEngine {
 
     /// Вычисляет ширину узла по тексту
     fn calculate_node_width(&self, text: &str) -> f64 {
-        // Считаем символы Unicode правильно
-        let char_count = text.chars().count();
-        let char_width = self.config.font_size * 0.6;
-        let text_width = char_count as f64 * char_width;
+        // Ширина по измерителю текста.
+        //
+        // Раньше здесь была оценка `символы * font_size * 0.6`: для
+        // «Project» она давала 58.8 при реальных 48.45, то есть на 21%
+        // больше. Ошибка накапливалась по уровням, потому что X каждого
+        // следующего уровня отсчитывается от правого края предыдущего.
+        let text_width = self.config.text.width(text, self.config.font_size);
         (text_width + self.config.node_padding_x * 2.0).max(self.config.min_node_width)
     }
 
