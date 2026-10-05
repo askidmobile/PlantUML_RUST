@@ -250,7 +250,13 @@ impl NetworkLayoutEngine {
                 + self.config.server_height;
         }
 
-        (max_width, total_height + self.config.padding)
+        // Эталон резервирует снизу ещё один network_spacing: серверы
+        // кончаются на 91.84, а холст имеет высоту 140 при полях 7+7.
+        // Без этого запаса диаграмма выходила на 35px ниже эталонной.
+        (
+            max_width,
+            total_height + self.config.padding + self.config.network_spacing,
+        )
     }
 
     /// Размещает серверы
