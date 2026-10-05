@@ -18,6 +18,12 @@ const SELF_MESSAGE_LOOP_HEIGHT: f64 = 13.0;
 const SELF_MESSAGE_TEXT_GAP: f64 = 5.0;
 
 /// Цвет фона заметки в PlantUML.
+/// Отступ текста примечания от левого края рамки.
+///
+/// Измерено по эталону `sequence_notes`: рамка на x = 110.987,
+/// текст на x = 116.987.
+const NOTE_TEXT_INSET: f64 = 6.0;
+
 const NOTE_BACKGROUND: &str = "#FEFFDD";
 
 /// Отступ заметки от линии жизни (измерено по эталону sequence_notes).
@@ -1496,6 +1502,12 @@ impl SequenceLayoutEngine {
         // заметка визуально не отличалась от участников.
         let mut properties = std::collections::HashMap::new();
         properties.insert("fill".to_string(), NOTE_BACKGROUND.to_string());
+        // Текст примечания выравнивается по ЛЕВОМУ краю с отступом.
+        // Измерено по эталону `sequence_notes`: рамка начинается на
+        // 110.987, а текст — на 116.987, то есть отступ 6. Прежде текст
+        // центрировался и при длинной подписи выходил за рамку.
+        properties.insert("text-align".to_string(), "left".to_string());
+        properties.insert("text-inset".to_string(), NOTE_TEXT_INSET.to_string());
 
         let note_elem = LayoutElement {
             id: format!("note_{}", y as u32),

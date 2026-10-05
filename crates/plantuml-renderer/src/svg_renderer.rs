@@ -787,10 +787,30 @@ impl SvgRenderer {
             .cloned()
             .unwrap_or_else(|| theme.text_color.to_css());
 
+        // Подпись может быть выровнена по ЛЕВОМУ краю с отступом.
+        //
+        // Так рисуются примечания: PlantUML ставит их текст с отступом
+        // 6 от левого края рамки, а не по центру. Без этого длинный
+        // текст примечания выходил за рамку.
+        let left_aligned = properties
+            .get("text-align")
+            .map(|value| value == "left")
+            .unwrap_or(false);
+        let text_inset = properties
+            .get("text-inset")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let (text_x, text_anchor) = if left_aligned {
+            (bounds.x + text_inset, "start")
+        } else {
+            (bounds.x + bounds.width / 2.0, "middle")
+        };
+
         let mut text = svg::node::element::Text::new(label)
-            .set("x", bounds.x + bounds.width / 2.0)
+            .set("x", text_x)
             .set("y", bounds.y + bounds.height / 2.0)
-            .set("text-anchor", "middle")
+            .set("text-anchor", text_anchor)
             .set("dominant-baseline", "middle")
             .set("font-family", theme.font_family.as_str())
             .set("font-size", label_font_size)
