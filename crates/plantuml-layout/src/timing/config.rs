@@ -33,7 +33,10 @@ impl Default for TimingLayoutConfig {
             padding: 20.0,
             participant_label_width: 71.732,
             lane_height: 60.0,
-            lane_spacing: 5.0,
+            // Дорожки идут ВПЛОТНУЮ: эталон `timing_basic` даёт дорожку
+            // robust 20…85.297 и concise 85.297…141.594, то есть
+            // разделитель совпадает с верхом следующей дорожки.
+            lane_spacing: 0.0,
             // Измерено по эталону PlantUML
             // (tests/golden/reference/timing_basic.svg): метка времени 0 на
             // x=88.2, метка 100 на x=131.2, то есть 0.43px на единицу.
@@ -44,7 +47,9 @@ impl Default for TimingLayoutConfig {
             concise_line_height: 20.0,
             label_font_size: 12.0,
             text: TextMeasurer::default(),
-            time_font_size: 10.0,
+            // Подписи времени PlantUML пишет кеглем 11 (эталон: «0» и
+            // «100» с `font-size="11"`).
+            time_font_size: 11.0,
         }
     }
 }

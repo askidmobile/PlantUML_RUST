@@ -28,7 +28,7 @@ expression: svg
 </g>
 <g id="composite_Active">
 <rect fill="#E2E2F0" height="184" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="179" x="7" y="88"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="96.5" y="105" textLength="46.662">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="96.5" y="105" textLength="52.448">
 Active
 </text>
 <line stroke="#181818" stroke-width="1" x1="7" x2="186" y1="118" y2="118"/>

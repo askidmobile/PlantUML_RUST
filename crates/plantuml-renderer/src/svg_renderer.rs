@@ -291,9 +291,11 @@ impl SvgRenderer {
             // (габарит вырос со 100.07 до 109.57).
             Some("SALT") => (0.0, 0.0, 3.43, 2.59),
             // TIMING: измерено по эталону `timing_basic` — холст 229x175.
-            // Левые и верхние поля оставлены общими, добавка справа и
-            // снизу доводит габарит до эталонного.
-            Some("TIMING") => (7.0, 7.0, 12.0, 13.0),
+            //
+            // Снизу запас больше: подписи времени описываются
+            // прямоугольником высотой в кегль НАД базисом, а у эталона
+            // холст учитывает ещё и вынос строки под базисом (около 17).
+            Some("TIMING") => (7.0, 7.0, 12.0, 30.0),
             _ => DEFAULT,
         }
     }
@@ -717,11 +719,37 @@ impl SvgRenderer {
             ElementType::Path => {
                 // Рендерим SVG path (для кривых Безье)
                 if let Some(path_data) = element.properties.get("path") {
+                    // Цвет, толщину и заливку путь может нести свойствами:
+                    // так рисуется незамкнутый контур последнего состояния
+                    // в timing (эталон `timing_basic`: `stroke:#006400;
+                    // stroke-width:1.5` при заливке `#E2E2F0`).
+                    let default_stroke = theme.node_border.to_css();
                     let path = svg::node::element::Path::new()
                         .set("d", path_data.as_str())
-                        .set("fill", "none")
-                        .set("stroke", theme.node_border.to_css())
-                        .set("stroke-width", 1);
+                        .set(
+                            "fill",
+                            element
+                                .properties
+                                .get("fill")
+                                .map(String::as_str)
+                                .unwrap_or("none"),
+                        )
+                        .set(
+                            "stroke",
+                            element
+                                .properties
+                                .get("stroke")
+                                .map(String::as_str)
+                                .unwrap_or(default_stroke.as_str()),
+                        )
+                        .set(
+                            "stroke-width",
+                            element
+                                .properties
+                                .get("stroke-width")
+                                .map(String::as_str)
+                                .unwrap_or("1"),
+                        );
                     group = group.add(path);
                 }
             }
@@ -2998,15 +3026,6 @@ fn round3(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
-/// Оценивает ширину текста в пикселях (для атрибута `textLength`).
-///
-/// Используется тот же измеритель, что и в layout-движках. Раньше здесь
-/// была своя константа 0.481 em на любой символ, из-за чего `textLength`
-/// в готовом SVG расходился с ширинами, по которым строилась раскладка.
-fn measure_text(text: &str, font_size: f64) -> f64 {
-    plantuml_layout::text::TextMeasurer::default().width(text, font_size)
-}
-
 /// Извлекает значение `font-size` из строки тега.
 fn extract_font_size(tag: &str) -> Option<f64> {
     let marker = "font-size=\"";
@@ -3051,11 +3070,20 @@ fn annotate_text_length(svg: &str) -> String {
 
         let label = content[..close].trim();
         let font_size = extract_font_size(tag).unwrap_or(13.0);
+        // Полужирный текст шире обычного: PlantUML считает его ширину по
+        // своей таблице, и в эталонах жирные подписи длиннее на 8–14 %.
+        // Без этой поправки `textLength` жирной подписи совпадал с обычной
+        // и браузер сжимал её.
+        let measurer = plantuml_layout::text::TextMeasurer::default();
+        let measure = |line: &str| {
+            if tag.contains("font-weight") {
+                measurer.width_bold(line, font_size)
+            } else {
+                measurer.width(line, font_size)
+            }
+        };
         // Многострочный текст: берём самую длинную строку
-        let measured = label
-            .lines()
-            .map(|line| measure_text(line, font_size))
-            .fold(0.0_f64, f64::max);
+        let measured = label.lines().map(measure).fold(0.0_f64, f64::max);
 
         out.push_str(tag);
         out.push_str(&format!(" textLength=\"{}\"", round3(measured)));
