@@ -798,9 +798,21 @@ impl<R: FileResolver> Preprocessor<R> {
             if let Some(callable) = ctx.get_callable(&name) {
                 let (output_lines, return_value) = callable.call(&args);
 
+                // Вызов во всю строку — это ОПЕРАТОР, а не выражение.
+                //
+                // PlantUML выполняет такой вызов ради побочного эффекта и
+                // НЕ печатает возвращённое значение. Без этого правила
+                // библиотека C4 оставляла в выводе строку `""`: её функция
+                // `SetPropertyHeader` вызывается на верхнем уровне только
+                // ради установки переменных.
+                let leading = &result[..start];
+                let trailing = &result[end..];
+                let is_statement = leading.trim().is_empty() && trailing.trim().is_empty();
+
                 let replacement = match callable.kind {
+                    functions::CallableKind::Function if is_statement => String::new(),
                     functions::CallableKind::Function => {
-                        // Функция: подставляем возвращённое значение
+                        // Функция в выражении: подставляем возвращённое значение
                         return_value.unwrap_or_default()
                     }
                     functions::CallableKind::Procedure => {

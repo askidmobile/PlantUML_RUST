@@ -168,11 +168,9 @@ pub fn parse_callable_definition(def: &str) -> Option<(String, Vec<String>)> {
 pub fn parse_callable_call(call: &str) -> Option<(String, Vec<String>)> {
     let call = call.trim();
 
-    // Должно начинаться с $
-    if !call.starts_with('$') {
-        return None;
-    }
-
+    // Имя может быть с `$` и без него: PlantUML разрешает обе формы,
+    // а стандартная библиотека C4 объявляет функции без `$`
+    // (`!unquoted function SetPropertyHeader(...)`).
     let paren_start = call.find('(')?;
     let paren_end = call.rfind(')')?;
 
@@ -245,6 +243,45 @@ pub fn find_function_calls(line: &str) -> Vec<(usize, usize, String, Vec<String>
                     if let Some((_, args)) = parse_callable_call(&call_str) {
                         calls.push((to_byte(start), to_byte(i), name, args));
                     }
+                }
+            }
+        } else if chars[i].is_alphabetic() || chars[i] == '_' {
+            // Вызов БЕЗ ведущего `$`.
+            //
+            // PlantUML разрешает объявлять и вызывать функции/процедуры без
+            // `$`: стандартная библиотека C4 пишет
+            // `!unquoted function SetPropertyHeader(...)` и вызывает
+            // `SetPropertyHeader("Property","Value")`. Прежний разбор искал
+            // только имена с `$`, поэтому такие вызовы не раскрывались, и в
+            // вывод попадало тело определения.
+            let start = i;
+            let mut name = String::new();
+            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+                name.push(chars[i]);
+                i += 1;
+            }
+
+            // Откатываемся, если это не вызов: нужна `(` сразу за именем.
+            if i >= chars.len() || chars[i] != '(' {
+                i = start + 1;
+                continue;
+            }
+
+            let mut depth = 1;
+            i += 1;
+            while i < chars.len() && depth > 0 {
+                if chars[i] == '(' {
+                    depth += 1;
+                } else if chars[i] == ')' {
+                    depth -= 1;
+                }
+                i += 1;
+            }
+
+            if depth == 0 {
+                let call_str: String = chars[start..i].iter().collect();
+                if let Some((_, args)) = parse_callable_call(&call_str) {
+                    calls.push((to_byte(start), to_byte(i), name, args));
                 }
             }
         } else {
