@@ -37,11 +37,11 @@ Request
 </g>
 <g id="fragment_alt">
 <rect fill="none" height="127.26600000000003" stroke="#000" stroke-width="1.5" width="150" x="0" y="99.42999999999999"/>
-<path d="M0,99.42999999999999 L65.202,99.42999999999999 L65.202,106.56299999999999 L55.202,116.56299999999999 L0,116.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" x="5" y="113.42999999999999" textLength="19.296">
+<path d="M0,99.42999999999999 L64.2962,99.42999999999999 L64.2962,106.56299999999999 L54.2962,116.56299999999999 L0,116.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="700" x="5" y="113.42999999999999" textLength="19.296">
 alt
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="75.202" y="113.42999999999999" textLength="75.548">
+<text fill="#000000" font-family="sans-serif" font-size="14" font-weight="700" x="74.2962" y="113.42999999999999" textLength="75.548">
 [success]
 </text>
 <g id="msg_Bob_Alice">
@@ -51,7 +51,7 @@ OK
 </text>
 </g>
 <path d="M0,164.56300000000002 L150,164.56300000000002" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" x="5" y="176.56300000000002" textLength="55.396">
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="700" x="5" y="176.56300000000002" textLength="55.396">
 [failure]
 </text>
 <g id="msg_Bob_Alice">

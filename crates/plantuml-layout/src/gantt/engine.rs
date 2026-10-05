@@ -588,7 +588,12 @@ impl GanttLayoutEngine {
                     id: format!("{id}_{}", start_day),
                     bounds: Rect::new(x, y, width, GANTT_MONTH_FONT_SIZE),
                     text: None,
-                    properties: std::collections::HashMap::new(),
+                    // Подписи месяцев PlantUML рисует ПОЛУЖИРНЫМИ:
+                    // в эталоне gantt_basic все четыре подписи имеют
+                    // font-weight="700".
+                    properties: [("font-weight".to_string(), "700".to_string())]
+                        .into_iter()
+                        .collect(),
                     element_type: ElementType::Text {
                         text: label.clone(),
                         font_size: GANTT_MONTH_FONT_SIZE,

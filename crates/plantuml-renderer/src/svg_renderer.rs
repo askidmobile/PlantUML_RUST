@@ -489,15 +489,29 @@ impl SvgRenderer {
                 );
             }
             ElementType::Group { label, children } => {
-                group =
-                    self.render_group(&element.bounds, label.as_deref(), children, theme, group);
+                let bold = element.properties.contains_key("font-weight");
+                group = self.render_group(
+                    &element.bounds,
+                    label.as_deref(),
+                    children,
+                    bold,
+                    theme,
+                    group,
+                );
             }
             ElementType::Fragment {
                 fragment_type,
                 sections,
             } => {
-                group =
-                    self.render_fragment(&element.bounds, fragment_type, sections, theme, group);
+                let bold = element.properties.contains_key("font-weight");
+                group = self.render_fragment(
+                    &element.bounds,
+                    fragment_type,
+                    sections,
+                    bold,
+                    theme,
+                    group,
+                );
             }
             ElementType::Activation => {
                 group = self.render_activation(&element.bounds, theme, group);
@@ -1604,6 +1618,7 @@ impl SvgRenderer {
         bounds: &Rect,
         label: Option<&str>,
         children: &[LayoutElement],
+        bold: bool,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
@@ -1666,7 +1681,7 @@ impl SvgRenderer {
                 .set("text-anchor", "middle")
                 .set("font-family", theme.font_family.as_str())
                 .set("font-size", theme.font_size)
-                .set("font-weight", "bold")
+                .set("font-weight", if bold { "700" } else { "bold" })
                 .set("fill", theme.text_color.to_css());
 
             group = group.add(text);
@@ -1686,6 +1701,7 @@ impl SvgRenderer {
         bounds: &Rect,
         fragment_type: &str,
         sections: &[FragmentSection],
+        bold: bool,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
@@ -1708,11 +1724,11 @@ impl SvgRenderer {
         // Геометрия по эталону: высота 17.133, зазубрина 10.
         let label_text = fragment_type;
         let label_width = {
-            // Считаем символы, а не байты: тип фрагмента всегда латиница,
-            // но правило общее. Оценка ширины текста — 0.481em, как в layout
-            let measured = label_text.chars().count() as f64 * theme.font_size * 0.481;
-            // В эталоне заголовок «alt» занимает 64.44px при тексте 19.44px,
-            // то есть отступы по ~22px с каждой стороны
+            // Ширина измеряется, а не оценивается по числу символов:
+            // прежняя оценка `символы * font_size * 0.481` давала для
+            // «alt» 26.9 при реальных 19.44. В эталоне заголовок занимает
+            // 64.44px, то есть отступы по ~22px с каждой стороны.
+            let measured = self.measure_text(label_text, theme.font_size);
             (measured + 45.0).max(40.0)
         };
         let label_height = 17.133;
@@ -1748,7 +1764,9 @@ impl SvgRenderer {
             .set("y", bounds.y + 14.0)
             .set("font-family", theme.font_family.as_str())
             .set("font-size", theme.font_size)
-            .set("font-weight", "bold")
+            // PlantUML использует числовую запись `700`; визуально то же,
+            // но для точного соответствия эталону приводим к ней.
+            .set("font-weight", if bold { "700" } else { "bold" })
             .set("fill", theme.text_color.to_css());
 
         group = group.add(type_text);
@@ -1756,11 +1774,15 @@ impl SvgRenderer {
         // 3. Условие первой секции справа от пятиугольника
         if let Some(first_section) = sections.first() {
             if let Some(condition) = &first_section.condition {
+                // Условие секции тоже ПОЛУЖИРНОЕ: в эталоне
+                // sequence_fragments элементы «[Успешно]» и «[Ошибка]»
+                // имеют font-weight="700", как и тип «alt».
                 let cond_text = svg::node::element::Text::new(format!("[{}]", condition))
                     .set("x", bounds.x + label_width + 10.0)
                     .set("y", bounds.y + 14.0)
                     .set("font-family", theme.font_family.as_str())
                     .set("font-size", theme.font_size)
+                    .set("font-weight", if bold { "700" } else { "bold" })
                     .set("fill", theme.text_color.to_css());
 
                 group = group.add(cond_text);
@@ -1815,7 +1837,7 @@ impl SvgRenderer {
                     .set("font-family", theme.font_family.as_str())
                     // В эталоне размер 11 и жирный
                     .set("font-size", theme.font_size - 2.0)
-                    .set("font-weight", "bold")
+                    .set("font-weight", if bold { "700" } else { "bold" })
                     .set("fill", theme.text_color.to_css());
 
                 group = group.add(else_text);

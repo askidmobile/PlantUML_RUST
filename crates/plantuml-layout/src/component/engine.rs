@@ -441,7 +441,12 @@ impl ComponentLayoutEngine {
             id: format!("package_{}", pkg.name.replace(' ', "_")),
             bounds: pkg_bounds,
             text: None,
-            properties: std::collections::HashMap::new(),
+            // Заголовок узла PlantUML рисует ПОЛУЖИРНЫМ: в эталоне
+            // deployment_basic обе подписи («Сервер приложений» и
+            // «Сервер БД») имеют font-weight="700".
+            properties: [("font-weight".to_string(), "700".to_string())]
+                .into_iter()
+                .collect(),
             element_type: ElementType::Group {
                 label: Some(pkg.name.clone()),
                 children: Vec::new(),

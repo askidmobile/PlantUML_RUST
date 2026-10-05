@@ -1379,7 +1379,12 @@ impl SequenceLayoutEngine {
             id: format!("fragment_{}", fragment_type_str),
             bounds: fragment_bounds,
             text: None,
-            properties: std::collections::HashMap::new(),
+            // Заголовок фрагмента (alt/opt/loop) PlantUML рисует
+            // ПОЛУЖИРНЫМ: в эталоне sequence_fragments все три элемента
+            // («alt», «[Успешно]», «[Ошибка]») имеют font-weight="700".
+            properties: [("font-weight".to_string(), "700".to_string())]
+                .into_iter()
+                .collect(),
             element_type: ElementType::Fragment {
                 fragment_type: fragment_type_str.to_string(),
                 sections: layout_sections,
