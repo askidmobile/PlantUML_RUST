@@ -614,6 +614,7 @@ impl<R: FileResolver> Preprocessor<R> {
 
             // Обработка builtin функций
             let processed = builtins::process_builtins(&processed);
+            let processed = self.process_chr_builtin(&processed, ctx);
 
             output.push_str(&processed);
             output.push('\n');
@@ -666,7 +667,7 @@ impl<R: FileResolver> Preprocessor<R> {
             // возвращал текст вызова.
             let expanded = self.process_function_calls(rest.trim(), ctx);
             let value = evaluate_concat(&expanded, ctx);
-            ctx.return_value = Some(value);
+            ctx.return_value = Some(self.process_chr_builtin(&value, ctx));
             ctx.returning = true;
         } else if let Some(rest) = directive.strip_prefix("global ") {
             // `!global $ИМЯ ?= значение` — объявление переменной уровня
@@ -736,6 +737,21 @@ impl<R: FileResolver> Preprocessor<R> {
             let expanded = self.process_context_builtins(&expanded, ctx);
             let expanded = builtins::process_builtins(&expanded);
             variables::handle_variable_assignment(&expanded, ctx)?;
+
+            // `%chr` раскрывается ПОСЛЕ вычисления выражения: полученная
+            // кавычка иначе работала бы как разделитель строк.
+            let name = directive
+                .split('=')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if let Some(value) = ctx.variables.get(&name).cloned() {
+                let expanded_value = self.process_chr_builtin(&value, ctx);
+                if expanded_value != value {
+                    ctx.variables.insert(name, expanded_value);
+                }
+            }
         }
 
         Ok(None)
@@ -1256,6 +1272,39 @@ impl<R: FileResolver> Preprocessor<R> {
         }
 
         Ok(output)
+    }
+
+    /// Раскрывает `%chr(КОД)` — символ по коду.
+    ///
+    /// ВЫЗЫВАЕТСЯ ПОСЛЕ вычисления выражений, а не до: `%chr(34)` даёт
+    /// кавычку, и если раскрыть её раньше, кавычка начинает работать как
+    /// разделитель строк в `evaluate_concat`, ломая разбор конкатенации.
+    /// Именно это давало в C4 строку `rectangle  + == Система +  ...`
+    /// вместо `rectangle "== Система" ...`.
+    ///
+    /// Стандартная библиотека C4 строит кавычки так намеренно: прямая
+    /// кавычка разорвала бы строку макроса.
+    fn process_chr_builtin(&self, line: &str, ctx: &PreprocessContext) -> String {
+        let mut result = line.to_string();
+
+        while let Some(start) = result.find("%chr(") {
+            let Some(close) = find_closing_paren(&result, start) else {
+                break;
+            };
+            let inner = result[start + "%chr(".len()..close].trim().to_string();
+            let code = evaluate_concat(&inner, ctx);
+
+            match code.trim().parse::<u32>().ok().and_then(char::from_u32) {
+                Some(ch) => {
+                    result = format!("{}{}{}", &result[..start], ch, &result[close + 1..]);
+                }
+                // Нераспознанный код оставляем как есть: молчаливая
+                // замена потеряла бы содержимое диаграммы.
+                None => break,
+            }
+        }
+
+        result
     }
 
     /// Обрабатывает вызовы пользовательских функций в строке
@@ -2035,6 +2084,24 @@ MAIN_END
             out.contains("class Готово"),
             "глобальная переменная не видна: {out}"
         );
+    }
+
+    /// `%chr(КОД)` раскрывается в символ.
+    ///
+    /// Стандартная библиотека C4 строит кавычки именно так, чтобы они не
+    /// разорвали строку макроса.
+    #[test]
+    fn test_chr_builtin() {
+        let pp = Preprocessor::new();
+        let source = "@startuml\n\
+            !function $q()\n\
+            !return %chr(34)X%chr(34)\n\
+            !endfunction\n\
+            class $q()\n\
+            @enduml";
+
+        let out = pp.process(source).expect("разбор не должен падать");
+        assert!(out.contains("class \"X\""), "%chr не раскрыт: {out}");
     }
 
     /// Вложенный вызов в `!return` сохраняет ЗНАЧЕНИЕ.
