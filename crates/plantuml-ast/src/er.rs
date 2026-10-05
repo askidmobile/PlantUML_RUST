@@ -196,6 +196,13 @@ pub struct ErRelationship {
     pub label: Option<String>,
     /// Идентифицирующая связь (identifying relationship)
     pub is_identifying: bool,
+    /// Линия связи пунктирная (`..`) — в отличие от сплошной (`--`).
+    ///
+    /// PlantUML рисует `user .. order` пунктиром, а `user -- order`
+    /// сплошной. Раньше признак не сохранялся, и ЛЮБАЯ связь ER выходила
+    /// пунктирной, хотя в эталоне `er_basic` она сплошная.
+    #[serde(default)]
+    pub dashed: bool,
 }
 
 impl ErRelationship {
@@ -208,6 +215,7 @@ impl ErRelationship {
             to_cardinality: Cardinality::Many,
             label: None,
             is_identifying: false,
+            dashed: false,
         }
     }
 

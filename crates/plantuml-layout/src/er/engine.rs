@@ -330,9 +330,10 @@ impl ErLayoutEngine {
                     label: rel.label.clone(),
                     arrow_start: false,
                     arrow_end: false,
-                    // Идентифицирующая связь рисуется сплошной, обычная —
-                    // пунктирной (ER-нотация)
-                    dashed: !rel.is_identifying,
+                    // Пунктир задаёт САМ ИСХОДНИК: `..` — пунктир,
+                    // `--` — сплошная. Эталон `er_basic` (`||--o{`) даёт
+                    // сплошную линию.
+                    dashed: rel.dashed,
                     edge_type: EdgeType::Link,
                     from_cardinality: Some(rel.from_cardinality.symbol().to_string()),
                     to_cardinality: Some(rel.to_cardinality.symbol().to_string()),
@@ -451,6 +452,7 @@ mod tests {
             to_cardinality: Cardinality::ZeroOrMany,
             label: None,
             is_identifying: true,
+            dashed: false,
         });
 
         let result = ErLayoutEngine::new().layout(&diagram, &Default::default());

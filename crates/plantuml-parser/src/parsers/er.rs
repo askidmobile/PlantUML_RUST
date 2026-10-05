@@ -133,6 +133,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> crate::Result<ErRela
     let mut to = String::new();
     let mut from_card = Cardinality::One;
     let mut to_card = Cardinality::Many;
+    let mut is_dashed = false;
     let mut label = None;
     let mut is_first_entity = true;
 
@@ -152,6 +153,12 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> crate::Result<ErRela
             Rule::right_cardinality => {
                 to_card = parse_cardinality(inner.as_str());
             }
+            // Сплошная или пунктирная линия связи: `--` против `..`.
+            // PlantUML рисует `--` сплошной, а `..` — пунктирной; поле
+            // `is_identifying` для этого не годится, оно про другое.
+            Rule::relation_line => {
+                is_dashed = inner.as_str().contains("..");
+            }
             Rule::relation_label => {
                 label = Some(inner.as_str().trim().to_string());
             }
@@ -163,6 +170,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> crate::Result<ErRela
     rel.from_cardinality = from_card;
     rel.to_cardinality = to_card;
     rel.label = label;
+    rel.dashed = is_dashed;
 
     Ok(rel)
 }
