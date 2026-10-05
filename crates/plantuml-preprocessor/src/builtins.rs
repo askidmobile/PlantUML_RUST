@@ -69,6 +69,11 @@ pub fn process_builtins(line: &str) -> String {
     // %newline()
     result = result.replace("%newline()", "\n");
 
+    //  — функция, пришедшая на смену  в
+    // PlantUML v1.2025.1beta6. Стандартная библиотека C4 выбирает её
+    // через .
+    result = result.replace("%breakline()", "\n");
+
     // %tab()
     result = result.replace("%tab()", "\t");
 

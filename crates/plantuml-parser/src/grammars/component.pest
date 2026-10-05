@@ -380,10 +380,15 @@ note_body = { (!("end" ~ ws+ ~ "note") ~ ANY)* }
 
 skinparam = { 
     "skinparam" ~ ws+ ~ skinparam_name ~ ws+ ~ skinparam_value
+    | "skinparam" ~ ws+ ~ skinparam_name ~ ws* ~ "{" ~ ws* ~ NEWLINE ~ (skinparam_line ~ NEWLINE)* ~ "}"
 }
 
-skinparam_name = { (LETTER | NUMBER | "_")+ }
+// Имя skinparam может нести СТЕРЕОТИП: `skinparam rectangle<<boundary>>`.
+// Стандартная библиотека C4 пишет именно так. Пробел ВНУТРЬ имени
+// добавлять нельзя — он конфликтует с разделителем перед значением.
+skinparam_name = { (LETTER | NUMBER | "_")+ ~ ("<<" ~ (!">>" ~ ANY)* ~ ">>")? }
 skinparam_value = { (!NEWLINE ~ ANY)+ }
+skinparam_line = { ws* ~ skinparam_name ~ ws+ ~ skinparam_value }
 
 // === Базовые токены ===
 

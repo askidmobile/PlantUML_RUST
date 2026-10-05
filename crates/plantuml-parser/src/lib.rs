@@ -287,6 +287,7 @@ fn structural_skeleton(source: &str) -> String {
 
     let mut out = String::new();
     let mut closing: Option<&str> = None;
+    let mut in_skinparam_block = false;
     let mut in_comment = false;
 
     for raw in source.lines() {
@@ -320,6 +321,21 @@ fn structural_skeleton(source: &str) -> String {
         }
 
         let lower = line.to_lowercase();
+
+        // `skinparam` — это ОФОРМЛЕНИЕ, а не структура.
+        //
+        // Строки вида `skinparam rectangle<<boundary>> {` содержат слова,
+        // совпадающие с ключевыми (`boundary`), и детектор типа принимал
+        // такую диаграмму за sequence. Развёрнутая стандартная библиотека
+        // C4 состоит из skinparam почти целиком.
+        if lower.starts_with("skinparam") || in_skinparam_block {
+            if lower.ends_with('{') {
+                in_skinparam_block = true;
+            } else if lower.starts_with('}') {
+                in_skinparam_block = false;
+            }
+            continue;
+        }
 
         // Директивы сохраняем: по ним распознаются @startgantt/@startjson,
         // archimate, nwdiag и прочие теги

@@ -463,7 +463,13 @@ impl<R: FileResolver> Preprocessor<R> {
 
             // Если мы определяем функцию/процедуру, собираем тело
             if ctx.is_defining_callable() {
-                if trimmed == "!endfunction" || trimmed == "!endprocedure" {
+                // PlantUML допускает пробел в закрывающей директиве:
+                // стандартная библиотека C4 пишет `!end procedure`.
+                // Без этого определение макроса НЕ ЗАКРЫВАЛОСЬ, и всё
+                // после него попадало в тело — так пропадали объявления
+                // цветов C4 (`!$BOUNDARY_COLOR ?= ...`).
+                let closing = trimmed.replace("!end ", "!end");
+                if closing == "!endfunction" || closing == "!endprocedure" {
                     // Завершаем определение
                     self.finish_callable_definition(ctx)?;
                 } else {
@@ -515,6 +521,19 @@ impl<R: FileResolver> Preprocessor<R> {
 
             // Встроенные функции, которым нужен контекст
             let processed = self.process_context_builtins(&processed, ctx);
+
+            // В КОММЕНТАРИЯХ встроенные функции НЕ раскрываются.
+            //
+            // Иначе `%newline()` внутри комментария превращался в перевод
+            // строки и разрывал его: хвост без `'` попадал в диаграмму.
+            // Так ломалась стандартная библиотека C4 — у неё в комментарии
+            // написано «...instead of the old %newline(), if a command
+            // ends.», и в вывод уходила строка «, if a command ends.».
+            if trimmed.starts_with('\'') {
+                output.push_str(&processed);
+                output.push('\n');
+                continue;
+            }
 
             // Обработка builtin функций
             let processed = builtins::process_builtins(&processed);
@@ -856,7 +875,7 @@ impl<R: FileResolver> Preprocessor<R> {
     fn execute_callable(
         &self,
         callable: &functions::UserCallable,
-        args: &[String],
+        args: &[functions::CallArgument],
         ctx: &mut PreprocessContext,
     ) -> Result<(String, Option<String>)> {
         if ctx.call_depth >= MAX_CALL_DEPTH {
@@ -915,11 +934,29 @@ impl<R: FileResolver> Preprocessor<R> {
             // подставлены его переменные. Без этого параметр получал
             // собственное имя (`$tagStereo` -> `$tagStereo`), и значение
             // функции оставалось неразвёрнутым.
-            let mut value = match args.get(index) {
-                Some(value) if !value.trim().is_empty() => {
-                    let substituted = variables::substitute(value, &ctx.variables);
-                    evaluate_concat(&substituted, ctx)
-                }
+            // `evaluate_concat` сам подставляет переменные внутри каждой
+            // части, поэтому отдельный `substitute` здесь давал ДВОЙНУЮ
+            // подстановку. Если значение переменной ссылается на саму
+            // себя (`!$bgColor = $restoreEmpty(..., $bgColor, ...)`),
+            // каждое повторение добавляло копию — в C4 значение росло до
+            // мегабайт, и обработка не завершалась.
+            // Именованный аргумент (`$b=2`) привязывается к своему
+            // параметру, а не к позиции: так работает стандартная
+            // библиотека C4.
+            let named = args
+                .iter()
+                .find(|argument| argument.name.as_deref() == Some(name.as_str()))
+                .map(|argument| argument.value.clone());
+
+            // Позиционный аргумент — только среди НЕИМЕНОВАННЫХ.
+            let positional = args
+                .iter()
+                .filter(|argument| argument.name.is_none())
+                .nth(index)
+                .map(|argument| argument.value.clone());
+
+            let mut value = match named.or(positional) {
+                Some(value) if !value.trim().is_empty() => evaluate_concat(&value, ctx),
                 _ => default,
             };
 

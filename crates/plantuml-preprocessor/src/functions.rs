@@ -165,7 +165,31 @@ pub fn parse_callable_definition(def: &str) -> Option<(String, Vec<String>)> {
 /// Парсит вызов функции/процедуры
 ///
 /// Формат: `$name(arg1, arg2, ...)` или `$name()`
-pub fn parse_callable_call(call: &str) -> Option<(String, Vec<String>)> {
+/// Аргумент вызова макроса.
+///
+/// PlantUML разрешает ИМЕНОВАННЫЕ аргументы: `$f($b=2, $a=1)` — проверено
+/// на сервере, результат не зависит от порядка. Стандартная библиотека
+/// C4 пользуется этим постоянно:
+/// `UpdateBoundaryStyle("", $bgColor=$BOUNDARY_BG_COLOR, ...)`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallArgument {
+    /// Имя параметра, если аргумент именованный.
+    pub name: Option<String>,
+    /// Значение аргумента.
+    pub value: String,
+}
+
+impl CallArgument {
+    /// Аргумент без имени.
+    pub fn positional(value: impl Into<String>) -> Self {
+        Self {
+            name: None,
+            value: value.into(),
+        }
+    }
+}
+
+pub fn parse_callable_call(call: &str) -> Option<(String, Vec<CallArgument>)> {
     let call = call.trim();
 
     // Имя может быть с `$` и без него: PlantUML разрешает обе формы,
@@ -181,17 +205,67 @@ pub fn parse_callable_call(call: &str) -> Option<(String, Vec<String>)> {
     let name = call[..paren_start].trim().to_string();
     let args_str = &call[paren_start + 1..paren_end];
 
-    let args: Vec<String> = if args_str.trim().is_empty() {
+    let args: Vec<CallArgument> = if args_str.trim().is_empty() {
         Vec::new()
     } else {
-        // Простой парсинг - по запятым (не учитывает вложенные вызовы)
-        args_str
-            .split(',')
-            .map(|s| s.trim().trim_matches('"').to_string())
+        split_call_arguments(args_str)
+            .into_iter()
+            .map(|part| {
+                // Именованный аргумент: `$имя = значение`.
+                let trimmed = part.trim();
+                if let Some(rest) = trimmed.strip_prefix('$') {
+                    if let Some((name, value)) = rest.split_once('=') {
+                        return CallArgument {
+                            name: Some(format!("${}", name.trim())),
+                            value: value.trim().trim_matches('"').to_string(),
+                        };
+                    }
+                }
+                CallArgument::positional(trimmed.trim_matches('"').to_string())
+            })
             .collect()
     };
 
     Some((name, args))
+}
+
+/// Делит аргументы по запятым ВЕРХНЕГО уровня.
+///
+/// Запятые внутри вложенных вызовов и кавычек разделителями не являются:
+/// `$f(1, $g(2, 3))` — два аргумента, а не три.
+fn split_call_arguments(text: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut in_quotes = false;
+    let mut current = String::new();
+
+    for ch in text.chars() {
+        match ch {
+            '"' => {
+                in_quotes = !in_quotes;
+                current.push(ch);
+            }
+            '(' if !in_quotes => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' if !in_quotes => {
+                depth -= 1;
+                current.push(ch);
+            }
+            ',' if !in_quotes && depth == 0 => {
+                parts.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if !current.trim().is_empty() {
+        parts.push(current.trim().to_string());
+    }
+
+    parts
 }
 
 /// Ищет вызовы функций в строке и возвращает позиции.
@@ -201,7 +275,7 @@ pub fn parse_callable_call(call: &str) -> Option<(String, Vec<String>)> {
 /// индексы в символах, поэтому любая кириллица ПЕРЕД вызовом процедуры
 /// сдвигала границы и приводила к панике «byte index N is not a char
 /// boundary».
-pub fn find_function_calls(line: &str) -> Vec<(usize, usize, String, Vec<String>)> {
+pub fn find_function_calls(line: &str) -> Vec<(usize, usize, String, Vec<CallArgument>)> {
     let mut calls = Vec::new();
     let chars: Vec<char> = line.chars().collect();
     // Байтовое смещение каждого символа: chars[k] начинается с byte_offsets[k]
@@ -314,7 +388,10 @@ mod tests {
     fn test_parse_callable_call() {
         let (name, args) = parse_callable_call("$add(1, 2)").unwrap();
         assert_eq!(name, "$add");
-        assert_eq!(args, vec!["1", "2"]);
+        assert_eq!(
+            args,
+            vec![CallArgument::positional("1"), CallArgument::positional("2")]
+        );
     }
 
     #[test]
