@@ -231,6 +231,13 @@ impl SvgRenderer {
         /// справа 6.27; сверху и снизу остаются поля по умолчанию.
         const NWDIAG: (f64, f64, f64, f64) = (0.0, 7.0, 6.27, 7.0);
 
+        /// SEQUENCE: поля больше общих. Измерено по эталону
+        /// `sequence_simple`: полоса участника стоит на y=10, а её низ
+        /// на 206.125 при общей высоте 218, то есть поля 10 сверху и
+        /// 11.875 снизу. Прежний профиль брал общие 7 — отсюда
+        /// недобор высоты на 8 у всех sequence-диаграмм.
+        const SEQUENCE: (f64, f64, f64, f64) = (7.0, 10.0, 7.0, 11.875);
+
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
             Some("NWDIAG") => NWDIAG,
@@ -238,6 +245,7 @@ impl SvgRenderer {
             Some("JSON") | Some("YAML") => TABLE,
             Some("GANTT") => GANTT,
             Some("WBS") => WBS,
+            Some("SEQUENCE") => SEQUENCE,
             _ => DEFAULT,
         }
     }
