@@ -53,7 +53,11 @@ network_definition = {
 network_content = { (network_element ~ ws)* }
 
 // Элементы сети
-network_element = _{ network_address | server_in_network | description_attr | color_attr | comment }
+// Порядок важен: атрибуты сети проверяются ПЕРЕД сервером. Иначе
+// `server_in_network` (`identifier ~ server_attributes?`) перехватывает
+// `color` или `description` как имя сервера, и строка
+// `color = "#FFAAAA"` оказывается неожиданной.
+network_element = _{ network_address | description_attr | color_attr | server_in_network | comment }
 
 // Адрес сети
 network_address = { "address" ~ ws ~ "=" ~ ws ~ quoted_string }

@@ -286,6 +286,28 @@ fn parse_color_value(s: &str) -> Color {
 mod tests {
     use super::*;
 
+    /// Атрибуты сети: `color` и `description`.
+    ///
+    /// Регрессия: `server_in_network` (`identifier ~ server_attributes?`)
+    /// проверялся РАНЬШЕ атрибутов и перехватывал `color`/`description`
+    /// как имя сервера. Строка `color = "#FFAAAA"` оказывалась
+    /// неожиданной, и вся диаграмма не разбиралась.
+    #[test]
+    fn test_network_color_and_description() {
+        let source = "@startnwdiag\nnetwork a {\n  color = \"#FFAAAA\"\n  x [address = \".1\"]\n}\n@endnwdiag";
+        let diagram = parse_network(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.networks.len(), 1);
+        assert_eq!(
+            diagram.networks[0].color.as_ref().map(|c| c.to_css()),
+            Some("#FFAAAA".to_string())
+        );
+        assert_eq!(diagram.networks[0].members.len(), 1);
+
+        let source = "@startnwdiag\nnetwork a {\n  description = \"текст\"\n  x [address = \".1\"]\n}\n@endnwdiag";
+        let diagram = parse_network(source).expect("диаграмма должна разбираться");
+        assert_eq!(diagram.networks[0].description.as_deref(), Some("текст"));
+    }
+
     /// Официальная форма `@startnwdiag` без обёртки `nwdiag { }`.
     ///
     /// Регрессия: грамматика требовала обёртку, поэтому такая диаграмма
