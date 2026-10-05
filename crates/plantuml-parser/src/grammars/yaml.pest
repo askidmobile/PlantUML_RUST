@@ -52,8 +52,11 @@ yaml_mapping_entry = {
     yaml_key ~ ":" ~ ws_inline* ~ yaml_inline_value?
 }
 
+// Ключ YAML. Используются LETTER/NUMBER (Unicode), а не ASCII_*:
+// иначе ключи на кириллице не разбирались вовсе, хотя весь остальной
+// парсер языконезависим (см. AGENTS.md).
 yaml_key = @{
-    (ASCII_ALPHANUMERIC | "_" | "-")+
+    (LETTER | NUMBER | "_" | "-")+
 }
 
 yaml_inline_value = {

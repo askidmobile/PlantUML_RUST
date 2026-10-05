@@ -100,7 +100,9 @@ state_stereotype_part = { ws+ ~ "<<" ~ stereotype_name ~ ">>" }
 state_description_part = { ws* ~ ":" ~ ws* ~ state_description_text }
 state_description_text = { (!NEWLINE ~ ANY)* }
 
-stereotype_name = { (ASCII_ALPHANUMERIC | "_")+ }
+// Имя стереотипа. LETTER/NUMBER вместо ASCII_*: иначе `<<Состояние>>`
+// на кириллице не разбирался.
+stereotype_name = { (LETTER | NUMBER | "_")+ }
 
 // === Переходы ===
 
