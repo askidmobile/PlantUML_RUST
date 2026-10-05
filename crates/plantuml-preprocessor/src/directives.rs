@@ -121,16 +121,52 @@ pub fn handle_if(expression: &str, ctx: &mut PreprocessContext) {
     ctx.condition_depth += 1;
 }
 
+/// Снимает обрамляющие скобки, только если они парные и охватывают всё.
+///
+/// Прежняя версия срезала первую `(` и последнюю `)` БЕЗУСЛОВНО, из-за
+/// чего выражение `%variable_exists("X")` теряло закрывающую скобку и
+/// разбор встроенной функции ломался. На этом падал C4: он выбирает
+/// между относительным и сетевым include именно такой проверкой.
+fn strip_enclosing_parens(text: &str) -> &str {
+    let mut current = text;
+
+    loop {
+        let Some(inner) = current.strip_prefix('(').and_then(|r| r.strip_suffix(')')) else {
+            return current;
+        };
+
+        // Скобки должны быть парными внутри, иначе внешняя не «обрамляет».
+        let mut depth = 0i32;
+        let mut balanced = true;
+        for c in inner.chars() {
+            match c {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth < 0 {
+                        balanced = false;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if !balanced || depth != 0 {
+            return current;
+        }
+
+        current = inner.trim();
+    }
+}
+
 /// Вычисляет условие `!if` в булево значение.
 ///
 /// Поддерживаются сравнения `==` и `!=` над переменными (`$имя`),
 /// логическими литералами `%true()`/`%false()` и строками. Этого
 /// достаточно для условий в стандартной библиотеке.
 fn evaluate_condition(expression: &str, ctx: &PreprocessContext) -> bool {
-    let text = expression
-        .trim()
-        .trim_start_matches('(')
-        .trim_end_matches(')');
+    let text = strip_enclosing_parens(expression.trim());
 
     for (operator, negate) in [("==", false), ("!=", true)] {
         if let Some((left, right)) = text.split_once(operator) {
@@ -156,6 +192,20 @@ fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
         "%true()" | "true" => return "true".to_string(),
         "%false()" | "false" => return "false".to_string(),
         _ => {}
+    }
+
+    // `%variable_exists("ИМЯ")` — встроенная проверка наличия переменной.
+    // Нужна стандартной библиотеке: C4 выбирает относительный include
+    // именно так.
+    if let Some(inner) = trimmed
+        .strip_prefix("%variable_exists(")
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
+        let name = inner.trim().trim_matches('"');
+        let exists = ctx.variables.contains_key(name)
+            || ctx.variables.contains_key(&format!("${name}"))
+            || ctx.is_defined(name);
+        return if exists { "true" } else { "false" }.to_string();
     }
 
     if trimmed.starts_with('$') {

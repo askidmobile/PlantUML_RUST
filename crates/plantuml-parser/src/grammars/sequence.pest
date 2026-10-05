@@ -48,7 +48,17 @@ statement = _{
 
 // === Комментарии ===
 
-comment = { "'" ~ (!NEWLINE ~ ANY)* }
+// Комментарии: строчный `' текст` и БЛОЧНЫЙ `/' ... '/`.
+//
+// Блочная форма встречается в стандартной библиотеке — например в C4
+// (`/' @deprecated in favor of UpdateElementStyle '/`). Без неё разбор
+// диаграмм с таким включением падал.
+comment = {
+    line_comment
+    | block_comment
+}
+line_comment = { "'" ~ (!NEWLINE ~ ANY)* }
+block_comment = { "/'" ~ (!"'/" ~ ANY)* ~ "'/" }
 
 // === Заголовок ===
 

@@ -10,19 +10,33 @@ pub fn handle_variable_assignment(directive: &str, ctx: &mut PreprocessContext) 
         return Ok(());
     }
 
-    // Формат: $name = value
-    let parts: Vec<&str> = directive.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        return Err(PreprocessError::SyntaxError(format!(
-            "неверный формат присваивания: {}",
-            directive
-        )));
+    // Формат: `$name = value` либо `$name ?= value`.
+    //
+    // `?=` задаёт значение ТОЛЬКО если переменной ещё нет — так
+    // объявляются настройки по умолчанию в стандартной библиотеке
+    // (`!global $ARCH_LOCAL ?= %false()`).
+    let (name_part, value_part, default_only) = match directive.split_once("?=") {
+        Some((name, value)) => (name, value, true),
+        None => match directive.splitn(2, '=').collect::<Vec<_>>().as_slice() {
+            [name, value] => (*name, *value, false),
+            _ => {
+                return Err(PreprocessError::SyntaxError(format!(
+                    "неверный формат присваивания: {}",
+                    directive
+                )))
+            }
+        },
+    };
+
+    let name = name_part.trim().trim_start_matches('$');
+    let value = value_part.trim().trim_matches('"');
+    let key = format!("${}", name);
+
+    if default_only && ctx.variables.contains_key(&key) {
+        return Ok(());
     }
 
-    let name = parts[0].trim().trim_start_matches('$');
-    let value = parts[1].trim().trim_matches('"');
-
-    ctx.set_variable(format!("${}", name), value.to_string());
+    ctx.set_variable(key, value.to_string());
 
     Ok(())
 }

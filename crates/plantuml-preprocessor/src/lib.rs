@@ -92,17 +92,23 @@ pub struct StdlibResolver;
 
 impl FileResolver for StdlibResolver {
     fn read_file(&self, path: &str) -> Result<String> {
-        // Путь приходит в угловых скобках — это маркер стандартной
-        // библиотеки (`!include <C4/C4_Context>`).
-        let is_stdlib = path.starts_with('<') && path.ends_with('>');
-        if !is_stdlib {
-            return Err(PreprocessError::IncludeNotSupported(path.to_string()));
+        // Угловые скобки — маркер стандартной библиотеки
+        // (`!include <C4/C4_Context>`). Но библиотеки включают друг друга
+        // ОТНОСИТЕЛЬНЫМИ путями без скобок (`!include ./C4.puml`), поэтому
+        // такие пути тоже ищем в реестре.
+        let stdlib_path = path.trim_matches(|c| c == '<' || c == '>');
+
+        if let Some(content) = plantuml_stdlib::get_include(stdlib_path) {
+            return Ok(content.to_string());
         }
 
-        let stdlib_path = path.trim_matches(|c| c == '<' || c == '>');
-        plantuml_stdlib::get_include(stdlib_path)
-            .map(|content| content.to_string())
-            .ok_or_else(|| PreprocessError::FileNotFound(format!("stdlib: {stdlib_path}")))
+        if path.starts_with('<') && path.ends_with('>') {
+            return Err(PreprocessError::FileNotFound(format!(
+                "stdlib: {stdlib_path}"
+            )));
+        }
+
+        Err(PreprocessError::IncludeNotSupported(path.to_string()))
     }
 
     fn file_exists(&self, path: &str) -> bool {
@@ -497,7 +503,11 @@ impl<R: FileResolver> Preprocessor<R> {
     ) -> Result<Option<String>> {
         let directive = &line[1..]; // Убираем '!'
 
-        if let Some(rest) = directive.strip_prefix("define ") {
+        if let Some(rest) = directive.strip_prefix("global ") {
+            // `!global $ИМЯ ?= значение` — объявление переменной уровня
+            // библиотеки. Разбирается тем же кодом, что и присваивание.
+            variables::handle_variable_assignment(rest.trim(), ctx)?;
+        } else if let Some(rest) = directive.strip_prefix("define ") {
             directives::handle_define(rest, ctx)?;
         } else if let Some(rest) = directive.strip_prefix("undef ") {
             directives::handle_undef(rest.trim(), ctx);
@@ -608,7 +618,7 @@ impl<R: FileResolver> Preprocessor<R> {
 
                 match parent {
                     Some(dir) => {
-                        let relative = format!("{}/{}", dir, key);
+                        let relative = normalize_include_path(&format!("{}/{}", dir, key));
                         self.resolver
                             .read_file(&relative)
                             .map_err(|_| first_error)?
@@ -805,6 +815,27 @@ impl<R: FileResolver> Preprocessor<R> {
 
         result
     }
+}
+
+/// Нормализует путь включения: убирает `.` и разворачивает `..`.
+///
+/// Стандартная библиотека включает файлы относительными путями вида
+/// `./C4.puml`, поэтому без нормализации ключ `C4/./C4.puml` не совпал бы
+/// с записью реестра `C4/C4.puml`.
+fn normalize_include_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+
+    parts.join("/")
 }
 
 #[cfg(test)]
