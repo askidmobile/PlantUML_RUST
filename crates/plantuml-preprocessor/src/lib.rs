@@ -195,6 +195,17 @@ pub struct PreprocessContext {
     pub returning: bool,
     /// Текущая глубина вызовов макросов (защита от рекурсии).
     pub call_depth: usize,
+    /// Переменные ОБЛАСТИ МАКРОСОВ.
+    ///
+    /// Проверено на сервере:
+    ///   * новая переменная, заданная в макросе, ВИДНА в последующих
+    ///     макросах, но НЕ видна на верхнем уровне диаграммы;
+    ///   * если переменная уже была на верхнем уровне, присваивание в
+    ///     макросе ИЗМЕНЯЕТ её (верхний уровень видит новое значение).
+    ///
+    /// Поэтому областей две: `variables` — верхний уровень,
+    /// `macro_variables` — общая для тел макросов.
+    pub macro_variables: IndexMap<String, String>,
     /// Имена переменных, которые нужно ПЕРЕНЕСТИ в вызывающий контекст.
     ///
     /// Переменные, заданные телом макроса, ЛОКАЛЬНЫ: проверено на сервере —
@@ -223,6 +234,7 @@ impl Default for PreprocessContext {
             return_value: None,
             returning: false,
             call_depth: 0,
+            macro_variables: IndexMap::new(),
             exported: Vec::new(),
         }
     }
@@ -896,11 +908,17 @@ impl<R: FileResolver> Preprocessor<R> {
         let included_files = std::mem::take(&mut ctx.included_files);
         let include_stack = std::mem::take(&mut ctx.include_stack);
 
+        // Тело макроса видит ГЛОБАЛЬНЫЕ переменные и переменные области
+        // макросов; последние имеют приоритет.
+        let mut child_variables = ctx.variables.clone();
+        for (name, value) in ctx.macro_variables.iter() {
+            child_variables.insert(name.clone(), value.clone());
+        }
+
         let mut child = PreprocessContext {
-            // Переменные и объявления наследуются, но условия начинаются
-            // заново: тело макроса не должно зависеть от того, внутри
-            // какого `!if` он вызван.
-            variables: ctx.variables.clone(),
+            // Условия начинаются заново: тело макроса не должно зависеть
+            // от того, внутри какого `!if` он вызван.
+            variables: child_variables,
             included_files,
             condition_depth: 0,
             condition_stack: Vec::new(),
@@ -916,6 +934,7 @@ impl<R: FileResolver> Preprocessor<R> {
             return_value: None,
             returning: false,
             call_depth: ctx.call_depth + 1,
+            macro_variables: IndexMap::new(),
             exported: Vec::new(),
         };
 
@@ -988,6 +1007,22 @@ impl<R: FileResolver> Preprocessor<R> {
                 ctx.variables.insert(name.clone(), value.clone());
             }
         }
+
+        // Раскладываем результат по областям видимости.
+        for (name, value) in child.variables.iter() {
+            let was_global = ctx.variables.contains_key(name);
+            let was_macro = ctx.macro_variables.contains_key(name);
+
+            if was_global || child.exported.contains(name) {
+                // Существующая глобальная переменная изменена макросом.
+                ctx.variables.insert(name.clone(), value.clone());
+                ctx.macro_variables.insert(name.clone(), value.clone());
+            } else if was_macro || ctx.macro_variables.get(name) != Some(value) {
+                // Новая переменная макроса: верхнему уровню не видна.
+                ctx.macro_variables.insert(name.clone(), value.clone());
+            }
+        }
+
         ctx.callables = child.callables;
         ctx.macros = child.macros;
         ctx.included_files = child.included_files;
@@ -1820,6 +1855,70 @@ MAIN_END
         assert!(
             out.contains("class Готово"),
             "глобальная переменная не видна: {out}"
+        );
+    }
+
+    /// Область видимости переменных макроса — две, а не одна.
+    ///
+    /// Проверено на сервере:
+    ///   * новая переменная макроса ВИДНА в последующих макросах;
+    ///   * на ВЕРХНЕМ уровне диаграммы она НЕ видна;
+    ///   * если переменная уже была на верхнем уровне, присваивание в
+    ///     макросе ИЗМЕНЯЕТ её.
+    #[test]
+    fn test_macro_variable_scopes_match_plantuml() {
+        let pp = Preprocessor::new();
+
+        // Новая переменная макроса наружу не выходит.
+        let hidden = "@startuml\n\
+            !function $f()\n\
+            !$inner = Inside\n\
+            !return \"\"\n\
+            !endfunction\n\
+            $f()\n\
+            class \"$inner\"\n\
+            @enduml";
+        let out = pp.process(hidden).unwrap();
+        assert!(
+            out.contains("class \"$inner\""),
+            "новая переменная протекла: {out}"
+        );
+
+        // Существующая глобальная изменяется макросом.
+        let updated = "@startuml\n\
+            !$g = GLOBAL\n\
+            !function $f()\n\
+            !$g = CHANGED\n\
+            !return \"\"\n\
+            !endfunction\n\
+            $f()\n\
+            class \"$g\"\n\
+            @enduml";
+        let out = pp.process(updated).unwrap();
+        assert!(
+            out.contains("class \"CHANGED\""),
+            "глобальная не изменилась: {out}"
+        );
+
+        // Новая переменная видна в ДРУГОМ макросе.
+        let shared = "@startuml\n\
+            !function $set()\n\
+            !$p = VALUE\n\
+            !return \"\"\n\
+            !endfunction\n\
+            !function $get()\n\
+            !if ($p != \"\")\n\
+            !return FOUND\n\
+            !endif\n\
+            !return MISSING\n\
+            !endfunction\n\
+            $set()\n\
+            class \"[$get()]\"\n\
+            @enduml";
+        let out = pp.process(shared).unwrap();
+        assert!(
+            out.contains("FOUND"),
+            "переменная не видна между макросами: {out}"
         );
     }
 
