@@ -238,6 +238,7 @@ impl SvgRenderer {
         /// недобор высоты на 8 у всех sequence-диаграмм.
         const SEQUENCE: (f64, f64, f64, f64) = (7.0, 10.0, 7.0, 11.875);
 
+
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
             Some("NWDIAG") => NWDIAG,
