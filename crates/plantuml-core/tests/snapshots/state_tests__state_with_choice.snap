@@ -28,7 +28,7 @@ expression: svg
 </g>
 <g id="state_Valid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="57.55" x="13" y="205"/>
-<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="35.317">
+<text dominant-baseline="middle" fill="#000000" font-family="sans-serif" font-size="14" text-anchor="middle" x="41.775" y="223.1485" textLength="37.083">
 Valid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="13" x2="70.55" y1="231.297" y2="231.297"/>

@@ -51,7 +51,7 @@ OK
 </text>
 </g>
 <path d="M0,164.56300000000002 L150,164.56300000000002" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" x="5" y="176.56300000000002" textLength="56.944">
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" x="5" y="176.56300000000002" textLength="55.396">
 [failure]
 </text>
 <g id="msg_Bob_Alice">
