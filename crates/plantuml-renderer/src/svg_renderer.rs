@@ -255,6 +255,11 @@ impl SvgRenderer {
         /// поэтому здесь нужен только остаток до 215x322.
         const ACTIVITY: (f64, f64, f64, f64) = (0.0, 0.0, 19.41, 18.14);
 
+        // ВАЖНО: тип приходит из `data-diagram-type`, и он НЕ совпадает
+        // с внутренним `DiagramType`:
+        //   ER и OBJECT помечаются как CLASS (их считает движок классов);
+        //   Deployment, Component и Usecase — все как DESCRIPTION,
+        //   поэтому отдельного профиля на каждый из них быть не может.
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
             Some("NWDIAG") => NWDIAG,
