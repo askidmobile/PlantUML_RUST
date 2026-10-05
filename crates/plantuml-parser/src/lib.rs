@@ -140,6 +140,27 @@ fn has_state_keyword(source: &str) -> bool {
 }
 
 /// Проверяет наличие паттерна :Actor: --> (UseCase) — характерно для use case диаграмм
+/// Есть ли строка вида `:Имя:` — короткая форма актёра sequence.
+///
+/// PlantUML принимает `:Alice:` как объявление участника. Проверка идёт
+/// ПОСЛЕ usecase-шаблона (`:Actor: --> (UseCase)`), поэтому конфликта нет.
+fn has_short_actor_pattern(source: &str) -> bool {
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with(':') {
+            continue;
+        }
+        if let Some(second_colon) = trimmed[1..].find(':') {
+            let name = trimmed[1..second_colon + 1].trim();
+            // Имя непустое и без пробелов внутри — это `:Имя:`, а не текст
+            if !name.is_empty() && !name.contains(char::is_whitespace) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn has_colon_actor_usecase_pattern(source: &str) -> bool {
     // Ищем :Name: --> (Name) или :Name: --> Name
     for line in source.lines() {
@@ -541,6 +562,11 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         // `ref over ...` — ссылка на другую диаграмму, признак sequence.
         // Без участников тип диаграммы не определялся вовсе.
         || source_lower.contains("ref over ")
+        // `autonumber` есть только в sequence
+        || source_lower.contains("autonumber ")
+        || source_lower.contains("autonumber\n")
+        // короткая форма актёра `:Alice:`
+        || has_short_actor_pattern(&source_lower)
     {
         return Ok(DiagramKind::Sequence);
     }
@@ -733,6 +759,33 @@ fn parse_archimate_diagram(source: &str) -> Result<Diagram> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `autonumber` и короткая форма актёра дают определить sequence.
+    ///
+    /// Регрессия: без других признаков (`participant`, стрелок) такая
+    /// диаграмма не опознавалась вовсе.
+    #[test]
+    fn test_autonumber_and_short_actor_detected() {
+        for source in [
+            "@startuml\nautonumber 1.1\nautonumber inc A\n@enduml",
+            "@startuml\nautonumber\nA -> B\nautonumber resume\nB -> A\n@enduml",
+            "@startuml\n:Alice:\n@enduml",
+        ] {
+            let diagram = parse(source).unwrap_or_else(|e| panic!("не разбирается: {e}"));
+            assert_eq!(
+                diagram.diagram_type(),
+                plantuml_ast::diagram::DiagramType::Sequence,
+                "{source}"
+            );
+        }
+
+        // Шаблон usecase (`:Actor: --> (UseCase)`) остаётся usecase
+        let diagram = parse("@startuml\n:Пользователь: --> (Вход)\n@enduml").unwrap();
+        assert_eq!(
+            diagram.diagram_type(),
+            plantuml_ast::diagram::DiagramType::UseCase
+        );
+    }
 
     /// Все объявляемые элементы из официальной документации разбираются.
     ///

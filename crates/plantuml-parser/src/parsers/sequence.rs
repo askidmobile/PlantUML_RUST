@@ -79,6 +79,28 @@ fn process_rule(
                 });
             }
         }
+        Rule::colon_actor_decl => {
+            // Короткая форма актёра `:Alice:`. Грамматика её принимала, но
+            // парсер не обрабатывал — участник не создавался, и на диаграмме
+            // его не было.
+            let name = pair
+                .into_inner()
+                .find(|inner| inner.as_rule() == Rule::colon_actor_name)
+                .map(|inner| inner.as_str().trim().to_string());
+
+            if let Some(name) = name {
+                let participant = Participant::actor(name);
+                if let Some((_, _, ref mut participants)) = current_box {
+                    let boxed_name = participant
+                        .id
+                        .alias
+                        .clone()
+                        .unwrap_or_else(|| participant.id.name.clone());
+                    participants.push(boxed_name);
+                }
+                diagram.add_participant(participant);
+            }
+        }
         Rule::participant_decl => {
             if let Some(participant) = parse_participant(pair) {
                 // Если внутри box, запоминаем участника
@@ -964,6 +986,28 @@ fn parse_ref_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Reference> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Короткая форма актёра `:Alice:`.
+    ///
+    /// Регрессия: грамматика её не знала вовсе, поэтому такая диаграмма не
+    /// разбиралась. После добавления правила выяснилось, что парсер его не
+    /// обрабатывает — участник не создавался.
+    #[test]
+    fn test_short_actor_form() {
+        let diagram = parse_sequence("@startuml\n:Alice:\n:Bob:\n@enduml")
+            .expect("диаграмма должна разбираться");
+        assert_eq!(diagram.participants.len(), 2, "участники не созданы");
+        assert_eq!(diagram.participants[0].id.name, "Alice");
+        assert_eq!(
+            diagram.participants[0].participant_type,
+            plantuml_ast::sequence::ParticipantType::Actor
+        );
+
+        // Сообщение между короткими актёрами
+        let diagram = parse_sequence("@startuml\n:Alice: -> :Bob: : привет\n@enduml")
+            .expect("диаграмма должна разбираться");
+        assert!(!diagram.elements.is_empty());
+    }
 
     /// Задержка: `...` и `delay: текст` — обе формы проверены на
     /// plantuml.com.

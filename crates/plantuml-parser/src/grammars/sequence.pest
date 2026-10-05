@@ -24,6 +24,7 @@ statement = _{
     | newpage_stmt
     | hide_stmt
     | autonumber
+    | colon_actor_decl   // Короткая форма актёра `:Alice:`
     | participant_decl   // Объявления участников - раньше message
     | create_stmt
     | destroy_stmt
@@ -103,6 +104,14 @@ multilevel_number = @{ number ~ ("." ~ number)+ }
 // === Участники ===
 // ВАЖНО: Используем конкретные ключевые слова, а не identifier
 
+// Короткая форма актёра: `:Alice:`.
+//
+// Проверяется ПЕРЕД message: иначе `:Alice:` разберётся как начало
+// сообщения. Стрелка после закрывающего двоеточия означает, что это уже
+// сообщение, а не объявление.
+colon_actor_decl = { ":" ~ colon_actor_name ~ ":" ~ !(ws* ~ arrow) }
+colon_actor_name = @{ (!(":" | NEWLINE) ~ ANY)+ }
+
 participant_decl = {
     participant_type ~ ws+ ~ participant_name ~ 
     (ws+ ~ "as" ~ ws+ ~ simple_identifier)? ~
@@ -170,7 +179,10 @@ target_action = { "++" | "**" | "!!" }
 
 // participant_ref не должен совпадать с ключевыми словами
 participant_ref = @{ 
-    !reserved_word ~ (LETTER | "_") ~ (LETTER | NUMBER | "_")* 
+    // Короткая форма актёра: `:Alice:`. PlantUML принимает её и в
+    // объявлениях, и в сообщениях (`:Alice: -> :Bob: : текст`).
+    ":" ~ (!(":" | NEWLINE) ~ ANY)+ ~ ":"
+    | !reserved_word ~ (LETTER | "_") ~ (LETTER | NUMBER | "_")* 
 }
 
 // Зарезервированные слова, которые НЕ могут быть именами участников в message
