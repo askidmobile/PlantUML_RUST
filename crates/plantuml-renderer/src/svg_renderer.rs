@@ -18,6 +18,37 @@ const FRAGMENT_HEADER_FILL: &str = "#EEE";
 /// Смещение кружка граничного элемента вправо от линии жизни.
 const BOUNDARY_CIRCLE_SHIFT: f64 = 8.5;
 
+/// Вершина «вороньей лапки» от конца линии (эталон `er_basic`: 129.24 → 139.24).
+const CROW_FOOT_APEX: f64 = 10.0;
+
+/// Длина лучей «лапки» (эталон: 139.24 → 147.24).
+const CROW_FOOT_LENGTH: f64 = 18.0;
+
+/// Разброс крайних лучей «лапки» (эталон: ±6).
+const CROW_FOOT_SPREAD: f64 = 6.0;
+
+/// Положение первой перекладины «один» от конца линии (эталон: 1).
+const CROW_FOOT_BAR_FIRST: f64 = 1.0;
+
+/// Шаг между перекладинами «один» (эталон: 94.79 и 91.79).
+const CROW_FOOT_BAR_STEP: f64 = 3.0;
+
+/// Половина длины перекладины «один» (эталон: 55.75…63.75).
+const CROW_FOOT_BAR_HALF: f64 = 4.0;
+
+/// Расстояние от конца линии до центра кружка «ноль».
+const CROW_FOOT_CIRCLE: f64 = 4.0;
+
+/// Радиус кружка «ноль» (эталон: 4).
+const CROW_FOOT_CIRCLE_RADIUS: f64 = 4.0;
+
+/// Является ли кардинальность записью ER-нотации.
+///
+/// Такие PlantUML рисует фигурами; числовые («1», «*») остаются текстом.
+fn is_crow_foot(symbol: &str) -> bool {
+    !symbol.is_empty() && symbol.chars().all(|c| matches!(c, '|' | 'o' | '{' | '}'))
+}
+
 /// Отступ типа фрагмента от левого края рамки.
 ///
 /// Эталон `sequence_fragments`: «alt» на x = 31.95 при рамке от 16.955.
@@ -1986,47 +2017,154 @@ impl SvgRenderer {
             // Определяем, это вертикальная линия
             let is_vertical = (points[1].y - points[0].y).abs() > (points[1].x - points[0].x).abs();
 
+            // Кардинальности.
+            //
+            // ER-нотацию (`||`, `}o`, `}|`, `|o`) PlantUML рисует ФИГУРАМИ
+            // («вороньими лапками»), а числовые подписи классов («1», «*») —
+            // текстом. См. `render_crow_foot` и `is_crow_foot`.
+            let last_index = points.len() - 1;
+
             // Кардинальность у начальной точки (from)
             if let Some(card) = from_cardinality {
-                let p = &points[0];
-                let (text_x, text_y) = if is_vertical {
-                    // Вертикальная линия: текст СЛЕВА, чуть НИЖЕ точки соединения
-                    (p.x - horizontal_offset, p.y + vertical_offset)
+                if is_crow_foot(card) {
+                    group = self.render_crow_foot(card, points[0], points[1], theme, group);
                 } else {
-                    // Горизонтальная линия: текст сверху
-                    (p.x + vertical_offset, p.y - horizontal_offset / 2.0)
-                };
-                let text_elem = svg::node::element::Text::new(card)
-                    .set("x", text_x)
-                    .set("y", text_y)
-                    .set("text-anchor", "end") // выравнивание по правому краю (к линии)
-                    .set("dominant-baseline", "middle")
-                    .set("font-family", theme.font_family.as_str())
-                    .set("font-size", font_size)
-                    .set("fill", theme.text_color.to_css());
-                group = group.add(text_elem);
+                    let p = &points[0];
+                    let (text_x, text_y) = if is_vertical {
+                        // Вертикальная линия: текст СЛЕВА, чуть НИЖЕ точки соединения
+                        (p.x - horizontal_offset, p.y + vertical_offset)
+                    } else {
+                        // Горизонтальная линия: текст сверху
+                        (p.x + vertical_offset, p.y - horizontal_offset / 2.0)
+                    };
+                    let text_elem = svg::node::element::Text::new(card)
+                        .set("x", text_x)
+                        .set("y", text_y)
+                        .set("text-anchor", "end") // выравнивание по правому краю (к линии)
+                        .set("dominant-baseline", "middle")
+                        .set("font-family", theme.font_family.as_str())
+                        .set("font-size", font_size)
+                        .set("fill", theme.text_color.to_css());
+                    group = group.add(text_elem);
+                }
             }
 
             // Кардинальность у конечной точки (to)
             if let Some(card) = to_cardinality {
-                let p = &points[points.len() - 1];
-                let (text_x, text_y) = if is_vertical {
-                    // Вертикальная линия: текст СЛЕВА, чуть ВЫШЕ точки соединения
-                    (p.x - horizontal_offset, p.y - vertical_offset)
+                if is_crow_foot(card) {
+                    group = self.render_crow_foot(
+                        card,
+                        points[last_index],
+                        points[last_index - 1],
+                        theme,
+                        group,
+                    );
                 } else {
-                    // Горизонтальная линия: текст сверху
-                    (p.x - vertical_offset, p.y - horizontal_offset / 2.0)
-                };
-                let text_elem = svg::node::element::Text::new(card)
-                    .set("x", text_x)
-                    .set("y", text_y)
-                    .set("text-anchor", "end") // выравнивание по правому краю (к линии)
-                    .set("dominant-baseline", "middle")
-                    .set("font-family", theme.font_family.as_str())
-                    .set("font-size", font_size)
-                    .set("fill", theme.text_color.to_css());
-                group = group.add(text_elem);
+                    let p = &points[last_index];
+                    let (text_x, text_y) = if is_vertical {
+                        // Вертикальная линия: текст СЛЕВА, чуть ВЫШЕ точки соединения
+                        (p.x - horizontal_offset, p.y - vertical_offset)
+                    } else {
+                        // Горизонтальная линия: текст сверху
+                        (p.x - vertical_offset, p.y - horizontal_offset / 2.0)
+                    };
+                    let text_elem = svg::node::element::Text::new(card)
+                        .set("x", text_x)
+                        .set("y", text_y)
+                        .set("text-anchor", "end") // выравнивание по правому краю (к линии)
+                        .set("dominant-baseline", "middle")
+                        .set("font-family", theme.font_family.as_str())
+                        .set("font-size", font_size)
+                        .set("fill", theme.text_color.to_css());
+                    group = group.add(text_elem);
+                }
             }
+        }
+
+        group
+    }
+
+    /// Рисует кардинальность ER фигурами («вороньими лапками»).
+    ///
+    /// PlantUML в ER-нотации НЕ пишет `||` и `}o` текстом, а рисует их
+    /// линиями и кружком. Геометрия снята с эталона `er_basic` для связи
+    /// `user ||--o{ order` (линия идёт сверху вниз, `tip` — конец у
+    /// сущности, `inward` — соседняя точка линии):
+    ///
+    ///   * `||` — стойка длиной 8 и две перекладины на 1 и 4 от конца,
+    ///     полушириной 4 (`line 55.75..63.75` на y=91.79 и 94.79);
+    ///   * `}o` — кружок r=4 с центром на 4 от конца и «лапка»: вершина
+    ///     на 10, три луча до 18 с разбросом ±6.
+    fn render_crow_foot(
+        &self,
+        symbol: &str,
+        tip: Point,
+        inward: Point,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let (dx, dy) = (tip.x - inward.x, tip.y - inward.y);
+        let len = (dx * dx + dy * dy).sqrt();
+        if len < f64::EPSILON {
+            return group;
+        }
+        let (ux, uy) = (dx / len, dy / len);
+        // Перпендикуляр к линии.
+        let (nx, ny) = (-uy, ux);
+        let at = |t: f64, s: f64| (tip.x + ux * t + nx * s, tip.y + uy * t + ny * s);
+        let stroke = theme.node_border.to_css();
+        let mut d = String::new();
+
+        if symbol.contains('}') {
+            let apex = at(CROW_FOOT_APEX, 0.0);
+            for spread in [0.0, CROW_FOOT_SPREAD, -CROW_FOOT_SPREAD] {
+                let end = at(CROW_FOOT_LENGTH, spread);
+                d.push_str(&format!(
+                    "M{},{} L{},{} ",
+                    fmt(apex.0),
+                    fmt(apex.1),
+                    fmt(end.0),
+                    fmt(end.1)
+                ));
+            }
+        }
+
+        // Перекладины «один»: по одной на каждый символ `|`.
+        for index in 0..symbol.matches('|').count() {
+            let t = CROW_FOOT_BAR_FIRST + CROW_FOOT_BAR_STEP * index as f64;
+            let left = at(t, CROW_FOOT_BAR_HALF);
+            let right = at(t, -CROW_FOOT_BAR_HALF);
+            d.push_str(&format!(
+                "M{},{} L{},{} ",
+                fmt(left.0),
+                fmt(left.1),
+                fmt(right.0),
+                fmt(right.1)
+            ));
+        }
+
+        if !d.is_empty() {
+            group = group.add(
+                Path::new()
+                    .set("d", d.trim_end().to_string())
+                    .set("fill", "none")
+                    .set("stroke", stroke.clone())
+                    .set("stroke-width", 1),
+            );
+        }
+
+        if symbol.contains('o') {
+            let center = at(CROW_FOOT_CIRCLE, 0.0);
+            group = group.add(
+                svg::node::element::Ellipse::new()
+                    .set("cx", fmt(center.0))
+                    .set("cy", fmt(center.1))
+                    .set("rx", CROW_FOOT_CIRCLE_RADIUS)
+                    .set("ry", CROW_FOOT_CIRCLE_RADIUS)
+                    .set("fill", "none")
+                    .set("stroke", stroke)
+                    .set("stroke-width", 1),
+            );
         }
 
         group

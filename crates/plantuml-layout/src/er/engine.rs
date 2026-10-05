@@ -102,22 +102,31 @@ impl ErLayoutEngine {
         // стоят на x=7 (er_basic: 54x208 при высоте 208). Раньше использовалась
         // сетка по 3 в ряд, из-за чего диаграмма получалась широкой и низкой
         // (410x114 против 54x208).
-        let entities_per_row = 1;
-        let mut x = self.config.padding;
         let mut y = self.config.padding;
         let mut row_height = 0.0_f64;
-        let mut col = 0;
 
-        for entity in &diagram.entities {
+        // Общая ось: эталон `er_basic` держит центры обеих сущностей на
+        // 59.76 при ширинах 105.51 и 72.03. Без выравнивания связь шла по
+        // диагонали, а она в ER-нотации вертикальная.
+        let widths: Vec<f64> = diagram
+            .entities
+            .iter()
+            .map(|entity| self.calculate_entity_size(entity).width)
+            .collect();
+        let diagram_width =
+            widths.iter().cloned().fold(0.0_f64, f64::max) + self.config.padding * 2.0;
+
+        for (entity_index, entity) in diagram.entities.iter().enumerate() {
             let size = self.calculate_entity_size(entity);
 
-            if col >= entities_per_row {
-                col = 0;
-                x = self.config.padding;
+            if entity_index > 0 {
+                // Сущности идут по ОДНОЙ в строке (эталон `er_basic`:
+                // 127x226 при двух сущностях).
                 y += row_height + self.config.vertical_spacing;
                 row_height = 0.0;
             }
 
+            let x = (diagram_width - size.width) / 2.0;
             let bounds = Rect::new(x, y, size.width, size.height);
             positions.insert(entity.id.name.clone(), bounds);
             // Связь ссылается на алиас (`user ||--o{ order`), а не на имя
@@ -131,9 +140,7 @@ impl ErLayoutEngine {
             // Рисуем сущность
             self.render_entity(entity, &bounds, elements);
 
-            x += size.width + self.config.horizontal_spacing;
             row_height = row_height.max(size.height);
-            col += 1;
         }
 
         positions
