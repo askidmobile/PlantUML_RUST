@@ -382,7 +382,12 @@ impl ComponentLayoutEngine {
         // имеет ширину 241 при заголовке 165.136, «Сервер БД» — 162 при
         // 86.181, то есть ширина = заголовок + 76. Берётся максимум из
         // содержимого и заголовка.
-        let title_width = self.config.text.width(&pkg.name, self.config.font_size);
+        // Заголовок узла рисуется ЖИРНЫМ, а он шире обычного примерно
+        // на 8.3%. Без этого узел выходил уже эталонного.
+        let title_width = self
+            .config
+            .text
+            .width_bold(&pkg.name, self.config.font_size);
         let pkg_width = (inner_width + self.config.package_padding * 2.0)
             .max(title_width + PACKAGE_TITLE_EXTRA);
         let pkg_height =

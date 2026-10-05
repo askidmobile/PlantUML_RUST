@@ -24,18 +24,18 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Animal">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.1754" x="65.29990000000002" y="7"/>
-<ellipse cx="81.29990000000002" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="81.29990000000002" y="27" textLength="7.572">
+<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="84.16432312" x="63.30543844000002" y="7"/>
+<ellipse cx="79.30543844000002" cy="23" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="79.30543844000002" y="27" textLength="7.572">
 C
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="97.29990000000002" y="26" textLength="48.175">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="95.30543844000002" y="26" textLength="48.175">
 Animal
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="66.29990000000002" x2="144.4753" y1="33" y2="33"/>
-<line stroke="#181818" stroke-width="0.5" x1="66.29990000000002" x2="144.4753" y1="38" y2="38"/>
-<ellipse cx="73.29990000000002" cy="51" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="81.29990000000002" y="55" textLength="33.631">
+<line stroke="#181818" stroke-width="0.5" x1="64.30543844000002" x2="146.46976156000002" y1="33" y2="33"/>
+<line stroke="#181818" stroke-width="0.5" x1="64.30543844000002" x2="146.46976156000002" y1="38" y2="38"/>
+<ellipse cx="71.30543844000002" cy="51" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="79.30543844000002" y="55" textLength="33.631">
 eat()
 </text>
 </g>

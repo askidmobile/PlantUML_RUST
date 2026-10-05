@@ -47,25 +47,25 @@ save(): T
 </text>
 </g>
 <g id="AbstractRepository">
-<rect fill="#F1F1F1" height="100.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="168.47480000000002" x="156.35351999999997" y="159.594"/>
-<ellipse cx="172.35351999999997" cy="175.594" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="172.35351999999997" y="179.594" textLength="6.853">
+<rect fill="#F1F1F1" height="100.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="179.77491344" x="150.70346328" y="159.594"/>
+<ellipse cx="166.70346328" cy="175.594" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="166.70346328" y="179.594" textLength="6.853">
 A
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="10" x="188.35351999999997" y="174.594" textLength="52.626">
+<text fill="#000000" font-family="sans-serif" font-size="10" x="182.70346328" y="174.594" textLength="52.626">
 «abstract»
 </text>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="188.35351999999997" y="190.594" textLength="136.475">
+<text fill="#000000" font-family="sans-serif" font-size="14" x="182.70346328" y="190.594" textLength="136.475">
 AbstractRepository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="157.35351999999997" x2="323.82831999999996" y1="197.594" y2="197.594"/>
-<ellipse cx="164.35351999999997" cy="210.594" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="172.35351999999997" y="214.594" textLength="131.96">
+<line stroke="#181818" stroke-width="0.5" x1="151.70346328" x2="329.47837672" y1="197.594" y2="197.594"/>
+<ellipse cx="158.70346328" cy="210.594" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="166.70346328" y="214.594" textLength="131.96">
 entityClass: Class
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="157.35351999999997" x2="323.82831999999996" y1="218.594" y2="218.594"/>
-<ellipse cx="164.35351999999997" cy="231.594" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000000" font-family="sans-serif" font-size="14" x="172.35351999999997" y="235.594" textLength="89.125">
+<line stroke="#181818" stroke-width="0.5" x1="151.70346328" x2="329.47837672" y1="218.594" y2="218.594"/>
+<ellipse cx="158.70346328" cy="231.594" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000000" font-family="sans-serif" font-size="14" x="166.70346328" y="235.594" textLength="89.125">
 findById(): T
 </text>
 </g>

@@ -49,7 +49,12 @@ impl Default for GanttLayoutConfig {
             day_width: 15.7,
             header_height: 36.0,
             label_font_size: 12.0,
-            date_font_size: 10.0,
+            // Размер подписи задачи. В эталоне gantt_basic она нарисована
+            // font-size=11 (textLength «Тестирование» = 81.136). Раньше
+            // стояло 10, и подпись ошибочно помещалась ВНУТРЬ полосы;
+            // ширина диаграммы сходилась лишь потому, что измерение текста
+            // было завышено и случайно попадало в нужную ветку.
+            date_font_size: 11.0,
             text: TextMeasurer::default(),
         }
     }

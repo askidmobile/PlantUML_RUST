@@ -70,7 +70,8 @@ impl Node {
         // («Dog» 28.232 → 68.3; «Animal» 48.446 → 80.446). Добавка вмещает
         // иконку класса слева и отступ справа.
         let name_width =
-            config.text.width(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
+            // Имя класса рисуется ЖИРНЫМ — шире обычного примерно на 8.3%.
+            config.text.width_bold(&classifier.id.name, config.font_size) + CLASS_NAME_EXTRA;
 
         let field_max_width = classifier
             .fields
