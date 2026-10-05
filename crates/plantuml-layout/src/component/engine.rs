@@ -93,7 +93,7 @@ impl ComponentLayoutEngine {
                 component_positions.insert(name, rect);
             }
 
-            package_y = pkg_bounds.y + pkg_bounds.height + self.config.vertical_spacing;
+            package_y = pkg_bounds.y + pkg_bounds.height + self.config.package_vertical_spacing;
         }
 
         // Создаём связи

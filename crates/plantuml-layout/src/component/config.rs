@@ -13,6 +13,8 @@ pub struct ComponentLayoutConfig {
     pub component_height: f64,
     /// Вертикальный отступ между элементами
     pub vertical_spacing: f64,
+    /// Вертикальный зазор между контейнерами (узлами/пакетами)
+    pub package_vertical_spacing: f64,
     /// Горизонтальный отступ между элементами
     pub horizontal_spacing: f64,
     /// Радиус интерфейса (кружок)
@@ -48,6 +50,13 @@ impl Default for ComponentLayoutConfig {
             // y=7 и 130.297, то есть шаг 123.297 при высоте тела 46.297,
             // значит отступ между ними 77.
             vertical_spacing: 77.0,
+            // Зазор между КОНТЕЙНЕРАМИ (узлами deployment) — отдельный
+            // параметр. В эталоне deployment_basic узлы стоят на y=6 и
+            // y=150.29 при высотах 95.29 и 101.3, то есть зазор 49.
+            // Общий `vertical_spacing` для этого не годится: он же задаёт
+            // шаг между компонентами, где эталон требует 77 (разница в
+            // 28px на каждый зазор).
+            package_vertical_spacing: 49.0,
             horizontal_spacing: 30.0,
             interface_radius: 10.0,
             // Измерено по эталону deployment_basic: контейнер «Сервер
