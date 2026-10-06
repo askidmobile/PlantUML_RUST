@@ -216,7 +216,7 @@ impl SaltLayoutEngine {
                         }
                     }
                 }
-                cols.iter().sum::<f64>() + self.config.cell_padding * 2.0
+                cols.iter().sum::<f64>()
             }
             SaltWidget::Tree(_) => self.config.min_cell_width,
             _ => self.config.min_cell_width,
