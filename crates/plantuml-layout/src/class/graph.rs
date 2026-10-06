@@ -275,6 +275,13 @@ pub struct Graph {
     pub adjacency: Vec<Vec<usize>>,
     /// Обратные списки смежности (входящие рёбра)
     pub reverse_adjacency: Vec<Vec<usize>>,
+    /// Индекс узлов по слоям.
+    ///
+    /// Строится один раз после назначения слоёв. Прежде `nodes_on_layer`
+    /// каждый раз просматривал ВСЕ узлы, а вызывается он на каждый слой и
+    /// на каждую итерацию минимизации пересечений — на 2000 классах это
+    /// давало квадратичный рост (3.5 секунды).
+    layer_nodes: Vec<Vec<usize>>,
 }
 
 impl Graph {
@@ -366,6 +373,9 @@ impl Graph {
             node_index,
             adjacency,
             reverse_adjacency,
+            // Индекс слоёв пуст: слои ещё не назначены, его построит
+            // `rebuild_layer_index` после `assign_layers`.
+            layer_nodes: Vec::new(),
         }
     }
 
@@ -421,11 +431,21 @@ impl Graph {
 
     /// Возвращает узлы на указанном слое
     pub fn nodes_on_layer(&self, layer: usize) -> Vec<usize> {
-        self.nodes
-            .iter()
-            .filter(|n| n.layer == layer)
-            .map(|n| n.index)
-            .collect()
+        self.layer_nodes.get(layer).cloned().unwrap_or_default()
+    }
+
+    /// Перестраивает индекс узлов по слоям.
+    ///
+    /// Вызывать после ЛЮБОГО изменения `node.layer`.
+    pub fn rebuild_layer_index(&mut self) {
+        let max_layer = self.max_layer();
+        let mut index = vec![Vec::new(); max_layer + 1];
+        for node in &self.nodes {
+            if let Some(bucket) = index.get_mut(node.layer) {
+                bucket.push(node.index);
+            }
+        }
+        self.layer_nodes = index;
     }
 
     /// Возвращает максимальный номер слоя

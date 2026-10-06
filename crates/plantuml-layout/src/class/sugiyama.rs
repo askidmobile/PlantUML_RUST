@@ -143,6 +143,12 @@ impl<'a> SugiyamaLayout<'a> {
         for (idx, &layer) in layers.iter().enumerate() {
             self.graph.nodes[idx].layer = layer;
         }
+
+        // Индекс слоёв строится ЗДЕСЬ, один раз: дальше `nodes_on_layer`
+        // вызывается на каждый слой и на каждую итерацию минимизации
+        // пересечений, и просмотр всех узлов каждый раз давал квадратичный
+        // рост (2000 классов — 3.5 секунды).
+        self.graph.rebuild_layer_index();
     }
 
     /// Топологическая сортировка (Kahn's algorithm)
