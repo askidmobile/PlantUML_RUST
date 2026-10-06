@@ -979,7 +979,25 @@ impl ActivityLayoutEngine {
         if let Some(else_branch) = &cond.else_branch {
             widest = widest.max(self.branch_natural_width(else_branch));
         }
-        let offset = self.branch_offset(widest);
+        // Отступ берётся от СРЕДНЕЙ ширины ветвей, а не от максимальной.
+        //
+        // Формула выведена на сервере и подтверждена на трёх замерах:
+        // при одинаковой ширине везде это w/2 + 10; при разной —
+        // (w1 + w2)/4 + 10. Контрольный случай: ширины ветвей 137.00 и
+        // 203.36 дали измеренный отступ 95.09, а формула даёт 95.09.
+        // Вариант «максимум» на тех же данных дал бы 111.68.
+        let mut sum = self.branch_natural_width(&cond.then_branch);
+        let mut count = 1.0;
+        for branch in &cond.elseif_branches {
+            sum += self.branch_natural_width(&branch.elements);
+            count += 1.0;
+        }
+        if let Some(else_branch) = &cond.else_branch {
+            sum += self.branch_natural_width(else_branch);
+            count += 1.0;
+        }
+        let offset = self.branch_offset(sum / count);
+        let _ = widest;
 
         // Ширины ветвей elseif — по порядку: каждая следующая ветвь
         // отстоит от предыдущей на ширину предыдущей плюс 20.
