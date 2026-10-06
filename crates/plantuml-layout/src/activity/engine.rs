@@ -71,6 +71,9 @@ const PARTITION_PADDING: f64 = 8.0;
 /// Зазор между потоком и заметкой.
 const ACTIVITY_NOTE_GAP: f64 = 10.0;
 
+/// Добавка к отступу ветви за каждую петлю внутри неё.
+const ACTIVITY_LOOP_OFFSET: f64 = 6.0;
+
 /// Добавка к ширине действия: вмещает внутренние отступы.
 ///
 /// Измерено по эталону activity_basic: «Первый шаг» 76.822 → 96.8,
@@ -260,6 +263,40 @@ impl ActivityLayoutEngine {
     /// 0.03 px). Константа вместо этого не годится: подбор значения
     /// улучшал `activity_branch` с 77 до 22 px, но ломал точный
     /// `activity_basic` с 0 до 37 px.
+    /// Число петель (`while`/`repeat`) в теле ветви.
+    ///
+    /// Измерено на сервере: цикл добавляет к отстуту ровно 6.00 px —
+    /// одинаково при узком и широком теле и при двух циклах подряд
+    /// (три независимых замера, плюс расхождение 6.00 в `activity_branch`).
+    /// Число действий при этом не влияет ни на что: 1, 2 и 3 действия дали
+    /// одно и то же отступ до сотых.
+    ///
+    /// Похоже, PlantUML резервирует место под обратную стрелку цикла.
+    fn branch_loop_count(&self, body: &[ActivityElement]) -> usize {
+        let mut count = 0;
+        for elem in body {
+            match elem {
+                ActivityElement::While(while_loop) => {
+                    count += 1 + self.branch_loop_count(&while_loop.body);
+                }
+                ActivityElement::Repeat(repeat_loop) => {
+                    count += 1 + self.branch_loop_count(&repeat_loop.body);
+                }
+                ActivityElement::Condition(cond) => {
+                    count += self.branch_loop_count(&cond.then_branch);
+                    if let Some(else_branch) = &cond.else_branch {
+                        count += self.branch_loop_count(else_branch);
+                    }
+                    for branch in &cond.elseif_branches {
+                        count += self.branch_loop_count(&branch.elements);
+                    }
+                }
+                _ => {}
+            }
+        }
+        count
+    }
+
     fn branch_natural_width(&self, body: &[ActivityElement]) -> f64 {
         let mut widest: f64 = 0.0;
 
@@ -996,7 +1033,16 @@ impl ActivityLayoutEngine {
             sum += self.branch_natural_width(else_branch);
             count += 1.0;
         }
-        let offset = self.branch_offset(sum / count);
+        // Плюс 6.00 за каждую петлю в ветвях: см. `branch_loop_count`.
+        let mut loops = self.branch_loop_count(&cond.then_branch);
+        for branch in &cond.elseif_branches {
+            loops += self.branch_loop_count(&branch.elements);
+        }
+        if let Some(else_branch) = &cond.else_branch {
+            loops += self.branch_loop_count(else_branch);
+        }
+
+        let offset = self.branch_offset(sum / count) + ACTIVITY_LOOP_OFFSET * loops as f64;
         let _ = widest;
 
         // Ширины ветвей elseif — по порядку: каждая следующая ветвь
