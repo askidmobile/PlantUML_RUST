@@ -248,6 +248,58 @@ impl ActivityLayoutEngine {
     /// последнее действие ветви не рисует стрелку «вниз». PlantUML ведёт
     /// поток от конца ветви прямо в ромб слияния, поэтому без этой
     /// поправки из-под излома торчал хвост длиной в `vertical_spacing`.
+    /// Естественная ширина тела ветви: максимум по всем блокам внутри.
+    ///
+    /// Нужна ДО раскладки, потому что позиция ветви зависит от её
+    /// ширины. Считается рекурсивно: у цикла берётся максимум из его
+    /// тела и самого условия.
+    ///
+    /// Формула позиционирования снята с сервера PlantUML: при трёх
+    /// замерах с одинаковой шириной блока везде получилось
+    /// «шаг = w/2 + 10» и «между ветвями = w + 20» (совпадение до
+    /// 0.03 px). Константа вместо этого не годится: подбор значения
+    /// улучшал `activity_branch` с 77 до 22 px, но ломал точный
+    /// `activity_basic` с 0 до 37 px.
+    fn branch_natural_width(&self, body: &[ActivityElement]) -> f64 {
+        let mut widest: f64 = 0.0;
+
+        for elem in body {
+            let width = match elem {
+                ActivityElement::Action(action) => {
+                    self.config.text.width(&action.label, self.config.font_size)
+                        + ACTION_TEXT_PADDING
+                }
+                ActivityElement::Condition(cond) => self.condition_shape(&cond.condition).0,
+                ActivityElement::While(while_loop) => self
+                    .condition_shape(&while_loop.condition)
+                    .0
+                    .max(self.branch_natural_width(&while_loop.body)),
+                ActivityElement::Repeat(repeat_loop) => self
+                    .condition_shape(&repeat_loop.condition)
+                    .0
+                    .max(self.branch_natural_width(&repeat_loop.body)),
+                ActivityElement::Start | ActivityElement::Stop | ActivityElement::End => {
+                    self.config.bar_width
+                }
+                // Остальные вложенные конструкции считаем по действиям
+                // верхнего уровня: их собственная ширина уже учтена, когда
+                // они встретятся рекурсивно.
+                _ => self.config.action_width,
+            };
+            widest = widest.max(width);
+        }
+
+        widest
+    }
+
+    /// Горизонтальный отступ ветви от центра условия.
+    ///
+    /// Измерено на сервере: `w/2 + 10`, где `w` — самая широкая ветвь
+    /// условия. Ветви then и else стоят симметрично на `±S`.
+    fn branch_offset(&self, widest: f64) -> f64 {
+        widest / 2.0 + 10.0
+    }
+
     fn layout_branch_body(
         &self,
         body: &[ActivityElement],
@@ -917,8 +969,28 @@ impl ActivityLayoutEngine {
         let branch_start_y = after_diamond;
         let mid_y = current_y + dh / 2.0;
 
+        // Ширина самой широкой ветви определяет отступ всех ветвей:
+        // без её измерения раньше сдвиг брался константой и не зависел от
+        // содержимого, из-за чего широкие диаграммы уезжали влево.
+        let mut widest = self.branch_natural_width(&cond.then_branch);
+        for branch in &cond.elseif_branches {
+            widest = widest.max(self.branch_natural_width(&branch.elements));
+        }
+        if let Some(else_branch) = &cond.else_branch {
+            widest = widest.max(self.branch_natural_width(else_branch));
+        }
+        let offset = self.branch_offset(widest);
+
+        // Ширины ветвей elseif — по порядку: каждая следующая ветвь
+        // отстоит от предыдущей на ширину предыдущей плюс 20.
+        let branch_natural_widths: Vec<f64> = cond
+            .elseif_branches
+            .iter()
+            .map(|branch| self.branch_natural_width(&branch.elements))
+            .collect();
+
         // Then branch (left)
-        let left_x = center_x - self.config.horizontal_spacing;
+        let left_x = center_x - offset;
         let mut then_end_y = branch_start_y;
 
         // Стрелка от условия влево + вниз (излом, а не диагональ).
@@ -943,7 +1015,15 @@ impl ActivityLayoutEngine {
         // неверным. Размещаем их каскадом вправо-вниз между then и else.
         let mut elseif_end_y = branch_start_y;
         for (i, branch) in cond.elseif_branches.iter().enumerate() {
-            let branch_x = center_x + self.config.horizontal_spacing * (i as f64 + 1.0);
+            // Ветви elseif каскадом вправо: каждая следующая отстоит от
+            // предыдущей на свою ширину плюс 20 — так же, как в эталоне.
+            let branch_x = center_x
+                + offset
+                + branch_natural_widths
+                    .iter()
+                    .take(i)
+                    .map(|w| w + 20.0)
+                    .sum::<f64>();
 
             // Стрелка от условия к ветке с её подписью
             self.add_elbow_arrow(
@@ -970,8 +1050,8 @@ impl ActivityLayoutEngine {
         let mut else_end_y = elseif_end_y;
         if let Some(else_branch) = &cond.else_branch {
             // Если есть ветки elseif, else уходит ещё правее
-            let right_x = center_x
-                + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
+            let right_x =
+                center_x + offset + branch_natural_widths.iter().map(|w| w + 20.0).sum::<f64>();
 
             // Стрелка от условия вправо + вниз
             self.add_elbow_arrow(
