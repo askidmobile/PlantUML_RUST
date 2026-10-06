@@ -213,38 +213,6 @@ fn extract_widget_label(pair: &pest::iterators::Pair<Rule>) -> String {
 /// Парсит внутренний виджет
 fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option<SaltWidget>> {
     match pair.as_rule() {
-        Rule::scrollarea => {
-            // Область прокрутки. Подпись и координаты приходят плоским
-            // списком: `scrollarea_label`, затем две `coordinate`.
-            // Содержимое — контейнер с подписью и рамкой прокрутки,
-            // которую рисует `render_scrollarea`.
-            let label = pair
-                .clone()
-                .into_inner()
-                .find(|p| p.as_rule() == Rule::scrollarea_label)
-                .map(|p| p.as_str().trim().to_string())
-                .unwrap_or_default();
-            let scrollbar = match pair
-                .clone()
-                .into_inner()
-                .find(|p| p.as_rule() == Rule::scroll_modifier)
-            {
-                Some(m) => match m.as_str() {
-                    "I" => ScrollbarType::Vertical,
-                    "-" => ScrollbarType::Horizontal,
-                    _ => ScrollbarType::Both,
-                },
-                None => ScrollbarType::Both,
-            };
-
-            return Ok(Some(SaltWidget::ScrollArea {
-                content: Box::new(SaltWidget::Container(Container {
-                    rows: vec![vec![SaltWidget::Text(label)]],
-                    border_style: BorderStyle::default(),
-                })),
-                scrollbar,
-            }));
-        }
         Rule::container => {
             return Ok(Some(parse_container(pair)?));
         }
@@ -315,6 +283,11 @@ fn parse_widget_inner(pair: pest::iterators::Pair<Rule>) -> crate::Result<Option
                 };
                 return Ok(Some(SaltWidget::Separator(sep_type)));
             }
+        }
+        Rule::coordinate_text => {
+            // Координата рисуется обычной подписью: PlantUML не рисует
+            // для неё ни рамки, ни скроллбара.
+            return Ok(Some(SaltWidget::Text(pair.as_str().trim().to_string())));
         }
         Rule::plain_text => {
             let text = pair.as_str().trim();
