@@ -12,7 +12,6 @@ categories = ["text-processing"]
 [dependencies]
 thiserror = { workspace = true }
 indexmap = { workspace = true }
-regex = { workspace = true }
 plantuml-themes = { path = "../plantuml-themes" }
 plantuml-stdlib = { path = "../plantuml-stdlib" }
 

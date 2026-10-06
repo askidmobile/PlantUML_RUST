@@ -11,7 +11,6 @@ categories = ["data-structures"]
 
 [dependencies]
 serde = { workspace = true }
-smallvec = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

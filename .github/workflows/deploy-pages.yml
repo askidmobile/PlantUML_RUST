@@ -45,6 +45,37 @@ jobs:
           cd crates/plantuml-wasm
           wasm-pack build --target web --out-dir ../../playground/pkg
 
+      - name: Strip debug section
+        run: |
+          # Секция `name` хранит имена функций в отладочном виде. В
+          # браузере она бесполезна, а модуль тяжелее на 7.3% — 365 КБ из
+          # 4.77 МБ. wasm-opt внутри wasm-pack вырезает её не всегда,
+          # поэтому шаг явный.
+          python3 scripts/strip-wasm.py --in-place playground/pkg/plantuml_wasm_bg.wasm
+
+      - name: Verify WASM module
+        run: |
+          # Стриппер переписывает модуль целиком, поэтому результат обязан
+          # остаться валидным, а публичные экспорты — на месте.
+          node -e "
+          const fs = require('fs');
+          const bytes = fs.readFileSync('playground/pkg/plantuml_wasm_bg.wasm');
+          if (!WebAssembly.validate(bytes)) {
+            console.error('модуль невалиден после стриппинга');
+            process.exit(1);
+          }
+          const exports = WebAssembly.Module.exports(new WebAssembly.Module(bytes))
+            .map((e) => e.name);
+          const required = ['render', 'render_with_theme', 'parse_to_json', 'version'];
+          for (const name of required) {
+            if (!exports.includes(name)) {
+              console.error('нет обязательного экспорта: ' + name);
+              process.exit(1);
+            }
+          }
+          console.log('модуль валиден, экспортов: ' + exports.length);
+          "
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

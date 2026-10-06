@@ -16,16 +16,14 @@ thiserror = { workspace = true }
 
 [features]
 default = []
-png = ["dep:resvg", "dep:tiny-skia", "dep:fontdb"]
+# fontdb НЕ подключается: png-рендерер парсит SVG без подстановки
+# шрифтов — иначе сборка под wasm32 тянет системные зависимости.
+png = ["dep:resvg", "dep:tiny-skia"]
 
 [dependencies.resvg]
 workspace = true
 optional = true
 
 [dependencies.tiny-skia]
-workspace = true
-optional = true
-
-[dependencies.fontdb]
 workspace = true
 optional = true

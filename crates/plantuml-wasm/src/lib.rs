@@ -4,22 +4,44 @@
 //!
 //! ## Использование в JavaScript
 //!
+//! Блок помечен `javascript`, поэтому rustdoc его не проверяет. Проверку
+//! делает шаг «Verify WASM module» в `.github/workflows/deploy-pages.yml`:
+//! он требует, чтобы модуль оставался валидным, а экспорты — на месте.
+//!
 //! ```javascript
-//! import init, { render, parse } from 'plantuml-wasm';
+//! import init, { render, render_with_theme, parse_to_json, version } from 'plantuml-wasm';
 //!
 //! async function main() {
 //!     await init();
-//!     
+//!
 //!     const source = `
 //! @startuml
 //! Alice -> Bob: Hello
 //! @enduml
 //! `;
-//!     
-//!     const svg = render(source);
-//!     document.getElementById('diagram').innerHTML = svg;
+//!
+//!     // render бросает исключение при ошибке разбора — оборачиваем в try.
+//!     try {
+//!         const svg = render(source);
+//!         document.getElementById('diagram').innerHTML = svg;
+//!     } catch (error) {
+//!         console.error('не удалось построить диаграмму:', error);
+//!     }
 //! }
 //! ```
+//!
+//! ## Что экспортируется
+//!
+//! | Экспорт | Назначение |
+//! |---|---|
+//! | `render(source)` | исходный код → SVG |
+//! | `render_with_theme(source, theme)` | то же с указанной темой |
+//! | `parse_to_json(source)` | исходный код → JSON с AST |
+//! | `version()` | версия библиотеки |
+//! | `available_themes()` | список имён тем |
+//!
+//! Все функции кроме `version` и `available_themes` бросают `JsValue`
+//! с текстом ошибки, если разбор не удался.
 
 use plantuml_core::RenderOptions;
 use wasm_bindgen::prelude::*;

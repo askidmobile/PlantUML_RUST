@@ -3390,4 +3390,289 @@ mod tests {
         assert!(svg.contains("<rect"));
         assert!(svg.contains("Hello"));
     }
+
+    /// Рамка, которой помещаются все тестовые элементы.
+    fn box_rect() -> Rect {
+        Rect::new(10.0, 10.0, 100.0, 50.0)
+    }
+
+    /// Рисует один элемент и возвращает SVG.
+    fn render_one(element_type: ElementType) -> String {
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new("t", box_rect(), element_type)],
+            bounds: Rect::new(0.0, 0.0, 120.0, 70.0),
+        };
+        SvgRenderer::new().render(&layout, &Theme::default())
+    }
+
+    /// Каждый тип элемента обязан дать свой графический примитив.
+    ///
+    /// Раньше здесь было два теста на 34 варианта `ElementType`, из-за
+    /// чего молча сломаться мог любой, кроме прямоугольника: рендерер
+    /// вернул бы пустую группу, а тест бы это не заметил.
+    #[test]
+    fn test_every_element_type_draws_something() {
+        // Ожидаемый примитив и подпись для каждого обрабатываемого типа.
+        let cases: Vec<(ElementType, &str, &str)> = vec![
+            (
+                ElementType::Rectangle {
+                    label: "Прямоугольник".to_string(),
+                    corner_radius: 2.5,
+                },
+                "<rect",
+                "Прямоугольник",
+            ),
+            (ElementType::RoundedRectangle, "<rect", ""),
+            (
+                ElementType::Ellipse {
+                    label: Some("Эллипс".to_string()),
+                },
+                "<ellipse",
+                "Эллипс",
+            ),
+            (ElementType::Ellipse { label: None }, "<ellipse", ""),
+            // Начальное и конечное состояния PlantUML рисует эллипсом,
+            // а не кругом — так же и в эталоне `state_simple`:
+            // `<ellipse cx="110.34" cy="16" rx="10" ry="10">`.
+            (ElementType::InitialState, "<ellipse", ""),
+            (ElementType::FinalState, "<ellipse", ""),
+            (
+                ElementType::State {
+                    name: "Состояние".to_string(),
+                    description: None,
+                },
+                "<rect",
+                "Состояние",
+            ),
+            (
+                ElementType::Actor {
+                    label: "Актор".to_string(),
+                },
+                "<path",
+                "Актор",
+            ),
+            (
+                ElementType::Database {
+                    label: "База".to_string(),
+                },
+                "<path",
+                "База",
+            ),
+            (
+                ElementType::Boundary {
+                    label: "Граница".to_string(),
+                },
+                "<path",
+                "Граница",
+            ),
+            (
+                ElementType::Control {
+                    label: "Управление".to_string(),
+                },
+                "<path",
+                "Управление",
+            ),
+            (
+                ElementType::Entity {
+                    label: "Сущность".to_string(),
+                },
+                "<path",
+                "Сущность",
+            ),
+            (
+                ElementType::Note {
+                    label: "Заметка".to_string(),
+                    fold: 10.0,
+                },
+                "<path",
+                "Заметка",
+            ),
+            (
+                ElementType::Polygon {
+                    points: vec![
+                        Point::new(0.0, 0.0),
+                        Point::new(10.0, 0.0),
+                        Point::new(5.0, 10.0),
+                    ],
+                    label: Some("Многоугольник".to_string()),
+                    font_size: 12.0,
+                },
+                "<polygon",
+                "Многоугольник",
+            ),
+            (
+                ElementType::Text {
+                    text: "Просто текст".to_string(),
+                    font_size: 14.0,
+                },
+                "Просто текст",
+                "Просто текст",
+            ),
+            (
+                ElementType::System {
+                    title: "Система".to_string(),
+                },
+                "Система",
+                "Система",
+            ),
+            (
+                ElementType::CompositeState {
+                    name: "Составное".to_string(),
+                    header_height: 20.0,
+                },
+                "<rect",
+                "Составное",
+            ),
+            (ElementType::Activation, "<rect", ""),
+            (ElementType::ParticipantBox, "<rect", ""),
+            (
+                ElementType::Group {
+                    label: Some("Группа".to_string()),
+                    children: vec![],
+                },
+                "Группа",
+                "Группа",
+            ),
+            (
+                ElementType::Fragment {
+                    fragment_type: "alt".to_string(),
+                    sections: vec![FragmentSection {
+                        condition: Some("условие".to_string()),
+                        start_y: 0.0,
+                        end_y: 40.0,
+                        children: vec![],
+                    }],
+                },
+                "условие",
+                "условие",
+            ),
+            (
+                ElementType::ClassBox {
+                    classifier_type: ClassifierKind::Class,
+                    name: "Класс".to_string(),
+                    stereotype: None,
+                    fields: vec![ClassMember::new(MemberVisibility::Private, "поле")],
+                    methods: vec![],
+                },
+                "<rect",
+                "Класс",
+            ),
+        ];
+
+        for (element_type, primitive, label) in cases {
+            let svg = render_one(element_type.clone());
+            assert!(
+                svg.contains(primitive),
+                "тип {:?} не дал примитив {primitive}",
+                std::mem::discriminant(&element_type)
+            );
+            if !label.is_empty() {
+                assert!(
+                    svg.contains(label),
+                    "в типе {:?} потерялась подпись {label}",
+                    std::mem::discriminant(&element_type)
+                );
+            }
+        }
+    }
+
+    /// Связь рисуется линией со стрелкой на конце.
+    #[test]
+    fn test_edge_renders_line_and_arrow() {
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new(
+                "e",
+                Rect::new(0.0, 0.0, 100.0, 0.0),
+                ElementType::Edge {
+                    points: vec![Point::new(10.0, 10.0), Point::new(90.0, 10.0)],
+                    label: Some("стрелка".to_string()),
+                    arrow_start: false,
+                    arrow_end: true,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            )],
+            bounds: Rect::new(0.0, 0.0, 120.0, 70.0),
+        };
+
+        let svg = SvgRenderer::new().render(&layout, &Theme::default());
+        assert!(
+            svg.contains("<line") || svg.contains("<path"),
+            "нет линии связи"
+        );
+        assert!(svg.contains("стрелка"), "потерялась подпись связи");
+    }
+
+    /// Свойства элемента перекрывают цвет темы.
+    ///
+    /// Именно этим свойством артефакт в deployment получает серую заливку
+    /// вместо лавандовой из темы.
+    #[test]
+    fn test_element_properties_override_theme_color() {
+        let mut element = LayoutElement::new(
+            "p",
+            box_rect(),
+            ElementType::Rectangle {
+                label: "Свойства".to_string(),
+                corner_radius: 2.5,
+            },
+        );
+        element
+            .properties
+            .insert("fill".to_string(), "#123456".to_string());
+
+        let layout = LayoutResult {
+            elements: vec![element],
+            bounds: Rect::new(0.0, 0.0, 120.0, 70.0),
+        };
+
+        let svg = SvgRenderer::new().render(&layout, &Theme::default());
+        assert!(svg.contains("#123456"), "свойство fill не применилось");
+    }
+
+    /// Элемент без распознаваемого типа не должен ронять отрисовку.
+    ///
+    /// Регрессия: пустая группа в SVG не видна, и диаграмма молча
+    /// теряла элементы вместо сообщения об ошибке.
+    #[test]
+    fn test_unknown_element_type_does_not_break_output() {
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new("x", box_rect(), ElementType::Path)],
+            bounds: Rect::new(0.0, 0.0, 120.0, 70.0),
+        };
+
+        let svg = SvgRenderer::new().render(&layout, &Theme::default());
+        assert!(svg.starts_with("<?xml"), "SVG не сформирован");
+        assert!(svg.contains("<svg"), "нет корневого элемента");
+        assert!(svg.trim_end().ends_with("</svg>"), "SVG не закрыт");
+    }
+
+    /// Размер холста задаётся габаритами содержимого плюс поля.
+    #[test]
+    fn test_viewbox_follows_content_bounds() {
+        let small = LayoutResult {
+            elements: vec![LayoutElement::new(
+                "s",
+                Rect::new(10.0, 10.0, 20.0, 20.0),
+                ElementType::Rectangle {
+                    label: String::new(),
+                    corner_radius: 0.0,
+                },
+            )],
+            bounds: Rect::new(10.0, 10.0, 20.0, 20.0),
+        };
+        let big = LayoutResult {
+            elements: small.elements.clone(),
+            bounds: Rect::new(0.0, 0.0, 200.0, 100.0),
+        };
+
+        let renderer = SvgRenderer::new();
+        let theme = Theme::default();
+        let first = renderer.render(&small, &theme);
+        let second = renderer.render(&big, &theme);
+
+        assert_ne!(first, second, "разные габариты дали одинаковый SVG");
+    }
 }

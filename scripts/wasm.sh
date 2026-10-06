@@ -74,6 +74,19 @@ print_header "Шаг 1: Cargo сборка для wasm32"
 cargo build --target wasm32-unknown-unknown -p plantuml-wasm $BUILD_FLAG
 print_success "Cargo сборка завершена"
 
+# Шаг 1б: Удаляем отладочную секцию name
+#
+# Она занимает 7.3% модуля (365 КБ из 4.77 МБ) и не несёт ничего, что
+# нужно в браузере. wasm-ld --strip-debug её не вырезает, а wasm-opt может
+# быть недоступен, поэтому стриппер свой — на Python, без зависимостей.
+if [ "$MODE" = "release" ]; then
+    CARGO_WASM="$PROJECT_ROOT/target/wasm32-unknown-unknown/release/plantuml_wasm.wasm"
+    if [ -f "$CARGO_WASM" ]; then
+        python3 "$SCRIPT_DIR/strip-wasm.py" --in-place "$CARGO_WASM"
+        print_success "Секция name удалена из cargo-сборки"
+    fi
+fi
+
 # Шаг 2: Сборка через wasm-pack (если нужен npm пакет)
 print_header "Шаг 2: wasm-pack сборка"
 
@@ -86,6 +99,18 @@ else
 fi
 
 print_success "wasm-pack сборка завершена"
+
+# Шаг 2б: Удаляем отладочную секцию name и измеряем результат
+#
+# wasm-pack в release обычно гоняет wasm-opt, который секцию вырезает сам,
+# поэтому шаг чаще всего ничего не меняет. Но wasm-opt может быть не
+# установлен, и тогда без этого шага пакет тяжелее на 7%.
+if [ "$MODE" = "release" ] && [ -f "$OUTPUT_DIR/plantuml_wasm_bg.wasm" ]; then
+    BEFORE=$(wc -c < "$OUTPUT_DIR/plantuml_wasm_bg.wasm")
+    python3 "$SCRIPT_DIR/strip-wasm.py" --in-place "$OUTPUT_DIR/plantuml_wasm_bg.wasm"
+    AFTER=$(wc -c < "$OUTPUT_DIR/plantuml_wasm_bg.wasm")
+    echo "  было $BEFORE байт, стало $AFTER байт"
+fi
 
 # Шаг 3: Информация о результатах
 print_header "Результаты сборки"
