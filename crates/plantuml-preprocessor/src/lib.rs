@@ -1436,6 +1436,30 @@ impl<R: FileResolver> Preprocessor<R> {
             result = format!("{}{}{}", &result[..start], value, &result[close + 1..]);
         }
 
+        // %get_variable_value(ИМЯ) — читает переменную ПО ИМЕНИ.
+        //
+        // Библиотека C4-PlantUML собирает имя на месте:
+        //     %get_variable_value("$" + $elementType + $varPostfix)
+        // то есть сначала склеивает строку, а затем ищет по ней переменную.
+        // Прежде функция не поддерживалась вовсе, и её вызов попадал прямо
+        // в текст диаграммы: строка 711 C4 оставалась
+        // `rectangle "...[%get_variable_value(...)]..."`, и разбор падал.
+        while let Some(start) = result.find("%get_variable_value(") {
+            let Some(close) = find_closing_paren(&result, start) else {
+                break;
+            };
+            let inner = result[start + "%get_variable_value(".len()..close].to_string();
+            let name = evaluate_concat(inner.trim(), ctx);
+            let value = ctx
+                .macro_variables
+                .get(&name)
+                .or_else(|| ctx.variables.get(&name))
+                .cloned()
+                .unwrap_or_default();
+
+            result = format!("{}{}{}", &result[..start], value, &result[close + 1..]);
+        }
+
         // %set_variable_value(ИМЯ, ЗНАЧЕНИЕ) — устанавливает переменную и
         // НЕ печатает ничего: в библиотеках это оператор ради эффекта.
         while let Some(start) = result.find("%set_variable_value(") {
@@ -1912,6 +1936,30 @@ mod tests {
         assert!(
             matches!(result, Err(PreprocessError::ExpansionLimit { .. })),
             "ожидалась ошибка бюджета раскрытия, получено: {result:?}"
+        );
+    }
+
+    /// `%get_variable_value(ИМЯ)` читает переменную ПО ИМЕНИ.
+    ///
+    /// Библиотека C4-PlantUML собирает имя на месте:
+    /// `%get_variable_value("$" + $elementType + $varPostfix)`. Прежде
+    /// функция не поддерживалась, её вызов попадал прямо в текст
+    /// диаграммы, и разбор C4 падал на строке 711.
+    /// Проверено на сервере: значение найденной переменной подставляется,
+    /// а для отсутствующей — пусто.
+    #[test]
+    fn test_get_variable_value() {
+        let source = "@startuml\n\
+            %set_variable_value(\"$personElementTagTechn\", \"найдено\")\n\
+            A: [%get_variable_value(\"$\" + person + ElementTagTechn)]\n\
+            B: [%get_variable_value(\"$нетТакой\")]\n\
+            @enduml";
+        let preprocessor = Preprocessor::new();
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(result.contains("A: [найдено]"), "имя не собрано: {result}");
+        assert!(
+            result.contains("B: []"),
+            "отсутствующая переменная: {result}"
         );
     }
 
