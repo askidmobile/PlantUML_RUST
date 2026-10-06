@@ -627,8 +627,12 @@ impl SaltLayoutEngine {
             bounds: Rect::new(x, y + 4.0, size, size),
             text: None,
             properties: [
-                ("fill".to_string(), "#FFFFFF".to_string()),
+                ("fill".to_string(), "none".to_string()),
                 ("stroke".to_string(), self.config.border_color.to_string()),
+                // Эталон рисует флажок квадратом 10x10 с обводкой 1.5
+                // и без заливки: `<rect width="10" height="10" fill="none"
+                // style="stroke:#000;stroke-width:1.5;"/>`.
+                ("stroke-width".to_string(), "1.5".to_string()),
             ]
             .into_iter()
             .collect(),

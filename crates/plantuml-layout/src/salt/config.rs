@@ -61,7 +61,7 @@ impl Default for SaltLayoutConfig {
             font_size: 12.0,
             button_height: 17.969,
             textfield_height: 17.969,
-            checkbox_size: 11.0,
+            checkbox_size: 10.0,
             border_width: 1.0,
             background_color: "#FFFFFF",
             border_color: "#888888",
