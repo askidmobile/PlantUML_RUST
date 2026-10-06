@@ -283,7 +283,28 @@ fn split_top_level<'a>(text: &'a str, operator: &str) -> Option<(&'a str, &'a st
 /// Переменные подставляются из контекста, `%true()`/`%false()` — к
 /// `true`/`false`, кавычки снимаются.
 fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
-    let trimmed = operand.trim().trim_matches('"');
+    // ВСТРОЕННЫЕ ФУНКЦИИ РАСКРЫВАЮТСЯ И ВНУТРИ УСЛОВИЯ.
+    //
+    // C4-PlantUML пишет `!if (%substr($text, $brPos, 1) != ' ')`. Прежде
+    // операнд оставался ТЕКСТОМ вызова, сравнение шло с ним, а не с
+    // символом, и условие всегда давало «не равно».
+    // Сначала подстановка переменных, ЗАТЕМ встроенные функции: без
+    // первого шага `%substr($t, 2, 1)` считал подстроку от литерала `$t`.
+    let substituted = crate::variables::substitute(operand.trim(), &ctx.variables);
+    let expanded = crate::builtins::process_builtins(&substituted);
+
+    // РЕЗУЛЬТАТ ВЫЧИСЛЕНИЯ НЕ ОБРЕЗАЕМ.
+    //
+    // `%substr($t, 2, 1) == ' '` даёт символ пробела, а `trim()` превращал
+    // его в пустую строку — сравнение всегда говорило «не равно». Обрезаем
+    // только те операнды, которые НЕ вычислялись: у них лишние пробелы
+    // приходят от самого выражения.
+    let value = if expanded == substituted {
+        expanded.trim().to_string()
+    } else {
+        expanded
+    };
+    let trimmed = value.trim_matches('"');
 
     // Символьный литерал в ОДИНАРНЫХ кавычках.
     //
@@ -434,6 +455,24 @@ pub fn handle_endif(ctx: &mut PreprocessContext) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Символьный литерал и вычисленный пробел сравниваются верно.
+    ///
+    /// Регрессия: операнд `%substr($t, 2, 1)` не раскрывался, а результат
+    /// вычисления обрезался через `trim()` — пробел становился пустой
+    /// строкой, и `== ' '` всегда давало «не равно». C4-PlantUML ищет
+    /// пробел именно так, в `$breakText`.
+    /// Проверено на сервере: ветвь истинна.
+    #[test]
+    fn test_char_literal_space_comparison() {
+        let source = "@startuml\n!$t = \"ab cd\"\n!if (%substr($t, 2, 1) == ' ')\nV: пробел\n!else\nV: нет\n!endif\n@enduml";
+        let preprocessor = crate::Preprocessor::new();
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(
+            result.contains("V: пробел"),
+            "сравнение не сработало: {result}"
+        );
+    }
 
     /// Макрос с параметрами раскрывается с подстановкой аргументов.
     ///
