@@ -290,8 +290,18 @@ fn resolve_operand(operand: &str, ctx: &PreprocessContext) -> String {
     // символом, и условие всегда давало «не равно».
     // Сначала подстановка переменных, ЗАТЕМ встроенные функции: без
     // первого шага `%substr($t, 2, 1)` считал подстроку от литерала `$t`.
-    let substituted = crate::variables::substitute(operand.trim(), &ctx.variables);
-    let expanded = crate::builtins::process_builtins(&substituted);
+    //
+    // БЫСТРЫЙ ПУТЬ: без `$` и `%` раскрывать нечего, а обе функции в этом
+    // случае всё равно копировали строку. В C4 условий тысячи, и на каждом
+    // операнде это давало две лишние аллокации.
+    let raw = operand.trim();
+    let expanded = if raw.contains('$') || raw.contains('%') {
+        let substituted = crate::variables::substitute(raw, &ctx.variables);
+        crate::builtins::process_builtins(&substituted)
+    } else {
+        raw.to_string()
+    };
+    let substituted = raw.to_string();
 
     // РЕЗУЛЬТАТ ВЫЧИСЛЕНИЯ НЕ ОБРЕЗАЕМ.
     //

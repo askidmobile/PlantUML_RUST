@@ -796,28 +796,79 @@ impl StateLayoutEngine {
             }
         }
 
+        // ПЕРЕНОС НА ЦЕЛОЧИСЛЕННЫЕ ИНДЕКСЫ.
+        //
+        // Алгоритм итеративный: за один проход добавляется один «слой»
+        // уровней, поэтому для цепочки из N состояний нужно N проходов.
+        // Прежний код на КАЖДОМ проходе клонировал `IndexMap<String, usize>`
+        // вместе со всеми строками-ключами, что давало O(N²) на копировании
+        // строк. Здесь те же проходы, но над `Vec<Option<usize>>` — числа
+        // копировать на порядки дешевле. Порядок обхода и правило
+        // «первое достижение задаёт уровень» сохранены ПОЛНОСТЬЮ.
+        let mut names: Vec<&String> = levels.keys().collect();
+        let mut index: std::collections::HashMap<&str, usize> = names
+            .iter()
+            .enumerate()
+            .map(|(i, n)| (n.as_str(), i))
+            .collect();
+        let mut node_levels: Vec<Option<usize>> = levels.values().copied().map(Some).collect();
+        for state in all_states {
+            if !index.contains_key(state.as_str()) {
+                index.insert(state.as_str(), names.len());
+                names.push(state);
+                node_levels.push(None);
+            }
+        }
+
+        let edges: Vec<(usize, usize)> = transitions
+            .iter()
+            .map(|(from, to, _)| (index[from.as_str()], index[to.as_str()]))
+            .collect();
+        let final_id = index.get(FINAL_STATE_ID).copied();
+
         let max_iterations = all_states.len() + 1;
         for _ in 0..max_iterations {
-            let mut new_levels = levels.clone();
+            let mut new_levels = node_levels.clone();
+            let mut added = false;
 
-            for (from, to, _) in transitions {
-                if to == FINAL_STATE_ID {
+            for &(from, to) in &edges {
+                if Some(to) == final_id {
                     continue;
                 }
 
-                if let Some(&from_level) = levels.get(from) {
+                if let Some(from_level) = node_levels[from] {
                     let new_level = from_level + 1;
 
-                    if new_levels.get(to).is_none() {
-                        new_levels.insert(to.clone(), new_level);
+                    if new_levels[to].is_none() {
+                        new_levels[to] = Some(new_level);
+                        added = true;
                     }
                 }
             }
 
-            if new_levels.len() == levels.len() {
+            if !added {
                 break;
             }
-            levels = new_levels;
+            node_levels = new_levels;
+        }
+
+        let resolved: Vec<(String, usize)> = names
+            .iter()
+            .enumerate()
+            .filter_map(|(position, name)| {
+                node_levels[position].map(|level| ((*name).clone(), level))
+            })
+            .collect();
+        for (name, level) in resolved {
+            levels.insert(name, level);
+        }
+
+        // Узлы, которых не было в исходной карте, добавляем с нулём —
+        // как и прежний код.
+        for state in all_states {
+            if !levels.contains_key(state) {
+                levels.insert(state.clone(), 0);
+            }
         }
 
         if has_final {
