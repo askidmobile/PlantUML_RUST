@@ -5,6 +5,12 @@
     "svg_bytes": "5024",
     "svg_sha256": "e876bc31c2d038bdc808c2596043c3b93d7ac03e9a60f85388d7060392be2437"
   },
+  "activity_branch": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "db99a9d7aaa307246172d83ecee4d7781740887a480390e1b90389ef7a41fd8b",
+    "svg_bytes": "7388",
+    "svg_sha256": "2f8a2614e1ee09d9c3d35178ff15911ed268a3d6039cf373547be20ff9884a66"
+  },
   "class_inheritance": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "76df6d8eeb3e6f4f3320eceebd1c637fe724ef252fa6458d183255ab49ff3994",
@@ -64,6 +70,12 @@
     "source_sha256": "7ab9fa565a4bdc382395b227f2d74b3500b04f96530c30e90765fc21984a3bef",
     "svg_bytes": "1829",
     "svg_sha256": "d240017563e468fa1db50de0ab6ed06a596e8dbf9f839657ace62a5a4b56cb4c"
+  },
+  "salt_widgets": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "66b96766069ab2133e8998452b1c704934f49e08ca421917009f509a46af7cbb",
+    "svg_bytes": "2695",
+    "svg_sha256": "f46ca265f6053a448d88009ed14302c583a9398c57d16d2ba1eb9a4e8a5873d7"
   },
   "sequence_fragments": {
     "plantuml_version": "1.2026.9beta4",

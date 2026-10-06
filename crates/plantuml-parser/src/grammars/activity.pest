@@ -1,6 +1,21 @@
 // Грамматика PlantUML Activity Diagrams (новый синтаксис)
 // https://plantuml.com/activity-diagram-beta
 
+// ВАЖНО: перед ЗАКРЫВАЮЩИМ ключевым словом блока нужен `ws*`.
+//
+// Тело блока — повторение `(ws* ~ statement ~ NEWLINE*)*`. Когда последний
+// оператор разобран, повторе откатывается на ПЕРЕД пробелами следующей
+// строки: неудачная итерация съедает свой `ws*` целиком. Поэтому без
+// `ws*` перед `endif` литерал проверялся на пробелах и не совпадал, и
+// любая activity-диаграмма с отступом не разбиралась:
+//
+//     if (x?) then (да)
+//       :a;
+//     endif        <- здесь ждали endif, а стояли пробелы
+//
+// Затрагивало `if`, `while`, `repeat`, `fork`, `split`, `switch`.
+// Отступ в activity-диаграммах пишут постоянно.
+
 // === Основные правила ===
 
 diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ body ~ end_tag ~ NEWLINE* ~ EOI }
@@ -67,7 +82,10 @@ title_stmt = { "title" ~ ws+ ~ rest_of_line }
 
 start_node = { "start" ~ !ASCII_ALPHANUMERIC }
 stop_node = { "stop" ~ !ASCII_ALPHANUMERIC }
-end_node = { ("end" ~ !(ws* ~ ("if" | "while" | "fork" | "split" | "switch" | "note" | "partition"))) }
+// ВАЖНО: в списке продолжений обязательно есть "merge". Без него
+// `end merge` разбиралось как отдельный оператор `end` + мусор:
+// тело блока съедало "end" через end_node, и оставалось " merge".
+end_node = { ("end" ~ !(ws* ~ ("if" | "while" | "fork" | "split" | "switch" | "note" | "partition" | "merge"))) }
 
 // === Detach / Kill ===
 
@@ -128,7 +146,7 @@ if_stmt = {
     body ~
     elseif_clause* ~
     else_clause? ~
-    "endif"
+    ws* ~ "endif"
 }
 
 elseif_clause = {
@@ -150,7 +168,7 @@ label_text = { (!")" ~ ANY)* }
 while_stmt = {
     "while" ~ ws* ~ "(" ~ condition_text ~ ")" ~ is_clause? ~ NEWLINE ~
     body ~
-    "endwhile" ~ backward_label?
+    ws* ~ "endwhile" ~ backward_label?
 }
 
 is_clause = { ws* ~ "is" ~ ws* ~ "(" ~ label_text ~ ")" }
@@ -161,8 +179,8 @@ backward_label = { ws* ~ "(" ~ label_text ~ ")" }
 repeat_stmt = {
     "repeat" ~ repeat_label? ~ NEWLINE ~
     body ~
-    ("repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")" ~ is_clause? ~ backward_stmt?)
-    | ("backward" ~ backward_body ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")")
+    (ws* ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")" ~ is_clause? ~ backward_stmt?)
+    | (ws* ~ "backward" ~ backward_body ~ ws* ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")")
 }
 
 repeat_label = { ws* ~ ":" ~ action_text ~ ";" }
@@ -185,8 +203,8 @@ fork_again_clause = {
 }
 
 end_fork = { 
-    "end" ~ ws+ ~ "fork" 
-    | "end" ~ ws+ ~ "merge" 
+    ws* ~ "end" ~ ws+ ~ "fork" 
+    | ws* ~ "end" ~ ws+ ~ "merge" 
 }
 
 // === Split ===
@@ -195,7 +213,7 @@ split_stmt = {
     "split" ~ NEWLINE ~
     body ~
     split_again_clause* ~
-    "end" ~ ws+ ~ "split"
+    ws* ~ "end" ~ ws+ ~ "split"
 }
 
 split_again_clause = {
@@ -208,7 +226,7 @@ split_again_clause = {
 switch_stmt = {
     "switch" ~ ws* ~ "(" ~ condition_text ~ ")" ~ NEWLINE ~
     case_clause+ ~
-    "endswitch"
+    ws* ~ "endswitch"
 }
 
 case_clause = {
@@ -234,7 +252,7 @@ swimlane_name = { (!("|" | NEWLINE) ~ ANY)+ }
 partition_stmt = {
     "partition" ~ ws+ ~ partition_name ~ partition_color? ~ ws* ~ "{" ~ NEWLINE ~
     body ~
-    "}"
+    ws* ~ "}"
 }
 
 partition_name = { quoted_string | simple_identifier }
