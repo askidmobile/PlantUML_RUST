@@ -106,8 +106,26 @@ pub fn substitute(line: &str, variables: &IndexMap<String, String>) -> String {
             end += 1;
         }
 
+        // ВЫЗОВ ФУНКЦИИ НЕ ЯВЛЯЕТСЯ ПЕРЕМЕННОЙ.
+        //
+        // `$toStereos("person", "")` — это вызов. Если в контексте есть
+        // переменная `$to` (параметр макроса `Rel($from, $to, ...)`),
+        // подстановка по самому длинному совпадению находила именно её и
+        // превращала вызов в `Stereos("person", "")` — в вывод попадал
+        // мусор. Проверяем, что сразу за именем не идёт `(`.
+        let whole: String = chars[start..end].iter().collect();
+        if chars.get(end) == Some(&'(') && !variables.contains_key(&format!("${whole}")) {
+            out.push('$');
+            index += 1;
+            continue;
+        }
+
         let mut replaced = false;
         for stop in (start + 1..=end).rev() {
+            // Имя внутри вызова не подставляем: см. пояснение выше.
+            if stop < end && chars.get(end) == Some(&'(') {
+                break;
+            }
             key.clear();
             key.push('$');
             key.extend(chars[start..stop].iter());
@@ -130,6 +148,25 @@ pub fn substitute(line: &str, variables: &IndexMap<String, String>) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// Имя ВЫЗОВА функции не подменяется одноимённой переменной.
+    ///
+    /// Регрессия: при двойном `!include <C4/C4_Context>` в контексте
+    /// появлялась переменная `$to` (параметр макроса `Rel`), и подстановка
+    /// по самому длинному совпадению превращала `$toStereos("person", "")`
+    /// в `Stereos("person", "")` — в вывод попадал мусор, и разбор падал.
+    #[test]
+    fn test_call_name_is_not_substituted() {
+        let mut variables = indexmap::IndexMap::new();
+        variables.insert("$to".to_string(), "ЗНАЧЕНИЕ".to_string());
+        let call = r#"$toStereos("person", "")"#;
+        assert_eq!(substitute(call, &variables), call);
+        // Обычная подстановка при этом работает.
+        assert_eq!(substitute("$to + 1", &variables), "ЗНАЧЕНИЕ + 1");
+        // Если переменная с ПОЛНЫМ именем есть, она подставляется.
+        variables.insert("$toStereos".to_string(), "ПОЛНОЕ".to_string());
+        assert_eq!(substitute("$toStereos(x)", &variables), "ПОЛНОЕ(x)");
+    }
+
     use super::*;
 
     #[test]
