@@ -664,7 +664,19 @@ impl SaltLayoutEngine {
                     text: label.to_string(),
                     font_size: self.config.font_size,
                 },
-                bounds: Rect::new(x + size + 4.0, y + 4.0, 100.0, 20.0),
+                // Ширина берётся из текста, а не из константы 100.0.
+                //
+                // Константа тянула за собой ширину всей таблицы: у пустого
+                // флажка подписи нет, но место под 100 px всё равно
+                // резервировалось, и на `salt_widgets` холст разъезжался на
+                // 67 px — при том, что нарисованные элементы заканчивались
+                // на 269, а объявлялось 336.53.
+                bounds: Rect::new(
+                    x + size + 4.0,
+                    y + 4.0,
+                    self.config.text.width(label, self.config.font_size),
+                    self.config.font_size + 4.0,
+                ),
                 text: Some(label.to_string()),
                 properties: [("fill".to_string(), "#000000".to_string())]
                     .into_iter()
@@ -727,7 +739,19 @@ impl SaltLayoutEngine {
                     text: label.to_string(),
                     font_size: self.config.font_size,
                 },
-                bounds: Rect::new(x + size + 4.0, y + 4.0, 100.0, 20.0),
+                // Ширина берётся из текста, а не из константы 100.0.
+                //
+                // Константа тянула за собой ширину всей таблицы: у пустого
+                // флажка подписи нет, но место под 100 px всё равно
+                // резервировалось, и на `salt_widgets` холст разъезжался на
+                // 67 px — при том, что нарисованные элементы заканчивались
+                // на 269, а объявлялось 336.53.
+                bounds: Rect::new(
+                    x + size + 4.0,
+                    y + 4.0,
+                    self.config.text.width(label, self.config.font_size),
+                    self.config.font_size + 4.0,
+                ),
                 text: Some(label.to_string()),
                 properties: [("fill".to_string(), "#000000".to_string())]
                     .into_iter()
