@@ -4,7 +4,7 @@ assertion_line: 27
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="CLASS" height="143px" preserveAspectRatio="none" style="width:176px;height:143px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 175.5172 142.59799999999998" width="176px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="CLASS" height="143px" preserveAspectRatio="none" style="width:175px;height:143px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 175.25119999999998 142.59799999999998" width="175px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
@@ -24,30 +24,30 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="User">
-<rect fill="#F1F1F1" height="121.18799999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="154.2372" x="0" y="0"/>
+<rect fill="#F1F1F1" height="121.18799999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="153.97119999999998" x="0" y="0"/>
 <ellipse cx="16" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="20" textLength="9.419">
+<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="20" textLength="9.284">
 C
 </text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="31.91">
+<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="31.868">
 User
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="153.2372" y1="26" y2="26"/>
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="152.97119999999998" y1="26" y2="26"/>
 <ellipse cx="8" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="43" textLength="58.275">
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="43" textLength="57.855">
 id: Long
 </text>
 <ellipse cx="8" cy="55" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="59" textLength="92.858">
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="59" textLength="92.158">
 name: String
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="153.2372" y1="63" y2="63"/>
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="152.97119999999998" y1="63" y2="63"/>
 <ellipse cx="8" cy="76" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="80" textLength="92.295">
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="80" textLength="92.617">
 getId(): Long
 </text>
 <ellipse cx="8" cy="92" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="96" textLength="128.237">
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="96" textLength="127.971">
 getName(): String
 </text>
 </g>

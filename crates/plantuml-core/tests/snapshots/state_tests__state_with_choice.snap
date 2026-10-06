@@ -28,14 +28,14 @@ expression: svg
 </g>
 <g id="state_Valid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="57.55" x="7" y="215.297"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35.775" y="233.4455" textLength="34.822">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="35.775" y="233.4455" textLength="34.794">
 Valid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="7" x2="64.55" y1="241.594" y2="241.594"/>
 </g>
 <g id="state_Invalid">
 <rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="69.554" x="152.764" y="215.297"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="187.541" y="233.4455" textLength="46.532">
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="187.541" y="233.4455" textLength="46.938">
 Invalid
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="152.764" x2="222.318" y1="241.594" y2="241.594"/>
@@ -49,13 +49,13 @@ Invalid
 </g>
 <g id="trans_check_Valid">
 <path d="M145.884,108 L35.775,215.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="93.84039999999999" y="150.9188" textLength="46.784">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="93.84039999999999" y="150.9188" textLength="47.369">
 [valid]
 </text>
 </g>
 <g id="trans_check_Invalid">
 <path d="M145.884,108 L187.541,215.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="170.5468" y="150.9188" textLength="58.635">
+<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="170.5468" y="150.9188" textLength="58.518">
 [invalid]
 </text>
 </g>
