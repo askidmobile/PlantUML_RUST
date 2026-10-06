@@ -12,8 +12,8 @@ categories = ["text-processing"]
 [dependencies]
 thiserror = { workspace = true }
 indexmap = { workspace = true }
-plantuml-themes = { path = "../plantuml-themes" }
-plantuml-stdlib = { path = "../plantuml-stdlib" }
+plantuml-themes = { version = "0.2.0", path = "../plantuml-themes" }
+plantuml-stdlib = { version = "0.2.0", path = "../plantuml-stdlib" }
 
 [dev-dependencies]
 tempfile = "3.10"

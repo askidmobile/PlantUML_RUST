@@ -24,16 +24,16 @@ categories = ["graphics", "visualization", "wasm"]
 
 [workspace.dependencies]
 # Внутренние зависимости
-plantuml-core = { path = "crates/plantuml-core" }
-plantuml-ast = { path = "crates/plantuml-ast" }
-plantuml-parser = { path = "crates/plantuml-parser" }
-plantuml-preprocessor = { path = "crates/plantuml-preprocessor" }
-plantuml-model = { path = "crates/plantuml-model" }
-plantuml-layout = { path = "crates/plantuml-layout" }
-plantuml-renderer = { path = "crates/plantuml-renderer" }
-plantuml-themes = { path = "crates/plantuml-themes" }
-plantuml-stdlib = { path = "crates/plantuml-stdlib" }
-plantuml-wasm = { path = "crates/plantuml-wasm" }
+plantuml-core = { version = "0.2.0", path = "crates/plantuml-core" }
+plantuml-ast = { version = "0.2.0", path = "crates/plantuml-ast" }
+plantuml-parser = { version = "0.2.0", path = "crates/plantuml-parser" }
+plantuml-preprocessor = { version = "0.2.0", path = "crates/plantuml-preprocessor" }
+plantuml-model = { version = "0.2.0", path = "crates/plantuml-model" }
+plantuml-layout = { version = "0.2.0", path = "crates/plantuml-layout" }
+plantuml-renderer = { version = "0.2.0", path = "crates/plantuml-renderer" }
+plantuml-themes = { version = "0.2.0", path = "crates/plantuml-themes" }
+plantuml-stdlib = { version = "0.2.0", path = "crates/plantuml-stdlib" }
+plantuml-wasm = { version = "0.2.0", path = "crates/plantuml-wasm" }
 
 # Парсинг
 pest = "2.7"

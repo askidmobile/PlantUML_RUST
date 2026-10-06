@@ -10,7 +10,7 @@ keywords = ["plantuml", "parser", "lexer"]
 categories = ["parsing"]
 
 [dependencies]
-plantuml-stdlib = { path = "../plantuml-stdlib" }
+plantuml-stdlib = { version = "0.2.0", path = "../plantuml-stdlib" }
 plantuml-ast = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
