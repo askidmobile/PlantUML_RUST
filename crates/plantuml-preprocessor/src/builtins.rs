@@ -96,41 +96,85 @@ pub fn process_builtins(line: &str) -> String {
     // === Строковые функции ===
 
     // %strlen("string")
-    result = process_strlen(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%strlen(") {
+        result = process_strlen(&result);
+    }
 
     // %upper("string")
-    result = process_upper(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%upper(") {
+        result = process_upper(&result);
+    }
 
     // %lower("string")
-    result = process_lower(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%lower(") {
+        result = process_lower(&result);
+    }
 
     // %substr("string", start, len)
-    result = process_substr(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%substr(") {
+        result = process_substr(&result);
+    }
 
     // %strpos("string", "needle")
-    result = process_strpos(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%strpos(") {
+        result = process_strpos(&result);
+    }
 
     // %string(value)
-    result = process_string(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%string(") {
+        result = process_string(&result);
+    }
 
     // === Числовые функции ===
 
     // %intval("42")
-    result = process_intval(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%intval(") {
+        result = process_intval(&result);
+    }
 
     // %floor(3.7)
-    result = process_floor(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%floor(") {
+        result = process_floor(&result);
+    }
 
     // %ceil(3.2)
-    result = process_ceil(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%ceil(") {
+        result = process_ceil(&result);
+    }
 
     // %abs(-5)
-    result = process_abs(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%abs(") {
+        result = process_abs(&result);
+    }
 
     // === Логические функции ===
 
     // %not(expr)
-    result = process_not(&result);
+    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
+    // функции своя регулярка, и она сканирует строку целиком.
+    if result.contains("%not(") {
+        result = process_not(&result);
+    }
 
     result
 }

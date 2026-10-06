@@ -21,6 +21,8 @@ pub use fs_resolver::FsFileResolver;
 pub use functions::{CallableKind, UserCallable};
 pub use plantuml_themes::{SkinParams, Theme};
 
+use std::sync::Arc;
+
 use indexmap::IndexMap;
 
 /// Максимальное число проходов раскрытия макросов в одной строке.
@@ -225,7 +227,15 @@ pub struct PreprocessContext {
     /// предыдущая ветвь уже сработала, иначе выполняются ВСЕ ветви.
     pub branch_taken: Vec<bool>,
     /// Пользовательские функции и процедуры
-    pub callables: IndexMap<String, functions::UserCallable>,
+    /// Реестр функций и процедур.
+    ///
+    /// В `Arc`, потому что тело макроса обрабатывается в ДОЧЕРНЕМ контексте,
+    /// и раньше реестр клонировался на КАЖДЫЙ вызов. В библиотеке C4-PlantUML
+    /// это ~90 макросов с телами на 68 КБ при десятках тысяч вызовов —
+    /// профиль показывал, что время уходит именно на копирование строк.
+    /// `Arc` делает копирование контекста O(1), а `Arc::make_mut` копирует
+    /// реестр только при реальной записи (объявление нового макроса).
+    pub callables: Arc<IndexMap<String, functions::UserCallable>>,
     /// Текущее определение функции/процедуры
     defining: DefiningCallable,
     /// Текущее определение объявлено как `!unquoted`
@@ -238,7 +248,8 @@ pub struct PreprocessContext {
     ///
     /// Хранятся отдельно от переменных: у макроса есть параметры и тело,
     /// а подстановка выполняется с заменой аргументов.
-    pub macros: IndexMap<String, MacroDefinition>,
+    /// Реестр макросов `!define`. См. пояснение у `callables`.
+    pub macros: Arc<IndexMap<String, MacroDefinition>>,
     /// Стек включаемых файлов для обнаружения циклов `!include`.
     ///
     /// Без него взаимные включения (a.puml → b.puml → a.puml) уходят в
@@ -305,12 +316,12 @@ impl Default for PreprocessContext {
             condition_depth: 0,
             condition_stack: Vec::new(),
             branch_taken: Vec::new(),
-            callables: IndexMap::new(),
+            callables: Arc::new(IndexMap::new()),
             defining_unquoted: false,
             defining: DefiningCallable::None,
             theme: Theme::default(),
             skin_params: SkinParams::new(),
-            macros: IndexMap::new(),
+            macros: Arc::new(IndexMap::new()),
             include_stack: Vec::new(),
             max_include_depth: MAX_INCLUDE_DEPTH,
             return_value: None,
@@ -346,7 +357,7 @@ impl PreprocessContext {
         parameters: Vec<String>,
         body: impl Into<String>,
     ) {
-        self.macros.insert(
+        Arc::make_mut(&mut self.macros).insert(
             name.into(),
             MacroDefinition {
                 parameters,
@@ -378,7 +389,7 @@ impl PreprocessContext {
 
     /// Одно прохождение раскрытия: `None`, если вызовов не найдено.
     fn expand_once(&self, line: &str) -> Option<String> {
-        for (name, def) in &self.macros {
+        for (name, def) in self.macros.iter() {
             let mut search_from = 0usize;
             while let Some(rel) = line[search_from..].find(name.as_str()) {
                 let start = search_from + rel;
@@ -447,7 +458,7 @@ impl PreprocessContext {
 
     /// Регистрирует функцию или процедуру
     pub fn register_callable(&mut self, callable: functions::UserCallable) {
-        self.callables.insert(callable.name.clone(), callable);
+        Arc::make_mut(&mut self.callables).insert(callable.name.clone(), callable);
     }
 
     /// Получает функцию или процедуру по имени
@@ -689,6 +700,7 @@ impl<R: FileResolver> Preprocessor<R> {
                 });
             }
             ctx.expanded_bytes = ctx.expanded_bytes.saturating_add(line.len());
+
             if ctx.expanded_bytes > ctx.expansion_limit {
                 return Err(PreprocessError::ExpansionLimit {
                     limit: ctx.expansion_limit / (1024 * 1024),
@@ -1211,8 +1223,9 @@ impl<R: FileResolver> Preprocessor<R> {
         // Перенос (`mem::take`) обнулял `ctx.callables` заранее, поэтому
         // `$outer($inner(1))` не находил `$inner` и оставлял его текстом.
         // Клонирование здесь допустимо: реестр читается, а не растёт.
-        let callables = ctx.callables.clone();
-        let macros = ctx.macros.clone();
+        // Клонирование `Arc` — это O(1): реестр не копируется.
+        let callables = Arc::clone(&ctx.callables);
+        let macros = Arc::clone(&ctx.macros);
         let included_files = std::mem::take(&mut ctx.included_files);
         let include_stack = std::mem::take(&mut ctx.include_stack);
 
