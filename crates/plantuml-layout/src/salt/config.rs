@@ -52,7 +52,7 @@ impl Default for SaltLayoutConfig {
             // Контейнер начинается с нуля, а отступ задаётся ячейкой:
             // в эталоне текст стоит на x=6.
             padding: 0.0,
-            row_height: 17.968,
+            row_height: 15.97,
             min_cell_width: 35.0,
             // Минимальная ширина кнопки: в эталоне кнопка «OK» шириной 36
             // при тексте 17.314.
@@ -60,7 +60,7 @@ impl Default for SaltLayoutConfig {
             cell_padding: 6.0,
             font_size: 12.0,
             button_height: 17.969,
-            textfield_height: 17.969,
+            textfield_height: 17.97,
             checkbox_size: 10.0,
             border_width: 1.0,
             background_color: "#FFFFFF",

@@ -295,8 +295,17 @@ impl SaltLayoutEngine {
             } else {
                 0.0
             };
-            let mut row_height =
-                (self.config.row_height).max(self.config.button_height + button_offset);
+            // Высота кнопки учитывается ТОЛЬКО в строке с кнопками.
+            //
+            // Раньше здесь стояло `row_height.max(button_height + ...)`, и
+            // пол в 17.969 действовал на каждую строку без разбора: базовая
+            // высота строки в эталоне 15.97, а задать её было невозможно —
+            // меняли `row_height`, а результат не менялся.
+            let mut row_height = if has_button {
+                self.config.button_height + button_offset
+            } else {
+                self.config.row_height
+            };
 
             for (col_idx, widget) in row.iter().enumerate() {
                 let cell_width = col_width.get(col_idx).copied().unwrap_or(0.0);
