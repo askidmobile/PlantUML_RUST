@@ -255,16 +255,115 @@ impl ComponentLayoutEngine {
     fn create_artifact_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         let width = self.config.text.width(name, self.config.font_size) + ARTIFACT_TEXT_PADDING;
 
+        // Заливка и толщина рамки — как в эталоне `deployment_basic`:
+        // `fill="#F1F1F1"`, `stroke-width:0.5`.
         LayoutElement {
             id: format!("artifact_{}", name.replace(' ', "_")),
             bounds: Rect::new(x, y, width, ARTIFACT_HEIGHT),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties: [
+                ("fill".to_string(), "#F1F1F1".to_string()),
+                ("stroke".to_string(), "#181818".to_string()),
+                ("stroke-width".to_string(), "0.5".to_string()),
+            ]
+            .into_iter()
+            .collect(),
             element_type: ElementType::Rectangle {
                 label: name.to_string(),
                 corner_radius: 2.5,
             },
         }
+    }
+
+    /// Иконка документа в правом верхнем углу артефакта.
+    ///
+    /// Геометрия снята с эталона `deployment_basic`: рамка артефакта
+    /// 79.027x39.297 в точке (57.49, 46), иконка 12x14 в точке
+    /// (119.517, 51) и загнутый уголок 6x6.
+    fn create_artifact_icon(&self, bounds: Rect) -> Vec<LayoutElement> {
+        /// Отступ иконки от правого края рамки.
+        const INSET_RIGHT: f64 = 17.0;
+        /// Отступ иконки от верхнего края рамки.
+        const INSET_TOP: f64 = 5.0;
+        /// Ширина и высота иконки.
+        const WIDTH: f64 = 12.0;
+        const HEIGHT: f64 = 14.0;
+        /// Сторона загнутого уголка.
+        const FOLD: f64 = 6.0;
+
+        let x = bounds.x + bounds.width - INSET_RIGHT;
+        let y = bounds.y + INSET_TOP;
+
+        let outline = LayoutElement {
+            id: "artifact_icon".to_string(),
+            bounds: Rect::new(x, y, WIDTH, HEIGHT),
+            text: None,
+            properties: [
+                ("fill".to_string(), "#F1F1F1".to_string()),
+                ("stroke".to_string(), "#181818".to_string()),
+                ("stroke-width".to_string(), "0.5".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            // Вершины — в ЛОКАЛЬНЫХ координатах `bounds`: рендерер
+            // прибавляет к ним начало рамки.
+            element_type: ElementType::Polygon {
+                points: vec![
+                    Point::new(0.0, 0.0),
+                    Point::new(0.0, HEIGHT),
+                    Point::new(WIDTH, HEIGHT),
+                    Point::new(WIDTH, FOLD),
+                    Point::new(WIDTH - FOLD, 0.0),
+                ],
+                label: None,
+                font_size: 0.0,
+            },
+        };
+
+        // Загнутый уголок: вертикаль и горизонталь от точки сгиба.
+        // Двумя отрезками, потому что `ElementType::Path` — единичный
+        // вариант без геометрии, а ломаная здесь из двух звеньев.
+        let mut fold = Vec::new();
+        for (index, (from, to)) in [
+            (
+                Point::new(x + WIDTH - FOLD, y),
+                Point::new(x + WIDTH - FOLD, y + FOLD),
+            ),
+            (
+                Point::new(x + WIDTH - FOLD, y + FOLD),
+                Point::new(x + WIDTH, y + FOLD),
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            fold.push(LayoutElement {
+                id: format!("artifact_icon_fold_{index}"),
+                bounds: Rect::new(from.x, from.y, (to.x - from.x).abs(), (to.y - from.y).abs()),
+                text: None,
+                properties: [
+                    ("fill".to_string(), "none".to_string()),
+                    ("stroke".to_string(), "#181818".to_string()),
+                    ("stroke-width".to_string(), "0.5".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+                element_type: ElementType::Edge {
+                    points: vec![from, to],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+        }
+
+        let mut result = vec![outline];
+        result.extend(fold);
+        result
     }
 
     /// Создаёт элемент базы данных (цилиндр)
@@ -515,6 +614,14 @@ impl ComponentLayoutEngine {
                 positions.insert(alias.clone(), bounds);
             }
             elements.push(elem);
+
+            // У артефакта в правом верхнем углу — иконка документа.
+            // Измерено по эталону `deployment_basic`: рамка 57.49..136.52,
+            // иконка 119.517..131.517 по x и 51..65 по y, то есть 12x14
+            // на 17 от правого края и 5 от верхнего.
+            if comp.component_type == ComponentType::Artifact {
+                elements.extend(self.create_artifact_icon(bounds));
+            }
         }
 
         // Вычисляем размер пакета по фактическому содержимому
