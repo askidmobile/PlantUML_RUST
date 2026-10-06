@@ -1822,38 +1822,15 @@ fn resolve_concat_part(part: &str, ctx: &PreprocessContext) -> String {
     let unquoted = strip_matching_quotes(trimmed);
     let substituted = variables::substitute(unquoted, &ctx.variables);
     // БЕЗ trim: значения вида "skinparam " несут значимый пробел на конце.
-    unescape_value(strip_matching_quotes(&substituted))
-}
-
-/// Заменяет управляющие последовательности в значении.
-///
-/// PlantUML трактует `"\n"` как РЕАЛЬНЫЙ перевод строки: `$breakText`
-/// ищет его через `%strpos($text, "\n")`. Без замены поиск не находил
-/// ничего, и метки связей C4 терялись.
-fn unescape_value(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-
-    let mut chars = text.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch != '\\' {
-            out.push(ch);
-            continue;
-        }
-
-        match chars.next() {
-            Some('n') => out.push('\n'),
-            Some('t') => out.push('\t'),
-            Some('\\') => out.push('\\'),
-            Some('"') => out.push('"'),
-            Some(other) => {
-                out.push('\\');
-                out.push(other);
-            }
-            None => out.push('\\'),
-        }
-    }
-
-    out
+    // УПРАВЛЯЮЩИЕ ПОСЛЕДОВАТЕЛЬНОСТИ НЕ РАСКРЫВАЕМ.
+    //
+    // PlantUML хранит `\n` в значении переменной как ДВА символа: проверено
+    // на сервере — `%strlen("ab\ncd")` даёт 6, а `%substr($t, 0, 2)` — `ab`.
+    // Прежде мы заменяли `\n` настоящим переводом строки, длина становилась
+    // 5, и вся арифметика индексов в библиотеке C4-PlantUML съезжала:
+    // `$breakText` укорачивал текст на 2 символа вместо 1, текст не
+    // уменьшался, а `$multiLine` дорос до 20 МБ — 87 секунд на разбор.
+    strip_matching_quotes(&substituted).to_string()
 }
 
 /// Снимает обрамляющие кавычки, если они парные и одного типа.

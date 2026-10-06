@@ -266,50 +266,20 @@ fn process_substr(input: &str) -> String {
 }
 
 /// %strpos("haystack", "needle") -> позиция или -1
-/// Раскрывает управляющие последовательности в аргументе.
-///
-/// `%strpos($text, "\n")` ищет РЕАЛЬНЫЙ перевод строки: в тексте
-/// макроса записано `\n`, а искать нужно символ. Без раскрытия поиск
-/// всегда давал -1, и `$breakText` из C4 возвращал текст без метки —
-/// метки связей терялись, в выводе оставалось `user -->> sys :`.
-fn unescape(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        if ch != '\\' {
-            out.push(ch);
-            continue;
-        }
-
-        match chars.next() {
-            Some('n') => out.push('\n'),
-            Some('t') => out.push('\t'),
-            Some('\\') => out.push('\\'),
-            Some(other) => {
-                out.push('\\');
-                out.push(other);
-            }
-            None => out.push('\\'),
-        }
-    }
-
-    out
-}
-
 fn process_strpos(input: &str) -> String {
     RE_STRPOS
         .replace_all(input, |caps: &regex::Captures| {
             let haystack = &caps[1];
-            // Управляющие последовательности раскрываются ЗДЕСЬ.
+            // Управляющие последовательности НЕ раскрываем: и в стоге, и в
+            // иголке `\n` остаётся ДВУМЯ символами — так же, как в PlantUML.
             //
-            // `%strpos($text, "\n")` ищет РЕАЛЬНЫЙ перевод строки:
-            // в тексте макроса записано `\n`, а искать нужно символ.
-            // Без раскрытия поиск всегда давал -1, и `$breakText` из C4
-            // возвращал текст без метки — метки связей терялись.
-            let needle = unescape(&caps[2]);
+            // Проверено на сервере: `!$t = "ab\ncd"` даёт `%strlen($t)` = 6,
+            // а `%strpos($t, "\n")` = 2. Прежде иголка раскрывалась в
+            // настоящий перевод строки, поиск давал -1, и вся арифметика
+            // индексов в `$breakText` из C4-PlantUML съезжала.
+            let needle = caps[2].to_string();
 
-            match haystack.find(needle.as_str()) {
+            match haystack.find(&needle) {
                 Some(pos) => pos.to_string(),
                 None => "-1".to_string(),
             }
@@ -529,6 +499,23 @@ mod tests {
 
         let result = process_builtins(r#"sub = %substr("hello", 10)"#);
         assert_eq!(result, "sub = ");
+    }
+
+    /// Управляющие последовательности остаются ДВУМЯ символами.
+    ///
+    /// Проверено на сервере: `!$t = "ab\ncd"` даёт `%strlen($t)` = 6 и
+    /// `%strpos($t, "\n")` = 2. Прежде мы заменяли `\n` настоящим
+    /// переводом строки (длина 5), и вся арифметика индексов в
+    /// `$breakText` из C4-PlantUML съезжала: текст не укорачивался,
+    /// `$multiLine` дорос до 20 МБ, разбор занимал 87 секунд.
+    #[test]
+    fn test_escape_sequences_stay_two_chars() {
+        let preprocessor = crate::Preprocessor::new();
+        let source = "@startuml\n!$t = \"ab\\ncd\"\nA: [%strlen($t)]\nB: [%strpos($t, \"\\n\")]\nC: [%substr($t, 0, 2)]\n@enduml\n";
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(result.contains("A: [6]"), "длина не 6: {result}");
+        assert!(result.contains("B: [2]"), "позиция не 2: {result}");
+        assert!(result.contains("C: [ab]"), "подстрока не ab: {result}");
     }
 
     /// Арифметика в присваивании с ПЕРЕМЕННОЙ в операнде.
