@@ -1813,7 +1813,13 @@ pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> Stri
     }
 
     out.push_str(&last);
-    out.trim().to_string()
+    // ХВОСТОВОЙ ПРОБЕЛ ЗНАЧИМ.
+    //
+    // Прежде здесь стояло `out.trim()`, и строка `!$rel = $rel + ' : '`
+    // теряла пробел после двоеточия: в C4-PlantUML подпись связи
+    // приклеивалась к разделителю — `b :**МЕТКА**` вместо `b : **МЕТКА**`.
+    // Проверено на сервере: PlantUML значение НЕ обрезает.
+    out
 }
 
 /// Вычисляет арифметику с `-`, `*`, `/`, требуя ПРОБЕЛЫ вокруг знака.
@@ -1937,6 +1943,20 @@ mod tests {
             matches!(result, Err(PreprocessError::ExpansionLimit { .. })),
             "ожидалась ошибка бюджета раскрытия, получено: {result:?}"
         );
+    }
+
+    /// Хвостовой пробел значения СОХРАНЯЕТСЯ.
+    ///
+    /// Регрессия: `evaluate_concat` обрезал результат через `trim()`, и
+    /// строка `!$rel = $rel + ' : '` теряла пробел после двоеточия —
+    /// в C4-PlantUML подпись связи приклеивалась к разделителю.
+    /// Проверено на сервере: PlantUML значение не обрезает.
+    #[test]
+    fn test_concat_keeps_trailing_space() {
+        let source = "@startuml\n!$a = 'x' + ' : '\nA: [$a]\n@enduml";
+        let preprocessor = Preprocessor::new();
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(result.contains("A: [x : ]"), "пробел потерян: {result}");
     }
 
     /// `%get_variable_value(ИМЯ)` читает переменную ПО ИМЕНИ.
