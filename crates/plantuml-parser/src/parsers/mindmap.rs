@@ -206,7 +206,12 @@ fn add_node_to_stack(stack: &mut Vec<MindMapNode>, node: MindMapNode) {
         if last_level >= node_level {
             // Последний узел в стеке - на том же или более глубоком уровне
             // Нужно "закрыть" его и добавить к родителю
-            let child = stack.pop().unwrap();
+            // `let ... else` вместо `unwrap()`: стек защищён проверкой
+            // `len() > 1`, но полагаться на это — значит зависеть от
+            // инварианта в другом месте функции.
+            let Some(child) = stack.pop() else {
+                break;
+            };
             if let Some(parent) = stack.last_mut() {
                 parent.children.push(child);
             }
@@ -226,7 +231,9 @@ fn build_tree_from_stack(mut stack: Vec<MindMapNode>) -> Option<MindMapNode> {
 
     // Сворачиваем весь стек в одно дерево
     while stack.len() > 1 {
-        let child = stack.pop().unwrap();
+        let Some(child) = stack.pop() else {
+            break;
+        };
         if let Some(parent) = stack.last_mut() {
             parent.children.push(child);
         }

@@ -135,7 +135,12 @@ fn add_node_to_stack(stack: &mut Vec<WbsNode>, node: WbsNode) {
     while stack.len() > 1 {
         let last_level = stack.last().map(|n| n.level).unwrap_or(0);
         if last_level >= node_level {
-            let child = stack.pop().unwrap();
+            // `let ... else` вместо `unwrap()`: стек защищён проверкой
+            // `len() > 1`, но полагаться на это — значит зависеть от
+            // инварианта в другом месте функции.
+            let Some(child) = stack.pop() else {
+                break;
+            };
             if let Some(parent) = stack.last_mut() {
                 parent.children.push(child);
             }
@@ -154,7 +159,9 @@ fn build_tree_from_stack(mut stack: Vec<WbsNode>) -> Option<WbsNode> {
     }
 
     while stack.len() > 1 {
-        let child = stack.pop().unwrap();
+        let Some(child) = stack.pop() else {
+            break;
+        };
         if let Some(parent) = stack.last_mut() {
             parent.children.push(child);
         }

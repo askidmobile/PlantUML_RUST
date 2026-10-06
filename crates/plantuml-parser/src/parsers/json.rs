@@ -55,7 +55,12 @@ fn parse_json_value(
 ) -> crate::Result<JsonNode> {
     match pair.as_rule() {
         Rule::json_value => {
-            let inner = pair.into_inner().next().unwrap();
+            // Пара-обёртка `json_value` может оказаться пустой, если
+            // грамматика совпала на пустом значении. Прежний `unwrap()`
+            // в этом случае ронял процесс целиком.
+            let inner = pair.into_inner().next().ok_or_else(|| {
+                ParseError::GrammarError("json_value без вложенного значения".to_string())
+            })?;
             parse_json_value(key, inner)
         }
         Rule::json_object => {

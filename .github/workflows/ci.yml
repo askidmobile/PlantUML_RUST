@@ -32,6 +32,19 @@ jobs:
       - name: Run cargo check
         run: cargo check --workspace --all-features
 
+  no-panic:
+    name: No panicking operations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Release собирается с `panic = "abort"`: паника в библиотечном коде
+      # неотличима от аварийной остановки, а под wasm32 роняет весь модуль
+      # в браузере. Поэтому unwrap/expect/panic!/todo! запрещены в коде
+      # библиотеки. Тесты, примеры и бенчмарки не проверяются.
+      - name: Check for panicking operations
+        run: ./scripts/check-no-panic.sh
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

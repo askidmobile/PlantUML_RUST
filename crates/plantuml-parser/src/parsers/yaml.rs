@@ -57,7 +57,11 @@ fn parse_yaml_value(
 ) -> crate::Result<JsonNode> {
     match pair.as_rule() {
         Rule::yaml_value => {
-            let inner = pair.into_inner().next().unwrap();
+            // Пара-обёртка может оказаться пустой — прежний `unwrap()`
+            // в этом случае ронял процесс целиком.
+            let inner = pair.into_inner().next().ok_or_else(|| {
+                ParseError::GrammarError("yaml_value без вложенного значения".to_string())
+            })?;
             parse_yaml_value(key, inner)
         }
         Rule::yaml_mapping => {
@@ -101,11 +105,15 @@ fn parse_yaml_value(
             Ok(JsonNode::array(key, items))
         }
         Rule::yaml_scalar => {
-            let inner = pair.into_inner().next().unwrap();
+            let inner = pair.into_inner().next().ok_or_else(|| {
+                ParseError::GrammarError("yaml_scalar без вложенного значения".to_string())
+            })?;
             parse_yaml_scalar(key, inner)
         }
         Rule::yaml_inline_value => {
-            let inner = pair.into_inner().next().unwrap();
+            let inner = pair.into_inner().next().ok_or_else(|| {
+                ParseError::GrammarError("yaml_inline_value без вложенного значения".to_string())
+            })?;
             parse_yaml_value(key, inner)
         }
         _ => Err(ParseError::GrammarError(format!(

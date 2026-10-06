@@ -172,10 +172,14 @@ fn process_rule(
         }
         Rule::package_end => {
             if let Some(pkg) = package_stack.pop() {
-                if package_stack.is_empty() {
-                    diagram.packages.push(pkg);
-                } else {
-                    package_stack.last_mut().unwrap().packages.push(pkg);
+                // Раньше здесь стояло `package_stack.last_mut().unwrap()`.
+                // После `pop()` стек может оказаться пустым, и тогда этот
+                // unwrap уронил бы процесс. В release профиль собирается с
+                // `panic = "abort"`, так что паника здесь неотличима от
+                // аварийной остановки.
+                match package_stack.last_mut() {
+                    Some(parent) => parent.packages.push(pkg),
+                    None => diagram.packages.push(pkg),
                 }
             }
         }
@@ -194,14 +198,11 @@ fn add_classifier(
     diagram: &mut ClassDiagram,
     package_stack: &mut [Package],
 ) {
-    if package_stack.is_empty() {
-        diagram.add_class(classifier);
-    } else {
-        package_stack
-            .last_mut()
-            .unwrap()
-            .classifiers
-            .push(classifier);
+    // Единая точка принятия решения вместо проверки `is_empty()` с
+    // последующим `last_mut().unwrap()`.
+    match package_stack.last_mut() {
+        Some(package) => package.classifiers.push(classifier),
+        None => diagram.add_class(classifier),
     }
 }
 

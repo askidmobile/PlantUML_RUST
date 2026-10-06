@@ -315,7 +315,9 @@ fn parse_tree_content(container: &Container) -> SaltWidget {
                 // Закрываем узлы с большим или равным уровнем
                 while let Some((parent_level, _)) = stack.last() {
                     if *parent_level >= level {
-                        let (_, finished) = stack.pop().unwrap();
+                        let Some((_, finished)) = stack.pop() else {
+                            break;
+                        };
                         if let Some((_, parent)) = stack.last_mut() {
                             parent.children.push(finished);
                         } else {
