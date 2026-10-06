@@ -689,12 +689,68 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Component);
     }
 
+    // СТРЕЛКА С ЯВНЫМ НАПРАВЛЕНИЕМ — это НЕ sequence.
+    //
+    // PlantUML такие формы (`-DOWN->`, `-UP->`, `-LEFT->`, `-RIGHT->`,
+    // `-down->`) относит к структурным диаграммам: проверено на сервере,
+    // `A -DOWN-> B` он разбирает как CLASS. У нас же срабатывал общий
+    // признак «есть `->`», диаграмма уходила в sequence и падала.
+    if has_directed_arrow(&source_lower) {
+        return Ok(DiagramKind::Component);
+    }
+
     // Sequence Diagram — остальные случаи со стрелками
     if source_lower.contains("-->") || source_lower.contains("->>") || source_lower.contains("->") {
         return Ok(DiagramKind::Sequence);
     }
 
     Ok(DiagramKind::Unknown)
+}
+
+#[cfg(test)]
+mod directed_arrow_tests {
+    use super::*;
+
+    /// Стрелка с явным направлением — структурная диаграмма, не sequence.
+    ///
+    /// Проверено на сервере: `A -DOWN-> B` он разбирает как CLASS.
+    /// У нас срабатывал общий признак «есть `->`», диаграмма уходила
+    /// в sequence и падала на разборе стрелки.
+    #[test]
+    fn test_directed_arrow_is_not_sequence() {
+        for source in [
+            "@startuml\nA -DOWN-> B\n@enduml",
+            "@startuml\nA -UP-> B\n@enduml",
+            "@startuml\nA -LEFT-> B\n@enduml",
+            "@startuml\nA -RIGHT-> B\n@enduml",
+            "@startuml\nA -down->> B\n@enduml",
+        ] {
+            let kind = detect_diagram_type(source).expect("тип должен определиться");
+            assert_ne!(kind, DiagramKind::Sequence, "уйдёт в sequence: {source}");
+        }
+    }
+}
+
+/// Есть ли в исходнике стрелка с ЯВНЫМ направлением.
+///
+/// Формы: `-down->`, `-up->`, `-left->`, `-right->`, `-DOWN->>`, `.up.>`.
+/// PlantUML считает такие диаграммы структурными, а не последовательными.
+fn has_directed_arrow(source_lower: &str) -> bool {
+    const DIRECTIONS: [&str; 8] = ["down", "up", "left", "right", "dl", "dr", "ul", "ur"];
+    for line in source_lower.lines() {
+        let line = line.trim();
+        if line.starts_with('\'') {
+            continue;
+        }
+        for direction in DIRECTIONS {
+            let marker = format!("-{direction}-");
+            let dotted = format!(".{direction}.");
+            if line.contains(&marker) || line.contains(&dotted) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 // Парсер для sequence diagrams использует pest грамматику
