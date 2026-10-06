@@ -1231,9 +1231,22 @@ impl<R: FileResolver> Preprocessor<R> {
 
         // Тело макроса видит ГЛОБАЛЬНЫЕ переменные и переменные области
         // макросов; последние имеют приоритет.
+        // ПРИОРИТЕТ У ВЕРХНЕГО УРОВНЯ.
+        //
+        // Прежде копия собиралась наоборот: сначала `variables`, затем
+        // ПОВЕРХ них `macro_variables`. Если имя есть в обеих областях с
+        // разными значениями, потомок получал устаревшее значение из
+        // области макросов, а копирование результатов обратно записывало
+        // его в вызывающий контекст — и свежее присваивание в теле макроса
+        // ПРОПАДАЛО. Именно так в C4-PlantUML терялась подпись связи:
+        // `$getRel` собирал `$rel`, но первый же вложенный вызов
+        // (`$breakText`) возвращал `$rel` к прежнему значению, и функция
+        // возвращала строку без подписи.
         let mut child_variables = ctx.variables.clone();
         for (name, value) in ctx.macro_variables.iter() {
-            child_variables.insert(name.clone(), value.clone());
+            child_variables
+                .entry(name.clone())
+                .or_insert_with(|| value.clone());
         }
 
         let mut child = PreprocessContext {
@@ -1942,6 +1955,37 @@ mod tests {
         assert!(
             matches!(result, Err(PreprocessError::ExpansionLimit { .. })),
             "ожидалась ошибка бюджета раскрытия, получено: {result:?}"
+        );
+    }
+
+    /// Переменная верхнего уровня ПЕРЕКРЫВАЕТ одноимённую из области макросов.
+    ///
+    /// Регрессия: копия контекста для вызова собиралась так, что
+    /// `macro_variables` перекрывали `variables`. Если имя было в обеих
+    /// областях с разными значениями, потомок получал устаревшее значение,
+    /// и копирование результатов обратно записывало его в вызывающий
+    /// контекст — свежее присваивание в теле макроса ПРОПАДАЛО. В
+    /// C4-PlantUML так терялась подпись связи: `$getRel` собирал `$rel`,
+    /// но первый же вложенный вызов возвращал его к прежнему значению.
+    #[test]
+    fn test_outer_scope_wins_over_macro_scope() {
+        let source = "@startuml\n\
+            !function $inner()\n\
+            !return \"\"\n\
+            !endfunction\n\
+            !function $outer()\n\
+            !$rel = 'A'\n\
+            !$x = $inner()\n\
+            !$rel = $rel + '|B'\n\
+            !return $rel\n\
+            !endfunction\n\
+            X: [$outer()]\n\
+            @enduml";
+        let preprocessor = Preprocessor::new();
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(
+            result.contains("X: [A|B]"),
+            "присваивание потеряно: {result}"
         );
     }
 
