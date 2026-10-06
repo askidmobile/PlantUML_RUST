@@ -648,19 +648,41 @@ impl SaltLayoutEngine {
         };
         elements.push(box_elem);
 
-        // Галочка если отмечен
+        // Галочка, если отмечен.
+        //
+        // PlantUML рисует её МНОГОУГОЛЬНИКОМ, а не буквой «X»:
+        //   <polygon points="139.678,54.938,142.678,57.938,
+        //                     149.678,48.938,142.678,55.938" fill="#000"/>
+        // Относительно левого верхнего угла рамки 10×10 точки дают
+        // (1.0, 4.016), (4.0, 7.016), (11.0, -1.984), (4.0, 5.016) —
+        // галочка заходит за рамку, поэтому точки хранятся ЛОКАЛЬНО.
+        // Раньше здесь был текст «X», из-за чего в сверке подписей
+        // появлялась лишняя подпись «X», которой у PlantUML нет.
         if checked {
+            let points = vec![
+                Point::new(0.0, 6.0),
+                Point::new(3.0, 9.0),
+                Point::new(10.0, 0.0),
+                Point::new(3.0, 7.0),
+            ];
             let check = LayoutElement {
                 id: self.next_id("check"),
-                element_type: ElementType::Text {
-                    text: "X".to_string(),
-                    font_size: size - 2.0,
+                element_type: ElementType::Polygon {
+                    points,
+                    label: None,
+                    font_size: self.config.font_size,
                 },
-                bounds: Rect::new(x + 2.0, y + 4.0, size, size),
-                text: Some("X".to_string()),
-                properties: [("fill".to_string(), "#000000".to_string())]
-                    .into_iter()
-                    .collect(),
+                bounds: Rect::new(x + 1.0, y + 4.0 - 1.984, 10.0, 9.0),
+                text: None,
+                properties: [
+                    ("fill".to_string(), "#000000".to_string()),
+                    ("stroke".to_string(), "#000000".to_string()),
+                    ("stroke-width".to_string(), "1.5".to_string()),
+                    ("stroke-linejoin".to_string(), "miter".to_string()),
+                    ("stroke-miterlimit".to_string(), "10".to_string()),
+                ]
+                .into_iter()
+                .collect(),
             };
             elements.push(check);
         }
