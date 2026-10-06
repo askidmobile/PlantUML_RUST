@@ -8,40 +8,11 @@
 //!   `%strpos(s, needle)`, `%string(x)`, `%newline()`
 //! - Числовые: `%intval(s)`, `%floor(x)`, `%ceil(x)`, `%abs(x)`
 
-use regex::Regex;
-use std::sync::LazyLock;
-
-/// Регулярные выражения для парсинга функций с аргументами
 // ВАЖНО: аргументы могут быть заданы ПЕРЕМЕННОЙ, а не литералом.
 //
 // PlantUML хранит значение без кавычек (`!$s = "abc"` даёт `abc`,
 // проверено на сервере: `%strlen($s)` равно 3), поэтому после
-// подстановки вызов выглядит как `%strpos(a+b, "+")`. Прежние
-// выражения требовали кавычек и такие вызовы не срабатывали.
-static RE_STRLEN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%strlen\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
-static RE_UPPER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%upper\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
-static RE_LOWER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%lower\(\s*"?([^")]*?)"?\s*\)"#).unwrap());
-static RE_SUBSTR: LazyLock<Regex> = LazyLock::new(|| {
-    // Индекс — ВЫРАЖЕНИЕ, а не только число: библиотека C4-PlantUML пишет
-    // `%substr($text, $brPos + 1)`. Прежний шаблон с `(\d+)` такой вызов не
-    // распознавал, вызов оставался текстом, и переменная `$text` в
-    // `$breakText` НЕ укорачивалась — цикл `!while` крутился все 10 000
-    // итераций. Отсюда 42 секунды на один вызов и 91 секунда на разбор
-    // библиотеки C4 целиком.
-    Regex::new(r#"%substr\(\s*"?([^",)]*?)"?\s*,\s*([^,)]+?)\s*(?:,\s*([^,)]+?)\s*)?\)"#).unwrap()
-});
-static RE_STRPOS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%strpos\(\s*"?([^",)]*?)"?\s*,\s*"?([^")]*?)"?\s*\)"#).unwrap());
-static RE_STRING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%string\(([^)]+)\)").unwrap());
-static RE_INTVAL: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"%intval\("?([^")]+)"?\)"#).unwrap());
-static RE_FLOOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%floor\(([^)]+)\)").unwrap());
-static RE_CEIL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%ceil\(([^)]+)\)").unwrap());
-static RE_ABS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%abs\(([^)]+)\)").unwrap());
-static RE_NOT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%not\(([^)]+)\)").unwrap());
+// подстановки вызов выглядит как `%strpos(a+b, "+")`.
 
 /// Обрабатывает builtin функции в строке
 pub fn process_builtins(line: &str) -> String {
@@ -98,111 +69,233 @@ pub fn process_builtins(line: &str) -> String {
     // %strlen("string")
     // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
     // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%strlen(") {
-        result = process_strlen(&result);
-    }
-
-    // %upper("string")
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%upper(") {
-        result = process_upper(&result);
-    }
-
-    // %lower("string")
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%lower(") {
-        result = process_lower(&result);
-    }
-
-    // %substr("string", start, len)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%substr(") {
-        result = process_substr(&result);
-    }
-
-    // %strpos("string", "needle")
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%strpos(") {
-        result = process_strpos(&result);
-    }
-
-    // %string(value)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%string(") {
-        result = process_string(&result);
-    }
-
-    // === Числовые функции ===
-
-    // %intval("42")
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%intval(") {
-        result = process_intval(&result);
-    }
-
-    // %floor(3.7)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%floor(") {
-        result = process_floor(&result);
-    }
-
-    // %ceil(3.2)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%ceil(") {
-        result = process_ceil(&result);
-    }
-
-    // %abs(-5)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%abs(") {
-        result = process_abs(&result);
-    }
-
-    // === Логические функции ===
-
-    // %not(expr)
-    // Проверка подстроки ДЕШЕВЛЕ регулярного выражения: ниже в каждой
-    // функции своя регулярка, и она сканирует строку целиком.
-    if result.contains("%not(") {
-        result = process_not(&result);
-    }
+    // Вложенные вызовы раскрываются сканером: регулярные выражения
+    // скобки в аргументах не разбирают.
+    result = expand_nested_calls(&result);
 
     result
 }
 
 // === Строковые функции ===
 
-/// %strlen("string") -> длина строки
-fn process_strlen(input: &str) -> String {
-    RE_STRLEN
-        .replace_all(input, |caps: &regex::Captures| {
-            let s = &caps[1];
-            s.chars().count().to_string()
-        })
-        .to_string()
+// === Сканер вызовов с поддержкой ВЛОЖЕННОСТИ ===
+
+/// Раскрывает вызовы встроенных функций, ПОДДЕРЖИВАЯ ВЛОЖЕННЫЕ вызовы.
+///
+/// Прежде каждая функция раскрывалась своим регулярным выражением, а
+/// шаблоны запрещали скобки в аргументах (`[^",)]*?`). Из-за этого вызов
+/// вида `%substr(%substr($t, 1), 2)` НЕ раскрывался, и в библиотеке
+/// C4-PlantUML значение переменной накапливалось как
+/// `%substr(%substr(%substr(...` — доросло до 1.3 МБ, а разбор занимал
+/// 87 секунд. Регулярным выражением вложенные скобки не разобрать
+/// (нужен счётчик глубины), поэтому здесь рукописный сканер.
+fn expand_nested_calls(text: &str) -> String {
+    expand_nested_calls_at(text, 0)
 }
 
-/// %upper("string") -> СТРОКА В ВЕРХНЕМ РЕГИСТРЕ
-fn process_upper(input: &str) -> String {
-    RE_UPPER
-        .replace_all(input, |caps: &regex::Captures| caps[1].to_uppercase())
-        .to_string()
+fn expand_nested_calls_at(text: &str, depth: usize) -> String {
+    // Предел глубины: защита от патологической вложенности.
+    if depth > 32 {
+        return text.to_string();
+    }
+
+    let mut result = String::with_capacity(text.len());
+    let bytes = text.as_bytes();
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] != b'%' {
+            let ch = text[i..].chars().next().unwrap_or(' ');
+            result.push(ch);
+            i += ch.len_utf8();
+            continue;
+        }
+
+        let Some((name, open)) = parse_call_name(text, i) else {
+            result.push('%');
+            i += 1;
+            continue;
+        };
+        let Some(close) = find_matching_paren(text, open) else {
+            result.push('%');
+            i += 1;
+            continue;
+        };
+
+        // Сначала раскрываем ВЛОЖЕННЫЕ вызовы в аргументах.
+        let inner = expand_nested_calls_at(&text[open + 1..close], depth + 1);
+        let args = split_top_level_args(&inner);
+
+        match apply_builtin(&name, &args) {
+            Some(value) => result.push_str(&value),
+            None => {
+                // Неизвестная функция: оставляем как есть, но с уже
+                // раскрытыми аргументами — её обработает следующий проход.
+                result.push('%');
+                result.push_str(&name);
+                result.push('(');
+                result.push_str(&inner);
+                result.push(')');
+            }
+        }
+        i = close + 1;
+    }
+
+    result
 }
 
-/// %lower("STRING") -> строка в нижнем регистре
-fn process_lower(input: &str) -> String {
-    RE_LOWER
-        .replace_all(input, |caps: &regex::Captures| caps[1].to_lowercase())
-        .to_string()
+/// Читает имя функции после `%` и позицию открывающей скобки.
+fn parse_call_name(text: &str, start: usize) -> Option<(String, usize)> {
+    let rest = text.get(start + 1..)?;
+    let mut name = String::new();
+    for ch in rest.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            name.push(ch);
+        } else {
+            break;
+        }
+    }
+    if name.is_empty() {
+        return None;
+    }
+    let open = start + 1 + name.len();
+    if text.as_bytes().get(open) != Some(&b'(') {
+        return None;
+    }
+    Some((name, open))
+}
+
+/// Индекс закрывающей скобки для открывающей на `open`.
+fn find_matching_paren(text: &str, open: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    for (offset, byte) in text.bytes().enumerate().skip(open) {
+        match byte {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(offset);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Делит аргументы по запятым ВЕРХНЕГО уровня, не трогая кавычки и скобки.
+fn split_top_level_args(inner: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0i32;
+    let mut quote: Option<char> = None;
+
+    for ch in inner.chars() {
+        match ch {
+            '"' | '\'' if quote.is_none() => {
+                quote = Some(ch);
+                current.push(ch);
+            }
+            c if Some(c) == quote => {
+                quote = None;
+                current.push(ch);
+            }
+            '(' if quote.is_none() => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' if quote.is_none() => {
+                depth -= 1;
+                current.push(ch);
+            }
+            ',' if quote.is_none() && depth == 0 => {
+                args.push(current.trim().to_string());
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if !current.trim().is_empty() || !args.is_empty() {
+        args.push(current.trim().to_string());
+    }
+    args
+}
+
+/// Снимает парные кавычки — и двойные, и одинарные.
+fn unquote(argument: &str) -> &str {
+    let trimmed = argument.trim();
+    for quote in ['"', '\''] {
+        if trimmed.len() >= 2 && trimmed.starts_with(quote) && trimmed.ends_with(quote) {
+            return &trimmed[1..trimmed.len() - 1];
+        }
+    }
+    trimmed
+}
+
+/// Применяет встроенную функцию. `None` — функция не наша.
+fn apply_builtin(name: &str, args: &[String]) -> Option<String> {
+    let first = args.first().map(String::as_str).unwrap_or_default();
+    let second = args.get(1).map(String::as_str).unwrap_or_default();
+    let third = args.get(2).map(String::as_str).unwrap_or_default();
+
+    match name {
+        "strlen" => Some(unquote(first).chars().count().to_string()),
+        "upper" => Some(unquote(first).to_uppercase()),
+        "lower" => Some(unquote(first).to_lowercase()),
+        "substr" => {
+            let source = unquote(first);
+            let start = eval_index(second).unwrap_or(0).max(0) as usize;
+            let chars: Vec<char> = source.chars().collect();
+            if start >= chars.len() {
+                return Some(String::new());
+            }
+            Some(match eval_index(third) {
+                Some(length) => chars
+                    .iter()
+                    .skip(start)
+                    .take(length.max(0) as usize)
+                    .collect(),
+                None => chars.iter().skip(start).collect(),
+            })
+        }
+        "strpos" => Some(match unquote(first).find(unquote(second)) {
+            Some(position) => position.to_string(),
+            None => "-1".to_string(),
+        }),
+        "string" => Some(format!("\"{}\"", unquote(first))),
+        "intval" => Some(unquote(first).parse::<i64>().unwrap_or(0).to_string()),
+        "floor" => Some(
+            unquote(first)
+                .parse::<f64>()
+                .map(|value| value.floor() as i64)
+                .unwrap_or(0)
+                .to_string(),
+        ),
+        "ceil" => Some(
+            unquote(first)
+                .parse::<f64>()
+                .map(|value| value.ceil() as i64)
+                .unwrap_or(0)
+                .to_string(),
+        ),
+        "abs" => Some(
+            unquote(first)
+                .parse::<i64>()
+                .map(|value| value.abs().to_string())
+                .or_else(|_| {
+                    unquote(first)
+                        .parse::<f64>()
+                        .map(|value| value.abs().to_string())
+                })
+                .unwrap_or_else(|_| "0".to_string()),
+        ),
+        "not" => Some(match unquote(first).to_lowercase().as_str() {
+            "true" | "1" => "false".to_string(),
+            _ => "true".to_string(),
+        }),
+        _ => None,
+    }
 }
 
 /// Вычисляет простое арифметическое выражение индекса.
@@ -241,136 +334,9 @@ pub(crate) fn eval_index(expression: &str) -> Option<i64> {
     None
 }
 
-/// %substr("string", start, len) -> подстрока
-fn process_substr(input: &str) -> String {
-    RE_SUBSTR
-        .replace_all(input, |caps: &regex::Captures| {
-            let s = &caps[1];
-            let start: usize = eval_index(&caps[2]).unwrap_or(0).max(0) as usize;
-            let len: Option<usize> = caps
-                .get(3)
-                .and_then(|m| eval_index(m.as_str()))
-                .map(|value| value.max(0) as usize);
-
-            let chars: Vec<char> = s.chars().collect();
-            if start >= chars.len() {
-                return String::new();
-            }
-
-            match len {
-                Some(l) => chars.iter().skip(start).take(l).collect(),
-                None => chars.iter().skip(start).collect(),
-            }
-        })
-        .to_string()
-}
-
-/// %strpos("haystack", "needle") -> позиция или -1
-fn process_strpos(input: &str) -> String {
-    RE_STRPOS
-        .replace_all(input, |caps: &regex::Captures| {
-            let haystack = &caps[1];
-            // Управляющие последовательности НЕ раскрываем: и в стоге, и в
-            // иголке `\n` остаётся ДВУМЯ символами — так же, как в PlantUML.
-            //
-            // Проверено на сервере: `!$t = "ab\ncd"` даёт `%strlen($t)` = 6,
-            // а `%strpos($t, "\n")` = 2. Прежде иголка раскрывалась в
-            // настоящий перевод строки, поиск давал -1, и вся арифметика
-            // индексов в `$breakText` из C4-PlantUML съезжала.
-            let needle = caps[2].to_string();
-
-            match haystack.find(&needle) {
-                Some(pos) => pos.to_string(),
-                None => "-1".to_string(),
-            }
-        })
-        .to_string()
-}
-
-/// %string(value) -> преобразование в строку
-fn process_string(input: &str) -> String {
-    RE_STRING
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim();
-            // Убираем кавычки если есть
-            let value = value.trim_matches('"');
-            format!("\"{}\"", value)
-        })
-        .to_string()
-}
-
 // === Числовые функции ===
 
-/// %intval("42") -> 42
-fn process_intval(input: &str) -> String {
-    RE_INTVAL
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim().trim_matches('"');
-            value.parse::<i64>().unwrap_or(0).to_string()
-        })
-        .to_string()
-}
-
-/// %floor(3.7) -> 3
-fn process_floor(input: &str) -> String {
-    RE_FLOOR
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim();
-            value
-                .parse::<f64>()
-                .map(|v| v.floor() as i64)
-                .unwrap_or(0)
-                .to_string()
-        })
-        .to_string()
-}
-
-/// %ceil(3.2) -> 4
-fn process_ceil(input: &str) -> String {
-    RE_CEIL
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim();
-            value
-                .parse::<f64>()
-                .map(|v| v.ceil() as i64)
-                .unwrap_or(0)
-                .to_string()
-        })
-        .to_string()
-}
-
-/// %abs(-5) -> 5
-fn process_abs(input: &str) -> String {
-    RE_ABS
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim();
-            // Пробуем как целое, потом как дробное
-            if let Ok(v) = value.parse::<i64>() {
-                v.abs().to_string()
-            } else if let Ok(v) = value.parse::<f64>() {
-                v.abs().to_string()
-            } else {
-                "0".to_string()
-            }
-        })
-        .to_string()
-}
-
 // === Логические функции ===
-
-/// %not(expr) -> инвертирование логического значения
-fn process_not(input: &str) -> String {
-    RE_NOT
-        .replace_all(input, |caps: &regex::Captures| {
-            let value = caps[1].trim().to_lowercase();
-            match value.as_str() {
-                "true" | "1" => "false".to_string(),
-                "false" | "0" | "" => "true".to_string(),
-                _ => "false".to_string(), // непустые значения считаются true
-            }
-        })
-        .to_string()
-}
 
 // === Вспомогательные функции ===
 
@@ -516,6 +482,27 @@ mod tests {
         assert!(result.contains("A: [6]"), "длина не 6: {result}");
         assert!(result.contains("B: [2]"), "позиция не 2: {result}");
         assert!(result.contains("C: [ab]"), "подстрока не ab: {result}");
+    }
+
+    /// ВЛОЖЕННЫЕ вызовы в первом аргументе раскрываются.
+    ///
+    /// Регрессия: шаблоны регулярных выражений запрещали скобки в
+    /// аргументах, поэтому `%substr(%substr($t, 1), 2)` не раскрывался.
+    /// В библиотеке C4-PlantUML значение переменной накапливалось как
+    /// `%substr(%substr(%substr(...`, доросло до 1.3 МБ, и разбор занимал
+    /// 87 секунд. Проверено на сервере: `%substr(%substr("abcdef", 1), 2)`
+    /// равно `def`, `%strlen(%upper("abc"))` равно 3.
+    #[test]
+    fn test_nested_builtin_calls() {
+        assert_eq!(
+            process_builtins(r#"x = %substr(%substr("abcdef", 1), 2)"#),
+            "x = def"
+        );
+        assert_eq!(process_builtins(r#"x = %strlen(%upper("abc"))"#), "x = 3");
+        assert_eq!(
+            process_builtins(r#"x = %strpos(%lower("ABC"), "b")"#),
+            "x = 1"
+        );
     }
 
     /// Арифметика в присваивании с ПЕРЕМЕННОЙ в операнде.
