@@ -45,6 +45,16 @@ static RE_NOT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%not\(([^)]+)\)")
 
 /// Обрабатывает builtin функции в строке
 pub fn process_builtins(line: &str) -> String {
+    // Быстрый выход: без знака `%` встроенных функций быть не может.
+    //
+    // Ниже около двадцати регулярных выражений, и каждое сканирует строку
+    // целиком. Строк же в библиотеке C4-PlantUML десятки тысяч (каждая
+    // строка тела каждого макроса на каждом уровне вложенности), поэтому
+    // проверка одного символа экономит львиную долю времени разбора.
+    if !line.as_bytes().contains(&b'%') {
+        return line.to_string();
+    }
+
     let mut result = line.to_string();
 
     // === Простые функции без аргументов ===
@@ -157,7 +167,7 @@ fn process_lower(input: &str) -> String {
 /// аргументах встроенных функций пишет именно такие выражения
 /// (`$brPos + 1`, `$width - 2`). Возвращает `None`, если разобрать не
 /// удалось — тогда вызывающий код оставляет вызов как есть.
-fn eval_index(expression: &str) -> Option<i64> {
+pub(crate) fn eval_index(expression: &str) -> Option<i64> {
     let expression = expression.trim();
     if expression.is_empty() {
         return None;
@@ -475,6 +485,27 @@ mod tests {
 
         let result = process_builtins(r#"sub = %substr("hello", 10)"#);
         assert_eq!(result, "sub = ");
+    }
+
+    /// Арифметика в присваивании с ПЕРЕМЕННОЙ в операнде.
+    ///
+    /// Регрессия: `!$p = 5`, затем `!$p = $p - 1` сохраняло текст «5 - 1».
+    /// Из-за этого `!$brPos = $brPos - 1` в `$breakText` из C4-PlantUML не
+    /// уменьшал счётчик, и внутренний `!while` крутился 10 000 итераций.
+    /// Проверено на сервере: результат равен 4.
+    #[test]
+    fn test_assignment_arithmetic_with_variable() {
+        let preprocessor = crate::Preprocessor::new();
+        let source = "@startuml\n!$p = 5\n!$p = $p - 1\nA: [$p]\n!$q = $p * 2\nB: [$q]\n@enduml\n";
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        assert!(
+            result.contains("A: [4]"),
+            "вычитание не вычислилось: {result}"
+        );
+        assert!(
+            result.contains("B: [8]"),
+            "умножение не вычислилось: {result}"
+        );
     }
 
     /// Индекс может быть АРИФМЕТИЧЕСКИМ ВЫРАЖЕНИЕМ.

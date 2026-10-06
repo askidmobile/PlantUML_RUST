@@ -269,6 +269,12 @@ pub struct PreprocessContext {
     foreach_stack: Vec<ForeachDef>,
     /// Стек собираемых циклов `!while`.
     while_stack: Vec<WhileDef>,
+    /// Глубина ВЛОЖЕННЫХ `!while` внутри собираемого тела.
+    ///
+    /// Вложенный цикл остаётся ТЕКСТОМ в теле внешнего и исполняется на
+    /// каждой его итерации. Прежде он исполнялся один раз при сборе — с
+    /// ещё не определёнными переменными внешнего тела.
+    while_nesting: usize,
     /// Имена переменных, которые нужно ПЕРЕНЕСТИ в вызывающий контекст.
     ///
     /// Переменные, заданные телом макроса, ЛОКАЛЬНЫ: проверено на сервере —
@@ -313,6 +319,7 @@ impl Default for PreprocessContext {
             macro_variables: IndexMap::new(),
             foreach_stack: Vec::new(),
             while_stack: Vec::new(),
+            while_nesting: 0,
             exported: Vec::new(),
             expanded_bytes: 0,
             expansion_limit: DEFAULT_EXPANSION_LIMIT,
@@ -579,15 +586,32 @@ impl<R: FileResolver> Preprocessor<R> {
             // Нужно для `$breakText` в C4: он ищет переводы строки
             // в цикле.
             if !ctx.while_stack.is_empty() {
-                if let Some(rest) = trimmed.strip_prefix("!while ") {
-                    ctx.while_stack.push(WhileDef {
-                        condition: rest.trim().to_string(),
-                        body: Vec::new(),
-                    });
+                // ВЛОЖЕННЫЙ цикл остаётся текстом в теле внешнего.
+                //
+                // Так он исполнится на КАЖДОЙ итерации внешнего — как в
+                // PlantUML. Прежде вложенный цикл исполнялся один раз при
+                // сборе, когда переменные внешнего тела ещё не заданы:
+                // в `$breakText` из C4-PlantUML это давало `$brPos`
+                // неопределённой, условие внутреннего цикла всегда было
+                // истинным, и он крутился все 10 000 итераций — 94 секунды
+                // на разбор библиотеки C4.
+                if trimmed.starts_with("!while ") {
+                    ctx.while_nesting += 1;
+                    if let Some(current) = ctx.while_stack.last_mut() {
+                        current.body.push(line.to_string());
+                    }
                     continue;
                 }
 
                 if trimmed == "!endwhile" {
+                    if ctx.while_nesting > 0 {
+                        ctx.while_nesting -= 1;
+                        if let Some(current) = ctx.while_stack.last_mut() {
+                            current.body.push(line.to_string());
+                        }
+                        continue;
+                    }
+
                     let Some(definition) = ctx.while_stack.pop() else {
                         continue;
                     };
@@ -1221,6 +1245,7 @@ impl<R: FileResolver> Preprocessor<R> {
             macro_variables: IndexMap::new(),
             foreach_stack: Vec::new(),
             while_stack: Vec::new(),
+            while_nesting: 0,
             exported: Vec::new(),
             // Счётчик и предел НАСЛЕДУЮТСЯ: иначе каждый макрос начинал бы
             // с нуля и общий предел ничего не ограничивал.
@@ -1449,7 +1474,7 @@ impl<R: FileResolver> Preprocessor<R> {
         let mut output = String::new();
         let body = definition.body.join("\n");
 
-        for _ in 0..MAX_WHILE_ITERATIONS {
+        for __iteration in 0..MAX_WHILE_ITERATIONS {
             if !evaluate_condition_public(&definition.condition, ctx) {
                 break;
             }
@@ -1738,8 +1763,42 @@ pub(crate) fn evaluate_concat(expression: &str, ctx: &PreprocessContext) -> Stri
         }
     }
 
+    // АРИФМЕТИКА с `-`, `*`, `/`.
+    //
+    // Проверено на сервере: `!$p = 5`, затем `!$p = $p - 1` даёт 4, а
+    // `!$q = $p * 2` — 8. Прежде такие выражения сохранялись ТЕКСТОМ,
+    // поэтому `!$brPos = $brPos - 1` в `$breakText` из C4-PlantUML не
+    // уменьшал счётчик, и внутренний `!while` крутился 10 000 итераций.
+    if out.trim().is_empty() {
+        if let Some(value) = eval_spaced_arithmetic(out.trim(), last.trim()) {
+            return value.to_string();
+        }
+    }
+
     out.push_str(&last);
     out.trim().to_string()
+}
+
+/// Вычисляет арифметику с `-`, `*`, `/`, требуя ПРОБЕЛЫ вокруг знака.
+///
+/// Пробелы обязательны: без них `2024-01-01` — это дата, а не вычитание,
+/// и превращать её в число нельзя.
+fn eval_spaced_arithmetic(head: &str, tail: &str) -> Option<i64> {
+    let expression = if head.is_empty() {
+        tail.to_string()
+    } else {
+        format!("{head} {tail}")
+    };
+    let spaced = expression.char_indices().any(|(index, ch)| {
+        matches!(ch, '-' | '*' | '/')
+            && index > 0
+            && expression[..index].ends_with(' ')
+            && expression[index + 1..].starts_with(' ')
+    });
+    if !spaced {
+        return None;
+    }
+    crate::builtins::eval_index(&expression)
 }
 
 /// Приводит одну часть конкатенации к значению.
@@ -1863,6 +1922,25 @@ mod tests {
         assert!(
             matches!(result, Err(PreprocessError::ExpansionLimit { .. })),
             "ожидалась ошибка бюджета раскрытия, получено: {result:?}"
+        );
+    }
+
+    /// Вложенный `!while` исполняется на КАЖДОЙ итерации внешнего.
+    ///
+    /// Регрессия: прежде вложенный цикл исполнялся один раз при сборе тела
+    /// внешнего — когда переменные внешнего ещё не заданы. В `$breakText`
+    /// из C4-PlantUML это оставляло `$brPos` неопределённой, условие
+    /// внутреннего цикла всегда было истинным, и он крутился все 10 000
+    /// итераций: 94 секунды на разбор библиотеки C4.
+    #[test]
+    fn test_nested_while_sees_outer_variables() {
+        let source = "@startuml\n!$i = 0\n!while ($i < 2)\n!$i = $i + 1\n!$j = 3\n!while ($j > 0)\n!$j = $j - 1\n!endwhile\nX$i$j\n!endwhile\n@enduml\n";
+        let preprocessor = Preprocessor::new();
+        let result = preprocessor.process(source).expect("разбор должен пройти");
+        // Внешний цикл дважды, внутренний каждый раз опустошает $j до нуля.
+        assert!(
+            result.contains("X10") && result.contains("X20"),
+            "вложенный цикл не увидел переменные внешнего: {result}"
         );
     }
 
