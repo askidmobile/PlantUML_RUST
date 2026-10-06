@@ -208,6 +208,16 @@ impl FsFileResolver {
 
 impl FileResolver for FsFileResolver {
     fn read_file(&self, path: &str) -> Result<String> {
+        // Библиотека C4-PlantUML подключает общий файл макросов по
+        // АБСОЛЮТНОМУ адресу GitHub. В PlantUML такие ссылки разрешает
+        // встроенная библиотека — повторяем это и здесь, иначе включение
+        // падает с «файл не найден» ещё до файловой системы.
+        if let Some(stdlib_path) = crate::c4_url_to_stdlib(path) {
+            if let Some(content) = plantuml_stdlib::get_include(&stdlib_path) {
+                return Ok(content.to_string());
+            }
+        }
+
         // Разрешаем путь
         let resolved_path = self.resolve_path(path).ok_or_else(|| {
             PreprocessError::FileNotFound(format!(
@@ -361,7 +371,9 @@ mod tests {
 
         // Читаем содержимое
         let content = resolver.read_file("<C4/C4_Context>").unwrap();
-        assert!(content.contains("C4_CONTEXT"));
+        // Актуальная библиотека C4-PlantUML: файл начинается с заголовка
+        // `!include`, а макросы описаны в `C4.puml`.
+        assert!(content.contains("C4-PlantUML"));
         assert!(content.contains("Person"));
     }
 

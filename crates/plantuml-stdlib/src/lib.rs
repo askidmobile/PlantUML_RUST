@@ -36,6 +36,7 @@ mod archimate;
 mod aws;
 mod azure;
 mod c4;
+mod c4_upstream;
 mod common;
 pub mod inflate;
 mod kubernetes;
@@ -55,6 +56,7 @@ static STDLIB_REGISTRY: LazyLock<HashMap<&'static str, &'static str>> = LazyLock
     aws::register(&mut registry);
     azure::register(&mut registry);
     c4::register(&mut registry);
+    c4_upstream::register(&mut registry);
     kubernetes::register(&mut registry);
     tupadr3::register(&mut registry);
     logos::register(&mut registry);
@@ -230,7 +232,10 @@ mod tests {
         let content = get_include("C4/C4_Context");
         assert!(content.is_some());
         let text = content.unwrap();
-        assert!(text.contains("!define"));
+        // Актуальная библиотека C4-PlantUML определяет макросы через
+        // `!function`/`!procedure`, а не через `!define`.
+        assert!(text.contains("!include"));
+        assert!(text.contains("C4-PlantUML"));
     }
 
     #[test]

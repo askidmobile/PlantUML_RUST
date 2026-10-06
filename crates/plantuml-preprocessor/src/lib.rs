@@ -86,7 +86,7 @@ impl FileResolver for NoopFileResolver {
 ///
 /// `https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/
 /// C4_Context.puml` → `C4/C4_Context`.
-fn c4_url_to_stdlib(path: &str) -> Option<String> {
+pub(crate) fn c4_url_to_stdlib(path: &str) -> Option<String> {
     const PREFIX: &str = "https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/";
     let rest = path.strip_prefix(PREFIX)?;
     // Отбрасываем ветку (`master/`) и расширение.
@@ -711,7 +711,14 @@ impl<R: FileResolver> Preprocessor<R> {
             if trimmed.starts_with('!') {
                 let included_content = self.process_directive_with_output(trimmed, ctx)?;
                 if let Some(content) = included_content {
-                    output.push_str(&content);
+                    // ТЕКСТ, ВОЗВРАЩЁННЫЙ МАКРОСОМ, ТОЖЕ ФИЛЬТРУЕМ.
+                    //
+                    // Процедуры стандартной библиотеки возвращают готовые
+                    // строки `skinparam ...` (в C4-PlantUML это
+                    // `$defineSkinparams`). Такие строки минуют построчную
+                    // проверку ниже и попадали прямо в парсер, который
+                    // падал на склейке `{}skinparam`.
+                    self.push_filtered(&content, ctx, &mut output);
                 }
                 continue;
             }
@@ -1079,6 +1086,73 @@ impl<R: FileResolver> Preprocessor<R> {
     /// задают внешний вид именно так. Раньше блок не распознавался, его
     /// строки не поглощались, и во вход парсера попадал осиротевший `}`.
     fn handle_skinparam(&self, line: &str, ctx: &mut PreprocessContext) {
+        // Библиотеки собирают блоки skinparam СКЛЕЙКОЙ строк, разделяя их
+        // последовательностью `\n`. В значении переменной она остаётся
+        // ДВУМЯ символами (так же, как в PlantUML), поэтому в одну строку
+        // попадают сразу несколько блоков:
+        //     skinparam rectangle<<boundary>> { ... }skinparam database... {
+        // Разворачиваем разделитель в реальные переводы строк и разбираем
+        // каждый блок отдельно — иначе блок не распознаётся и весь текст
+        // уходит в парсер, который падает на `{}skinparam`.
+        // Библиотеки собирают блоки skinparam СКЛЕЙКОЙ строк, а разделитель
+        // между ними (`$bl()` в C4-PlantUML) вычисляется в пустоту, если
+        // встроенная функция не раскрылась внутри `!return`. В результате
+        // в одну строку попадают сразу несколько блоков:
+        //     skinparam rectangle<<boundary>> {    FontColor #444   ...}skinparam database<<boundary>> {...
+        // Восстанавливаем структуру: закрывающая скобка завершает блок,
+        // а отступ в четыре пробела начинает свойство.
+        let normalized = line
+            .replace("}skinparam ", "}\nskinparam ")
+            .replace("{    ", "{\n    ");
+        if normalized.contains('\n') {
+            for part in normalized.split('\n') {
+                self.handle_skinparam_line(part, ctx);
+            }
+            return;
+        }
+
+        self.handle_skinparam_line(line, ctx);
+    }
+
+    /// Добавляет текст в вывод, забирая из него строки `skinparam`.
+    ///
+    /// Нужно для содержимого, возвращённого макросом: оно не проходит
+    /// построчную обработку и иначе уносит настройки стиля в парсер.
+    fn push_filtered(&self, content: &str, ctx: &mut PreprocessContext, output: &mut String) {
+        // Состояние ДО обработки. Возвращённый макросом текст может
+        // открыть блок `skinparam X { ... }` и не закрыть его: в C4-PlantUML
+        // так и происходит, и тогда `in_block()` остаётся истинным — а
+        // построчная обработка ниже начинает съедать СЛЕДУЮЩИЕ строки
+        // диаграммы. Проверено: после `!include <C4/C4_Container>` пропадал
+        // `class A`, и вместе с ним — тип диаграммы.
+        let was_in_block = ctx.skin_params.in_block();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("skinparam ") {
+                self.handle_skinparam(trimmed, ctx);
+                continue;
+            }
+            // Пока идёт блок `skinparam X { ... }`, его строки тоже
+            // относятся к настройкам и в вывод не попадают.
+            if ctx.skin_params.in_block() {
+                self.handle_skinparam(trimmed, ctx);
+                continue;
+            }
+            output.push_str(line);
+            output.push('\n');
+        }
+
+        // Блок, открытый ИМЕННО этим содержимым, закрываем здесь же.
+        let mut guard = 0;
+        while !was_in_block && ctx.skin_params.in_block() && guard < 64 {
+            ctx.skin_params.end_block();
+            guard += 1;
+        }
+    }
+
+    /// Разбирает ОДНУ строку skinparam (без нормализации склейки).
+    fn handle_skinparam_line(&self, line: &str, ctx: &mut PreprocessContext) {
         // Внутри блока строки не начинаются со `skinparam`, поэтому
         // префикс снимаем только если он есть, иначе берём строку целиком.
         // (`strip_prefix(..).unwrap_or("")` здесь обнулил бы строку `}`.)
@@ -2075,7 +2149,7 @@ mod tests {
             .process("@startuml\n!include <C4/C4_Context>\nA -> B\n@enduml")
             .expect("stdlib должен быть доступен по умолчанию");
         assert!(
-            out.contains("C4_Context.puml") || out.contains("C4 Model"),
+            out.contains("C4-PlantUML") || out.contains("C4 Model"),
             "содержимое stdlib не подставлено"
         );
     }
@@ -2995,7 +3069,7 @@ mod include_tests {
             .process("@startuml\n!include <C4/C4_Context>\nA -> B\n@enduml")
             .expect("stdlib-включение должно разрешаться");
         assert!(
-            out.contains("C4_Context.puml") || out.contains("C4 Model"),
+            out.contains("C4-PlantUML") || out.contains("C4 Model"),
             "содержимое stdlib не подставлено, вывод:\n{out}"
         );
     }
