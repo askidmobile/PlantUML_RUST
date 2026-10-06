@@ -103,20 +103,40 @@ impl ComponentLayoutEngine {
             self.config.node_margin
         };
 
+        // ПЕРВЫЙ ПРОХОД: раскладываем узлы от общего начала.
+        //
+        // Раньше все узлы ставились по одному `node_x`, то есть
+        // выравнивались РАМКИ. Эталон выравнивает ВЛОЖЕННЫЕ фигуры:
+        // измерено на сервере по четырём вариантам диаграммы — центр
+        // вложенной фигуры первого узла совпадает с центром второго
+        // (97/97, 82/82, 214/214). Именно поэтому ребро в эталоне
+        // вертикально: `M97,85.64 C97,112.56 97,156.7 97,185.1`.
+        let mut laid: Vec<(Vec<LayoutElement>, Rect, HashMap<String, Rect>)> = Vec::new();
         for pkg in &diagram.packages {
-            let (pkg_elements, pkg_bounds, inner_positions) =
-                self.layout_package(pkg, node_x, package_y);
+            let laid_pkg = self.layout_package(pkg, node_x, package_y);
+            package_y = laid_pkg.1.y + laid_pkg.1.height + self.config.package_vertical_spacing;
+            laid.push(laid_pkg);
+        }
 
-            for elem in pkg_elements {
+        // ВТОРОЙ ПРОХОД: сдвигаем узлы так, чтобы связанные фигуры встали
+        // на одну вертикаль. Ограничение — не левее поля.
+        let shifts = self.align_package_children(&laid, &diagram.connections, node_x);
+
+        for (index, (pkg_elements, _bounds, inner_positions)) in laid.into_iter().enumerate() {
+            let shift = shifts.get(index).copied().unwrap_or(0.0);
+
+            for mut elem in pkg_elements {
+                elem.bounds.x += shift;
                 elements.push(elem);
             }
 
             // Добавляем позиции вложенных компонентов
             for (name, rect) in inner_positions {
-                component_positions.insert(name, rect);
+                component_positions.insert(
+                    name,
+                    Rect::new(rect.x + shift, rect.y, rect.width, rect.height),
+                );
             }
-
-            package_y = pkg_bounds.y + pkg_bounds.height + self.config.package_vertical_spacing;
         }
 
         // Создаём связи
@@ -377,6 +397,88 @@ impl ComponentLayoutEngine {
     }
 
     /// Располагает пакет и возвращает элементы, bounds и позиции вложенных компонентов
+    /// Сдвиги узлов, выравнивающие связанные вложенные фигуры по вертикали.
+    ///
+    /// Первый узел остаётся на месте, остальные сдвигаются так, чтобы
+    /// центр фигуры-источника совпал с центром фигуры-приёмника. Если
+    /// после этого узел вылезает левее поля, весь набор сдвигается вправо.
+    fn align_package_children(
+        &self,
+        laid: &[(Vec<LayoutElement>, Rect, HashMap<String, Rect>)],
+        connections: &[plantuml_ast::component::Connection],
+        node_x: f64,
+    ) -> Vec<f64> {
+        let mut shifts = vec![0.0_f64; laid.len()];
+        let mut known = vec![false; laid.len()];
+        if let Some(first) = known.first_mut() {
+            *first = true;
+        }
+
+        // Какому узлу принадлежит вложенная фигура.
+        let mut owner: HashMap<&str, usize> = HashMap::new();
+        for (index, (_, _, inner)) in laid.iter().enumerate() {
+            for name in inner.keys() {
+                owner.insert(name.as_str(), index);
+            }
+        }
+
+        let centre = |index: usize, name: &str| -> Option<f64> {
+            laid[index]
+                .2
+                .get(name)
+                .map(|rect| rect.x + rect.width / 2.0)
+        };
+
+        // Проходов столько же, сколько узлов: сдвиг распространяется по цепочке.
+        for _ in 0..laid.len() {
+            for conn in connections {
+                let (Some(&source), Some(&target)) =
+                    (owner.get(conn.from.as_str()), owner.get(conn.to.as_str()))
+                else {
+                    continue;
+                };
+                if source == target {
+                    continue;
+                }
+
+                match (known[source], known[target]) {
+                    (true, false) => {
+                        if let (Some(from), Some(to)) =
+                            (centre(source, &conn.from), centre(target, &conn.to))
+                        {
+                            shifts[target] = from + shifts[source] - to;
+                            known[target] = true;
+                        }
+                    }
+                    (false, true) => {
+                        if let (Some(from), Some(to)) =
+                            (centre(source, &conn.from), centre(target, &conn.to))
+                        {
+                            shifts[source] = to + shifts[target] - from;
+                            known[source] = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Ни один узел не должен уехать левее поля.
+        let leftmost = laid
+            .iter()
+            .enumerate()
+            .map(|(index, (_, bounds, _))| bounds.x + shifts[index])
+            .fold(f64::INFINITY, f64::min);
+        if leftmost < node_x && leftmost.is_finite() {
+            let correction = node_x - leftmost;
+            for shift in &mut shifts {
+                *shift += correction;
+            }
+        }
+
+        shifts
+    }
+
     fn layout_package(
         &self,
         pkg: &plantuml_ast::component::ComponentPackage,
