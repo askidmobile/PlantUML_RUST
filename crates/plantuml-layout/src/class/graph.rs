@@ -352,7 +352,20 @@ impl Graph {
                 //
                 // Подтверждается эталоном class_inheritance: Dog и Cat на
                 // y=7, Animal на y=131.29.
-                let (graph_from, graph_to) = (from_idx, to_idx);
+                // Связь, заданная КЛЮЧЕВЫМ СЛОВОМ (`extends`/`implements`),
+                // раскладывается НАОБОРОТ: родитель сверху, ребёнок снизу.
+                //
+                // Проверено на сервере минимальными диаграммами:
+                //   `Dog --|> Animal`          — сверху Dog,
+                //   `class Dog extends Animal` — сверху Animal.
+                // Треугольник наследования в обоих случаях стоит у РОДИТЕЛЯ,
+                // поэтому меняем только порядок слоёв, а `from`/`to` не трогаем:
+                // иначе стрелка укажет родителя на ребёнка.
+                let (graph_from, graph_to) = if rel.declared_by_keyword {
+                    (to_idx, from_idx)
+                } else {
+                    (from_idx, to_idx)
+                };
                 edges.push(Edge::new(graph_from, graph_to, rel));
             }
         }

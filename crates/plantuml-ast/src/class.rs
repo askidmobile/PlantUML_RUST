@@ -338,6 +338,18 @@ pub struct Relationship {
     pub line_style: LineStyle,
     /// Направление
     pub direction: Option<Direction>,
+    /// Связь задана КЛЮЧЕВЫМ СЛОВОМ (`extends`/`implements`), а не стрелкой.
+    ///
+    /// PlantUML раскладывает эти две записи ПРОТИВОПОЛОЖНО. Проверено на
+    /// сервере минимальными диаграммами:
+    ///   `Dog --|> Animal`          — сверху Dog (ребёнок),
+    ///   `class Dog extends Animal` — сверху Animal (родитель).
+    /// Треугольник наследования в обоих случаях стоит у РОДИТЕЛЯ, то есть
+    /// направление стрелки одинаково и `from`/`to` менять нельзя. Значит
+    /// различие нужно хранить отдельным признаком, а разворачивать только
+    /// порядок слоёв в построителе графа.
+    #[serde(default)]
+    pub declared_by_keyword: bool,
 }
 
 impl Relationship {
@@ -356,7 +368,18 @@ impl Relationship {
             to_cardinality: None,
             line_style: LineStyle::Solid,
             direction: None,
+            declared_by_keyword: false,
         }
+    }
+
+    /// Помечает связь как заданную ключевым словом (`extends`/`implements`).
+    ///
+    /// Такие связи PlantUML раскладывает ПРОТИВОПОЛОЖНО стрелочным: родитель
+    /// оказывается сверху. Направление самой стрелки при этом не меняется —
+    /// треугольник в обоих случаях стоит у родителя.
+    pub fn declared_by_keyword(mut self) -> Self {
+        self.declared_by_keyword = true;
+        self
     }
 
     /// Наследование

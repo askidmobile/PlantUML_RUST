@@ -59,6 +59,7 @@ fn process_rule(
                         to_cardinality: None,
                         line_style: plantuml_ast::common::LineStyle::Solid,
                         direction: None,
+                        declared_by_keyword: true,
                     });
                 }
                 // Создаём relationship для implements
@@ -72,6 +73,7 @@ fn process_rule(
                         to_cardinality: None,
                         line_style: plantuml_ast::common::LineStyle::Dashed,
                         direction: None,
+                        declared_by_keyword: true,
                     });
                 }
             }
@@ -92,6 +94,7 @@ fn process_rule(
                         to_cardinality: None,
                         line_style: plantuml_ast::common::LineStyle::Solid,
                         direction: None,
+                        declared_by_keyword: true,
                     });
                 }
             }
@@ -112,6 +115,7 @@ fn process_rule(
                         to_cardinality: None,
                         line_style: plantuml_ast::common::LineStyle::Solid,
                         direction: None,
+                        declared_by_keyword: true,
                     });
                 }
                 for iface in result.implements {
@@ -124,6 +128,7 @@ fn process_rule(
                         to_cardinality: None,
                         line_style: plantuml_ast::common::LineStyle::Dashed,
                         direction: None,
+                        declared_by_keyword: true,
                     });
                 }
             }
@@ -641,6 +646,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
         to_cardinality,
         line_style,
         direction: None,
+        declared_by_keyword: false,
     })
 }
 
