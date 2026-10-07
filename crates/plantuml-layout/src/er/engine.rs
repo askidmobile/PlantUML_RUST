@@ -129,7 +129,11 @@ impl ErLayoutEngine {
                 let stereo_str = a
                     .stereotype
                     .as_deref()
-                    .map(|s| format!(" <<{}>>", s))
+                    // PlantUML рисует стереотип КАВЫЧКАМИ-ЁЛОЧКАМИ, а не
+                    // угловыми скобками: в эталоне `ER: Диаграмма` поле
+                    // выглядит как `id : int «PK»` шириной 83.8, тогда как
+                    // `id : int <<PK>>` даёт 171.3 — почти вдвое больше.
+                    .map(|s| format!(" «{s}»"))
                     .unwrap_or_default();
                 // Одна согласованная мера вместо двух разных констант
                 // (9.0 для имени и 7.5 для атрибутов)
@@ -353,7 +357,7 @@ impl ErLayoutEngine {
             let stereo_str = attr
                 .stereotype
                 .as_ref()
-                .map(|s| format!(" <<{}>>", s))
+                .map(|s| format!(" «{s}»"))
                 .unwrap_or_default();
 
             // Обязательный атрибут помечается КРУЖКОМ, а не звёздочкой в тексте.
