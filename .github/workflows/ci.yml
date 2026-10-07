@@ -92,8 +92,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # ВАЖНО: в `uses:` контекст `matrix` недоступен — GitHub считает такой
+      # workflow невалидным целиком («Unrecognized named-value: 'matrix'»),
+      # запуск создаётся без заданий. Поэтому версия тулчейна передаётся
+      # входным параметром `toolchain`, а не через @-ref.
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@${{ matrix.rust }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
         
       - name: Cache cargo registry
         uses: actions/cache@v4
