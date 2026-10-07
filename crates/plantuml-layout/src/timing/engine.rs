@@ -112,6 +112,9 @@ const TIME_TICK_LENGTH: f64 = 5.0;
 const TIME_TICK_STEP: f64 = 50.0;
 
 /// Насколько шкала выступает правее последнего деления (измерено).
+/// База ширины левой панели (измерено по эталонам `robust`+`concise`).
+const TIMING_LEFT_PANEL_BASE: f64 = 4.8;
+
 const TIME_AXIS_TAIL: f64 = 5.0;
 use crate::{EdgeType, ElementType, LayoutElement};
 
@@ -189,7 +192,20 @@ impl TimingLayoutEngine {
         }
 
         // 4. Рисуем участников и их lanes
-        let timeline_start_x = self.config.padding + self.config.participant_label_width;
+        //
+        // Ширина левой панели ВЫЧИСЛЯЕТСЯ, а не берётся из константы.
+        // Эталон (`robust`+`concise`, 4 события): при подписях состояний
+        // «A»/«B» первое деление на 33.2 при рамке слева 20, при «AB»/«CD»
+        // — 41.4, при «ABCDEFGH» — 91.9. Отступ линеен по длине подписи:
+        // наклон 8.39 на символ, база 4.8. Сверка с нашими метриками:
+        // `width("A",12)`=8.437, `width("AB",12)`=16.561,
+        // `width("ABCDEFGH",12)`=66.856 — совпадает с (отступ − 4.8) на
+        // всех трёх точках. То есть панель считается ОБЫЧНЫМ шрифтом
+        // (`width`), а НЕ жирным: `width_bold` дала бы 9.48/18.62/75.15 и
+        // разошлась бы. Прежняя константа 71.732 была подобрана под
+        // `timing_basic` и не переносилась на другие диаграммы.
+        let left_panel_width = self.left_panel_width(diagram);
+        let timeline_start_x = self.config.padding + left_panel_width;
 
         // Длина шкалы.
         //
@@ -507,6 +523,21 @@ impl TimingLayoutEngine {
     ///
     /// Нужен для шкалы: PlantUML ставит подпись на КАЖДОЕ событие, а не
     /// через равные интервалы значений (см. `draw_time_axis`).
+    /// Ширина левой панели: максимум ширины подписей состояний плюс база.
+    ///
+    /// Измерено по эталонам `robust`+`concise`: отступ первого деления от
+    /// левого края рамки равен `8.39 * длина + 4.8`, и наша `width` (НЕ
+    /// `width_bold`) совпадает с этим на трёх точках.
+    fn left_panel_width(&self, diagram: &TimingDiagram) -> f64 {
+        let mut max_width: f64 = 0.0;
+        for change in &diagram.state_changes {
+            let w = crate::text::TextMeasurer::default()
+                .width(&change.state, self.config.label_font_size);
+            max_width = max_width.max(w);
+        }
+        max_width + TIMING_LEFT_PANEL_BASE
+    }
+
     fn collect_time_values(&self, diagram: &TimingDiagram) -> Vec<f64> {
         let mut result: Vec<f64> = Vec::new();
         let mut cumulative = 0.0;
