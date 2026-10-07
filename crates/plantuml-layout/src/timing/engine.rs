@@ -352,6 +352,7 @@ impl TimingLayoutEngine {
                     self.draw_robust_timeline(
                         &mut elements,
                         i,
+                        diagram,
                         &participant.name,
                         lane_y,
                         lane_height,
@@ -365,6 +366,7 @@ impl TimingLayoutEngine {
                     self.draw_concise_timeline(
                         &mut elements,
                         i,
+                        diagram,
                         &participant.name,
                         lane_y,
                         lane_height,
@@ -579,18 +581,32 @@ impl TimingLayoutEngine {
         let min = times.iter().copied().fold(f64::INFINITY, f64::min);
         let max = times.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let delta = max - min;
-        if delta <= 0.0 {
+        let step = Self::hcf_step(&times, min);
+        if delta <= 0.0 || step <= 0.0 {
             return 1;
         }
-        // НОД времён как шаг сетки (все времена кратны ему по построению).
-        let mut step = delta;
-        for t in &times {
+        (delta / step).round() as usize + 1
+    }
+
+    /// Шаг сетки делений — НОД всех времён (все времена кратны ему).
+    ///
+    /// Именно НА ЭТОТ шаг умножается `TIME_TICK_STEP`, чтобы получить
+    /// позицию: и деления, и сегменты состояний обязаны считаться ОДНОЙ
+    /// формулой `start_x + ((t - min) / шаг) * TIME_TICK_STEP`. Прежде
+    /// сегменты считались как `(t - min) * time_scale`, что давало размах
+    /// 550 вместо 600 и сдвигало последние сегменты на 81.5 влево.
+    fn hcf_step(times: &[f64], min: f64) -> f64 {
+        let mut step = f64::INFINITY;
+        for t in times {
             let d = t - min;
             if d > 0.0 {
                 step = step.min(d);
             }
         }
-        for t in &times {
+        if !step.is_finite() || step <= 0.0 {
+            return 0.0;
+        }
+        for t in times {
             let d = t - min;
             if d > 0.0 {
                 let r = d % step;
@@ -599,10 +615,7 @@ impl TimingLayoutEngine {
                 }
             }
         }
-        if step <= 0.0 {
-            return 1;
-        }
-        (delta / step).round() as usize + 1
+        step
     }
 
     fn calculate_time_range(&self, diagram: &TimingDiagram) -> (f64, f64) {
@@ -642,6 +655,7 @@ impl TimingLayoutEngine {
         &self,
         elements: &mut Vec<LayoutElement>,
         participant_idx: usize,
+        diagram: &TimingDiagram,
         participant_name: &str,
         lane_y: f64,
         lane_height: f64,
@@ -672,9 +686,10 @@ impl TimingLayoutEngine {
         // 1000/1100 интервалы выходили равными, тогда как эталон даёт
         // неравные (47.2 / 39.1 / 83.8). Измерено: подпись «Disconnected»
         // у эталона на x=651.6, у нас была на 483.1 — сдвиг 168.5.
+        let hcf = Self::hcf_step(&self.collect_time_values(diagram), min_time);
         let step = |index: usize| {
             let t = changes[index].time.as_f64();
-            start_x + (t - min_time) * self.config.time_scale
+            start_x + ((t - min_time) / hcf) * TIME_TICK_STEP
         };
         // Последний сегмент кончается на ПОСЛЕДНЕМ времени, а не на конце
         // оси: в эталоне последний горизонтальный отрезок идёт до 689.6 —
@@ -782,6 +797,7 @@ impl TimingLayoutEngine {
         &self,
         elements: &mut Vec<LayoutElement>,
         participant_idx: usize,
+        diagram: &TimingDiagram,
         participant_name: &str,
         lane_y: f64,
         lane_height: f64,
@@ -808,9 +824,10 @@ impl TimingLayoutEngine {
         // 1000/1100 интервалы выходили равными, тогда как эталон даёт
         // неравные (47.2 / 39.1 / 83.8). Измерено: подпись «Disconnected»
         // у эталона на x=651.6, у нас была на 483.1 — сдвиг 168.5.
+        let hcf = Self::hcf_step(&self.collect_time_values(diagram), min_time);
         let step = |index: usize| {
             let t = changes[index].time.as_f64();
-            start_x + (t - min_time) * self.config.time_scale
+            start_x + ((t - min_time) / hcf) * TIME_TICK_STEP
         };
         // Последний сегмент кончается на ПОСЛЕДНЕМ времени, а не на конце
         // оси: в эталоне последний горизонтальный отрезок идёт до 689.6 —
