@@ -37,7 +37,14 @@ const OBJECT_TEXT_INSET: f64 = 7.0;
 const OBJECT_NAME_FONT_SIZE: f64 = 14.0;
 
 /// Кегль подписей полей объекта (в эталоне `font-size="12"`).
-const OBJECT_FIELD_FONT_SIZE: f64 = 12.0;
+/// Кегль подписей полей объекта.
+///
+/// Измерено по эталону `Object: Диаграмма`: текст `email =
+/// "john@example.com"` занимает 211.2, что соответствует кеглю 14 (наш
+/// замер при 14 даёт 199.18, при 12 — только 170.7). Раньше поля
+/// рисовались кеглем 12, из-за чего блок `john` выходил 183 при
+/// эталонных 223.
+const OBJECT_FIELD_FONT_SIZE: f64 = 14.0;
 
 /// Кегль подписей полей.
 fn object_field_font_size() -> f64 {
@@ -311,7 +318,7 @@ impl ObjectLayoutEngine {
                     properties: std::collections::HashMap::new(),
                     element_type: ElementType::Text {
                         text: field_text,
-                        font_size: 12.0,
+                        font_size: OBJECT_FIELD_FONT_SIZE,
                     },
                 });
             }

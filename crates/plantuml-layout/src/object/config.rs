@@ -23,7 +23,7 @@ impl Default for ObjectLayoutConfig {
             object_width: 140.0,
             object_min_height: 36.3,
             field_height: 16.3,
-            horizontal_spacing: 60.0,
+            horizontal_spacing: 35.0,
             vertical_spacing: 77.0,
             padding: 7.0,
         }
