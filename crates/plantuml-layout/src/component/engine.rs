@@ -26,12 +26,12 @@ const COMPONENT_IN_PACKAGE_SPACING: f64 = 60.0;
 /// первый блок на 41 при `margin` 7.
 const CONTAINER_TOP_EXTRA: f64 = 34.0;
 
-const CONTAINER_HEADER_EXTRA: f64 = 16.0;
+const CONTAINER_HEADER_EXTRA: f64 = 15.0;
 
 /// То же при переходе из `package` в `database`.
 ///
 /// Измерено на сервере: `package` -> `database` даёт шаг 137.
-const CONTAINER_DATABASE_EXTRA: f64 = 31.0;
+const CONTAINER_DATABASE_EXTRA: f64 = 30.0;
 
 const COMPONENT_BASE_WIDTH: f64 = 4.6;
 /// Прибавка к ширине компонента на каждый символ подписи.
