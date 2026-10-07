@@ -389,10 +389,15 @@ impl TimingLayoutEngine {
         // Эталон `timing_basic`: по одной на каждое деление, от верхней
         // рамки до оси, цвет #333, толщина 0.5, штрих 3,5. Раньше их
         // не было вовсе.
-        let events = self.collect_time_values(diagram).len();
+        // Позиции — ТЕМ ЖЕ масштабом, что и деления оси (см. `tick_position`
+        // в `draw_time_axis`): `timeline_start_x + (t - min_time) *
+        // time_scale`. Прежде здесь стоял ИНДЕКСНЫЙ шаг `index *
+        // TIME_TICK_STEP`, из-за чего пунктиры не совпадали с делениями,
+        // а число линий было на одну БОЛЬШЕ числа делений (`0..=events`).
+        let times = self.collect_time_values(diagram);
         let frame_bottom = axis_y;
-        for index in 0..=events {
-            let x = timeline_start_x + index as f64 * TIME_TICK_STEP;
+        for (index, t) in times.iter().enumerate() {
+            let x = timeline_start_x + (t - min_time) * self.config.time_scale;
             elements.push(LayoutElement {
                 id: format!("lifeline_{index}"),
                 bounds: Rect::new(
