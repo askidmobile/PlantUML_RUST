@@ -47,6 +47,13 @@ pub struct SequenceLayoutConfig {
     pub text: TextMeasurer,
     /// Высота строки текста
     pub line_height: f64,
+    /// Кегль заголовка диаграммы (`title`).
+    ///
+    /// Измерено: в эталоне `sequence_complex` заголовок идёт с
+    /// `font-size="14"`, тогда как подписи сообщений — с 13.
+    pub title_font_size: f64,
+    /// Высота строки заголовка — сколько места он занимает по вертикали.
+    pub title_line_height: f64,
     /// Высота заголовка бокса (participant box)
     pub box_title_height: f64,
 }
@@ -81,8 +88,10 @@ impl Default for SequenceLayoutConfig {
             font_size: 13.0,
             participant_font_size: 14.0,
             text: TextMeasurer::default(),
-            line_height: 18.0,      // высота строки
-            box_title_height: 30.0, // высота заголовка бокса
+            line_height: 18.0,
+            title_font_size: 14.0,
+            title_line_height: 18.0, // высота строки
+            box_title_height: 30.0,  // высота заголовка бокса
         }
     }
 }

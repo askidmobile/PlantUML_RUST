@@ -160,6 +160,17 @@ const FRAGMENT_CONDITION_EXTRA: f64 = 95.44;
 ///
 /// Измерено: `sequence_fragments` — линия 32.95, рамка 16.95; большая
 /// диаграмма — линия 465.5, рамка 449.5. Оба раза ровно 16.
+/// Сколько вертикального места занимает заголовок `title`.
+///
+/// Измерено на сервере: две диаграммы, отличающиеся только наличием
+/// заголовка, дают верх коробки участника 10 и 47.297 — прибавка 37.297.
+const TITLE_BLOCK_HEIGHT: f64 = 37.297;
+
+/// Базовая линия заголовка от верха диаграммы.
+///
+/// Измерено там же: `y="27.995"` при кегле 14.
+const TITLE_BASELINE_Y: f64 = 27.995;
+
 const FRAGMENT_FRAME_LEFT_HALF: f64 = 16.0;
 
 /// Отступ правого края рамки фрагмента от крайней правой задействованной линии.
@@ -267,25 +278,32 @@ impl SequenceLayoutEngine {
             });
         }
 
-        // `title` — по центру над диаграммой
+        // `title` — по центру над диаграммой.
+        //
+        // Кегль 14, а не общий 13: в эталоне `sequence_complex` заголовок
+        // идёт с `font-size="14"`, как и подписи участников. Из-за 13 он
+        // был на 14.5% уже эталонного (392.63 против 459.46).
         if let Some(title) = &diagram.metadata.title {
             header_elements.push(LayoutElement {
                 id: "title".to_string(),
+                // Базис текста рендерер считает как `bounds.y + font_size`,
+                // поэтому верх задаём так, чтобы базис попал на 27.995.
                 bounds: Rect::new(
                     self.config.margin,
-                    if diagram.metadata.header.is_some() {
-                        self.config.line_height
-                    } else {
-                        0.0
-                    },
+                    TITLE_BASELINE_Y - self.config.title_font_size
+                        + if diagram.metadata.header.is_some() {
+                            self.config.line_height
+                        } else {
+                            0.0
+                        },
                     0.0,
-                    self.config.line_height,
+                    self.config.title_line_height,
                 ),
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type: ElementType::Text {
                     text: title.clone(),
-                    font_size: self.config.font_size,
+                    font_size: self.config.title_font_size,
                 },
             });
         }
@@ -638,7 +656,21 @@ impl SequenceLayoutEngine {
             .values()
             .any(|t| matches!(t, ParticipantType::Actor));
 
+        // Заголовок `title` сдвигает участников вниз.
+        //
+        // Измерено на сервере двумя диаграммами, отличающимися ТОЛЬКО
+        // наличием заголовка: без него верх коробки участника равен 10
+        // (то есть margin), с ним — 47.297. Прибавка ровно 37.297.
+        // Раньше высота заголовка в отступ не входила, и всё содержимое
+        // диаграммы с заголовком уезжало вверх на 37.3 px.
+        let title_offset = if diagram.metadata.title.is_some() {
+            TITLE_BLOCK_HEIGHT
+        } else {
+            0.0
+        };
+
         let participant_y = self.config.margin
+            + title_offset
             + if has_box_titles {
                 self.config.box_title_height
             } else {
