@@ -198,8 +198,18 @@ impl Node {
 
         // Высота: заголовок + поля + методы
         // Заголовок включает: иконку + стереотип (если есть) + имя класса
-        let has_stereotype =
-            classifier.classifier_type != plantuml_ast::class::ClassifierType::Class;
+        // Высоту увеличивает только ТОТ стереотип, который реально рисуется.
+        // Для `interface` и `abstract class` PlantUML стереотип НЕ рисует
+        // (проверено на сервере, пункт 38.8), поэтому и строку под него
+        // резервировать нельзя: иначе текст пропадает, а +12.0 к высоте
+        // остаётся. Именно это давало `Class: Наследование` две рамки ровно
+        // на 12.3 выше эталонных (пункт 43.0).
+        let has_stereotype = !matches!(
+            classifier.classifier_type,
+            plantuml_ast::class::ClassifierType::Class
+                | plantuml_ast::class::ClassifierType::Interface
+                | plantuml_ast::class::ClassifierType::AbstractClass
+        );
         let header_height = if has_stereotype {
             // Стереотип + имя = больше высоты
             config.class_header_height + 12.0
