@@ -28,6 +28,12 @@ const USE_CASE_CHAR_HEIGHT: f64 = 0.95;
 /// Измерено по эталону `UseCase: Простой`: эллипсы идут через 72–76 при
 /// высотах 35–42, то есть 34.6 промежутка. Общая константа 60 верна для
 /// `usecase_basic` и в LTR не подходит.
+/// Прибавка к ширине самого широкого use case для рамки системы.
+///
+/// Измерено по эталону `UseCase: Простой`: рамка 220.2, самый широкий
+/// эллипс 188.2.
+const USECASE_SYSTEM_PADDING: f64 = 32.0;
+
 const LTR_USECASE_SPACING: f64 = 34.6;
 
 const ACTOR_LABEL_GAP: f64 = 55.0;
@@ -125,8 +131,15 @@ impl UseCaseLayoutEngine {
         let has_package = !diagram.packages.is_empty();
 
         let (system_width, system_height) = if has_package {
+            // Ширина рамки системы.
+            //
+            // Измерено по эталону `UseCase: Простой`: рамка 220.2 при самом
+            // широком эллипсе 188.2, то есть содержимое плюс 32. Прежняя
+            // формула добавляла `package_padding * 2 + 40` = 90 и давала
+            // 268.2. Ветка работает ТОЛЬКО при наличии package, поэтому
+            // `usecase_basic` (без package) она не задевает.
             (
-                max_usecase_width + self.config.package_padding * 2.0 + 40.0,
+                max_usecase_width + USECASE_SYSTEM_PADDING,
                 inner_height
                     + self.config.package_header_height
                     + self.config.package_padding * 2.0,
