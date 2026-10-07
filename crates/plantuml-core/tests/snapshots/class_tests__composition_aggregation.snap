@@ -26,9 +26,6 @@ expression: svg
 <g id="Car">
 <rect fill="#F1F1F1" height="80.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="168.9106" x="23.465599999999995" y="0"/>
 <ellipse cx="39.465599999999995" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="39.465599999999995" y="20" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="55.465599999999995" y="19" textLength="23.986">
 Car
 </text>
@@ -46,9 +43,6 @@ wheels: List&lt;Wheel&gt;
 <g id="Engine">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="98.7272" x="0" y="140.594"/>
 <ellipse cx="16" cy="156.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="160.594" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="32" y="159.594" textLength="47.071">
 Engine
 </text>
@@ -62,9 +56,6 @@ power: int
 <g id="Wheel">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="81.91460000000001" x="133.9272" y="140.594"/>
 <ellipse cx="149.9272" cy="156.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="149.9272" y="160.594" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="165.9272" y="159.594" textLength="44.432">
 Wheel
 </text>

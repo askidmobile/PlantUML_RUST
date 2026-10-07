@@ -2607,12 +2607,14 @@ impl SvgRenderer {
         // сам кружок: тело класса в эталоне PlantUML всегда #F1F1F1
         // (светло-серый), независимо от типа.
         let (icon_fill, icon_letter) = match classifier_type {
-            ClassifierKind::Class => ("#ADD1B2", "C"),     // зелёный
-            ClassifierKind::Interface => ("#B4A7E5", "I"), // фиолетовый
-            ClassifierKind::AbstractClass => ("#A9DCDF", "A"), // голубой
-            ClassifierKind::Enum => ("#EB937F", "E"),      // оранжевый
-            ClassifierKind::Annotation => ("#FFDD8C", "@"), // жёлтый
-            ClassifierKind::Entity => ("#CCCCCC", "E"),    // серый
+            // Заливка кружка PlantUML рисует всегда, а букву внутри —
+            // никогда: в эталоне иконка есть, текста в ней нет.
+            ClassifierKind::Class => ("#ADD1B2", ""),
+            ClassifierKind::Interface => ("#B4A7E5", ""),
+            ClassifierKind::AbstractClass => ("#A9DCDF", ""),
+            ClassifierKind::Enum => ("#EB937F", ""),
+            ClassifierKind::Annotation => ("#FFDD8C", ""),
+            ClassifierKind::Entity => ("#CCCCCC", ""),
         };
 
         // Тело класса: в эталоне PlantUML — #F1F1F1, а не цвет фона темы
@@ -2646,16 +2648,24 @@ impl SvgRenderer {
             .set("stroke-width", 1);
         group = group.add(icon_circle);
 
-        // Буква в иконке
-        let icon_text = svg::node::element::Text::new(icon_letter)
-            .set("x", icon_x)
-            .set("y", icon_y + 4.0)
-            .set("text-anchor", "middle")
-            .set("font-family", theme.font_family.as_str())
-            .set("font-size", 12)
-            .set("font-weight", "bold")
-            .set("fill", Color::new("#000000").to_css());
-        group = group.add(icon_text);
+        // Буква в иконке.
+        //
+        // PlantUML рисует сам кружок (`<ellipse rx="11" ry="11"
+        // fill="#ADD1B2">`), но буквы внутри НЕ рисует: в эталоне
+        // `class_inheritance` иконка есть, а текста в ней нет. Раньше мы
+        // выводили «C» перед именем каждого класса, и в сверке подписей
+        // эта буква была лишней. Кружок оставлен как есть.
+        if !icon_letter.is_empty() {
+            let icon_text = svg::node::element::Text::new(icon_letter)
+                .set("x", icon_x)
+                .set("y", icon_y + 4.0)
+                .set("text-anchor", "middle")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", 12)
+                .set("font-weight", "bold")
+                .set("fill", Color::new("#000000").to_css());
+            group = group.add(icon_text);
+        }
 
         // 3. Стереотип (если есть)
         let name_x = icon_x + icon_size + 5.0;

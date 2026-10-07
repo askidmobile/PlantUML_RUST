@@ -26,9 +26,6 @@ expression: svg
 <g id="Animal">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.4036" x="51.035999999999994" y="124.297"/>
 <ellipse cx="67.036" cy="140.297" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="67.036" y="144.297" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="83.036" y="143.297" textLength="48.404">
 Animal
 </text>
@@ -42,9 +39,6 @@ eat()
 <g id="Dog">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="68.3178" x="0" y="0"/>
 <ellipse cx="16" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="20" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="28.274">
 Dog
 </text>
@@ -58,9 +52,6 @@ bark()
 <g id="Cat">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="78.9578" x="103.51780000000001" y="0"/>
 <ellipse cx="119.51780000000001" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="119.51780000000001" y="20" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="135.51780000000002" y="19" textLength="23.859">
 Cat
 </text>

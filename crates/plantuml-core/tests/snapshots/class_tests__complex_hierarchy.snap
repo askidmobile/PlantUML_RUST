@@ -26,9 +26,6 @@ expression: svg
 <g id="Repository">
 <rect fill="#F1F1F1" height="92.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="113.70719999999999" x="167.40660000000003" y="284.89099999999996"/>
 <ellipse cx="183.40660000000003" cy="300.89099999999996" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="183.40660000000003" y="304.89099999999996" textLength="3.978">
-I
-</text>
 <text fill="#000" font-family="sans-serif" font-size="10" x="199.40660000000003" y="299.89099999999996" textLength="53.569">
 «interface»
 </text>
@@ -49,9 +46,6 @@ save(): T
 <g id="AbstractRepository">
 <rect fill="#F1F1F1" height="100.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="166.9348" x="140.79280000000003" y="124.297"/>
 <ellipse cx="156.79280000000003" cy="140.297" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="156.79280000000003" y="144.297" textLength="9.483">
-A
-</text>
 <text fill="#000" font-family="sans-serif" font-size="10" x="172.79280000000003" y="139.297" textLength="50.866">
 «abstract»
 </text>
@@ -72,9 +66,6 @@ findById(): T
 <g id="UserRepository">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="165.33780000000002" x="0" y="0"/>
 <ellipse cx="16" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="16" y="20" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="107.808">
 UserRepository
 </text>
@@ -88,9 +79,6 @@ findByName(): User
 <g id="ProductRepository">
 <rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="247.98260000000008" x="200.5378" y="0"/>
 <ellipse cx="216.5378" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="216.5378" y="20" textLength="9.284">
-C
-</text>
 <text fill="#000" font-family="sans-serif" font-size="14" x="232.5378" y="19" textLength="129.917">
 ProductRepository
 </text>
