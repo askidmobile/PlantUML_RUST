@@ -53,7 +53,10 @@ impl MindMapLayoutEngine {
             self.calculate_subtree_height_recursive(root, &mut Vec::new(), &mut subtree_heights);
 
             // Общая высота дерева
-            let total_height = self.get_subtree_height(&[], &subtree_heights);
+            // Строки -> пиксели.
+            let total_rows = self.get_subtree_height(&[], &subtree_heights);
+            let row_step = self.config.node_height + self.config.sibling_spacing;
+            let total_height = (total_rows - 1.0) * row_step + self.config.node_height;
 
             // Корень размещается слева, вертикально по центру
             let root_x = self.config.padding;
@@ -88,26 +91,28 @@ impl MindMapLayoutEngine {
         path: &mut Vec<usize>,
         heights: &mut HashMap<Vec<usize>, f64>,
     ) -> f64 {
+        // Считаем СТРОКИ полосы, а не пиксели.
+        //
+        // Измерено по эталону `MindMap: Диаграмма`:
+        //   R(лист) = 1
+        //   R(узел) = max(число детей, максимум R среди детей)
+        // Проверка: у корня R = max(3, 3, 4, 3) = 4, и полосы занимают
+        // ровно 10 строк (3 + 4 + 3), как в эталоне.
         if node.children.is_empty() {
-            let height = self.config.node_height;
-            heights.insert(path.clone(), height);
-            return height;
+            heights.insert(path.clone(), 1.0);
+            return 1.0;
         }
 
-        // Сумма высот всех детей + отступы между ними
-        let mut children_total = 0.0;
+        let mut max_child = 0.0_f64;
         for (idx, child) in node.children.iter().enumerate() {
             path.push(idx);
-            children_total += self.calculate_subtree_height_recursive(child, path, heights);
+            max_child =
+                max_child.max(self.calculate_subtree_height_recursive(child, path, heights));
             path.pop();
         }
-        let spacing = (node.children.len() - 1) as f64 * self.config.sibling_spacing;
-        let total = children_total + spacing;
-
-        // Высота поддерева = max(высота узла, высота детей)
-        let height = total.max(self.config.node_height);
-        heights.insert(path.clone(), height);
-        height
+        let rows = (node.children.len() as f64).max(max_child);
+        heights.insert(path.clone(), rows);
+        rows
     }
 
     fn get_subtree_height(&self, path: &[usize], heights: &HashMap<Vec<usize>, f64>) -> f64 {
@@ -148,28 +153,53 @@ impl MindMapLayoutEngine {
         // Размещаем детей
         if !node.children.is_empty() {
             let child_x = x + node_width + self.config.level_spacing;
-            let mut current_y = children_top_y;
+            let row_step = self.config.node_height + self.config.sibling_spacing;
+            let n = node.children.len();
+            let my_rows = self.get_subtree_height(path, ctx.subtree_heights);
 
-            for (idx, child) in node.children.iter().enumerate() {
-                // Полный путь от корня до ребёнка
-                path.push(idx);
-                let child_height = self.get_subtree_height(path, ctx.subtree_heights);
+            // Два режима, различитель — СРАВНЕНИЕ нужного числа строк с
+            // числом детей. Измерено по эталону:
+            //   Frontend (n=3, R=3) -> СИММЕТРИЧНО, дети 43, 99.5, 156
+            //   Backend  (n=4, R=4) -> СИММЕТРИЧНО, дети 212, 268, 324, 381
+            //   Python   (n=2, R=2) -> СИММЕТРИЧНО, дети 240, 296
+            //   корень   (n=3, R=4) -> R > n, полосы СТЫКУЮТСЯ (0…2, 3…6,
+            //                          7…9 = ровно 10 строк эталона)
+            // Прежний код ВСЕГДА стыковал, отсюда шаг 113 вместо 56.
+            // КОРЕНЬ стыкует ВСЕГДА. Проверено на двух эталонах:
+            // `mindmap_basic` — корень (n=2, R=2) стыкует, Planning и
+            // Implementation идут через 112.6 (две строки); `MindMap:
+            // Диаграмма` — корень (n=3, R=4) тоже стыкует. А НЕ-корневые
+            // узлы с R == n ставятся симметрично: Python (n=2, R=2) даёт
+            // 240, 296; Frontend (n=3, R=3) — 43, 99.5, 156.
+            let symmetric = parent_rect.is_some() && my_rows <= n as f64 + 0.5;
 
-                // Y позиция ребёнка — в центре его поддерева
-                let child_y = current_y + child_height / 2.0 - self.config.node_height / 2.0;
-
-                self.layout_node(
-                    child,
-                    path,
-                    child_x,
-                    child_y,
-                    current_y,
-                    Some(&node_rect),
-                    ctx,
-                );
-                path.pop();
-
-                current_y += child_height + self.config.sibling_spacing;
+            if symmetric {
+                let center = y + self.config.node_height / 2.0;
+                for (idx, child) in node.children.iter().enumerate() {
+                    let child_y = center + (idx as f64 - (n as f64 - 1.0) / 2.0) * row_step
+                        - self.config.node_height / 2.0;
+                    path.push(idx);
+                    self.layout_node(
+                        child,
+                        path,
+                        child_x,
+                        child_y,
+                        child_y,
+                        Some(&node_rect),
+                        ctx,
+                    );
+                    path.pop();
+                }
+            } else {
+                let mut cursor = children_top_y;
+                for (idx, child) in node.children.iter().enumerate() {
+                    path.push(idx);
+                    let rows = self.get_subtree_height(path, ctx.subtree_heights);
+                    let child_y = cursor + (rows - 1.0) / 2.0 * row_step;
+                    self.layout_node(child, path, child_x, child_y, cursor, Some(&node_rect), ctx);
+                    path.pop();
+                    cursor += rows * row_step;
+                }
             }
         }
     }
