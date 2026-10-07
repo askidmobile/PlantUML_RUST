@@ -209,7 +209,7 @@ impl WbsLayoutEngine {
         base_y: f64,
         subtree_widths: &HashMap<*const WbsNode, f64>,
         elements: &mut Vec<LayoutElement>,
-    ) {
+    ) -> usize {
         let subtree_width = subtree_widths
             .get(&(node as *const WbsNode))
             .copied()
@@ -236,20 +236,40 @@ impl WbsLayoutEngine {
             let stacked_x = node_x + node_width / 2.0 + WBS_CHILD_INDENT;
             let mut child_x = if is_root { x } else { stacked_x };
 
-            for (k, child) in node.children.iter().enumerate() {
+            // Ряд ребёнка — УПАКОВКА ПОДДЕРЕВЬЕВ, а не `row + 1 + k`.
+            //
+            // Прежнее правило (`ребёнок k в ряду r -> r + 1 + k`) выведено
+            // по девяти замерам и закреплено тестом, но тест его НЕ
+            // РАЗЛИЧАЕТ: на `R[A[A1,A2], B[B1,B2]]` обе формулы дают одно
+            // и то же.
+            //
+            // Пример `WBS: Диаграмма` их различает. По старому правилу
+            // `Frontend` (второй ребёнок `Разработки`, ряд 1) попадает в
+            // ряд 1+1+1 = 3, а эталон ставит его в ряд **5** — сразу ПОСЛЕ
+            // поддерева `Backend`, занимающего ряды 2..4. Дальше
+            // `UI компоненты` = 6 и `Интеграция` = 7 тоже совпадают.
+            //
+            // Верное правило: ряд ребёнка = max(ряд родителя + 1, низ
+            // предыдущего сиблинга + 1).
+            let mut next_free_row = row + 1;
+
+            for child in &node.children {
                 let child_subtree_width = subtree_widths
                     .get(&(child as *const WbsNode))
                     .copied()
                     .unwrap_or(self.config.min_node_width);
 
-                // Ряд ребёнка по правилу выше.
-                let child_row = if is_root { 1 } else { row + 1 + k };
+                let child_row = if is_root {
+                    1
+                } else {
+                    next_free_row.max(row + 1)
+                };
                 let child_y = self.row_y(child_row, base_y);
 
                 // Ребёнок НЕ корень: его собственные дети пойдут по общему
                 // правилу, поэтому `is_root` здесь всегда false.
                 let child_start_id = elements.len();
-                self.layout_node(
+                let child_bottom_row = self.layout_node(
                     child,
                     child_x,
                     child_y,
@@ -259,6 +279,9 @@ impl WbsLayoutEngine {
                     subtree_widths,
                     elements,
                 );
+                if !is_root {
+                    next_free_row = child_bottom_row + 1;
+                }
 
                 // Рисуем связь от родителя к ребёнку
                 let child_node_width = self.calculate_node_width(&child.text);
@@ -276,7 +299,13 @@ impl WbsLayoutEngine {
                     child_x += child_subtree_width + self.config.sibling_spacing;
                 }
             }
+
+            if !is_root {
+                return next_free_row.saturating_sub(1).max(row);
+            }
         }
+
+        row
     }
 
     /// Вычисляет ширину узла
