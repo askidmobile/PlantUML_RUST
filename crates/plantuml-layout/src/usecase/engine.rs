@@ -104,11 +104,20 @@ impl UseCaseLayoutEngine {
         // Вычисляем размеры области use case
         let num_usecases = all_usecases.len().max(1);
         let usecase_row = |name: &str| self.usecase_natural_size(name).1;
+        // Шаг берётся ТОТ ЖЕ, что и при расстановке ниже: в режиме
+        // `left to right` он другой (34.6 вместо 60). Пока здесь стояла
+        // общая константа, рамка системы выходила 507.8 при эталонных 386
+        // — высота считалась по шагу, которым список уже не раскладывался.
+        let usecase_step = if is_left_to_right {
+            LTR_USECASE_SPACING
+        } else {
+            self.config.vertical_spacing
+        };
         let inner_height: f64 = all_usecases
             .iter()
             .map(|(name, _)| usecase_row(name))
             .sum::<f64>()
-            + (num_usecases.saturating_sub(1)) as f64 * self.config.vertical_spacing;
+            + (num_usecases.saturating_sub(1)) as f64 * usecase_step;
 
         // Рамка системы рисуется ТОЛЬКО если в диаграмме есть package.
         // В эталоне PlantUML при отсутствии package рамки нет вовсе
@@ -177,12 +186,7 @@ impl UseCaseLayoutEngine {
             // `usecase_basic` (там расхождение 1.0), но в LTR эталон даёт
             // шаг 72–76, что соответствует 34.6. Подстановка 34.6 в общую
             // константу ломала `usecase_basic` (1.0 -> 27.0).
-            let step = if is_left_to_right {
-                LTR_USECASE_SPACING
-            } else {
-                self.config.vertical_spacing
-            };
-            current_y += self.usecase_natural_size(name).1 + step;
+            current_y += self.usecase_natural_size(name).1 + usecase_step;
             let _ = i;
 
             let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
