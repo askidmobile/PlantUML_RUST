@@ -464,7 +464,7 @@ impl JsonLayoutEngine {
     fn cell_text(&self, value: &JsonValue) -> String {
         match value {
             JsonValue::String(s) => s.clone(),
-            JsonValue::Number(n) => format!("{n}"),
+            JsonValue::Number(_n, text) => text.clone(),
             JsonValue::Boolean(b) => {
                 if self.config.bool_as_text {
                     b.to_string()

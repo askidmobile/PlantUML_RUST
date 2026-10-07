@@ -108,7 +108,12 @@ impl JsonNode {
 
     /// Создаёт узел-число
     pub fn number(key: Option<String>, value: f64) -> Self {
-        Self::new(key, JsonValue::Number(value))
+        Self::new(key, JsonValue::Number(value, format!("{value}")))
+    }
+
+    /// То же, но с СОХРАНЕНИЕМ исходного литерала числа.
+    pub fn number_literal(key: Option<String>, value: f64, text: String) -> Self {
+        Self::new(key, JsonValue::Number(value, text))
     }
 
     /// Создаёт узел-булево значение
@@ -166,7 +171,13 @@ pub enum JsonValue {
     /// Строка
     String(String),
     /// Число
-    Number(f64),
+    /// Число: значение и ИСХОДНЫЙ ЛИТЕРАЛ.
+    ///
+    /// Второй компонент нужен, потому что PlantUML печатает число так, как
+    /// оно записано в исходнике: `150.00` остаётся `150.00`, а не `150`.
+    /// Проверено по эталону `JSON: Диаграмма`: он рисует «150.00» и
+    /// «75.50», а мы без сохранения литерала рисовали «150» и «75.5».
+    Number(f64, String),
     /// Булево значение
     Boolean(bool),
     /// Null
@@ -178,7 +189,7 @@ impl JsonValue {
     pub fn is_primitive(&self) -> bool {
         matches!(
             self,
-            JsonValue::String(_) | JsonValue::Number(_) | JsonValue::Boolean(_) | JsonValue::Null
+            JsonValue::String(_) | JsonValue::Number(..) | JsonValue::Boolean(_) | JsonValue::Null
         )
     }
 
@@ -193,7 +204,7 @@ impl JsonValue {
             JsonValue::Object(_) => "object",
             JsonValue::Array(_) => "array",
             JsonValue::String(_) => "string",
-            JsonValue::Number(_) => "number",
+            JsonValue::Number(..) => "number",
             JsonValue::Boolean(_) => "boolean",
             JsonValue::Null => "null",
         }
@@ -248,7 +259,7 @@ mod tests {
     #[test]
     fn test_json_value_types() {
         assert!(JsonValue::String("test".into()).is_primitive());
-        assert!(JsonValue::Number(42.0).is_primitive());
+        assert!(JsonValue::Number(42.0, "42".into()).is_primitive());
         assert!(JsonValue::Boolean(true).is_primitive());
         assert!(JsonValue::Null.is_primitive());
 

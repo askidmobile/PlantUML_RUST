@@ -88,8 +88,11 @@ fn parse_json_value(
             Ok(JsonNode::string(key, s))
         }
         Rule::json_number => {
-            let n: f64 = pair.as_str().parse().unwrap_or(0.0);
-            Ok(JsonNode::number(key, n))
+            // Литерал сохраняем: PlantUML печатает число так, как оно
+            // записано (`150.00` остаётся `150.00`).
+            let text = pair.as_str().to_string();
+            let n: f64 = text.parse().unwrap_or(0.0);
+            Ok(JsonNode::number_literal(key, n, text))
         }
         Rule::json_boolean => {
             let b = pair.as_str() == "true";
