@@ -390,6 +390,7 @@ Bob --> Alice: Hi!
             <div class="panel-header">
                 <div class="tabs">
                     <button class="tab active" data-tab="render">Результат</button>
+                    <button class="tab" data-tab="compare">Сравнение с PlantUML</button>
                     <button class="tab" data-tab="ast">AST (JSON)</button>
                 </div>
             </div>
@@ -397,6 +398,19 @@ Bob --> Alice: Hi!
                 <div class="tab-content active" id="tab-render">
                     <div class="output" id="output">
                         <span style="color: #888;">Нажмите "Рендер" или Ctrl+Enter</span>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-compare">
+                    <div id="compare-status" class="status" style="display:block;margin-bottom:8px;"></div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:12px;color:#888;margin-bottom:4px;">Наш рендер (WASM)</div>
+                            <div class="output" id="compare-ours"></div>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:12px;color:#888;margin-bottom:4px;">Оригинал PlantUML (plantuml.com)</div>
+                            <div class="output" id="compare-theirs"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="tab-content" id="tab-ast">
@@ -908,6 +922,118 @@ nwdiag {
             status.className = 'status ' + type;
         }
 
+        // ------------------------------------------------------------------
+        // Сравнение с оригинальным PlantUML
+        //
+        // Сервер PlantUML принимает исходник в URL, сжатый raw deflate и
+        // закодированный СВОИМ алфавитом (не base64): 0-9, A-Z, a-z, '-', '_'.
+        // Тот же приём использует tests/golden/fetch_references.py.
+        // ------------------------------------------------------------------
+
+        function encode6bit(b) {
+            b &= 0x3f;
+            if (b < 10) return String.fromCharCode(48 + b);
+            b -= 10;
+            if (b < 26) return String.fromCharCode(65 + b);
+            b -= 26;
+            if (b < 26) return String.fromCharCode(97 + b);
+            b -= 26;
+            if (b === 0) return '-';
+            if (b === 1) return '_';
+            return '?';
+        }
+
+        function append3bytes(b1, b2, b3) {
+            const c1 = b1 >> 2;
+            const c2 = ((b1 & 0x3) << 4) | (b2 >> 4);
+            const c3 = ((b2 & 0xF) << 2) | (b3 >> 6);
+            const c4 = b3 & 0x3F;
+            return encode6bit(c1) + encode6bit(c2) + encode6bit(c3) + encode6bit(c4);
+        }
+
+        function encodePlantUML(bytes) {
+            let r = '';
+            for (let i = 0; i < bytes.length; i += 3) {
+                const left = bytes.length - i;
+                if (left === 1) r += append3bytes(bytes[i], 0, 0);
+                else if (left === 2) r += append3bytes(bytes[i], bytes[i + 1], 0);
+                else r += append3bytes(bytes[i], bytes[i + 1], bytes[i + 2]);
+            }
+            return r;
+        }
+
+        async function plantumlUrl(source, theme) {
+            if (typeof CompressionStream === 'undefined') {
+                throw new Error('Браузер не поддерживает CompressionStream — сравнение недоступно');
+            }
+            const stream = new Blob([new TextEncoder().encode(source)])
+                .stream()
+                .pipeThrough(new CompressionStream('deflate-raw'));
+            const packed = new Uint8Array(await new Response(stream).arrayBuffer());
+            // Тема передаётся параметром запроса, а не директивой в исходнике,
+            // чтобы не менять сам текст диаграммы.
+            const themeArg = theme === 'default' ? '' : `?theme=${encodeURIComponent(theme)}`;
+            return `https://www.plantuml.com/plantuml/svg/${encodePlantUML(packed)}${themeArg}`;
+        }
+
+        function svgSize(svgText) {
+            const m = svgText.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+            if (m) return { w: parseFloat(m[1]), h: parseFloat(m[2]) };
+            return null;
+        }
+
+        async function doCompare(source, svg) {
+            const ours = document.getElementById('compare-ours');
+            const theirs = document.getElementById('compare-theirs');
+            const statusEl = document.getElementById('compare-status');
+
+            ours.innerHTML = svg;
+
+            let url;
+            try {
+                url = await plantumlUrl(source, document.getElementById('theme-select').value);
+            } catch (e) {
+                theirs.innerHTML = `<span style="color:#ff6b6b;">${escapeHtml(e.toString())}</span>`;
+                statusEl.textContent = '';
+                return;
+            }
+
+            statusEl.textContent = 'Запрашиваю оригинал у plantuml.com…';
+            statusEl.className = 'status';
+
+            const img = new Image();
+            img.style.maxWidth = '100%';
+            img.alt = 'Оригинал PlantUML';
+            img.onload = () => {
+                const mine = svgSize(svg);
+                // У SVG-картинки intrinsic-размер берётся из атрибутов
+                // width/height, которые PlantUML проставляет в px. Это
+                // позволяет сравнить габариты без CORS: читать содержимое
+                // чужого SVG из скрипта нельзя, а размеры картинки — можно.
+                const refW = img.naturalWidth;
+                const refH = img.naturalHeight;
+                if (mine) {
+                    const dw = (mine.w - refW).toFixed(1);
+                    const dh = (mine.h - refH).toFixed(1);
+                    const exact = Math.abs(mine.w - refW) < 0.5 && Math.abs(mine.h - refH) < 0.5;
+                    statusEl.textContent = exact
+                        ? `Габариты совпадают: ${refW}×${refH}`
+                        : `Наш ${mine.w.toFixed(0)}×${mine.h.toFixed(0)} против ${refW}×${refH} — расхождение ${dw}×${dh} px`;
+                    statusEl.className = 'status ' + (exact ? 'success' : 'error');
+                } else {
+                    statusEl.textContent = `Оригинал: ${refW}×${refH}`;
+                    statusEl.className = 'status';
+                }
+            };
+            img.onerror = () => {
+                theirs.innerHTML = '<span style="color:#ff6b6b;">Не удалось загрузить оригинал (нет сети или сервер недоступен)</span>';
+                statusEl.textContent = '';
+            };
+            img.src = url;
+            theirs.innerHTML = '';
+            theirs.appendChild(img);
+        }
+
         function doRender() {
             const source = document.getElementById('source').value;
             const theme = document.getElementById('theme-select').value;
@@ -934,6 +1060,13 @@ nwdiag {
                 currentSvg = svg;
                 output.innerHTML = svg;
                 output.classList.remove('error');
+
+                // Сравнение ходит в сеть, поэтому запускается ТОЛЬКО когда
+                // вкладка открыта: иначе каждый набранный символ отправлял бы
+                // запрос на plantuml.com (живой рендеринг срабатывает часто).
+                if (document.getElementById('tab-compare').classList.contains('active')) {
+                    doCompare(source, svg);
+                }
                 
                 const elapsed = (performance.now() - startTime).toFixed(1);
                 setStatus(`Рендеринг: ${elapsed}ms`, 'success');
@@ -1005,6 +1138,16 @@ nwdiag {
                 
                 tab.classList.add('active');
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
+                // Вкладку сравнения наполняем сразу при открытии: рендер мог
+                // пройти раньше, когда она была неактивна, и запрос в сеть
+                // тогда намеренно не отправлялся.
+                if (tab.dataset.tab === 'compare') {
+                    const src = document.getElementById('source').value;
+                    if (src.trim() && currentSvg) {
+                        doCompare(src, currentSvg);
+                    }
+                }
             });
         });
 

@@ -90,7 +90,13 @@ fi
 # Шаг 2: Сборка через wasm-pack (если нужен npm пакет)
 print_header "Шаг 2: wasm-pack сборка"
 
-OUTPUT_DIR="$PROJECT_ROOT/pkg"
+# Вывод идёт в playground/pkg, а не в <корень>/pkg: playground
+# импортирует модуль как './pkg/plantuml_wasm.js', то есть относительно
+# себя. Прежний путь создавал <корень>/pkg, который никто не читает, и
+# после «успешной» сборки playground продолжал работать на старом
+# модуле — правки в движке не были видны. Тот же путь использует
+# .github/workflows/deploy-pages.yml.
+OUTPUT_DIR="$PROJECT_ROOT/playground/pkg"
 
 if [ "$MODE" = "release" ]; then
     wasm-pack build crates/plantuml-wasm --target web --out-dir "$OUTPUT_DIR" --release
