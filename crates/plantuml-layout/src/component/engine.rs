@@ -111,9 +111,59 @@ impl ComponentLayoutEngine {
         // вложенной фигуры первого узла совпадает с центром второго
         // (97/97, 82/82, 214/214). Именно поэтому ребро в эталоне
         // вертикально: `M97,85.64 C97,112.56 97,156.7 97,185.1`.
+        // ГЛОБАЛЬНАЯ РАСКЛАДКА ПО УРОВНЯМ СВЯЗЕЙ — но ТОЛЬКО когда пакеты
+        // не являются узлами (`node`).
+        //
+        // Эталон `Component: Простой` выстраивает компоненты из РАЗНЫХ
+        // пакетов в общую цепочку по связям: React App (y=41), Redux Store
+        // (147), API Gateway (269), затем двое рядом — Auth Service (375,
+        // x=22) и User Service (375, x=187), потом Users DB (511). Уровни
+        // по longest-path совпадают с этими y.
+        //
+        // Но у `deployment_basic` пакеты — это `node`, и там раскладка
+        // ПОПАКЕТНАЯ: попытка применить общий граф сломала его с 295 до 404
+        // по ширине, хотя он был точен (0.0 x 2.0).
+        let uses_nodes = diagram
+            .packages
+            .iter()
+            .any(|pkg| pkg.package_type == plantuml_ast::component::PackageType::Node);
+
+        let mut global_positions: HashMap<String, (f64, f64)> = HashMap::new();
+        if !uses_nodes {
+            let mut all_components: Vec<(&Component, Option<&str>)> = Vec::new();
+            for comp in &diagram.components {
+                all_components.push((comp, None));
+            }
+            Self::collect_all_components(&diagram.packages, &mut all_components);
+
+            let levels = Self::assign_component_levels(&all_components, &diagram.connections);
+            let level_count = levels.values().copied().max().unwrap_or(0) + 1;
+            let mut by_level: Vec<Vec<usize>> = vec![Vec::new(); level_count];
+            for (i, (comp, _)) in all_components.iter().enumerate() {
+                by_level[levels.get(&comp.name).copied().unwrap_or(0)].push(i);
+            }
+
+            let mut cursor_y = self.config.margin;
+            for row in by_level.iter() {
+                let mut cursor_x = self.config.margin;
+                let mut row_height = self.component_natural_height();
+                for &i in row {
+                    let (comp, _) = all_components[i];
+                    let (_, bounds) = self.create_component_element(comp, cursor_x, cursor_y);
+                    global_positions.insert(comp.name.clone(), (cursor_x, cursor_y));
+                    if let Some(alias) = &comp.alias {
+                        global_positions.insert(alias.clone(), (cursor_x, cursor_y));
+                    }
+                    cursor_x += bounds.width + self.config.horizontal_spacing;
+                    row_height = row_height.max(bounds.height);
+                }
+                cursor_y += row_height + self.config.vertical_spacing;
+            }
+        }
+
         let mut laid: Vec<(Vec<LayoutElement>, Rect, HashMap<String, Rect>)> = Vec::new();
         for pkg in &diagram.packages {
-            let laid_pkg = self.layout_package(pkg, node_x, package_y);
+            let laid_pkg = self.layout_package(pkg, node_x, package_y, &global_positions);
             package_y = laid_pkg.1.y + laid_pkg.1.height + self.config.package_vertical_spacing;
             laid.push(laid_pkg);
         }
@@ -578,11 +628,53 @@ impl ComponentLayoutEngine {
         shifts
     }
 
+    /// Собирает компоненты ВСЕХ пакетов (рекурсивно) в один список.
+    fn collect_all_components<'a>(
+        packages: &'a [plantuml_ast::component::ComponentPackage],
+        out: &mut Vec<(&'a Component, Option<&'a str>)>,
+    ) {
+        for pkg in packages {
+            for comp in &pkg.components {
+                out.push((comp, Some(pkg.name.as_str())));
+            }
+            Self::collect_all_components(&pkg.packages, out);
+        }
+    }
+
+    /// Присваивает уровням компоненты по длине longest-path.
+    fn assign_component_levels(
+        all: &[(&Component, Option<&str>)],
+        connections: &[plantuml_ast::component::Connection],
+    ) -> HashMap<String, usize> {
+        let mut level: HashMap<String, usize> = HashMap::new();
+        for (comp, _) in all {
+            level.entry(comp.name.clone()).or_insert(0);
+        }
+        for _ in 0..=all.len() {
+            let mut changed = false;
+            for conn in connections {
+                if let (Some(from), Some(to)) =
+                    (level.get(&conn.from).copied(), level.get(&conn.to).copied())
+                {
+                    if to < from + 1 {
+                        level.insert(conn.to.clone(), from + 1);
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        level
+    }
+
     fn layout_package(
         &self,
         pkg: &plantuml_ast::component::ComponentPackage,
         x: f64,
         y: f64,
+        global: &HashMap<String, (f64, f64)>,
     ) -> (Vec<LayoutElement>, Rect, HashMap<String, Rect>) {
         let mut elements = Vec::new();
         let mut positions = HashMap::new();
@@ -598,11 +690,17 @@ impl ComponentLayoutEngine {
         for (i, comp) in pkg.components.iter().enumerate() {
             max_row = i;
 
-            let comp_x = x + self.config.package_padding;
-            let comp_y = y
-                + self.config.package_header_height
-                + self.config.package_padding
-                + i as f64 * (self.component_natural_height() + self.config.vertical_spacing);
+            let (comp_x, comp_y) = match global.get(&comp.name) {
+                Some(&(gx, gy)) => (gx, gy),
+                None => (
+                    x + self.config.package_padding,
+                    y + self.config.package_header_height
+                        + self.config.package_padding
+                        + i as f64
+                            * (self.component_natural_height() + self.config.vertical_spacing),
+                ),
+            };
+            let _ = i;
 
             let (elem, bounds) = self.create_component_element(comp, comp_x, comp_y);
             inner_width = inner_width.max(bounds.width);
