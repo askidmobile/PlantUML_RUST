@@ -42,8 +42,11 @@ jobs:
       # неотличима от аварийной остановки, а под wasm32 роняет весь модуль
       # в браузере. Поэтому unwrap/expect/panic!/todo! запрещены в коде
       # библиотеки. Тесты, примеры и бенчмарки не проверяются.
+      # Запускаем через `bash`, а не `./scripts/...`: в индексе git у скрипта
+      # режим 100644 (без exec-бита), поэтому прямой вызов в CI падает с
+      # «Permission denied» и кодом 126.
       - name: Check for panicking operations
-        run: ./scripts/check-no-panic.sh
+        run: bash scripts/check-no-panic.sh
 
   fmt:
     name: Rustfmt
