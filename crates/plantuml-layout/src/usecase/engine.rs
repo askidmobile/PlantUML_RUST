@@ -23,6 +23,13 @@ const USE_CASE_CHAR_HEIGHT: f64 = 0.95;
 ///
 /// Измерено по эталону usecase_basic: подпись актёра на y=78.495,
 /// верх первого эллипса — 141.8.
+/// Шаг между use case в режиме `left to right direction`.
+///
+/// Измерено по эталону `UseCase: Простой`: эллипсы идут через 72–76 при
+/// высотах 35–42, то есть 34.6 промежутка. Общая константа 60 верна для
+/// `usecase_basic` и в LTR не подходит.
+const LTR_USECASE_SPACING: f64 = 34.6;
+
 const ACTOR_LABEL_GAP: f64 = 55.0;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
@@ -49,7 +56,12 @@ impl UseCaseLayoutEngine {
         let mut elements = Vec::new();
         let mut element_positions: HashMap<String, Rect> = HashMap::new();
 
-        let _is_left_to_right = diagram.direction == Direction::LeftToRight;
+        // `left to right direction` меняет местами АКТЁРОВ и СИСТЕМУ, но
+        // НЕ ориентацию списка use case: в эталоне `UseCase: Простой`
+        // эллипсы по-прежнему идут в столбец (cy = 62, 136, 208, 280, 356),
+        // а различие в том, что рамка системы стоит СПРАВА (x=137.5), а
+        // актёры «Покупатель» и «Менеджер» — СЛЕВА (x=6 и 10.6).
+        let is_left_to_right = diagram.direction == Direction::LeftToRight;
 
         // Максимальная ширина имён актёров.
         //
@@ -121,8 +133,18 @@ impl UseCaseLayoutEngine {
         // Раньше актёр стоял слева, а use case — справа, из-за чего
         // диаграмма была широкой и низкой (310x136 против 172x280).
         let layout_width = max_usecase_width.max(actor_total_width);
-        let system_x = self.config.margin + (layout_width - system_width) / 2.0;
-        let system_y = self.config.margin + self.config.actor_height + ACTOR_LABEL_GAP;
+        let (system_x, system_y) = if is_left_to_right {
+            // Актёры слева, система справа от них.
+            (
+                self.config.margin + actor_total_width + ACTOR_LABEL_GAP,
+                self.config.margin,
+            )
+        } else {
+            (
+                self.config.margin + (layout_width - system_width) / 2.0,
+                self.config.margin + self.config.actor_height + ACTOR_LABEL_GAP,
+            )
+        };
 
         if has_package {
             let system_name = diagram.packages[0].name.clone();
@@ -151,7 +173,16 @@ impl UseCaseLayoutEngine {
         let mut current_y = usecases_start_y;
         for (i, (name, alias)) in all_usecases.iter().enumerate() {
             let y = current_y;
-            current_y += self.usecase_natural_size(name).1 + self.config.vertical_spacing;
+            // Шаг в LTR-режиме СВОЙ. Общая константа 60 верна для
+            // `usecase_basic` (там расхождение 1.0), но в LTR эталон даёт
+            // шаг 72–76, что соответствует 34.6. Подстановка 34.6 в общую
+            // константу ломала `usecase_basic` (1.0 -> 27.0).
+            let step = if is_left_to_right {
+                LTR_USECASE_SPACING
+            } else {
+                self.config.vertical_spacing
+            };
+            current_y += self.usecase_natural_size(name).1 + step;
             let _ = i;
 
             let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
@@ -177,10 +208,19 @@ impl UseCaseLayoutEngine {
             // эллипс начинается на y=141.8. Раньше актёр выравнивался по
             // средней Y связанных use case, из-за чего оказывался между
             // ними и диаграмма теряла вертикальный порядок.
-            let y = self.config.margin + actor_index as f64 * (self.config.actor_height + 10.0);
+            let y = if is_left_to_right {
+                // Слева, столбцом, начиная от верха системы.
+                system_y + actor_index as f64 * (self.config.actor_height + 10.0)
+            } else {
+                self.config.margin + actor_index as f64 * (self.config.actor_height + 10.0)
+            };
 
             // Ищем свободную позицию по X среди актёров с такой же Y
-            let mut actor_x = actors_x;
+            let mut actor_x = if is_left_to_right {
+                self.config.margin
+            } else {
+                actors_x
+            };
             let tolerance = self.config.actor_height / 2.0;
             while occupied.iter().any(|(oy, ox)| {
                 (oy - y).abs() < tolerance && (ox - actor_x).abs() < actor_total_width
