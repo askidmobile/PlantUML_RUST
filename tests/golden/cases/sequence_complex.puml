@@ -1,0 +1,58 @@
+@startuml
+autonumber
+title Авторизация и оформление заказа в интернет-магазине
+
+actor Покупатель as user
+participant "Веб-приложение" as frontend
+participant "Сервис аутентификации" as auth
+database "База данных" as db
+participant "Платежный шлюз" as payment
+
+user -> frontend: Открывает форму входа и вводит логин/пароль
+activate frontend
+
+frontend -> auth: POST /api/v1/login (credentials)
+activate auth
+
+auth -> db: SELECT * FROM users WHERE email = ?
+activate db
+db --> auth: Возвращает данные пользователя
+deactivate db
+
+alt Пользователь найден и пароль верный
+    auth --> frontend: Возвращает JWT-токен
+    deactivate auth
+    frontend --> user: Перенаправление в каталог товаров
+
+    user -> frontend: Нажимает "Оформить заказ"
+    
+    loop Проверка корзины
+        frontend -> db: Проверка наличия товаров на складе
+        activate db
+        db --> frontend: Товар доступен
+        deactivate db
+    end
+
+    frontend -> payment: Инициация платежа (POST /pay)
+    activate payment
+    
+    payment --> frontend: Статус платежа: Успешно
+    deactivate payment
+
+    frontend -> db: Сохранение заказа (status = PAID)
+    activate db
+    db --> frontend: Заказ сохранен
+    deactivate db
+
+    frontend --> user: Показывает экран "Заказ успешно оформлен"
+    deactivate frontend
+
+else Неверный логин или пароль
+    auth --> frontend: Ошибка 401 (Неверные учетные данные)
+    deactivate auth
+    note over frontend, user: Выводится сообщение об ошибке на экране входа
+    frontend --> user: Отображение ошибки "Неверный логин или пароль"
+    deactivate frontend
+end
+
+@enduml

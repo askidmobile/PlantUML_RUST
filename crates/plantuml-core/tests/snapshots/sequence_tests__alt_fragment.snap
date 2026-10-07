@@ -4,7 +4,7 @@ assertion_line: 88
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:186px;height:252px;background:#FFFFFF;" version="1.1" viewBox="0 0 185.9644256 251.985" width="186px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:187px;height:252px;background:#FFFFFF;" version="1.1" viewBox="0 0 186.8213256 251.985" width="187px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
@@ -36,12 +36,12 @@ Request
 </text>
 </g>
 <g id="fragment_alt">
-<rect fill="none" height="104.38600000000004" stroke="#000" stroke-width="1.5" width="158.1304256" x="16.955" y="82.42999999999999"/>
-<path d="M16.955,82.42999999999999 L80.6128,82.42999999999999 L80.6128,89.56299999999999 L70.6128,99.56299999999999 L16.955,99.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
-<text fill="#000" font-family="sans-serif" font-size="13" font-weight="700" x="31.955" y="95.5" textLength="19.473">
+<rect fill="none" height="104.38600000000004" stroke="#000" stroke-width="1.5" width="158.1304256" x="17.8119" y="82.42999999999999"/>
+<path d="M17.8119,82.42999999999999 L81.4697,82.42999999999999 L81.4697,89.56299999999999 L71.4697,99.56299999999999 L17.8119,99.56299999999999 Z" fill="#EEE" stroke="#000" stroke-width="1.5"/>
+<text fill="#000" font-family="sans-serif" font-size="13" font-weight="700" x="32.8119" y="95.5" textLength="19.473">
 alt
 </text>
-<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="96.39500000000001" y="94.63999999999999" textLength="62.69">
+<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="97.2519" y="94.63999999999999" textLength="62.69">
 [success]
 </text>
 <g id="msg_Bob_Alice">
@@ -50,8 +50,8 @@ alt
 OK
 </text>
 </g>
-<path d="M16.955,139.883 L175.0854256,139.883" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="21.955" y="151.883" textLength="54.419">
+<path d="M17.8119,139.883 L175.9423256,139.883" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="11" font-weight="700" x="22.8119" y="151.883" textLength="54.419">
 [failure]
 </text>
 <g id="msg_Bob_Alice">

@@ -156,7 +156,17 @@ const FRAGMENT_CONDITION_EXTRA: f64 = 95.44;
 ///
 /// Эталон `sequence_fragments`: рамка начинается на 16.955 при левом крае
 /// блока участника 10, то есть на 6.955 правее (прежние −10 давали 0).
-const FRAGMENT_FRAME_LEFT_INSET: f64 = 16.955;
+/// Отступ левого края рамки фрагмента от крайней левой задействованной линии.
+///
+/// Измерено: `sequence_fragments` — линия 32.95, рамка 16.95; большая
+/// диаграмма — линия 465.5, рамка 449.5. Оба раза ровно 16.
+const FRAGMENT_FRAME_LEFT_HALF: f64 = 16.0;
+
+/// Отступ правого края рамки фрагмента от крайней правой задействованной линии.
+///
+/// Измерено: `loop` — линия 1097.1, рамка кончается на 1118.1; `alt` —
+/// линия 1230.5, рамка на 1251.5. Оба раза ровно 21.
+const FRAGMENT_FRAME_RIGHT_HALF: f64 = 21.0;
 
 /// Layout engine для sequence diagrams
 pub struct SequenceLayoutEngine {
@@ -1429,13 +1439,11 @@ impl SequenceLayoutEngine {
         // Находим границы фрагмента
         let (min_x, max_x) = self.find_fragment_x_bounds(frag, metrics);
 
-        // Ширина рамки фрагмента задаётся УСЛОВИЕМ, а не участниками.
+        // Ширина условия — нижняя граница для рамки.
         //
         // Проверено на сервере двумя замерами: условие «[Успешно]» (66.96)
         // даёт рамку 162.40, «[ОченьДлинноеУсловиеВетки]» (194.89) — 290.33,
-        // то есть ширина = условие + 95.44 в обоих случаях. Прежний расчёт
-        // по рамкам участников давал 0…179.87 и вылезал за левый край
-        // диаграммы.
+        // то есть условие + 95.44 в обоих случаях.
         let condition_width = frag
             .sections
             .iter()
@@ -1453,13 +1461,30 @@ impl SequenceLayoutEngine {
             FRAGMENT_CONDITION_FONT_SIZE,
         ));
 
-        // Именно ширина ПО УСЛОВИЮ, без оглядки на рамки участников: в
-        // эталоне `sequence_fragments` рамка (162.40) УЖЕ суммы блоков
-        // участников (10…175.27).
-        let _ = (min_x, max_x);
-        let width = condition_width + FRAGMENT_CONDITION_EXTRA;
+        // Ширина рамки — БОЛЬШЕЕ из двух: охват содержимого и ширина условия.
+        //
+        // Правило выведено замерами и проверено на четырёх независимых
+        // точках. Рамка охватывает линии участников, задействованных ВНУТРИ
+        // фрагмента, а не все линии диаграммы (проверено: при 2, 3 и 4
+        // участниках рамка одна и та же, если внутри задействованы двое):
+        //
+        //   x      = min(линия) - 16
+        //   правый = max(линия) + 21, то есть ширина = span + 37
+        //
+        // Совпадения: `alt` из большой диаграммы — span 1173.7 даёт 1210.7
+        // (измерено 1210.7); `loop` там же — span 631.6 даёт 668.6 (измерено
+        // 668.6); `sequence_fragments` — span 112.36 даёт 149.36, но условие
+        // «[Успешно]» даёт 162.40, и побеждает оно (измерено 162.40).
+        //
+        // Прежний расчёт брал ТОЛЬКО условие. На коротком условии это
+        // совпадало, а на большой диаграмме рамка `alt` выходила 231 против
+        // эталонных 1211 — содержимое из неё вылезало и растягивало холст.
+        let by_condition = condition_width + FRAGMENT_CONDITION_EXTRA;
+        let by_content =
+            (max_x - min_x).max(0.0) + FRAGMENT_FRAME_LEFT_HALF + FRAGMENT_FRAME_RIGHT_HALF;
+        let width = by_condition.max(by_content);
         let fragment_bounds = Rect::new(
-            min_x - self.config.fragment_padding + FRAGMENT_FRAME_LEFT_INSET,
+            min_x - FRAGMENT_FRAME_LEFT_HALF,
             start_y,
             width,
             end_y - start_y,
@@ -1512,32 +1537,64 @@ impl SequenceLayoutEngine {
         let mut max_x = f64::MIN;
 
         for section in &frag.sections {
-            for elem in &section.elements {
-                if let SequenceElement::Message(msg) = elem {
-                    // Используем границы участника (center_x ± width/2) для полного охвата
-                    if let Some(participant) = metrics.participants.get(&msg.from) {
-                        let left = participant.center_x - participant.width / 2.0;
-                        let right = participant.center_x + participant.width / 2.0;
-                        min_x = min_x.min(left);
-                        max_x = max_x.max(right);
-                    }
-                    if let Some(participant) = metrics.participants.get(&msg.to) {
-                        let left = participant.center_x - participant.width / 2.0;
-                        let right = participant.center_x + participant.width / 2.0;
-                        min_x = min_x.min(left);
-                        max_x = max_x.max(right);
-                    }
-                }
+            Self::collect_centers(&section.elements, metrics, &mut min_x, &mut max_x);
+        }
+
+        // Если фрагмент пустой, используем все линии диаграммы.
+        if min_x == f64::MAX {
+            let centers: Vec<f64> = metrics.participants.values().map(|p| p.center_x).collect();
+            if let (Some(lo), Some(hi)) = (
+                centers.iter().cloned().reduce(f64::min),
+                centers.iter().cloned().reduce(f64::max),
+            ) {
+                min_x = lo;
+                max_x = hi;
+            } else {
+                min_x = self.config.margin;
+                max_x = metrics.max_x;
             }
         }
 
-        // Если фрагмент пустой, используем всю ширину
-        if min_x == f64::MAX {
-            min_x = self.config.margin;
-            max_x = metrics.max_x;
-        }
-
         (min_x, max_x)
+    }
+
+    /// Собирает центры линий участников, задействованных в элементах фрагмента.
+    ///
+    /// Рекурсия обязательна: вложенный фрагмент (например, `loop` внутри
+    /// `alt`) добавляет свои линии, и без обхода внешняя рамка оказалась бы
+    /// уже содержимого.
+    fn collect_centers(
+        elements: &[SequenceElement],
+        metrics: &DiagramMetrics,
+        min_x: &mut f64,
+        max_x: &mut f64,
+    ) {
+        for elem in elements {
+            match elem {
+                SequenceElement::Message(msg) => {
+                    for name in [&msg.from, &msg.to] {
+                        if let Some(participant) = metrics.participants.get(name) {
+                            *min_x = min_x.min(participant.center_x);
+                            *max_x = max_x.max(participant.center_x);
+                        }
+                    }
+                }
+                SequenceElement::Fragment(inner) => {
+                    for section in &inner.sections {
+                        Self::collect_centers(&section.elements, metrics, min_x, max_x);
+                    }
+                }
+                SequenceElement::Note(note) => {
+                    for name in &note.anchors {
+                        if let Some(participant) = metrics.participants.get(name) {
+                            *min_x = min_x.min(participant.center_x);
+                            *max_x = max_x.max(participant.center_x);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     /// Размещает заметку
