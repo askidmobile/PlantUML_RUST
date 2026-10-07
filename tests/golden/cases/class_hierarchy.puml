@@ -1,0 +1,26 @@
+@startuml
+abstract class Animal {
+    +name: string
+    {abstract} +speak(): void
+}
+
+class Dog extends Animal {
+    +breed: string
+    +speak(): void
+}
+
+class Cat extends Animal {
+    +color: string
+    +speak(): void
+}
+
+interface Flyable {
+    +fly(): void
+}
+
+class Bird extends Animal implements Flyable {
+    +wingspan: int
+    +speak(): void
+    +fly(): void
+}
+@enduml

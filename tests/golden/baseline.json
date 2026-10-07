@@ -1,6 +1,7 @@
 {
   "activity_basic": { "width_diff": 0.0, "height_diff": 0.0, "missing_texts": 0 },
   "activity_branch": { "width_diff": 24.0, "height_diff": 14.0, "missing_texts": 0 },
+  "class_hierarchy": { "width_diff": 7.0, "height_diff": 28.0, "missing_texts": 0 },
   "class_inheritance": { "width_diff": 0.0, "height_diff": 0.0, "missing_texts": 0 },
   "component_basic": { "width_diff": 0.0, "height_diff": 2.0, "missing_texts": 0 },
   "deployment_basic": { "width_diff": 0.0, "height_diff": 2.0, "missing_texts": 0 },
