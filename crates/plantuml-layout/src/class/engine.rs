@@ -249,12 +249,17 @@ impl ClassLayoutEngine {
                 // эталон `Class: Наследование` содержит 15 текстов, а мы
                 // рисовали 17 — лишними были ровно «interface» и «abstract».
                 // Лишняя строка-стереотип давала +12 по высоте.
+                // PlantUML НЕ рисует авто-стереотип ни для одного из этих
+                // типов. Проверено на сервере (пункт 38.8 и 43.5):
+                // `interface I` -> ['I']; `abstract class` -> ['Base',...];
+                // `enum Color` -> ['Color','RED']; `annotation Marker` ->
+                // ['Marker']; `entity User` -> ['User','id : int'].
                 let stereo = match c.classifier_type {
-                    ClassifierType::Interface => None,
-                    ClassifierType::AbstractClass => None,
-                    ClassifierType::Enum => Some("enum".to_string()),
-                    ClassifierType::Annotation => Some("annotation".to_string()),
-                    ClassifierType::Entity => Some("entity".to_string()),
+                    ClassifierType::Interface
+                    | ClassifierType::AbstractClass
+                    | ClassifierType::Enum
+                    | ClassifierType::Annotation
+                    | ClassifierType::Entity => None,
                     _ => None,
                 };
                 (kind, stereo)

@@ -209,6 +209,9 @@ impl Node {
             plantuml_ast::class::ClassifierType::Class
                 | plantuml_ast::class::ClassifierType::Interface
                 | plantuml_ast::class::ClassifierType::AbstractClass
+                | plantuml_ast::class::ClassifierType::Enum
+                | plantuml_ast::class::ClassifierType::Annotation
+                | plantuml_ast::class::ClassifierType::Entity
         );
         let header_height = if has_stereotype {
             // Стереотип + имя = больше высоты
