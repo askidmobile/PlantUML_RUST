@@ -324,7 +324,17 @@ impl SaltLayoutEngine {
                     cell_width - self.config.cell_padding,
                     elements,
                 );
-                row_height = row_height.max(h);
+                // Строка из ОДНОГО разделителя берёт ЕГО высоту, а не пол
+                // строки. Измерено по эталону `Salt: Wireframe`: шаг от
+                // строки `Логин` до строки полей равен 24 = 16 (строка
+                // текста) + 8 (разделитель `==`). Пол `row_height = 15.97`
+                // обрезал разделитель до 16, и шаг выходил 32.
+                let is_separator = matches!(widget, SaltWidget::Separator(_));
+                if is_separator && row.len() == 1 {
+                    row_height = h;
+                } else {
+                    row_height = row_height.max(h);
+                }
                 current_x += cell_width;
             }
 
