@@ -892,7 +892,7 @@ impl SaltLayoutEngine {
                 from_cardinality: None,
                 to_cardinality: None,
             },
-            bounds: Rect::new(x, y, width, 20.0),
+            bounds: Rect::new(x, y, width, 8.0),
             text: None,
             properties: [("stroke".to_string(), self.config.border_color.to_string())]
                 .into_iter()
@@ -915,7 +915,7 @@ impl SaltLayoutEngine {
                     from_cardinality: None,
                     to_cardinality: None,
                 },
-                bounds: Rect::new(x, y, width, 20.0),
+                bounds: Rect::new(x, y, width, 8.0),
                 text: None,
                 properties: [("stroke".to_string(), self.config.border_color.to_string())]
                     .into_iter()
@@ -924,7 +924,7 @@ impl SaltLayoutEngine {
             elements.push(line2);
         }
 
-        (width, 20.0)
+        (width, 8.0)
     }
 
     /// Рендерит дерево
