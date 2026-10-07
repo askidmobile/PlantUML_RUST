@@ -208,9 +208,45 @@ impl UseCaseLayoutEngine {
             // эллипс начинается на y=141.8. Раньше актёр выравнивался по
             // средней Y связанных use case, из-за чего оказывался между
             // ними и диаграмма теряла вертикальный порядок.
+            // В LTR актёр ЦЕНТРИРУЕТСЯ по связанным с ним use case.
+            //
+            // Измерено по эталону `UseCase: Простой`: `Customer` связан с
+            // UC1/UC2/UC3, стоящими на cy 62, 136 и 208 (среднее 135.3), и
+            // его голова оказывается на 106; `Manager` связан с UC4/UC5
+            // (280 и 356, среднее 318) — голова на 288. Разница до среднего
+            // в обоих случаях около 29, то есть актёр ставится ЦЕНТРОМ на
+            // среднее своих use case.
+            //
+            // В режиме сверху-вниз актёры, наоборот, идут столбцом от верха:
+            // это подтверждено эталоном `usecase_basic`, и там расхождение
+            // всего 1.0 по высоте.
             let y = if is_left_to_right {
-                // Слева, столбцом, начиная от верха системы.
-                system_y + actor_index as f64 * (self.config.actor_height + 10.0)
+                let mut sum = 0.0;
+                let mut count = 0.0;
+                // Связи ссылаются на АЛИАС (`Customer`), а не на подпись
+                // (`Покупатель`), поэтому сверяем оба.
+                let alias = actor.alias.as_deref();
+                let is_me = |name: &str| name == actor.name || Some(name) == alias;
+                for rel in &diagram.relationships {
+                    let other = if is_me(&rel.from) {
+                        Some(&rel.to)
+                    } else if is_me(&rel.to) {
+                        Some(&rel.from)
+                    } else {
+                        None
+                    };
+                    if let Some(name) = other {
+                        if let Some(rect) = element_positions.get(name.as_str()) {
+                            sum += rect.y + rect.height / 2.0;
+                            count += 1.0;
+                        }
+                    }
+                }
+                if count > 0.0 {
+                    (sum / count - self.config.actor_height / 2.0).max(self.config.margin)
+                } else {
+                    system_y + actor_index as f64 * (self.config.actor_height + 10.0)
+                }
             } else {
                 self.config.margin + actor_index as f64 * (self.config.actor_height + 10.0)
             };
