@@ -676,9 +676,12 @@ impl TimingLayoutEngine {
             let t = changes[index].time.as_f64();
             start_x + (t - min_time) * self.config.time_scale
         };
+        // Последний сегмент кончается на ПОСЛЕДНЕМ времени, а не на конце
+        // оси: в эталоне последний горизонтальный отрезок идёт до 689.6 —
+        // ровно до последнего деления, тогда как рамка на 694.553.
         let line_to = |index: usize| {
             if index + 1 == changes.len() {
-                start_x + width
+                step(index)
             } else {
                 step(index + 1)
             }
@@ -809,9 +812,12 @@ impl TimingLayoutEngine {
             let t = changes[index].time.as_f64();
             start_x + (t - min_time) * self.config.time_scale
         };
+        // Последний сегмент кончается на ПОСЛЕДНЕМ времени, а не на конце
+        // оси: в эталоне последний горизонтальный отрезок идёт до 689.6 —
+        // ровно до последнего деления, тогда как рамка на 694.553.
         let line_to = |index: usize| {
             if index + 1 == changes.len() {
-                start_x + width
+                step(index)
             } else {
                 step(index + 1)
             }
