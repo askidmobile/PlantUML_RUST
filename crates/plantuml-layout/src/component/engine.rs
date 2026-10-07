@@ -10,6 +10,29 @@ use plantuml_model::{Point, Rect};
 use super::config::ComponentLayoutConfig;
 
 /// Базовая ширина компонента, измеренная по эталону PlantUML.
+/// Место под заголовок контейнера при переходе между пакетами.
+///
+/// Измерено на сервере: `package` -> `package` даёт шаг 122 при 106
+/// внутри пакета.
+/// Базовый шаг между уровнями для компонентов ВНУТРИ пакетов.
+///
+/// Измерено на сервере: шаг 106 = 46 (высота блока) + 60. У компонентов
+/// верхнего уровня шаг другой — 123 = 46 + 77 (эталон `component_basic`).
+const COMPONENT_IN_PACKAGE_SPACING: f64 = 60.0;
+
+/// Верхний отступ над первым уровнем, если он внутри пакета.
+///
+/// Измерено по эталону `Component: Простой`: подпись `Frontend` на y=21,
+/// первый блок на 41 при `margin` 7.
+const CONTAINER_TOP_EXTRA: f64 = 34.0;
+
+const CONTAINER_HEADER_EXTRA: f64 = 16.0;
+
+/// То же при переходе из `package` в `database`.
+///
+/// Измерено на сервере: `package` -> `database` даёт шаг 137.
+const CONTAINER_DATABASE_EXTRA: f64 = 31.0;
+
 const COMPONENT_BASE_WIDTH: f64 = 4.6;
 /// Прибавка к ширине компонента на каждый символ подписи.
 const COMPONENT_CHAR_WIDTH: f64 = 11.43;
@@ -130,7 +153,10 @@ impl ComponentLayoutEngine {
 
         let mut global_positions: HashMap<String, (f64, f64)> = HashMap::new();
         if !uses_nodes {
-            let mut all_components: Vec<(&Component, Option<&str>)> = Vec::new();
+            let mut all_components: Vec<(
+                &Component,
+                Option<&plantuml_ast::component::ComponentPackage>,
+            )> = Vec::new();
             for comp in &diagram.components {
                 all_components.push((comp, None));
             }
@@ -165,7 +191,20 @@ impl ComponentLayoutEngine {
                 .collect();
             let widest_row = row_widths.iter().cloned().fold(0.0_f64, f64::max);
 
-            let mut cursor_y = self.config.margin;
+            // Верхний отступ: над первым уровнем тоже стоит ЗАГОЛОВОК
+            // пакета. Эталон `Component: Простой`: подпись `Frontend` на
+            // y=21, первый блок на 41 при margin 7 — то есть 34.
+            let mut cursor_y = self.config.margin
+                + if by_level
+                    .first()
+                    .and_then(|r| r.first())
+                    .and_then(|&i| all_components[i].1)
+                    .is_some()
+                {
+                    CONTAINER_TOP_EXTRA
+                } else {
+                    0.0
+                };
             for (row_index, row) in by_level.iter().enumerate() {
                 let mut cursor_x = self.config.margin + (widest_row - row_widths[row_index]) / 2.0;
                 let mut row_height = self.component_natural_height();
@@ -179,7 +218,45 @@ impl ComponentLayoutEngine {
                     cursor_x += bounds.width + self.config.horizontal_spacing;
                     row_height = row_height.max(bounds.height);
                 }
-                cursor_y += row_height + self.config.vertical_spacing;
+                // СМЕНА КОНТЕЙНЕРА ДОБАВЛЯЕТ МЕСТО ПОД ЕГО ЗАГОЛОВОК.
+                //
+                // Измерено на сервере:
+                //   внутри пакета                       -> шаг 106
+                //   package -> package                  -> шаг 122 (+16)
+                //   package -> database                 -> шаг 137 (+31)
+                // (база 106 = 46 высота блока + 60 отступ). Проверено на
+                // playground `Backend` -> `PostgreSQL`, где шаг 136 —
+                // совпадает с предсказанными 137 в пределах округления.
+                // БАЗОВЫЙ ШАГ РАЗНЫЙ: у компонентов ВЕРХНЕГО уровня 77
+                // (эталон `component_basic`: блоки на y=7 и y=130, шаг 123
+                // = 46 + 77), у компонентов ВНУТРИ ПАКЕТОВ 60 (эталон
+                // `Component: Простой`: шаг 106 = 46 + 60).
+                let in_package = row.first().and_then(|&i| all_components[i].1).is_some();
+                let base_spacing = if in_package {
+                    COMPONENT_IN_PACKAGE_SPACING
+                } else {
+                    self.config.vertical_spacing
+                };
+                cursor_y += row_height + base_spacing;
+                if let Some(next) = by_level.get(row_index + 1) {
+                    // Важна СМЕНА контейнера, а не смена его типа:
+                    // `Frontend` -> `Backend` — разные пакеты ОДНОГО типа,
+                    // и добавка там тоже есть (замер: шаг 122).
+                    let container_of =
+                        |row: &Vec<usize>| row.first().and_then(|&i| all_components[i].1);
+                    if let (Some(cur), Some(nxt)) = (container_of(row), container_of(next)) {
+                        if cur.name != nxt.name {
+                            cursor_y += if matches!(
+                                nxt.package_type,
+                                plantuml_ast::component::PackageType::Package
+                            ) {
+                                CONTAINER_HEADER_EXTRA
+                            } else {
+                                CONTAINER_DATABASE_EXTRA
+                            };
+                        }
+                    }
+                }
             }
         }
 
@@ -653,11 +730,14 @@ impl ComponentLayoutEngine {
     /// Собирает компоненты ВСЕХ пакетов (рекурсивно) в один список.
     fn collect_all_components<'a>(
         packages: &'a [plantuml_ast::component::ComponentPackage],
-        out: &mut Vec<(&'a Component, Option<&'a str>)>,
+        out: &mut Vec<(
+            &'a Component,
+            Option<&'a plantuml_ast::component::ComponentPackage>,
+        )>,
     ) {
         for pkg in packages {
             for comp in &pkg.components {
-                out.push((comp, Some(pkg.name.as_str())));
+                out.push((comp, Some(pkg)));
             }
             Self::collect_all_components(&pkg.packages, out);
         }
@@ -665,7 +745,10 @@ impl ComponentLayoutEngine {
 
     /// Присваивает уровням компоненты по длине longest-path.
     fn assign_component_levels(
-        all: &[(&Component, Option<&str>)],
+        all: &[(
+            &Component,
+            Option<&plantuml_ast::component::ComponentPackage>,
+        )],
         connections: &[plantuml_ast::component::Connection],
     ) -> HashMap<String, usize> {
         let mut level: HashMap<String, usize> = HashMap::new();
