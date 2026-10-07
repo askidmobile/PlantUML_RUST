@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="252px" preserveAspectRatio="none" style="width:187px;height:252px;background:#FFFFFF;" version="1.1" viewBox="0 0 186.8213256 251.985" width="187px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="lifeline_Alice">
 <path d="M33.8119,40.297 L33.8119,209.81300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
@@ -30,7 +13,8 @@ expression: svg
 <path d="M112.39760000000001,40.297 L112.39760000000001,209.81300000000002" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
 </g>
 <g id="msg_Alice_Bob">
-<path d="M33.8119,70.297 L112.39760000000001,70.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M33.8119,70.297 L106.39760000000001,70.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="112.398,70.297 102.398,66.297 102.398,74.297 106.398,70.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40.8119" y="65.297" textLength="54.586">
 Request
 </text>
@@ -45,7 +29,8 @@ alt
 [success]
 </text>
 <g id="msg_Bob_Alice">
-<path d="M112.39760000000001,130.69 L33.8119,130.69" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M112.39760000000001,130.69 L39.8119,130.69" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="#181818" points="33.812,130.69 43.812,134.69 43.812,126.69 39.812,130.69" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8119" y="125.69" textLength="18.756">
 OK
 </text>
@@ -55,7 +40,8 @@ OK
 [failure]
 </text>
 <g id="msg_Bob_Alice">
-<path d="M112.39760000000001,178.823 L33.8119,178.823" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M112.39760000000001,178.823 L39.8119,178.823" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="#181818" points="33.812,178.823 43.812,182.823 43.812,174.823 39.812,178.823" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8119" y="173.823" textLength="32.204">
 Error
 </text>

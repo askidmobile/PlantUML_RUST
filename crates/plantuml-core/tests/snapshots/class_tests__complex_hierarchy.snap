@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="CLASS" height="368px" preserveAspectRatio="none" style="width:466px;height:368px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 465.8004000000001 367.786" width="466px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Repository">
 <rect fill="#F1F1F1" height="80.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="111.70719999999999" x="166.40660000000003" y="265.485"/>
@@ -84,13 +67,16 @@ findByCategory(): List&lt;Product&gt;
 </text>
 </g>
 <g id="edge_AbstractRepository_Repository">
-<path d="M222.26020000000003,265.485 L222.26020000000003,205.48499999999999" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M222.26020000000003,265.485 L222.26020000000003,223.48499999999999" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="none" points="222.26,205.485 216.26,223.485 228.26,223.485 222.26,205.485" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_UserRepository_AbstractRepository">
-<path d="M222.26020000000003,124.594 L222.26020000000003,94.594 L81.66890000000001,94.594 L81.66890000000001,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M222.26020000000003,124.594 L222.26020000000003,94.594 L81.66890000000001,94.594 L81.66890000000001,82.594" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="none" points="81.669,64.594 75.669,82.594 87.669,82.594 81.669,64.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_ProductRepository_AbstractRepository">
-<path d="M222.26020000000003,124.594 L222.26020000000003,94.594 L321.5291,94.594 L321.5291,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M222.26020000000003,124.594 L222.26020000000003,94.594 L321.5291,94.594 L321.5291,82.594" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="none" points="321.529,64.594 315.529,82.594 327.529,82.594 321.529,64.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="CLASS" height="211px" preserveAspectRatio="none" style="width:200px;height:211px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 199.75560000000002 210.59799999999998" width="200px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Animal">
 <rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.4036" x="49.035999999999994" y="124.594"/>
@@ -63,10 +46,12 @@ meow()
 </text>
 </g>
 <g id="edge_Dog_Animal">
-<path d="M89.2378,124.594 L89.2378,94.594 L33.1589,94.594 L33.1589,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M89.2378,124.594 L89.2378,94.594 L33.1589,94.594 L33.1589,82.594" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="none" points="33.159,64.594 27.159,82.594 39.159,82.594 33.159,64.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_Cat_Animal">
-<path d="M89.2378,124.594 L89.2378,94.594 L139.9967,94.594 L139.9967,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M89.2378,124.594 L89.2378,94.594 L139.9967,94.594 L139.9967,82.594" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="none" points="139.997,64.594 133.997,82.594 145.997,82.594 139.997,64.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

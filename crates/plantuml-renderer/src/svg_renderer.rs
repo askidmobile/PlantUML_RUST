@@ -1,6 +1,6 @@
 //! SVG рендерер
 
-use svg::node::element::{Definitions, Group, Marker, Path, Polygon, Rectangle, Text};
+use svg::node::element::{Element, Group, Path, Polygon, Polyline, Rectangle, Text};
 use svg::Document;
 
 use crate::{
@@ -80,7 +80,7 @@ const MESSAGE_LABEL_INSET: f64 = 7.0;
 
 /// Длина наконечника стрелки: на столько подпись отодвигается от
 /// левого конца, если наконечник стоит именно слева.
-const MESSAGE_ARROW_HEAD: f64 = 10.0;
+const MESSAGE_ARROW_HEAD: f64 = ARROW_HEAD_LENGTH;
 
 /// Насколько подпись сообщения поднята над линией.
 const MESSAGE_LABEL_RISE: f64 = 5.0;
@@ -89,6 +89,374 @@ const MESSAGE_LABEL_RISE: f64 = 5.0;
 /// цвет границы темы: эталоны `activity_basic` и `state_simple` дают
 /// `fill="#222" stroke="#222"`).
 const UML_NODE_COLOR: &str = "#222";
+
+// === Геометрия наконечников связей ===
+//
+// PlantUML НЕ использует SVG-маркеры: он рисует наконечник отдельным
+// элементом — `<polygon>` у замкнутых фигур и `<polyline>` у «галочки».
+// Числа ниже сняты с эталонов PlantUML 1.2026.9beta4
+// (`tests/golden/reference/*.svg`). Каждая фигура измерена в СВОЕЙ
+// системе координат: начало — конец линии, ось `t` — вдоль линии
+// (положительное направление «наружу», к острию), ось `s` —
+// перпендикуляр к ней.
+
+/// Длина замкнутой стрелки (`->`, `-->`): эталон `sequence_simple`,
+/// линия до `x=121.175`, острие на `125.175`, хвост на `115.175`.
+const ARROW_HEAD_LENGTH: f64 = 10.0;
+
+/// Полувысота замкнутой стрелки (эталон: `70.43 ± 4`).
+const ARROW_HEAD_HALF: f64 = 4.0;
+
+/// Вырез в хвосте замкнутой стрелки: эталон даёт точку `119.175` при
+/// острие `125.175`, то есть 6 от острия. Отсюда же начинается линия.
+const ARROW_HEAD_NOTCH: f64 = 6.0;
+
+/// Полураствор лучей «галочки» (открытая стрелка состояний,
+/// компонентов, use-case): эталон `usecase_basic` даёт лучи на `±4`
+/// вокруг линии.
+const OPEN_HEAD_HALF: f64 = 4.0;
+
+/// Смещение острия «галочки» вперёд от конца линии.
+const OPEN_HEAD_FORWARD: f64 = 5.0;
+
+/// Длина стрелки наследования (`--|>`, `..|>`).
+///
+/// Эталон `class_hierarchy`: полый треугольник с основанием на конце
+/// линии (`217.6,106`) и остриём на `217.6,88` — 18 вперёд.
+const INHERITANCE_HEAD_LENGTH: f64 = 18.0;
+
+/// Полуширина основания треугольника наследования (эталон: `±6`).
+const INHERITANCE_HEAD_HALF: f64 = 6.0;
+
+/// Длина ромба композиции (`*--`).
+///
+/// Эталон `class_kompoziciya`: острие на `114.71,87.96`, хвост на
+/// `108.539·2 − 114.71 = 102.368` — 12 от острия.
+const DIAMOND_LENGTH: f64 = 12.0;
+
+/// Полувысота ромба композиции (эталон: `87.96 ± 4`).
+const DIAMOND_HALF: f64 = 4.0;
+
+/// Форма наконечника связи.
+///
+/// Соответствие форм эталону PlantUML:
+///
+/// * `Closed` — сплошная стрелка из сообщений sequence, переходов
+///   activity и ассоциаций class (эталоны `sequence_*`, `activity_*`);
+/// * `Open` — «галочка» из двух лучей: состояния, компоненты, use-case,
+///   объекты, зависимости (эталоны `state_*`, `usecase_basic`,
+///   `component_basic`, `object_basic`);
+/// * `Inheritance` — полый треугольник;
+/// * `Diamond` — ромб композиции (залитый) и агрегации (полый).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArrowHeadKind {
+    Closed,
+    Open,
+    Inheritance,
+    Diamond,
+}
+
+/// Готовая геометрия наконечника.
+struct ArrowHead {
+    /// Вершины в абсолютных координатах.
+    points: Vec<Point>,
+    /// Замкнутая фигура (`polygon`) либо ломаная (`polyline`).
+    closed: bool,
+    /// Заливка; `None` — `fill="none"`.
+    fill: Option<String>,
+    /// Обводка; `None` — без обводки.
+    stroke: Option<String>,
+    /// Толщина обводки.
+    stroke_width: f64,
+}
+
+/// Сколько отступить от конца линии, чтобы она не вылезала за
+/// наконечник.
+///
+/// У замкнутых фигур линия доходит до выреза (или до основания
+/// треугольника и хвоста ромба) — ровно как в эталоне. У «галочки»
+/// линия доходит до самого конца: там выреза нет.
+fn arrow_line_trim(kind: ArrowHeadKind) -> f64 {
+    match kind {
+        ArrowHeadKind::Closed => ARROW_HEAD_NOTCH,
+        ArrowHeadKind::Diamond => DIAMOND_LENGTH,
+        ArrowHeadKind::Inheritance => INHERITANCE_HEAD_LENGTH,
+        ArrowHeadKind::Open => 0.0,
+    }
+}
+
+/// Единичный вектор из `from` в `to`; `None`, если точки совпали.
+fn unit_vector(from: Point, to: Point) -> Option<(f64, f64)> {
+    let dx = to.x - from.x;
+    let dy = to.y - from.y;
+    let length = (dx * dx + dy * dy).sqrt();
+    if length < f64::EPSILON {
+        None
+    } else {
+        Some((dx / length, dy / length))
+    }
+}
+
+/// Переводит точку из системы координат наконечника в абсолютную.
+///
+/// `tip` — острие, `(tx, ty)` — единичное направление вдоль линии
+/// (наружу), `(px, py)` — перпендикуляр к нему. Локальные координаты
+/// заданы парой `(t, s)`.
+fn arrow_point(
+    tip: Point,
+    tangent: (f64, f64),
+    perpendicular: (f64, f64),
+    t: f64,
+    s: f64,
+) -> Point {
+    Point::new(
+        tip.x + tangent.0 * t + perpendicular.0 * s,
+        tip.y + tangent.1 * t + perpendicular.1 * s,
+    )
+}
+
+/// Строит вершины наконечника в абсолютных координатах.
+///
+/// `line_end` — конец линии (та точка, которую рисовал бы прежний
+/// маркер), `from` — соседняя точка линии: она задаёт направление.
+/// `filled` — заливается ли фигура цветом связи (композиция) или
+/// фоном (агрегация).
+///
+/// # Где стоит острие
+///
+/// Острие каждой фигуры попадает ровно в конец линии, а тело уходит
+/// НАЗАД, к началу связи. Так устроены эталоны: `sequence_simple`
+/// (острие `125.175,70.43` — там же, где кончается линия),
+/// `class_hierarchy` (острие `217.6,88` при основании на `217.6,106`)
+/// и `class_kompoziciya` (острие `114.71` при хвосте ромба `102.368`).
+///
+/// Исключение — «галочка»: её лучи стоят в конце линии, а острие
+/// вынесено на 5 вперёд (эталон `usecase_basic`: линия до `136.57`,
+/// лучи на `136.57`, острие на `141.57`).
+fn arrow_head_points(
+    kind: ArrowHeadKind,
+    line_end: Point,
+    from: Point,
+    color: &str,
+    filled: bool,
+    theme: &Theme,
+) -> Option<ArrowHead> {
+    let (tx, ty) = unit_vector(from, line_end)?;
+    let perpendicular = (-ty, tx);
+
+    // Точка отсчёта — конец линии. Локальная ось `t` смотрит ВДОЛЬ
+    // линии (от `from` к `line_end`): отрицательное `t` уводит назад,
+    // к началу связи, положительное — вперёд, за конец линии.
+    let origin = line_end;
+
+    let at = |t: f64, s: f64| arrow_point(origin, (tx, ty), perpendicular, t, s);
+
+    let (points, closed, fill, stroke, stroke_width) = match kind {
+        // Сплошная стрелка: острие, два угла хвоста, вырез, замыкание.
+        ArrowHeadKind::Closed => (
+            vec![
+                at(0.0, 0.0),
+                at(-ARROW_HEAD_LENGTH, -ARROW_HEAD_HALF),
+                at(-ARROW_HEAD_LENGTH, ARROW_HEAD_HALF),
+                at(-ARROW_HEAD_NOTCH, 0.0),
+            ],
+            true,
+            Some(color.to_string()),
+            Some(color.to_string()),
+            1.0,
+        ),
+        // Галочка: лучи стоят в конце линии, а острие вынесено на 5
+        // вперёд — эталон `usecase_basic` заканчивает линию в `136.57`,
+        // лучи ставит там же, а острие — в `141.57`.
+        ArrowHeadKind::Open => (
+            vec![
+                at(0.0, -OPEN_HEAD_HALF),
+                at(OPEN_HEAD_FORWARD, 0.0),
+                at(0.0, OPEN_HEAD_HALF),
+            ],
+            false,
+            None,
+            Some(color.to_string()),
+            1.0,
+        ),
+        // Полый треугольник: острие в конце линии, основание — на 18
+        // назад. Эталон `class_hierarchy`: линия от потомка вверх
+        // доходит до `217.6,106` — это ОСНОВАНИЕ, а острие стоит
+        // на `217.6,88`, то есть дальше по линии, внутрь связи.
+        // Порядок вершин как в эталоне
+        // (`176.47,88 159.352,96.185 167.687,104.818 176.47,88`):
+        // PlantUML обходит основание от первого угла ко второму.
+        ArrowHeadKind::Inheritance => (
+            vec![
+                at(0.0, 0.0),
+                at(-INHERITANCE_HEAD_LENGTH, -INHERITANCE_HEAD_HALF),
+                at(-INHERITANCE_HEAD_LENGTH, INHERITANCE_HEAD_HALF),
+                // PlantUML замыкает контур явно — первая вершина
+                // повторяется последней (эталон `217.6,88 … 217.6,88`).
+                at(0.0, 0.0),
+            ],
+            true,
+            None,
+            Some(color.to_string()),
+            1.0,
+        ),
+        // Ромб: хвост уходит на 12 назад, к началу связи, острие —
+        // в конец линии, бока — на середине. Композиция залита цветом
+        // связи, агрегация — полая: заливается фоном, как прежний
+        // маркер `aggregation` (`fill` темы + обводка).
+        ArrowHeadKind::Diamond => (
+            vec![
+                at(0.0, 0.0),
+                at(-DIAMOND_LENGTH / 2.0, -DIAMOND_HALF),
+                at(-DIAMOND_LENGTH, 0.0),
+                at(-DIAMOND_LENGTH / 2.0, DIAMOND_HALF),
+            ],
+            true,
+            Some(if filled {
+                color.to_string()
+            } else {
+                theme.background_color.to_css()
+            }),
+            Some(color.to_string()),
+            1.0,
+        ),
+    };
+
+    Some(ArrowHead {
+        points,
+        closed,
+        fill,
+        stroke,
+        stroke_width,
+    })
+}
+
+/// Создаёт SVG-элемент наконечника.
+///
+/// Замкнутые фигуры (стрелка, треугольник, ромб) — `<polygon>`,
+/// «галочка» — `<polyline>`: незамкнутая ломаная, как у PlantUML
+/// в эталонах `state_simple` и `usecase_basic`.
+fn render_arrow_head(head: &ArrowHead) -> Element {
+    let coordinates = head
+        .points
+        .iter()
+        .map(|p| format!("{},{}", fmt(p.x), fmt(p.y)))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let fill = head.fill.as_deref().unwrap_or("none");
+    let stroke = head.stroke.as_deref().unwrap_or("none");
+
+    if head.closed {
+        let mut polygon = Polygon::new()
+            .set("points", coordinates)
+            .set("fill", fill)
+            .set("stroke", stroke);
+        if head.stroke_width > 0.0 {
+            polygon = polygon
+                .set("stroke-width", head.stroke_width)
+                // Углы PlantUML сводит «митрой»: у замкнутой стрелки это
+                // делает остриё острым, а не срезанным.
+                .set("stroke-linejoin", "miter")
+                .set("stroke-miterlimit", 10);
+        }
+        return Element::from(polygon);
+    }
+
+    let polyline = Polyline::new()
+        .set("points", coordinates)
+        .set("fill", "none")
+        .set("stroke", stroke)
+        .set("stroke-width", head.stroke_width)
+        .set("stroke-linejoin", "miter")
+        .set("stroke-miterlimit", 10);
+    Element::from(polyline)
+}
+
+/// Подрезает линию с концов на заданные расстояния.
+///
+/// Нужна, чтобы линия не вылезала за наконечник: у сплошной стрелки она
+/// должна закончиться в вырезе, у ромба — в его хвосте, а у «галочки»
+/// остаётся нетронутой. Подрезка идёт по длине ломаной, поэтому у
+/// ортогональных путей укорачивается только последнее звено.
+fn trim_line_ends(points: &[Point], trim_start: f64, trim_end: f64) -> Vec<Point> {
+    let mut result = points.to_vec();
+
+    if trim_end > 0.0 {
+        // Идём от конца к началу, пока не наберём нужную длину.
+        let mut rest = trim_end;
+        while result.len() >= 2 {
+            let last = result[result.len() - 1];
+            let previous = result[result.len() - 2];
+            match unit_vector(previous, last) {
+                Some((ux, uy)) => {
+                    let segment =
+                        ((last.x - previous.x).powi(2) + (last.y - previous.y).powi(2)).sqrt();
+                    if segment >= rest {
+                        let at = Point::new(last.x - ux * rest, last.y - uy * rest);
+                        let count = result.len();
+                        result[count - 1] = at;
+                        break;
+                    }
+                    rest -= segment;
+                    result.pop();
+                }
+                // Совпавшие точки: звено нулевой длины просто убираем.
+                None => {
+                    result.pop();
+                }
+            }
+        }
+    }
+
+    if trim_start > 0.0 {
+        let mut rest = trim_start;
+        while result.len() >= 2 {
+            let first = result[0];
+            let second = result[1];
+            match unit_vector(first, second) {
+                Some((ux, uy)) => {
+                    let segment =
+                        ((second.x - first.x).powi(2) + (second.y - first.y).powi(2)).sqrt();
+                    if segment >= rest {
+                        result[0] = Point::new(first.x + ux * rest, first.y + uy * rest);
+                        break;
+                    }
+                    rest -= segment;
+                    result.remove(0);
+                }
+                None => {
+                    result.remove(0);
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// Тип наконечника для связи.
+///
+/// Форма зависит не от типа связи в модели, а от того, как её рисует
+/// PlantUML в конкретной диаграмме:
+///
+/// * sequence и activity — сплошная стрелка;
+/// * остальные (state, component, use-case, object, deployment) —
+///   «галочка».
+///
+/// Тип связи при этом важнее вида диаграммы: наследование всегда
+/// треугольник, композиция и агрегация — ромбы, зависимость — галочка.
+fn arrow_head_kind(edge_type: EdgeType, diagram_type: Option<&str>) -> ArrowHeadKind {
+    match edge_type {
+        EdgeType::Inheritance | EdgeType::Realization => ArrowHeadKind::Inheritance,
+        EdgeType::Composition | EdgeType::Aggregation => ArrowHeadKind::Diamond,
+        EdgeType::Dependency => ArrowHeadKind::Open,
+        EdgeType::Link => ArrowHeadKind::Open,
+        EdgeType::Association => match diagram_type {
+            Some("SEQUENCE") | Some("ACTIVITY") => ArrowHeadKind::Closed,
+            _ => ArrowHeadKind::Open,
+        },
+    }
+}
 
 /// Радиус внутреннего круга конечного узла UML относительно внешнего.
 ///
@@ -386,7 +754,7 @@ impl SvgRenderer {
 
     /// Создаёт SVG документ
     /// PlantUML стиль: прозрачный/белый фон БЕЗ рамки вокруг диаграммы
-    fn create_document(&self, layout: &LayoutResult, theme: &Theme) -> Document {
+    fn create_document(&self, layout: &LayoutResult) -> Document {
         let bounds = &layout.bounds;
 
         // Поля вокруг диаграммы зависят от типа: у PlantUML они разные.
@@ -452,122 +820,14 @@ impl SvgRenderer {
             doc = doc.add(bg_rect);
         }
 
-        // Определения (маркеры стрелок)
-        let defs = self.create_definitions(theme);
-        doc = doc.add(defs);
+        // <defs> с маркерами здесь больше НЕ выводится.
+        //
+        // Раньше связи ссылались на `marker-end="url(#arrow)"`, но такая
+        // ссылка не разрешается, когда SVG вставляют через `innerHTML`
+        // (playground и WASM): линии с наконечником не рисовались вовсе.
+        // Теперь наконечник — явная фигура, как в эталоне PlantUML.
 
         doc
-    }
-
-    /// Создаёт определения (маркеры, градиенты)
-    /// PlantUML стиль: разные стрелки для разных типов связей
-    fn create_definitions(&self, theme: &Theme) -> Definitions {
-        let arrow_color = theme.arrow_color.to_css();
-
-        // Маркер стрелки в стиле PlantUML (ромб с вырезом) - для ассоциаций и сообщений
-        let arrow_marker = Marker::new()
-            .set("id", "arrow")
-            .set("markerWidth", 10)
-            .set("markerHeight", 8)
-            .set("refX", 10)
-            .set("refY", 4)
-            .set("orient", "auto")
-            .set("markerUnits", "userSpaceOnUse")
-            .add(
-                Path::new()
-                    // PlantUML style: ромб с вырезом.
-                    //
-                    // Обводка не декоративна: PlantUML рисует наконечник
-                    // полигоном со `stroke-width:1`, поэтому его видимый
-                    // размер на пиксель больше самой геометрии. Без обводки
-                    // наши стрелки выглядели тоньше эталонных.
-                    .set("d", "M0,0 L10,4 L0,8 L4,4 Z")
-                    .set("fill", arrow_color.as_str())
-                    .set("stroke", arrow_color.as_str())
-                    .set("stroke-width", 1)
-                    .set("stroke-linejoin", "miter"),
-            );
-
-        // Открытый маркер стрелки (для async сообщений)
-        let open_arrow_marker = Marker::new()
-            .set("id", "arrow-open")
-            .set("markerWidth", 10)
-            .set("markerHeight", 8)
-            .set("refX", 10)
-            .set("refY", 4)
-            .set("orient", "auto")
-            .set("markerUnits", "userSpaceOnUse")
-            .add(
-                Path::new()
-                    .set("d", "M0,0 L10,4 L0,8")
-                    .set("fill", "none")
-                    .set("stroke", arrow_color.as_str())
-                    .set("stroke-width", 1),
-            );
-
-        // Маркер наследования (пустой треугольник) - для --|> и ..|>
-        // PlantUML использует polygon fill="none" для inheritance
-        let inheritance_marker = Marker::new()
-            .set("id", "inheritance")
-            .set("markerWidth", 20)
-            .set("markerHeight", 20)
-            .set("refX", 20)
-            .set("refY", 10)
-            .set("orient", "auto")
-            .set("markerUnits", "userSpaceOnUse")
-            .add(
-                Path::new()
-                    // Треугольник: верх, кончик, низ
-                    .set("d", "M0,0 L20,10 L0,20 Z")
-                    // PlantUML рисует полый треугольник с `fill="none"`,
-                    // а не белой заливкой. Проверено по эталону
-                    // class_inheritance: `<polygon ... fill="none">`.
-                    // Разница видна, когда линия проходит через фигуру:
-                    // белая заливка перекрывает её, `none` — нет.
-                    .set("fill", "none")
-                    .set("stroke", arrow_color.as_str())
-                    .set("stroke-width", 1),
-            );
-
-        // Маркер композиции (закрашенный ромб) - для *--
-        let composition_marker = Marker::new()
-            .set("id", "composition")
-            .set("markerWidth", 12)
-            .set("markerHeight", 12)
-            .set("refX", 0)
-            .set("refY", 6)
-            .set("orient", "auto")
-            .set("markerUnits", "userSpaceOnUse")
-            .add(
-                Path::new()
-                    // Ромб: лево, верх, право, низ
-                    .set("d", "M0,6 L6,0 L12,6 L6,12 Z")
-                    .set("fill", arrow_color.as_str()),
-            );
-
-        // Маркер агрегации (пустой ромб) - для o--
-        let aggregation_marker = Marker::new()
-            .set("id", "aggregation")
-            .set("markerWidth", 12)
-            .set("markerHeight", 12)
-            .set("refX", 0)
-            .set("refY", 6)
-            .set("orient", "auto")
-            .set("markerUnits", "userSpaceOnUse")
-            .add(
-                Path::new()
-                    .set("d", "M0,6 L6,0 L12,6 L6,12 Z")
-                    .set("fill", theme.background_color.to_css()) // белый внутри
-                    .set("stroke", arrow_color.as_str())
-                    .set("stroke-width", 1),
-            );
-
-        Definitions::new()
-            .add(arrow_marker)
-            .add(open_arrow_marker)
-            .add(inheritance_marker)
-            .add(composition_marker)
-            .add(aggregation_marker)
     }
 
     /// Рендерит элемент
@@ -1800,40 +2060,55 @@ impl SvgRenderer {
             && (points[0].x - points[3].x).abs() < 1.0
             && (points[0].y - points[3].y).abs() > 1.0;
 
-        // Строим путь
-        let d = if is_self_message {
-            // PlantUML style self-message: прямые углы (3 линии)
-            // points[0] = start (lifeline, top)
-            // points[1] = right top
-            // points[2] = right bottom
-            // points[3] = end (lifeline, bottom)
-            //
-            // PlantUML SVG:
-            // line 1: x1=28.8 → x2=70.8, y=67.4 (горизонтальная вправо)
-            // line 2: x=70.8, y1=67.4 → y2=80.4 (вертикальная вниз)
-            // line 3: x1=70.8 → x2=29.8, y=80.4 (горизонтальная влево)
-            // polygon (стрелка): в конце line 3
-            //
-            // Путь: от lifeline вправо, вниз, обратно к lifeline
-            format!(
-                "M{},{} L{},{} L{},{} L{},{}",
-                points[0].x,
-                points[0].y, // начало (lifeline, верх)
-                points[1].x,
-                points[1].y, // вправо (верхний правый угол)
-                points[2].x,
-                points[2].y, // вниз (нижний правый угол)
-                points[3].x,
-                points[3].y, // влево к lifeline (конец)
-            )
+        // Наконечники: что рисовать и насколько подрезать под них линию.
+        //
+        // `EdgeType::Link` — линия без наконечника, но флаг `arrow_end`
+        // у неё всё равно приходит истинным, поэтому случай отсекаем явно.
+        let head_kind = arrow_head_kind(edge_type, self.options.diagram_type.as_deref());
+        let draws_head = edge_type != EdgeType::Link;
+
+        // Цвет связи: свойство элемента важнее цвета темы. Наконечники
+        // красятся тем же цветом — в эталоне они совпадают.
+        let edge_color = style
+            .color
+            .map(str::to_string)
+            .unwrap_or_else(|| theme.arrow_color.to_css());
+
+        // Насколько отступить от концов линии, чтобы она не вылезала за
+        // наконечник. У «галочки» выреза нет — линия доходит до конца.
+        let head_trim = arrow_line_trim(head_kind);
+        let trim_start = if arrow_start && draws_head {
+            head_trim
         } else {
-            // Обычные линии
-            let mut d = format!("M{},{}", points[0].x, points[0].y);
-            for p in &points[1..] {
-                d.push_str(&format!(" L{},{}", p.x, p.y));
-            }
-            d
+            0.0
         };
+        let trim_end = if arrow_end && draws_head {
+            head_trim
+        } else {
+            0.0
+        };
+
+        // Направление линии считаем по ИСХОДНЫМ точкам, а не по
+        // подрезанным. Разница принципиальна для ортогональных путей
+        // (class-наследование): после подрезки последнее звено может
+        // выродиться в точку, и направление «из ниоткуда» потеряется.
+        let end_tip = (arrow_end && draws_head).then(|| {
+            let last = points.len() - 1;
+            (points[last], points[last - 1])
+        });
+        let start_tip = (arrow_start && draws_head).then(|| (points[0], points[1]));
+
+        // Строим линию.
+        //
+        // Прежний код отдельно форматировал self-message: геометрия от
+        // этого не менялась, отличалась только запись `d`. Теперь линия
+        // собирается одинаково, а признак `is_self_message` нужен лишь
+        // для размещения подписи ниже.
+        let line_points = trim_line_ends(points, trim_start, trim_end);
+        let mut d = format!("M{},{}", line_points[0].x, line_points[0].y);
+        for p in &line_points[1..] {
+            d.push_str(&format!(" L{},{}", p.x, p.y));
+        }
 
         // Цвет и толщина могут быть переопределены свойствами: PlantUML
         // рисует переходы состояний timing зелёным (#006400) толщиной 2,
@@ -1849,13 +2124,7 @@ impl SvgRenderer {
         let mut path = Path::new()
             .set("d", d)
             .set("fill", "none")
-            .set(
-                "stroke",
-                style
-                    .color
-                    .map(str::to_string)
-                    .unwrap_or_else(|| theme.arrow_color.to_css()),
-            )
+            .set("stroke", edge_color.clone())
             .set("stroke-width", stroke_width);
 
         // Пунктирная линия для lifelines и dashed arrows
@@ -1870,30 +2139,37 @@ impl SvgRenderer {
             path = path.set("stroke-dasharray", dash_pattern);
         }
 
-        // Выбираем маркер на основе типа связи
-        if arrow_end {
-            let marker = match edge_type {
-                EdgeType::Inheritance | EdgeType::Realization => "url(#inheritance)",
-                EdgeType::Composition => "url(#arrow)", // composition marker на start
-                EdgeType::Aggregation => "url(#arrow)", // aggregation marker на start
-                EdgeType::Dependency => "url(#arrow-open)",
-                EdgeType::Association => "url(#arrow)",
-                EdgeType::Link => "", // без маркера
-            };
-            if !marker.is_empty() {
-                path = path.set("marker-end", marker);
+        group = group.add(path);
+
+        // Наконечники рисуем явными фигурами, а не маркерами: ссылка
+        // `url(#arrow)` не разрешается при вставке SVG через `innerHTML`,
+        // и стрелки пропадали в браузере. Порядок как в эталоне:
+        // сначала линия, затем фигура наконечника.
+        if let Some((tip, from)) = end_tip {
+            if let Some(head) = arrow_head_points(
+                head_kind,
+                tip,
+                from,
+                &edge_color,
+                edge_type == EdgeType::Composition,
+                theme,
+            ) {
+                group = group.add(render_arrow_head(&head));
             }
         }
-        if arrow_start {
-            let marker = match edge_type {
-                EdgeType::Composition => "url(#composition)",
-                EdgeType::Aggregation => "url(#aggregation)",
-                _ => "url(#arrow)",
-            };
-            path = path.set("marker-start", marker);
+        if let Some((tip, from)) = start_tip {
+            // Начало связи: направление наружу — от соседней точки к первой.
+            if let Some(head) = arrow_head_points(
+                head_kind,
+                tip,
+                from,
+                &edge_color,
+                edge_type == EdgeType::Composition,
+                theme,
+            ) {
+                group = group.add(render_arrow_head(&head));
+            }
         }
-
-        group = group.add(path);
 
         // Метка сообщения (в стиле PlantUML: текст рядом с линией)
         // По умолчанию в PlantUML: skinparam sequenceMessageAlign left
@@ -2840,7 +3116,7 @@ impl Renderer for SvgRenderer {
     type Output = String;
 
     fn render(&self, layout: &LayoutResult, theme: &Theme) -> String {
-        let doc = self.create_document(layout, theme);
+        let doc = self.create_document(layout);
 
         // PlantUML оборачивает всё содержимое в один `<g>` с общим шрифтом
         // и режимом подгонки текста. Группа нужна потребителям вывода:
@@ -3476,17 +3752,24 @@ mod tests {
                 "Граница",
             ),
             (
+                // Управление PlantUML рисует кружком и полигоном-стрелкой;
+                // `<path>` у него не было никогда. Прежнее ожидание
+                // срабатывало случайно: `<path>` находился в `<defs>`
+                // с описаниями маркеров, которые рендерер больше не пишет.
                 ElementType::Control {
                     label: "Управление".to_string(),
                 },
-                "<path",
+                "<polygon",
                 "Управление",
             ),
             (
+                // Сущность — кружок и подчёркивание. `<path>` у неё тоже
+                // не было: прежнее ожидание закрывал `<path>` из `<defs>`
+                // с описаниями маркеров.
                 ElementType::Entity {
                     label: "Сущность".to_string(),
                 },
-                "<path",
+                "<ellipse",
                 "Сущность",
             ),
             (
@@ -3657,6 +3940,278 @@ mod tests {
         assert!(svg.starts_with("<?xml"), "SVG не сформирован");
         assert!(svg.contains("<svg"), "нет корневого элемента");
         assert!(svg.trim_end().ends_with("</svg>"), "SVG не закрыт");
+    }
+
+    /// Наконечник замкнутой стрелки повторяет эталон `sequence_simple`.
+    ///
+    /// Эталон: линия `33.833,70.43 → 121.175,70.43`, полигон
+    /// `115.175,66.43 125.175,70.43 115.175,74.43 119.175,70.43`.
+    /// Здесь линия длиннее на единицу, поэтому и вершины сдвинуты на 1.
+    #[test]
+    fn test_closed_arrow_geometry_matches_reference() {
+        let theme = Theme::default();
+        let head = arrow_head_points(
+            ArrowHeadKind::Closed,
+            Point::new(122.175, 70.43),
+            Point::new(33.833, 70.43),
+            "#181818",
+            true,
+            &theme,
+        )
+        .expect("наконечник построен");
+
+        let points: Vec<(f64, f64)> = head.points.iter().map(|p| (p.x, p.y)).collect();
+        assert_eq!(
+            points,
+            vec![
+                (122.175, 70.43),
+                (112.175, 66.43),
+                (112.175, 74.43),
+                (116.175, 70.43),
+            ],
+            "вершины замкнутой стрелки: острие, два угла хвоста, вырез"
+        );
+        assert!(head.closed, "стрелка — замкнутый полигон");
+    }
+
+    /// Полый треугольник ставит в конец линии ОСНОВАНИЕ, а острие наружу.
+    ///
+    /// Эталон `class_hierarchy`: линия доходит до `217.6,106`, полигон —
+    /// `217.6,88 211.6,106 223.6,106`.
+    #[test]
+    fn test_inheritance_arrow_runs_away_from_line_end() {
+        let theme = Theme::default();
+        let head = arrow_head_points(
+            ArrowHeadKind::Inheritance,
+            Point::new(217.6, 106.0),
+            Point::new(217.6, 155.29),
+            "#181818",
+            true,
+            &theme,
+        )
+        .expect("наконечник построен");
+
+        let points: Vec<(f64, f64)> = head.points.iter().map(|p| (p.x, p.y)).collect();
+        // Линия идёт снизу вверх (155.29 → 106), значит «вперёд» вдоль
+        // связи — это вверх; острие уводится НАЗАД, то есть вниз, на 18
+        // от конца линии: 106 + 18 = 124. Основание при этом стоит ровно
+        // в конце линии (`217.6,106`) — как в эталоне.
+        // Острие — ровно в конце линии (`217.6,106`), основание — на 18
+        // назад, то есть выше по связи (линия идёт снизу вверх), на
+        // `217.6,124`; бока — на ±6 в стороны.
+        assert_eq!(
+            points,
+            vec![
+                (217.6, 106.0),
+                (211.6, 124.0),
+                (223.6, 124.0),
+                (217.6, 106.0),
+            ],
+            "вершины треугольника наследования (контур замкнут явно)"
+        );
+        assert!(
+            head.points[0].y < head.points[1].y,
+            "острие должно стоять в конце линии, а основание — дальше по ней"
+        );
+        assert_eq!(head.fill, None, "треугольник полый");
+    }
+
+    /// «Галочка» вынесена на 5 вперёд от конца линии.
+    ///
+    /// Эталон `usecase_basic`: путь заканчивается в `82.13,136.57`, а
+    /// полигон — `82.13,141.57 86.13,132.57 82.13,136.57 78.13,132.57`.
+    /// Вырез галочки (`82.13,136.57`) стоит ровно в конце линии, а
+    /// острие — на 5 дальше.
+    #[test]
+    fn test_open_arrow_is_chevron_ahead_of_line() {
+        let theme = Theme::default();
+        let head = arrow_head_points(
+            ArrowHeadKind::Open,
+            Point::new(82.13, 136.57),
+            Point::new(82.13, 82.22),
+            "#181818",
+            true,
+            &theme,
+        )
+        .expect("наконечник построен");
+
+        let points: Vec<(f64, f64)> = head.points.iter().map(|p| (p.x, p.y)).collect();
+        assert_eq!(
+            points,
+            // Лучи галочки стоят НА 5 ПОЗАДИ острия — то есть
+            // ровно в конце линии (136.57), как в эталоне; острие
+            // вынесено на 5 вперёд.
+            vec![(86.13, 136.57), (82.13, 141.57), (78.13, 136.57)],
+            "вершины галочки"
+        );
+        assert!(!head.closed, "галочка — незамкнутая ломаная");
+        assert_eq!(head.fill, None, "галочка не залита");
+    }
+
+    /// Ромб композиции начинается в конце линии и уходит внутрь неё.
+    ///
+    /// Эталон `class_kompoziciya`: линия от `74.84,87.96`, ромб
+    /// `114.71,87.96 108.539,91.691 109.61,98.823 115.781,95.091`.
+    /// Направление рёбер в эталоне то же — от первого класса ко второму.
+    #[test]
+    fn test_composition_diamond_sits_on_line_end() {
+        let theme = Theme::default();
+        let start = Point::new(102.368, 87.96);
+        let head = arrow_head_points(
+            ArrowHeadKind::Diamond,
+            start,
+            Point::new(191.788, 87.96),
+            "#181818",
+            true,
+            &theme,
+        )
+        .expect("наконечник построен");
+
+        let points: Vec<(f64, f64)> = head.points.iter().map(|p| (p.x, p.y)).collect();
+        // Острие — в конце линии (`102.368`, эталон: `114.71` у своей
+        // линии), хвост — на 12 назад, к началу связи (эталон:
+        // `102.368`), бока — на половине длины и на ±4 в стороны.
+        assert_eq!(
+            points,
+            vec![
+                (102.368, 87.96),
+                (108.368, 91.96),
+                (114.368, 87.96),
+                (108.368, 83.96),
+            ],
+            "вершины ромба композиции"
+        );
+    }
+
+    /// Подрезка убирает ровно заданную длину с конца ломаной.
+    #[test]
+    fn test_trim_line_ends_shortens_last_segment() {
+        let points = vec![
+            Point::new(0.0, 100.0),
+            Point::new(0.0, 50.0),
+            Point::new(80.0, 50.0),
+        ];
+        let trimmed = trim_line_ends(&points, 0.0, 6.0);
+        assert_eq!(trimmed.len(), 3, "число звеньев не изменилось");
+        assert!((trimmed[2].x - 74.0).abs() < 0.001, "конец подрезан на 6");
+
+        // Начало связи подрезается симметрично.
+        let trimmed_start = trim_line_ends(&points, 6.0, 0.0);
+        assert!((trimmed_start[0].y - 94.0).abs() < 0.001);
+    }
+
+    /// Связь получает явный `<polygon>` и не ссылается на маркеры.
+    ///
+    /// Это и есть исправление дефекта: `url(#arrow)` не разрешается при
+    /// вставке SVG через `innerHTML`, поэтому линия с наконечником в
+    /// браузере не рисовалась вовсе.
+    #[test]
+    fn test_edge_has_explicit_polygon_instead_of_marker() {
+        // Вид диаграммы задаёт форму стрелки: sequence — сплошная.
+        let options = RenderOptions {
+            diagram_type: Some("SEQUENCE".to_string()),
+            ..RenderOptions::default()
+        };
+        let renderer = SvgRenderer::with_options(options);
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new(
+                "msg_A_B",
+                Rect::new(10.0, 50.0, 70.0, 0.0),
+                ElementType::Edge {
+                    points: vec![Point::new(10.0, 50.0), Point::new(80.0, 50.0)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: true,
+                    dashed: false,
+                    edge_type: EdgeType::Association,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            )],
+            bounds: Rect::new(0.0, 0.0, 100.0, 100.0),
+        };
+
+        let svg = renderer.render(&layout, &Theme::default());
+
+        assert!(!svg.contains("marker-end"), "ссылка на маркер осталась");
+        assert!(!svg.contains("url(#"), "ссылка на маркер осталась");
+        assert!(!svg.contains("<defs"), "определения маркеров не нужны");
+        assert!(svg.contains("<polygon"), "наконечник не нарисован: {svg}");
+
+        // Линия подрезана до выреза: 80 − 10 + 4 = 74.
+        assert!(svg.contains("L74,50") || svg.contains("L74.0,50"), "{svg}");
+    }
+
+    /// Ромб композиции: `<polygon>`, подрезка на всю длину ромба.
+    ///
+    /// Линия не должна проходить сквозь ромб — PlantUML её обрезает.
+    #[test]
+    fn test_composition_edge_shortens_line_under_diamond() {
+        let options = RenderOptions {
+            diagram_type: Some("CLASS".to_string()),
+            ..RenderOptions::default()
+        };
+        let renderer = SvgRenderer::with_options(options);
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new(
+                "edge_Car_Engine",
+                Rect::new(0.0, 20.0, 10.0, 60.0),
+                ElementType::Edge {
+                    points: vec![Point::new(10.0, 20.0), Point::new(10.0, 80.0)],
+                    label: None,
+                    arrow_start: true,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Composition,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            )],
+            bounds: Rect::new(0.0, 0.0, 40.0, 100.0),
+        };
+
+        let svg = renderer.render(&layout, &Theme::default());
+
+        assert!(!svg.contains("url(#"), "ссылка на маркер осталась");
+        assert!(svg.contains("<polygon"), "ромб не нарисован: {svg}");
+        // Линия начинается на 12 ниже начала связи (20 + 12 = 32).
+        assert!(svg.contains("M10,32"), "линия не подрезана под ромб: {svg}");
+    }
+
+    /// Связь без наконечника (`--`) остаётся линией без фигур.
+    #[test]
+    fn test_link_edge_has_no_arrow_head() {
+        let renderer = SvgRenderer::new();
+        let layout = LayoutResult {
+            elements: vec![LayoutElement::new(
+                "edge_A_B",
+                Rect::new(10.0, 50.0, 70.0, 0.0),
+                ElementType::Edge {
+                    points: vec![Point::new(10.0, 50.0), Point::new(80.0, 50.0)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: true,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            )],
+            bounds: Rect::new(0.0, 0.0, 100.0, 100.0),
+        };
+
+        let svg = renderer.render(&layout, &Theme::default());
+
+        assert!(
+            !svg.contains("<polygon"),
+            "у линии не должно быть фигуры: {svg}"
+        );
+        assert!(
+            !svg.contains("<polyline"),
+            "у линии не должно быть фигуры: {svg}"
+        );
+        // Линия не подрезается: доходит до конца.
+        assert!(svg.contains("L80,50"), "линия потеряла конец: {svg}");
     }
 
     /// Размер холста задаётся габаритами содержимого плюс поля.

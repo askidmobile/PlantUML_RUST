@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="STATE" height="278px" preserveAspectRatio="none" style="width:225px;height:278px;background:#FFFFFF;" version="1.1" viewBox="7 7 225.15959999999998 277.997" width="225px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="initial_initial">
 <ellipse cx="98.75139999999999" cy="17" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
@@ -45,22 +28,26 @@ Inactive
 <ellipse cx="180.50279999999998" cy="225.297" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="trans_initial_Active">
-<path d="M98.75139999999999,27 L98.75139999999999,88" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M98.75139999999999,27 L98.75139999999999,88" fill="none" stroke="#181818" stroke-width="1"/>
+<polyline fill="none" points="102.751,88 98.751,93 94.751,88" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="trans_Active_Inactive">
-<path d="M85.99915999999999,138 L59.70216,215.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M85.99915999999999,138 L59.70216,215.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polyline fill="none" points="63.489,216.585 58.092,220.031 55.915,214.009" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="67.48035999999999" y="168.9188" textLength="50.517">
 timeout
 </text>
 </g>
 <g id="trans_Inactive_Active">
-<path d="M82.2888,240.297 L210.15959999999998,240.297 L210.15959999999998,113 L130.632,113" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M82.2888,240.297 L210.15959999999998,240.297 L210.15959999999998,113 L130.632,113" fill="none" stroke="#181818" stroke-width="1"/>
+<polyline fill="none" points="130.632,117 125.632,113 130.632,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="87.2888" y="235.297" textLength="49.069">
 resume
 </text>
 </g>
 <g id="trans_Active_final">
-<path d="M98.75139999999999,138 L180.50279999999998,214.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M98.75139999999999,138 L180.50279999999998,214.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polyline fill="none" points="183.232,211.373 184.158,217.708 177.774,217.221" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="139.45195999999999" y="168.5188" textLength="33.639">
 close
 </text>

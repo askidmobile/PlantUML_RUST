@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="CLASS" height="244px" preserveAspectRatio="none" style="width:233px;height:244px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 233.1218 243.89499999999998" width="233px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Car">
 <rect fill="#F1F1F1" height="80.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="166.9106" x="22.465599999999995" y="0"/>
@@ -67,13 +50,15 @@ size: int
 <line stroke="#181818" stroke-width="0.5" x1="132.9272" x2="210.8418" y1="204.891" y2="204.891"/>
 </g>
 <g id="edge_Car_Engine">
-<path d="M105.92089999999999,80.89099999999999 L105.92089999999999,119.39099999999999 L48.3636,119.39099999999999 L48.3636,157.891" fill="none" marker-start="url(#composition)" stroke="#181818" stroke-width="1"/>
+<path d="M105.92089999999999,92.89099999999999 L105.92089999999999,119.39099999999999 L48.3636,119.39099999999999 L48.3636,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="105.921,80.891 101.921,86.891 105.921,92.891 109.921,86.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="110.92089999999999" y="75.89099999999999" textLength="53.897">
 contains
 </text>
 </g>
 <g id="edge_Car_Wheel">
-<path d="M105.92089999999999,80.89099999999999 L105.92089999999999,119.39099999999999 L171.8845,119.39099999999999 L171.8845,157.891" fill="none" marker-start="url(#aggregation)" stroke="#181818" stroke-width="1"/>
+<path d="M105.92089999999999,92.89099999999999 L105.92089999999999,119.39099999999999 L171.8845,119.39099999999999 L171.8845,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#FFF" points="105.921,80.891 101.921,86.891 105.921,92.891 109.921,86.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="110.92089999999999" y="75.89099999999999" textLength="22.966">
 has
 </text>

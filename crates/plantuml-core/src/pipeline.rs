@@ -229,10 +229,24 @@ fn render_svg(
     source_theme: &Theme,
     diagram_type: &str,
 ) -> Result<String> {
+    // Фон холста: явная опция важнее темы, но и тема из исходника
+    // (`skinparam backgroundColor`, `!theme`) должна доходить до
+    // рендерера. Раньше сюда попадала только опция, поэтому `skinparam
+    // backgroundColor` на вывод не влиял — тест ловил это лишь случайно:
+    // варианты различались блоком `<defs>` с маркерами.
+    let background_color = options.background_color.clone().or_else(|| {
+        let from_source = source_theme.background_color.to_css();
+        if from_source == Theme::default().background_color.to_css() {
+            None
+        } else {
+            Some(from_source)
+        }
+    });
+
     let render_options = plantuml_renderer::RenderOptions {
         xml_header: options.xml_header,
         scale: options.scale,
-        background_color: options.background_color.clone(),
+        background_color,
         diagram_type: Some(diagram_type.to_string()),
     };
 

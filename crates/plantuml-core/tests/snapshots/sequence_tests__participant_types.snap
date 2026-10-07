@@ -5,23 +5,6 @@ expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
 <svg contentStyleType="text/css" data-diagram-type="SEQUENCE" height="307px" preserveAspectRatio="none" style="width:213px;height:307px;background:#FFFFFF;" version="1.1" viewBox="0 0.5 212.5802 306.86800000000005" width="213px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
-<defs>
-<marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
-</marker>
-<marker id="arrow-open" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
-<path d="M0,0 L10,4 L0,8" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="inheritance" markerHeight="20" markerUnits="userSpaceOnUse" markerWidth="20" orient="auto" refX="20" refY="10">
-<path d="M0,0 L20,10 L0,20 Z" fill="none" stroke="#181818" stroke-width="1"/>
-</marker>
-<marker id="composition" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#181818"/>
-</marker>
-<marker id="aggregation" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" refX="0" refY="6">
-<path d="M0,6 L6,0 L12,6 L6,12 Z" fill="#FFF" stroke="#181818" stroke-width="1"/>
-</marker>
-</defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="lifeline_User">
 <path d="M32.9341,85.297 L32.9341,220.69600000000003" fill="none" stroke="#181818" stroke-dasharray="5,5" stroke-width="0.5"/>
@@ -47,25 +30,29 @@ DB
 </text>
 </g>
 <g id="msg_User_Admin">
-<path d="M32.9341,115.297 L120.6679,115.297" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M32.9341,115.297 L114.6679,115.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="120.668,115.297 110.668,111.297 110.668,119.297 114.668,115.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="39.9341" y="110.297" textLength="54.586">
 Request
 </text>
 </g>
 <g id="msg_Admin_DB">
-<path d="M120.6679,144.43 L184.57920000000001,144.43" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M120.6679,144.43 L178.57920000000001,144.43" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="184.579,144.43 174.579,140.43 174.579,148.43 178.579,144.43" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="127.6679" y="139.43" textLength="39.911">
 Query
 </text>
 </g>
 <g id="msg_DB_Admin">
-<path d="M184.57920000000001,173.56300000000002 L120.6679,173.56300000000002" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M184.57920000000001,173.56300000000002 L126.6679,173.56300000000002" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="#181818" points="120.668,173.563 130.668,177.563 130.668,169.563 126.668,173.563" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="137.6679" y="168.56300000000002" textLength="31.183">
 Data
 </text>
 </g>
 <g id="msg_Admin_User">
-<path d="M120.6679,202.69600000000003 L32.9341,202.69600000000003" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M120.6679,202.69600000000003 L38.9341,202.69600000000003" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="#181818" points="32.934,202.696 42.934,206.696 42.934,198.696 38.934,202.696" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="49.9341" y="197.69600000000003" textLength="63.734">
 Response
 </text>
