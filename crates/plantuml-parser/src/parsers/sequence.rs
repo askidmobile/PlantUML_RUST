@@ -19,12 +19,19 @@ use crate::Result;
 #[grammar = "grammars/sequence.pest"]
 pub struct SequenceParser;
 
-/// Состояние стека фрагментов: (тип, условие фрагмента, текущее условие секции, секции)
+/// Состояние стека фрагментов: (тип, условие фрагмента, текущее условие секции,
+/// секции, элементы ВНЕШНЕЙ секции, накопленные до входа в этот фрагмент).
+///
+/// Последнее поле обязательно: буфер элементов один на всю функцию, и вход во
+/// вложенный фрагмент его очищал. Из-за этого сообщения, стоявшие во внешнем
+/// фрагменте ПЕРЕД вложенным, пропадали из AST — в `alt` с тремя сообщениями и
+/// вложенным `loop` оставался только `loop`.
 type FragmentStackEntry = (
     FragmentType,
     Option<String>,
     Option<String>,
     Vec<FragmentSection>,
+    Vec<SequenceElement>,
 );
 
 /// Состояние текущего box: (title, color, participants)
@@ -127,13 +134,17 @@ fn process_rule(
         }
         Rule::fragment_start => {
             let (frag_type, condition) = parse_fragment_start(pair);
-            // Условие из fragment_start становится условием первой секции
-            fragment_stack.push((frag_type, condition.clone(), condition, vec![]));
-            *current_section_elements = Vec::new();
+            // Условие из fragment_start становится условием первой секции.
+            //
+            // Элементы внешней секции ЗАБИРАЕМ в запись стека, а не очищаем
+            // буфер: иначе всё, что внешний фрагмент накопил до вложенного,
+            // терялось безвозвратно.
+            let saved = std::mem::take(current_section_elements);
+            fragment_stack.push((frag_type, condition.clone(), condition, vec![], saved));
         }
         Rule::fragment_else => {
             let new_condition = parse_fragment_else(pair);
-            if let Some((_, _, ref mut current_condition, ref mut sections)) =
+            if let Some((_, _, ref mut current_condition, ref mut sections, _)) =
                 fragment_stack.last_mut()
             {
                 // Сохраняем текущую секцию с её условием
@@ -146,7 +157,7 @@ fn process_rule(
             }
         }
         Rule::fragment_end => {
-            if let Some((frag_type, condition, current_condition, mut sections)) =
+            if let Some((frag_type, condition, current_condition, mut sections, saved)) =
                 fragment_stack.pop()
             {
                 // Добавляем последнюю секцию с её условием
@@ -161,6 +172,9 @@ fn process_rule(
                     sections,
                 };
 
+                // Возвращаем буферу элементы внешней секции и дописываем в
+                // них готовый фрагмент.
+                *current_section_elements = saved;
                 let element = SequenceElement::Fragment(fragment);
                 if fragment_stack.is_empty() {
                     diagram.add_element(element);
@@ -175,11 +189,11 @@ fn process_rule(
             // разбиралось грамматикой, но парсер его игнорировал, и группа
             // молча исчезала из вывода.
             let label = parse_group_label(pair);
-            fragment_stack.push((FragmentType::Group, label.clone(), label, vec![]));
-            *current_section_elements = Vec::new();
+            let saved = std::mem::take(current_section_elements);
+            fragment_stack.push((FragmentType::Group, label.clone(), label, vec![], saved));
         }
         Rule::group_end => {
-            if let Some((frag_type, condition, current_condition, mut sections)) =
+            if let Some((frag_type, condition, current_condition, mut sections, saved)) =
                 fragment_stack.pop()
             {
                 sections.push(FragmentSection {
@@ -193,6 +207,7 @@ fn process_rule(
                     sections,
                 };
 
+                *current_section_elements = saved;
                 let element = SequenceElement::Fragment(fragment);
                 if fragment_stack.is_empty() {
                     diagram.add_element(element);
