@@ -3,7 +3,19 @@
 
 // === Основные правила ===
 
-diagram = { SOI ~ NEWLINE* ~ start_tag ~ NEWLINE* ~ body ~ end_tag ~ NEWLINE* ~ EOI }
+// Диаграмма может быть обёрнута во внешний `@startuml … @enduml`.
+//
+// PlantUML принимает такую запись: `@startuml` служит внешней рамкой, а
+// настоящий тип задаёт вложенный `@startgantt`. Без этого пример
+// «Gantt: Диаграмма» из playground не разбирался вовсе, хотя сервер
+// PlantUML его рисует (проверено: 778x164).
+diagram = {
+    SOI ~ NEWLINE* ~ outer_start? ~ NEWLINE* ~ start_tag ~ NEWLINE* ~
+    body ~ end_tag ~ NEWLINE* ~ outer_end? ~ NEWLINE* ~ EOI
+}
+
+outer_start = { "@startuml" }
+outer_end = { "@enduml" }
 
 start_tag = { "@startgantt" ~ identifier? }
 end_tag = { "@endgantt" }
