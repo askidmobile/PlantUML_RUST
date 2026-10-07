@@ -430,8 +430,15 @@ fn extract_field_value(pair: pest::iterators::Pair<Rule>) -> String {
     let text = pair.as_str().trim().to_string();
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            // Кавычки СОХРАНЯЮТСЯ: PlantUML рисует поле как
+            // `name = "John Doe"`, вместе с кавычками. Эталон
+            // `Object: Диаграмма` даёт textLength 136.1 для этого поля,
+            // тогда как без кавычек выходит 100.9.
+            //
+            // Раньше здесь стоял `extract_quoted_string`, который кавычки
+            // снимал, и в выводе было `name = John Doe`.
             Rule::quoted_string => {
-                return extract_quoted_string(inner);
+                return inner.as_str().trim().to_string();
             }
             Rule::unquoted_value => {
                 return inner.as_str().trim().to_string();
@@ -507,7 +514,10 @@ object user1 {
         assert_eq!(diagram.objects[0].name, "user1");
         assert_eq!(diagram.objects[0].fields.len(), 2);
         assert_eq!(diagram.objects[0].fields[0].name, "name");
-        assert_eq!(diagram.objects[0].fields[0].value, "John");
+        // Кавычки СОХРАНЯЮТСЯ: PlantUML рисует поле вместе с ними.
+        // Эталон `Object: Диаграмма` даёт textLength 136.1 для
+        // `name = "John Doe"` против 100.9 без кавычек.
+        assert_eq!(diagram.objects[0].fields[0].value, "\"John\"");
         assert_eq!(diagram.objects[0].fields[1].name, "age");
         assert_eq!(diagram.objects[0].fields[1].value, "30");
     }
