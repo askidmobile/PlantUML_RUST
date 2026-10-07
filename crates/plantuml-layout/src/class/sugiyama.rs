@@ -11,6 +11,12 @@ use std::collections::VecDeque;
 use super::config::ClassLayoutConfig;
 use super::graph::Graph;
 
+/// Высота строки метки ребра между уровнями.
+///
+/// Измерено по эталонам `Class: Композиция` и `Class: Простой`: зазор
+/// между уровнями 77 при 60 без меток.
+const CLASS_EDGE_LABEL_HEIGHT: f64 = 17.0;
+
 /// Алгоритм Sugiyama
 pub struct SugiyamaLayout<'a> {
     graph: &'a mut Graph,
@@ -305,8 +311,37 @@ impl<'a> SugiyamaLayout<'a> {
                 .max_by(|a, b| a.total_cmp(b))
                 .unwrap_or(self.config.min_class_height);
 
-            layer_y[layer] =
-                layer_y[layer - 1] + prev_layer_max_height + self.config.layer_vertical_spacing;
+            // МЕТКА РЕБРА ЗАНИМАЕТ СТРОКУ между уровнями.
+            //
+            // Измерено по эталонам:
+            //   `class_inheritance` — рёбра `Dog --|> Animal` БЕЗ меток,
+            //     зазор между уровнями 60 (7+64 -> 131)
+            //   `Class: Композиция` — рёбра `Car *-- Engine : has`
+            //     С метками, зазор 77 (7+81 -> 165)
+            //   `Class: Простой` — `User ... Order : places`, зазор 77
+            // Разница 17 ≈ строка текста, то есть метка добавляет её к
+            // промежутку. Прежде константа 60 применялась всегда, из-за
+            // чего примеры с метками выходили ниже эталонных на ~17.
+            let has_edge_label = self.graph.edges.iter().any(|edge| {
+                if edge.label.is_none() {
+                    return false;
+                }
+                let (a, b) = (
+                    self.graph.nodes[edge.from].layer,
+                    self.graph.nodes[edge.to].layer,
+                );
+                (a.min(b), a.max(b)) == (layer - 1, layer)
+            });
+            let label_extra = if has_edge_label {
+                CLASS_EDGE_LABEL_HEIGHT
+            } else {
+                0.0
+            };
+
+            layer_y[layer] = layer_y[layer - 1]
+                + prev_layer_max_height
+                + self.config.layer_vertical_spacing
+                + label_extra;
         }
 
         for node in &mut self.graph.nodes {
