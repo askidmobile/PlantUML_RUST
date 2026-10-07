@@ -322,7 +322,30 @@ impl ComponentLayoutEngine {
             // добавляет движок.
             result.bounds.width += COMPONENT_RIGHT_EXTRA;
         }
-        result.bounds.height += self.config.margin * 2.0;
+        // Нижний отступ РАЗНЫЙ для двух случаев.
+        //
+        // У компонентов ВЕРХНЕГО уровня (эталон `component_basic`, без
+        // пакетов) верны два отступа: 323 при содержимом 7..309.
+        // У компонентов В ПАКЕТАХ (эталон `Component: Простой`) нижний
+        // отступ вдвое меньше: содержимое кончается на 559, холст 598 при
+        // верхнем крае 41, то есть снизу 41, а не 48.
+        //
+        // Прежняя константа `margin * 2` верна только для первого случая;
+        // проверка показала, что её замена на `margin` ломает
+        // `component_basic` (2.0 -> 9.0) и `deployment_basic` (2.0 -> 5.0).
+        // Уточнение: у `deployment_basic` пакеты — это `node`, и там
+        // удвоенный отступ ВЕРЕН (замена ломала его: 2.0 -> 5.0). Малый
+        // отступ нужен только для обычных `package`/`database`.
+        let packages_are_nodes = diagram
+            .packages
+            .iter()
+            .any(|pkg| pkg.package_type == plantuml_ast::component::PackageType::Node);
+        let bottom_margin = if diagram.packages.is_empty() || packages_are_nodes {
+            self.config.margin * 2.0
+        } else {
+            self.config.margin
+        };
+        result.bounds.height += bottom_margin;
 
         result
     }
