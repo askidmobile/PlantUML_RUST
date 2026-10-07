@@ -12,14 +12,6 @@ use plantuml_model::{Point, Rect};
 use super::TimingLayoutConfig;
 use crate::traits::LayoutResult;
 
-/// Смещение первого деления от начала оси.
-///
-/// Сверено по двум независимым замерам: в `timing_basic` ось на 91.732,
-/// деления на 141.732 и 191.732; в пробной диаграмме `@0/@100` ось на
-/// 32.635, деления на 82.635 и 132.635. В обоих случаях первое деление
-/// отстоит от оси ровно на 50, следующее — на 100.
-const TIME_FIRST_TICK_OFFSET: f64 = 50.0;
-
 /// Цвет подписей timing.
 ///
 /// PlantUML рисует ВСЕ подписи timing цветом `#333`, тогда как остальные
@@ -159,7 +151,7 @@ impl TimingLayoutEngine {
         // Верхняя граница диапазона больше не нужна: шкала строится по
         // числу событий, а не по значениям времени (см. `timeline_width`).
         // Нижняя используется при отрисовке ломаных состояний.
-        let (min_time, max_time) = self.calculate_time_range(diagram);
+        let (min_time, _max_time) = self.calculate_time_range(diagram);
 
         // 2. Создаём mapping участников к их lane индексам
         let participant_map: HashMap<String, usize> = diagram
@@ -228,9 +220,19 @@ impl TimingLayoutEngine {
         // time_scale`). Прежде здесь стояла ИНДЕКСНАЯ формула
         // `(событий-1) * TIME_TICK_STEP`, из-за чего ось обрывалась на
         // 509.7, тогда как подписи делений доходили до 627.7.
-        let timeline_width = TIME_FIRST_TICK_OFFSET
-            + (max_time - min_time) * self.config.time_scale
-            + TIME_AXIS_TAIL;
+        //
+        // Длина шкалы считается по СЕТКЕ делений, а не по диапазону
+        // времени: эталон `TimingRuler.getWidth()` = `(delta / tickUnitary
+        // + 1) * 50`, где `tickUnitary` — НОД всех времён (шаг сетки).
+        // Проверено на четырёх эталонах с сервера: при delta 400/200/40 и
+        // пяти делениях ширина ОДНА И ТА ЖЕ (268.21), при восьми делениях
+        // — 418.21; формула `панель + делений * 50 + 5` совпала с обоими
+        // до сотых. Прежняя запись `TIME_FIRST_TICK_OFFSET + delta *
+        // time_scale` давала то же число для playground лишь СЛУЧАЙНО
+        // (50 + 550 = 600 при scale 0.5 и НОД 100) и разошлась бы при
+        // другом масштабе.
+        let ticks = self.tick_grid(diagram);
+        let timeline_width = ticks as f64 * TIME_TICK_STEP + TIME_AXIS_TAIL;
 
         // Высоты дорожек зависят от типа: в эталоне robust занимает
         // 65.297, а concise — 56.297, поэтому позиции считаются
@@ -564,6 +566,45 @@ impl TimingLayoutEngine {
     }
 
     /// Вычисляет диапазон времени
+    /// Число делений шкалы: `delta / НОД_времён + 1`.
+    ///
+    /// Эталон строит деления по СЕТКЕ с шагом, равным НОД объявленных
+    /// времён (измерено: времена 0/100/200/500/600/800/1000/1100 дают 12
+    /// делений, 0/25/50/75 — 4).
+    fn tick_grid(&self, diagram: &TimingDiagram) -> usize {
+        let times = self.collect_time_values(diagram);
+        if times.is_empty() {
+            return 1;
+        }
+        let min = times.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = times.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let delta = max - min;
+        if delta <= 0.0 {
+            return 1;
+        }
+        // НОД времён как шаг сетки (все времена кратны ему по построению).
+        let mut step = delta;
+        for t in &times {
+            let d = t - min;
+            if d > 0.0 {
+                step = step.min(d);
+            }
+        }
+        for t in &times {
+            let d = t - min;
+            if d > 0.0 {
+                let r = d % step;
+                if r > 1e-9 {
+                    step = r;
+                }
+            }
+        }
+        if step <= 0.0 {
+            return 1;
+        }
+        (delta / step).round() as usize + 1
+    }
+
     fn calculate_time_range(&self, diagram: &TimingDiagram) -> (f64, f64) {
         let mut min_time = f64::INFINITY;
         let mut max_time = f64::NEG_INFINITY;
