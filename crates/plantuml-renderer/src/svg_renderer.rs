@@ -116,8 +116,21 @@ const ARROW_HEAD_NOTCH: f64 = 6.0;
 /// вокруг линии.
 const OPEN_HEAD_HALF: f64 = 4.0;
 
-/// Смещение острия «галочки» вперёд от конца линии.
-const OPEN_HEAD_FORWARD: f64 = 5.0;
+/// Смещение лучей «галочки» назад от острия.
+///
+/// Эталон `usecase_basic`: острие `82.13,141.57`, лучи `86.13,132.57` и
+/// `78.13,132.57` — то есть на 9 назад и на ±4 в стороны. Те же вершины
+/// у эталонов `component_basic` (острие `130.03`, лучи `121.03`),
+/// `object_basic` (`119.81` → `110.81`), `state_simple` (`86.65` →
+/// `77.65`) и `deployment_basic` (`190.1` → `181.1`).
+const OPEN_HEAD_BACK: f64 = 9.0;
+
+/// Вырез «галочки» посередине — на 5 назад от острия.
+///
+/// Эталон `usecase_basic`: средняя вершина `82.13,136.57` при острие
+/// `141.57`. В неё упирается линия эталона, поэтому вырез стоит на 5
+/// ближе к началу связи, чем острие.
+const OPEN_HEAD_NOTCH: f64 = 5.0;
 
 /// Длина стрелки наследования (`--|>`, `..|>`).
 ///
@@ -143,9 +156,9 @@ const DIAMOND_HALF: f64 = 4.0;
 ///
 /// * `Closed` — сплошная стрелка из сообщений sequence, переходов
 ///   activity и ассоциаций class (эталоны `sequence_*`, `activity_*`);
-/// * `Open` — «галочка» из двух лучей: состояния, компоненты, use-case,
-///   объекты, зависимости (эталоны `state_*`, `usecase_basic`,
-///   `component_basic`, `object_basic`);
+/// * `Open` — залитая «галочка» с вырезом: состояния, компоненты,
+///   use-case, объекты, зависимости (эталоны `state_*`, `usecase_basic`,
+///   `component_basic`, `object_basic`, `deployment_basic`);
 /// * `Inheritance` — полый треугольник;
 /// * `Diamond` — ромб композиции (залитый) и агрегации (полый).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,12 +240,12 @@ fn arrow_point(
 /// Острие каждой фигуры попадает ровно в конец линии, а тело уходит
 /// НАЗАД, к началу связи. Так устроены эталоны: `sequence_simple`
 /// (острие `125.175,70.43` — там же, где кончается линия),
-/// `class_hierarchy` (острие `217.6,88` при основании на `217.6,106`)
-/// и `class_kompoziciya` (острие `114.71` при хвосте ромба `102.368`).
-///
-/// Исключение — «галочка»: её лучи стоят в конце линии, а острие
-/// вынесено на 5 вперёд (эталон `usecase_basic`: линия до `136.57`,
-/// лучи на `136.57`, острие на `141.57`).
+/// `class_hierarchy` (острие `217.6,88` при основании на `217.6,106`),
+/// `class_kompoziciya` (острие `114.71` при хвосте ромба `102.368`) и
+/// «галочка» `usecase_basic` (острие `82.13,141.57` — верх эллипса,
+/// линия эталона кончается на 5 раньше, в вырезе `136.57`; наши движки
+/// доводят линию до границы фигуры, поэтому острие у нас — конец
+/// линии, а вырез оказывается на 5 позади него).
 fn arrow_head_points(
     kind: ArrowHeadKind,
     line_end: Point,
@@ -265,17 +278,22 @@ fn arrow_head_points(
             Some(color.to_string()),
             1.0,
         ),
-        // Галочка: лучи стоят в конце линии, а острие вынесено на 5
-        // вперёд — эталон `usecase_basic` заканчивает линию в `136.57`,
-        // лучи ставит там же, а острие — в `141.57`.
+        // «Галочка» — ЗАМКНУТЫЙ залитый четырёхугольник с вырезом, а не
+        // ломаная из двух лучей. Эталон `usecase_basic`:
+        // `82.13,141.57 86.13,132.57 82.13,136.57 78.13,132.57 82.13,141.57`
+        // — острие в конце линии (оно же граница эллипса), лучи на 9
+        // назад, вырез посередине на 5 назад. Прежняя версия ставила
+        // лучи В КОНЕЦ линии и рисовала их незалитыми, из-за чего
+        // наконечник был вдвое меньше эталонного и «пустым».
         ArrowHeadKind::Open => (
             vec![
-                at(0.0, -OPEN_HEAD_HALF),
-                at(OPEN_HEAD_FORWARD, 0.0),
-                at(0.0, OPEN_HEAD_HALF),
+                at(0.0, 0.0),
+                at(-OPEN_HEAD_BACK, -OPEN_HEAD_HALF),
+                at(-OPEN_HEAD_NOTCH, 0.0),
+                at(-OPEN_HEAD_BACK, OPEN_HEAD_HALF),
             ],
-            false,
-            None,
+            true,
+            Some(color.to_string()),
             Some(color.to_string()),
             1.0,
         ),
@@ -333,9 +351,10 @@ fn arrow_head_points(
 
 /// Создаёт SVG-элемент наконечника.
 ///
-/// Замкнутые фигуры (стрелка, треугольник, ромб) — `<polygon>`,
-/// «галочка» — `<polyline>`: незамкнутая ломаная, как у PlantUML
-/// в эталонах `state_simple` и `usecase_basic`.
+/// Замкнутые фигуры (стрелка, «галочка», треугольник, ромб) —
+/// `<polygon>`; незамкнутая ломаная — `<polyline>`. PlantUML рисует
+/// `<polyline>` только у криволинейных наконечников своих сплайнов;
+/// все четыре формы из [`ArrowHeadKind`] в эталонах замкнуты.
 fn render_arrow_head(head: &ArrowHead) -> Element {
     let coordinates = head
         .points
@@ -930,7 +949,14 @@ impl SvgRenderer {
             // рисует зеркально: подпись сверху, фигура снизу.
             ElementType::Actor { label } => {
                 let footer = id.starts_with("footer_");
-                group = self.render_actor(&element.bounds, label, theme, group, footer);
+                group = self.render_actor(
+                    &element.bounds,
+                    label,
+                    theme,
+                    group,
+                    footer,
+                    &element.properties,
+                );
             }
             ElementType::Database { label } => {
                 let footer = id.starts_with("footer_");
@@ -949,7 +975,8 @@ impl SvgRenderer {
                 group = self.render_entity(&element.bounds, label, theme, group, footer);
             }
             ElementType::System { title } => {
-                group = self.render_system(&element.bounds, title, theme, group);
+                group =
+                    self.render_system(&element.bounds, title, theme, group, &element.properties);
             }
             ElementType::Polygon {
                 points,
@@ -1442,6 +1469,13 @@ impl SvgRenderer {
             .get("stroke")
             .cloned()
             .unwrap_or_else(|| theme.node_border.to_css());
+        // Толщина обводки тоже может быть переопределена: у эллипсов
+        // use case эталон даёт 0.5 (эталоны `usecase_basic`,
+        // `UseCase_Простой`), у остальных типов — 1.
+        let stroke_width = properties
+            .get("stroke-width")
+            .cloned()
+            .unwrap_or_else(|| "1".to_string());
 
         let ellipse = svg::node::element::Ellipse::new()
             .set("cx", cx)
@@ -1450,7 +1484,7 @@ impl SvgRenderer {
             .set("ry", ry)
             .set("fill", fill)
             .set("stroke", stroke)
-            .set("stroke-width", 1);
+            .set("stroke-width", stroke_width);
 
         group = group.add(ellipse);
 
@@ -1693,10 +1727,17 @@ impl SvgRenderer {
         theme: &Theme,
         group: Group,
         footer: bool,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let stroke = theme.node_border.to_css();
-        let fill = theme.node_background.to_css();
+        // Заливку головы можно переопределить свойством: в use case
+        // эталон даёт `#F1F1F1` (эталоны `usecase_basic`,
+        // `UseCase: Простой`), тогда как тема для sequence — `#E2E2F0`.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
 
         // Все размеры сняты с эталона `sequence_participants`.
         let head_radius = ACTOR_HEAD_RADIUS;
@@ -2005,27 +2046,63 @@ impl SvgRenderer {
         self.render_participant_figure(bounds, label, theme, group, footer)
     }
 
-    fn render_system(&self, bounds: &Rect, title: &str, theme: &Theme, mut group: Group) -> Group {
+    fn render_system(
+        &self,
+        bounds: &Rect,
+        title: &str,
+        theme: &Theme,
+        mut group: Group,
+        properties: &std::collections::HashMap<String, String>,
+    ) -> Group {
         let header_height = 25.0;
 
+        // Рамка кластера use case в эталоне `UseCase: Простой` НЕ залита
+        // (`fill="none"`), тогда как прежде бралась заливка узла темы
+        // (`#E2E2F0`) — на картинке это давало заметную сиреневую
+        // подложку под эллипсами. Скругление углов и толщина обводки
+        // тоже из эталона: `rx=2.5 ry=2.5`, `stroke-width:1`.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
+        let stroke_width = properties
+            .get("stroke-width")
+            .cloned()
+            .unwrap_or_else(|| "1".to_string());
+
         // 1. Основной прямоугольник системы
-        let rect = Rectangle::new()
+        let mut rect = Rectangle::new()
             .set("x", bounds.x)
             .set("y", bounds.y)
             .set("width", bounds.width)
             .set("height", bounds.height)
-            .set("fill", theme.node_background.to_css())
+            .set("fill", fill)
             .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1);
+            .set("stroke-width", stroke_width);
+        if let Some(radius) = properties.get("rx") {
+            rect = rect.set("rx", radius.as_str()).set("ry", radius.as_str());
+        }
         group = group.add(rect);
 
         // 2. Заголовок сверху по центру
+        //
+        // Кегль и базис заголовка кластера use case — из эталона
+        // `UseCase: Простой`: `font-size="14"` (а не 15) и базис на 15
+        // ниже верха рамки.
+        let title_font_size = properties
+            .get("title-font-size")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(theme.font_size + 1.0);
+        let title_offset = properties
+            .get("title-offset")
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(header_height / 2.0 + 5.0);
         let title_text = svg::node::element::Text::new(title)
             .set("x", bounds.x + bounds.width / 2.0)
-            .set("y", bounds.y + header_height / 2.0 + 5.0)
+            .set("y", bounds.y + title_offset)
             .set("text-anchor", "middle")
             .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size + 1.0)
+            .set("font-size", title_font_size)
             .set("font-weight", "bold")
             .set("fill", theme.text_color.to_css());
         group = group.add(title_text);
@@ -4016,18 +4093,22 @@ mod tests {
         assert_eq!(head.fill, None, "треугольник полый");
     }
 
-    /// «Галочка» вынесена на 5 вперёд от конца линии.
+    /// «Галочка» — замкнутый залитый четырёхугольник с вырезом.
     ///
-    /// Эталон `usecase_basic`: путь заканчивается в `82.13,136.57`, а
-    /// полигон — `82.13,141.57 86.13,132.57 82.13,136.57 78.13,132.57`.
-    /// Вырез галочки (`82.13,136.57`) стоит ровно в конце линии, а
-    /// острие — на 5 дальше.
+    /// Эталон `usecase_basic`: полигон
+    /// `82.13,141.57 86.13,132.57 82.13,136.57 78.13,132.57 82.13,141.57`
+    /// при линии, кончающейся в `82.13,136.57`. Острие (141.57) — верх
+    /// эллипса, то есть граница фигуры-цели; лучи — на 9 назад от
+    /// острия (132.57), вырез — на 5 (136.57, там же, где кончается
+    /// линия эталона).
     #[test]
-    fn test_open_arrow_is_chevron_ahead_of_line() {
+    fn test_open_arrow_is_filled_dart() {
         let theme = Theme::default();
+        // Наши движки доводят линию до границы фигуры, поэтому конец
+        // линии здесь — та точка, где в эталоне стоит ОСТРИЕ.
         let head = arrow_head_points(
             ArrowHeadKind::Open,
-            Point::new(82.13, 136.57),
+            Point::new(82.13, 141.57),
             Point::new(82.13, 82.22),
             "#181818",
             true,
@@ -4038,14 +4119,16 @@ mod tests {
         let points: Vec<(f64, f64)> = head.points.iter().map(|p| (p.x, p.y)).collect();
         assert_eq!(
             points,
-            // Лучи галочки стоят НА 5 ПОЗАДИ острия — то есть
-            // ровно в конце линии (136.57), как в эталоне; острие
-            // вынесено на 5 вперёд.
-            vec![(86.13, 136.57), (82.13, 141.57), (78.13, 136.57)],
-            "вершины галочки"
+            vec![
+                (82.13, 141.57),
+                (86.13, 132.57),
+                (82.13, 136.57),
+                (78.13, 132.57),
+            ],
+            "вершины галочки: острие, луч, вырез, луч"
         );
-        assert!(!head.closed, "галочка — незамкнутая ломаная");
-        assert_eq!(head.fill, None, "галочка не залита");
+        assert!(head.closed, "галочка — замкнутый полигон");
+        assert_eq!(head.fill.as_deref(), Some("#181818"), "галочка залита");
     }
 
     /// Ромб композиции начинается в конце линии и уходит внутрь неё.

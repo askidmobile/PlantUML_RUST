@@ -52,7 +52,43 @@ const USECASE_SYSTEM_PADDING: f64 = 32.0;
 
 const LTR_USECASE_SPACING: f64 = 34.6;
 
+/// Зазор между эллипсами СОСЕДНИХ вариантов в одном ряду.
+///
+/// Режим сверху-вниз раскладывает варианты рядами; измерено по эталону
+/// `UC_noLTR` (PlantUML 1.2024.3): центры `111, 323, 526, 736, 954` при
+/// ширинах 176.3, 178.0, 157.4, 192.2, 173.7 — между КРАЯМИ соседних
+/// эллипсов ровно 35.
+const ROW_USECASE_SPACING: f64 = 35.0;
+
 const ACTOR_LABEL_GAP: f64 = 55.0;
+
+/// Скругление углов рамки системы.
+///
+/// Эталон `UseCase: Простой`: `rx="2.5" ry="2.5"`.
+const SYSTEM_CORNER_RADIUS: f64 = 2.5;
+
+/// Кегль заголовка рамки системы.
+///
+/// Эталон `UseCase: Простой`: `font-size="14"`, а не 15, как у остальных
+/// рамок.
+const SYSTEM_TITLE_FONT_SIZE: f64 = 14.0;
+
+/// Базис заголовка от верха рамки системы.
+///
+/// Эталон `UseCase: Простой`: рамка стоит на `y=7`, базис подписи — на
+/// `21.995`, то есть 15 ниже.
+const SYSTEM_TITLE_OFFSET: f64 = 15.0;
+
+/// Заливка эллипсов вариантов использования и головы актёра.
+///
+/// Эталон `UseCase: Простой`: все семь эллипсов (пять вариантов и две
+/// головы актёров) залиты `#F1F1F1`, тогда как тема даёт `#E2E2F0` —
+/// цвет узлов class-диаграмм.
+const USECASE_FILL: &str = "#F1F1F1";
+
+/// Толщина обводки эллипса варианта использования (эталон: 0.5).
+const USECASE_STROKE_WIDTH: f64 = 0.5;
+
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для use case diagrams
@@ -96,11 +132,10 @@ impl UseCaseLayoutEngine {
             .map(|a| self.config.text.width(&a.name, self.config.font_size))
             .fold(0.0f64, f64::max);
 
-        // Минимальная ширина для актёра с его label
+        // Ширина блока актёра: фигура занимает `actor_width`, но подпись
+        // шире, поэтому блок расширяется до неё — иначе подпись выходит
+        // за габарит элемента и обрезается краем холста.
         let actor_total_width = self.config.actor_width.max(max_actor_label_width);
-
-        // Позиция актёров - центрируем по ширине их label
-        let actors_x = self.config.margin + actor_total_width / 2.0;
 
         // Собираем все use cases (из packages и верхнего уровня)
         let mut all_usecases: Vec<(&str, Option<&str>)> = Vec::new();
@@ -123,51 +158,110 @@ impl UseCaseLayoutEngine {
             .fold(0.0_f64, f64::max)
             .max(self.config.usecase_width.min(60.0));
 
-        // Вычисляем размеры области use case
-        let num_usecases = all_usecases.len().max(1);
-        let usecase_row = |name: &str| self.usecase_natural_size(name).1;
-        // Шаг берётся ТОТ ЖЕ, что и при расстановке ниже: в режиме
-        // `left to right` он другой (34.6 вместо 60). Пока здесь стояла
-        // общая константа, рамка системы выходила 507.8 при эталонных 386
-        // — высота считалась по шагу, которым список уже не раскладывался.
-        let usecase_step = if is_left_to_right {
-            LTR_USECASE_SPACING
-        } else {
-            self.config.vertical_spacing
-        };
-        let inner_height: f64 = all_usecases
-            .iter()
-            .map(|(name, _)| usecase_row(name))
-            .sum::<f64>()
-            + (num_usecases.saturating_sub(1)) as f64 * usecase_step;
-
         // Рамка системы рисуется ТОЛЬКО если в диаграмме есть package.
         // В эталоне PlantUML при отсутствии package рамки нет вовсе
         // (usecase_basic: ни одного прямоугольника).
         let has_package = !diagram.packages.is_empty();
 
+        // Слои вариантов использования по графу связей.
+        //
+        // PlantUML считает раскладку GraphViz-ом: актёры — нулевой ранг,
+        // варианты без входящих связей ОТ ДРУГИХ ВАРИАНТОВ — первый,
+        // и так далее. Каждый ранг рисуется РЯДОМ.
+        //
+        // Эталон (PlantUML 1.2024.3, тот же исходник без директивы
+        // `left to right direction`): актёры в ряд сверху (головы на
+        // `cx = 323` и `845`), рамка `7…1057`, а все пять эллипсов —
+        // в ОДНОМ ряду (`cy = 163.6`) с центрами `111, 323, 526, 736,
+        // 954`, то есть слева направо группами по актёру и внутри группы
+        // в порядке объявления. Прежний код ставил варианты В СТОЛБЕЦ
+        // всегда, из-за чего та же диаграмма выходила `240x663` вместо
+        // `1063x207`: связи шли наискось через всю фигуру, а подпись
+        // второго актёра накладывалась на заголовок рамки.
+        //
+        // Столбец при этом получается сам собой: в `usecase_basic`
+        // (`UC1 --> UC2`) ранг UC1 равен 0, ранг UC2 — 1, и ряды встают
+        // друг под друга ровно как в эталоне.
+        let mut index_of: HashMap<&str, usize> = HashMap::new();
+        for (i, (name, alias)) in all_usecases.iter().enumerate() {
+            index_of.insert(name, i);
+            if let Some(a) = alias {
+                index_of.insert(a, i);
+            }
+        }
+        let mut layers = vec![0usize; all_usecases.len()];
+        for _ in 0..all_usecases.len() {
+            let mut changed = false;
+            for rel in &diagram.relationships {
+                if let (Some(&from), Some(&to)) = (
+                    index_of.get(rel.from.as_str()),
+                    index_of.get(rel.to.as_str()),
+                ) {
+                    if from != to && layers[from] + 1 > layers[to] {
+                        layers[to] = layers[from] + 1;
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        let layer_count = layers.iter().copied().max().unwrap_or(0) + 1;
+        let mut rows: Vec<Vec<usize>> = vec![Vec::new(); layer_count];
+        for (i, layer) in layers.iter().enumerate() {
+            rows[*layer].push(i);
+        }
+
+        let usecase_width = |i: usize| self.usecase_natural_size(all_usecases[i].0).0;
+        let usecase_height = |i: usize| self.usecase_natural_size(all_usecases[i].0).1;
+        // Ширина ряда: эллипсы в ряд через тот же зазор, что и в LTR
+        // (эталон даёт 35 между краями соседних эллипсов).
+        let row_width = |row: &Vec<usize>| -> f64 {
+            row.iter().map(|&i| usecase_width(i)).sum::<f64>()
+                + row.len().saturating_sub(1) as f64 * ROW_USECASE_SPACING
+        };
+        let row_height = |row: &Vec<usize>| -> f64 {
+            row.iter().map(|&i| usecase_height(i)).fold(0.0, f64::max)
+        };
+        let content_width = rows.iter().map(row_width).fold(0.0, f64::max);
+        let content_height = rows.iter().map(row_height).sum::<f64>()
+            + layer_count.saturating_sub(1) as f64 * self.config.vertical_spacing;
+
         let (system_width, system_height) = if has_package {
             // Ширина рамки системы.
             //
-            // Измерено по эталону `UseCase: Простой`: рамка 220.2 при самом
-            // широком эллипсе 188.2, то есть содержимое плюс 32. Прежняя
-            // формула добавляла `package_padding * 2 + 40` = 90 и давала
-            // 268.2. Ветка работает ТОЛЬКО при наличии package, поэтому
-            // `usecase_basic` (без package) она не задевает.
+            // Измерено по эталонам: рамка 220.2 при самом широком эллипсе
+            // 188.2 (`UseCase: Простой`) и рамка 1050 при ряде шириной
+            // 1018 (`UC_noLTR`) — то есть содержимое плюс 32. А по
+            // вертикали: 35 сверху и 16 снизу (в LTR содержимое занимает
+            // 42..377 при рамке 7..393, в режиме сверху-вниз — 143.6..183.6
+            // при рамке 107..201.2). Прежняя формула добавляла
+            // `package_padding * 2 + 40` = 90 и давала 268.2.
             (
-                max_usecase_width + USECASE_SYSTEM_PADDING,
-                inner_height
-                    + if is_left_to_right {
-                        // Эталон: содержимое занимает 42..377, рамка 7..393,
-                        // то есть 35 сверху и 16 снизу.
-                        LTR_PACKAGE_TOP_INSET + LTR_PACKAGE_BOTTOM_INSET
-                    } else {
-                        self.config.package_header_height + self.config.package_padding * 2.0
-                    },
+                if is_left_to_right {
+                    max_usecase_width + USECASE_SYSTEM_PADDING
+                } else {
+                    content_width + USECASE_SYSTEM_PADDING
+                },
+                if is_left_to_right {
+                    let step = LTR_USECASE_SPACING;
+                    let inner: f64 = (0..all_usecases.len()).map(usecase_height).sum::<f64>()
+                        + all_usecases.len().saturating_sub(1) as f64 * step;
+                    inner + LTR_PACKAGE_TOP_INSET + LTR_PACKAGE_BOTTOM_INSET
+                } else {
+                    content_height + LTR_PACKAGE_TOP_INSET + LTR_PACKAGE_BOTTOM_INSET
+                },
+            )
+        } else if is_left_to_right {
+            // Без package размеры области совпадают с содержимым
+            (
+                max_usecase_width,
+                (0..all_usecases.len()).map(usecase_height).sum::<f64>()
+                    + all_usecases.len().saturating_sub(1) as f64 * LTR_USECASE_SPACING,
             )
         } else {
-            // Без package размеры области совпадают с содержимым
-            (max_usecase_width, inner_height)
+            (content_width, content_height)
         };
 
         // PlantUML размещает актёров СВЕРХУ, а варианты использования —
@@ -175,7 +269,20 @@ impl UseCaseLayoutEngine {
         // первый use case на y=141.8, второй на y=237.06).
         // Раньше актёр стоял слева, а use case — справа, из-за чего
         // диаграмма была широкой и низкой (310x136 против 172x280).
-        let layout_width = max_usecase_width.max(actor_total_width);
+        let layout_width = if is_left_to_right {
+            max_usecase_width.max(actor_total_width)
+        } else {
+            system_width.max(actor_total_width)
+        };
+        // Верх первого ряда вариантов.
+        //
+        // В обоих режимах он стоит на `margin + высота актёра + зазор`:
+        // эталон `usecase_basic` даёт верх первого эллипса 141.8, эталон
+        // `UC_noLTR` — 143.6. В LTR варианты идут в столбец от этой точки,
+        // в режиме сверху-вниз — рядами, а рамка (если она есть) сдвинута
+        // выше на `LTR_PACKAGE_TOP_INSET`: эталон `UC_noLTR` ставит рамку
+        // на 107 при первом эллипсе на 143.6, то есть 35 сверху.
+        let first_row_top = self.config.margin + self.config.actor_height + ACTOR_LABEL_GAP;
         let (system_x, system_y) = if is_left_to_right {
             // Актёры слева, система справа от них.
             (
@@ -185,54 +292,92 @@ impl UseCaseLayoutEngine {
         } else {
             (
                 self.config.margin + (layout_width - system_width) / 2.0,
-                self.config.margin + self.config.actor_height + ACTOR_LABEL_GAP,
+                first_row_top
+                    - if has_package {
+                        LTR_PACKAGE_TOP_INSET
+                    } else {
+                        0.0
+                    },
             )
         };
+        // Ось, на которой центрируются варианты использования.
+        //
+        // Эталон `UseCase: Простой`: центры ВСЕХ пяти эллипсов совпадают
+        // (`cx = 247.626`) и равны центру рамки (`137.53 + 220.2/2`).
+        // Эталон `usecase_basic`: оба эллипса и актёр стоят на одной оси
+        // `82.13`. Прежний код выравнивал эллипсы ЛЕВЫМ краем, поэтому
+        // центры расходились на половину разницы ширин (у нас 226.4…242.6
+        // вместо 242.57) — «лесенка» вместо столбца.
+        let axis_x = system_x + system_width / 2.0;
 
         if has_package {
             let system_name = diagram.packages[0].name.clone();
             let system_bounds = Rect::new(system_x, system_y, system_width, system_height);
+            // Рамка кластера в эталоне НЕ залита, скруглена и обведена
+            // толщиной 1; заголовок — кеглем 14 с базисом на 15 ниже
+            // верха. Передаём это свойствами, чтобы не менять рамку
+            // `mainframe` из sequence, которая рисуется тем же элементом.
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("fill".to_string(), "none".to_string());
+            properties.insert("rx".to_string(), SYSTEM_CORNER_RADIUS.to_string());
+            properties.insert(
+                "title-font-size".to_string(),
+                SYSTEM_TITLE_FONT_SIZE.to_string(),
+            );
+            properties.insert("title-offset".to_string(), SYSTEM_TITLE_OFFSET.to_string());
             elements.push(LayoutElement {
                 id: format!("system_{}", system_name.replace(' ', "_")),
                 bounds: system_bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties,
                 element_type: ElementType::System { title: system_name },
             });
         }
 
-        // Use case выравниваются по центру области
-        let usecases_x = system_x + (system_width - max_usecase_width) / 2.0;
-        // Отступ от верха рамки до первого use case.
+        // Ось, на которой центрируются варианты использования.
         //
-        // В LTR-режиме он МЕНЬШЕ: эталон `UseCase: Простой` даёт рамку на
-        // y=7 и первый эллипс с верхом на 42, то есть 35. Общая формула
-        // (заголовок 30 + padding 25) даёт 55.
-        let usecases_start_y = system_y
-            + if has_package {
-                if is_left_to_right {
+        // Эталон `UseCase: Простой`: центры ВСЕХ пяти эллипсов совпадают
+        // (`cx = 247.626`) и равны центру рамки (`137.53 + 220.2/2`).
+        // Эталон `usecase_basic`: оба эллипса и актёр стоят на одной оси
+        // `82.13`. Прежний код выравнивал эллипсы ЛЕВЫМ краем, поэтому
+        // центры расходились на половину разницы ширин (у нас 226.4…242.6
+        // вместо 242.57) — «лесенка» вместо столбца.
+        // Позиции вариантов: (индекс, центр по X, верх по Y).
+        //
+        // В LTR-режиме это ОДИН столбец на общей оси (эталон
+        // `UseCase: Простой`: `cy = 62, 136, 208, 280, 356`), в режиме
+        // сверху-вниз — ряды по слоям графа связей.
+        let mut positions: Vec<(usize, f64, f64)> = Vec::with_capacity(all_usecases.len());
+        if is_left_to_right {
+            // Столбец начинается от верха рамки: эталон `UseCase: Простой`
+            // ставит рамку на `y = 7`, а первый эллипс — на 42, то есть
+            // `LTR_PACKAGE_TOP_INSET` ниже.
+            let mut y = system_y
+                + if has_package {
                     LTR_PACKAGE_TOP_INSET
                 } else {
-                    self.config.package_header_height + self.config.package_padding
+                    0.0
+                };
+            for i in 0..all_usecases.len() {
+                positions.push((i, axis_x, y));
+                y += usecase_height(i) + LTR_USECASE_SPACING;
+            }
+        } else {
+            let mut y = first_row_top;
+            for row in &rows {
+                let mut x = axis_x - row_width(row) / 2.0;
+                for &i in row {
+                    let width = usecase_width(i);
+                    positions.push((i, x + width / 2.0, y));
+                    x += width + ROW_USECASE_SPACING;
                 }
-            } else {
-                0.0
-            };
+                y += row_height(row) + self.config.vertical_spacing;
+            }
+        }
 
-        // Шаг между use case считается по их фактическим высотам, а не по
-        // конфигу: высота эллипса зависит от длины подписи (см.
-        // usecase_natural_size). Иначе длинные подписи наезжают друг на друга.
-        let mut current_y = usecases_start_y;
-        for (i, (name, alias)) in all_usecases.iter().enumerate() {
-            let y = current_y;
-            // Шаг в LTR-режиме СВОЙ. Общая константа 60 верна для
-            // `usecase_basic` (там расхождение 1.0), но в LTR эталон даёт
-            // шаг 72–76, что соответствует 34.6. Подстановка 34.6 в общую
-            // константу ломала `usecase_basic` (1.0 -> 27.0).
-            current_y += self.usecase_natural_size(name).1 + usecase_step;
-            let _ = i;
-
-            let (elem, bounds) = self.create_usecase_element(name, usecases_x, y);
+        for (i, cx, y) in positions {
+            let (name, alias) = all_usecases[i];
+            let (elem, bounds) = self.create_usecase_element(name, cx, y);
             element_positions.insert(name.to_string(), bounds);
             if let Some(a) = alias {
                 element_positions.insert(a.to_string(), bounds);
@@ -240,70 +385,73 @@ impl UseCaseLayoutEngine {
             elements.push(elem);
         }
 
-        // Размещаем актёров слева.
+        // Размещаем актёров.
         //
-        // Несколько актёров могут получить одинаковую Y (если связаны с
-        // разными use case на одной высоте, либо оба не связаны ни с чем).
-        // Раньше в этом случае они рисовались в одной точке и полностью
-        // накладывались друг на друга. Теперь при совпадении Y актёр
-        // сдвигается по X на ширину блока.
+        // В LTR-режиме актёры стоят СЛЕВА столбцом и центрируются по
+        // СВЯЗАННЫМ вариантам по вертикали: эталон `UseCase: Простой` даёт
+        // `Customer`, связанному с UC1/UC2/UC3 (cy 62, 136, 208), голову
+        // на 106 — это среднее минус половина высоты актёра.
+        //
+        // В режиме сверху-вниз актёры идут РЯДОМ сверху и центрируются по
+        // связанным вариантам ПО ГОРИЗОНТАЛИ: эталон `UC_noLTR` ставит
+        // «Покупателя» на `cx = 323` при его вариантах с центрами 111, 323
+        // и 526 (среднее 320), а «Менеджера» — на 845 при 736 и 954
+        // (среднее 845).
+        //
+        // `actor_x` — ЦЕНТР блока актёра; сам блок шириной с подпись
+        // (см. `create_actor_element`), поэтому подпись не выходит за
+        // габарит и не обрезается холстом. Если два актёра оказываются на
+        // одной высоте, второй сдвигается вправо на ширину блока.
         let mut occupied: Vec<(f64, f64)> = Vec::new(); // (y, x)
         for (actor_index, actor) in diagram.actors.iter().enumerate() {
-            // Вычисляем среднюю Y позицию use cases, с которыми связан актёр
-            // Актёры ставятся СВЕРХУ, над всеми вариантами использования:
-            // в эталоне usecase_basic актёр занимает y=6..64, а первый
-            // эллипс начинается на y=141.8. Раньше актёр выравнивался по
-            // средней Y связанных use case, из-за чего оказывался между
-            // ними и диаграмма теряла вертикальный порядок.
-            // В LTR актёр ЦЕНТРИРУЕТСЯ по связанным с ним use case.
-            //
-            // Измерено по эталону `UseCase: Простой`: `Customer` связан с
-            // UC1/UC2/UC3, стоящими на cy 62, 136 и 208 (среднее 135.3), и
-            // его голова оказывается на 106; `Manager` связан с UC4/UC5
-            // (280 и 356, среднее 318) — голова на 288. Разница до среднего
-            // в обоих случаях около 29, то есть актёр ставится ЦЕНТРОМ на
-            // среднее своих use case.
-            //
-            // В режиме сверху-вниз актёры, наоборот, идут столбцом от верха:
-            // это подтверждено эталоном `usecase_basic`, и там расхождение
-            // всего 1.0 по высоте.
-            let y = if is_left_to_right {
-                let mut sum = 0.0;
-                let mut count = 0.0;
-                // Связи ссылаются на АЛИАС (`Customer`), а не на подпись
-                // (`Покупатель`), поэтому сверяем оба.
-                let alias = actor.alias.as_deref();
-                let is_me = |name: &str| name == actor.name || Some(name) == alias;
-                for rel in &diagram.relationships {
-                    let other = if is_me(&rel.from) {
-                        Some(&rel.to)
-                    } else if is_me(&rel.to) {
-                        Some(&rel.from)
-                    } else {
-                        None
-                    };
-                    if let Some(name) = other {
-                        if let Some(rect) = element_positions.get(name.as_str()) {
-                            sum += rect.y + rect.height / 2.0;
-                            count += 1.0;
-                        }
+            // Связи ссылаются на АЛИАС (`Customer`), а не на подпись
+            // (`Покупатель`), поэтому сверяем оба.
+            let alias = actor.alias.as_deref();
+            let is_me = |name: &str| name == actor.name || Some(name) == alias;
+            let mut sum_x = 0.0;
+            let mut sum_y = 0.0;
+            let mut count = 0.0;
+            for rel in &diagram.relationships {
+                let other = if is_me(&rel.from) {
+                    Some(&rel.to)
+                } else if is_me(&rel.to) {
+                    Some(&rel.from)
+                } else {
+                    None
+                };
+                if let Some(name) = other {
+                    if let Some(rect) = element_positions.get(name.as_str()) {
+                        sum_x += rect.x + rect.width / 2.0;
+                        sum_y += rect.y + rect.height / 2.0;
+                        count += 1.0;
                     }
                 }
-                if count > 0.0 {
-                    (sum / count - self.config.actor_height / 2.0).max(self.config.margin)
-                } else {
-                    system_y + actor_index as f64 * (self.config.actor_height + 10.0)
-                }
+            }
+
+            let (y, default_x) = if is_left_to_right {
+                (
+                    if count > 0.0 {
+                        (sum_y / count - self.config.actor_height / 2.0).max(self.config.margin)
+                    } else {
+                        system_y + actor_index as f64 * (self.config.actor_height + 10.0)
+                    },
+                    self.config.margin + actor_total_width / 2.0,
+                )
             } else {
-                self.config.margin + actor_index as f64 * (self.config.actor_height + 10.0)
+                (
+                    self.config.margin,
+                    if count > 0.0 {
+                        sum_x / count
+                    } else {
+                        axis_x
+                            + actor_index as f64
+                                * (actor_total_width + self.config.horizontal_spacing)
+                    },
+                )
             };
 
-            // Ищем свободную позицию по X среди актёров с такой же Y
-            let mut actor_x = if is_left_to_right {
-                self.config.margin
-            } else {
-                actors_x
-            };
+            // Ищем свободную позицию по X среди актёров с такой же Y.
+            let mut actor_x = default_x;
             let tolerance = self.config.actor_height / 2.0;
             while occupied.iter().any(|(oy, ox)| {
                 (oy - y).abs() < tolerance && (ox - actor_x).abs() < actor_total_width
@@ -312,7 +460,8 @@ impl UseCaseLayoutEngine {
             }
             occupied.push((y, actor_x));
 
-            let (elem, bounds) = self.create_actor_element(&actor.name, actor_x, y);
+            let (elem, bounds) =
+                self.create_actor_element(&actor.name, actor_x, y, actor_total_width);
             element_positions.insert(actor.name.clone(), bounds);
             if let Some(alias) = &actor.alias {
                 element_positions.insert(alias.clone(), bounds);
@@ -340,16 +489,39 @@ impl UseCaseLayoutEngine {
         result
     }
 
-    /// Создаёт элемент актёра (stick figure)
-    fn create_actor_element(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(x, y, self.config.actor_width, self.config.actor_height);
+    /// Создаёт элемент актёра (stick figure).
+    ///
+    /// `x` — ЦЕНТР блока, а не его левый край: фигура актёра рисуется по
+    /// центру габарита, а подпись — по центру под фигурой, как в эталоне
+    /// (`usecase_basic`: подпись «Пользователь» центрирована на `82.13` —
+    /// там же, где голова актёра).
+    ///
+    /// Ширина блока равна ширине подписи (`width`), а не 40: иначе
+    /// подпись выходила за габарит элемента (у «Покупателя» это −10.48
+    /// при холсте, начинающемся с 9), обрезалась левым краем картинки, а
+    /// связи начинались в середине подписи и шли наискось через всю
+    /// диаграмму.
+    fn create_actor_element(
+        &self,
+        name: &str,
+        x: f64,
+        y: f64,
+        width: f64,
+    ) -> (LayoutElement, Rect) {
+        let bounds = Rect::new(x - width / 2.0, y, width, self.config.actor_height);
+
+        // Голова актёра в use case залита тем же `#F1F1F1`, что и
+        // эллипсы (эталоны `usecase_basic`, `UseCase: Простой`); тема
+        // даёт цвет узлов sequence — `#E2E2F0`.
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("fill".to_string(), USECASE_FILL.to_string());
 
         (
             LayoutElement {
                 id: format!("actor_{}", name.replace(' ', "_")),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties,
                 element_type: ElementType::Actor {
                     label: name.to_string(),
                 },
@@ -358,7 +530,6 @@ impl UseCaseLayoutEngine {
         )
     }
 
-    /// Создаёт элемент use case (эллипс)
     /// Натуральный размер эллипса use case (ширина, высота).
     ///
     /// Измерено по эталону PlantUML: «Оформить заказ» (15 символов) —
@@ -372,6 +543,10 @@ impl UseCaseLayoutEngine {
         )
     }
 
+    /// Создаёт элемент use case (эллипс).
+    ///
+    /// `x` — ЦЕНТР эллипса: в эталоне центры всех вариантов совпадают
+    /// (`UseCase: Простой`: `cx = 247.626` у всех пяти).
     fn create_usecase_element(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
         // Размер эллипса PlantUML зависит от длины подписи. Измерено
         // по эталону (tests/golden/reference/usecase_basic.svg):
@@ -385,14 +560,20 @@ impl UseCaseLayoutEngine {
             .max(self.config.usecase_width.min(60.0));
         let height = (USE_CASE_BASE_HEIGHT + USE_CASE_CHAR_HEIGHT * chars)
             .max(self.config.usecase_height.min(24.0));
-        let bounds = Rect::new(x, y, width, height);
+        let bounds = Rect::new(x - width / 2.0, y, width, height);
+
+        // Заливка и толщина обводки эллипса — из эталона: `#F1F1F1` и
+        // 0.5 (тема даёт `#E2E2F0` и 1).
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("fill".to_string(), USECASE_FILL.to_string());
+        properties.insert("stroke-width".to_string(), USECASE_STROKE_WIDTH.to_string());
 
         (
             LayoutElement {
                 id: format!("usecase_{}", name.replace(' ', "_")),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties,
                 element_type: ElementType::Ellipse {
                     label: Some(name.to_string()),
                 },
@@ -456,32 +637,54 @@ impl UseCaseLayoutEngine {
         })
     }
 
-    /// Вычисляет точки соединения для связи
+    /// Вычисляет точки соединения для связи.
+    ///
+    /// Грань выбирается по взаимному расположению центров: связь идёт
+    /// вдоль той оси, по которой фигуры разнесены сильнее. Прежнее
+    /// правило «ширина меньше 50 — актёр, соединяем справа, иначе
+    /// эллипс — соединяем слева» давало две ошибки:
+    ///
+    /// * блок актёра, расширенный до ширины подписи, перестал быть
+    ///   «узким», и связь уходила из его ЛЕВОГО края;
+    /// * связь актёр→вариант в режиме сверху-вниз, где фигуры стоят
+    ///   одна над другой, шла по касательной слева: в эталоне
+    ///   `usecase_basic` это вертикальная линия `x = 82.13`, а у нас
+    ///   была диагональ из `x = 16` в `x = 16` через всю фигуру.
     fn calculate_connection_points(&self, from: &Rect, to: &Rect) -> (Point, Point) {
-        let _from_center_x = from.x + from.width / 2.0;
-        let from_center_y = from.y + from.height / 2.0;
-        let _to_center_x = to.x + to.width / 2.0;
-        let to_center_y = to.y + to.height / 2.0;
+        let from_cx = from.x + from.width / 2.0;
+        let from_cy = from.y + from.height / 2.0;
+        let to_cx = to.x + to.width / 2.0;
+        let to_cy = to.y + to.height / 2.0;
 
-        // Для актёров (узкие) соединяем справа
-        // Для эллипсов соединяем слева
-        let start = if from.width < 50.0 {
-            // Это актёр - соединяем справа
-            Point::new(from.x + from.width, from_center_y)
+        let dx = to_cx - from_cx;
+        let dy = to_cy - from_cy;
+
+        if dx.abs() >= dy.abs() {
+            // Фигуры разнесены по горизонтали: выходим правым/левым
+            // краем на высоте центра.
+            let start = Point::new(
+                if dx >= 0.0 {
+                    from.x + from.width
+                } else {
+                    from.x
+                },
+                from_cy,
+            );
+            let end = Point::new(if dx >= 0.0 { to.x } else { to.x + to.width }, to_cy);
+            (start, end)
         } else {
-            // Это эллипс - соединяем слева
-            Point::new(from.x, from_center_y)
-        };
-
-        let end = if to.width < 50.0 {
-            // Это актёр - соединяем справа
-            Point::new(to.x + to.width, to_center_y)
-        } else {
-            // Это эллипс - соединяем слева
-            Point::new(to.x, to_center_y)
-        };
-
-        (start, end)
+            // Фигуры разнесены по вертикали: выходим низом/верхом на оси.
+            let start = Point::new(
+                from_cx,
+                if dy >= 0.0 {
+                    from.y + from.height
+                } else {
+                    from.y
+                },
+            );
+            let end = Point::new(to_cx, if dy >= 0.0 { to.y } else { to.y + to.height });
+            (start, end)
+        }
     }
 }
 
@@ -585,5 +788,104 @@ mod tests {
         let result = engine.layout(&diagram);
 
         assert!(result.elements.len() >= 3);
+    }
+
+    /// Варианты без связей между собой PlantUML кладёт РЯДОМ, а не столбцом.
+    ///
+    /// Регрессия: прежний код всегда ставил варианты в столбец, из-за чего
+    /// пример с `rectangle` и двумя актёрами выходил 240x663 вместо
+    /// эталонных 1063x207 — связи шли наискось через всю фигуру, а подпись
+    /// второго актёра накладывалась на заголовок рамки.
+    #[test]
+    fn test_usecases_without_edges_go_in_a_row() {
+        let mut diagram = UseCaseDiagram::new();
+        diagram.actors.push(UseCaseActor::new("Покупатель"));
+        diagram.use_cases.push(UseCase::new("Просмотр каталога"));
+        diagram.use_cases.push(UseCase::new("Добавить в корзину"));
+        diagram.use_cases.push(UseCase::new("Оформить заказ"));
+        diagram
+            .relationships
+            .push(UseCaseRelationship::new("Покупатель", "Просмотр каталога"));
+
+        let result = UseCaseLayoutEngine::new().layout(&diagram);
+
+        let ellipses: Vec<Rect> = result
+            .elements
+            .iter()
+            .filter(|e| matches!(e.element_type, ElementType::Ellipse { .. }))
+            .map(|e| e.bounds)
+            .collect();
+        assert_eq!(ellipses.len(), 3, "не все варианты размещены");
+
+        // Все три — на одной высоте и не перекрываются по X.
+        let first_y = ellipses[0].y;
+        for rect in &ellipses {
+            assert!(
+                (rect.y - first_y).abs() < 0.01,
+                "варианты одного слоя должны стоять в ряд: {:?}",
+                ellipses
+            );
+        }
+        let mut sorted = ellipses.clone();
+        sorted.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        for pair in sorted.windows(2) {
+            assert!(
+                pair[0].x + pair[0].width <= pair[1].x + 0.01,
+                "эллипсы ряда перекрываются: {:?} и {:?}",
+                pair[0],
+                pair[1]
+            );
+        }
+
+        // Актёр стоит НАД рядом, а не сбоку: его низ выше верха эллипсов.
+        let actor = result
+            .elements
+            .iter()
+            .find(|e| matches!(e.element_type, ElementType::Actor { .. }))
+            .expect("актёр размещён");
+        assert!(
+            actor.bounds.y + actor.bounds.height < first_y,
+            "актёр должен стоять над вариантами: {:?} против y={first_y}",
+            actor.bounds
+        );
+    }
+
+    /// Цепочка связей между вариантами по-прежнему даёт СТОЛБЕЦ.
+    ///
+    /// Эталон `usecase_basic` (`Пользователь --> UC1`, `UC1 --> UC2`):
+    /// эллипсы стоят друг под другом на общей оси.
+    #[test]
+    fn test_usecase_chain_stays_in_a_column() {
+        let mut diagram = UseCaseDiagram::new();
+        diagram.actors.push(UseCaseActor::new("Пользователь"));
+        diagram.use_cases.push(UseCase::new("Оформить заказ"));
+        diagram.use_cases.push(UseCase::new("Оплатить"));
+        diagram
+            .relationships
+            .push(UseCaseRelationship::new("Пользователь", "Оформить заказ"));
+        diagram
+            .relationships
+            .push(UseCaseRelationship::new("Оформить заказ", "Оплатить"));
+
+        let result = UseCaseLayoutEngine::new().layout(&diagram);
+        let ellipses: Vec<Rect> = result
+            .elements
+            .iter()
+            .filter(|e| matches!(e.element_type, ElementType::Ellipse { .. }))
+            .map(|e| e.bounds)
+            .collect();
+        assert_eq!(ellipses.len(), 2);
+
+        let cx = |r: &Rect| r.x + r.width / 2.0;
+        assert!(
+            (cx(&ellipses[0]) - cx(&ellipses[1])).abs() < 0.01,
+            "варианты цепочки должны стоять на одной оси: {:?}",
+            ellipses
+        );
+        assert!(
+            ellipses[0].y + ellipses[0].height < ellipses[1].y,
+            "второй вариант цепочки должен быть НИЖЕ первого: {:?}",
+            ellipses
+        );
     }
 }

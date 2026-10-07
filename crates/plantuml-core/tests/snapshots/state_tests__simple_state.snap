@@ -29,25 +29,25 @@ Inactive
 </g>
 <g id="trans_initial_Active">
 <path d="M98.75139999999999,27 L98.75139999999999,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="102.751,88 98.751,93 94.751,88" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="98.751,88 102.751,79 98.751,83 94.751,79" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="trans_Active_Inactive">
 <path d="M85.99915999999999,138 L59.70216,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="63.489,216.585 58.092,220.031 55.915,214.009" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="59.702,215.297 66.388,208.065 61.313,210.563 58.814,205.488" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="67.48035999999999" y="168.9188" textLength="50.517">
 timeout
 </text>
 </g>
 <g id="trans_Inactive_Active">
 <path d="M82.2888,240.297 L210.15959999999998,240.297 L210.15959999999998,113 L130.632,113" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="130.632,117 125.632,113 130.632,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="130.632,113 139.632,117 135.632,113 139.632,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="87.2888" y="235.297" textLength="49.069">
 resume
 </text>
 </g>
 <g id="trans_Active_final">
 <path d="M98.75139999999999,138 L180.50279999999998,214.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="183.232,211.373 184.158,217.708 177.774,217.221" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="180.503,214.297 176.652,205.232 176.847,210.886 171.194,211.081" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="139.45195999999999" y="168.5188" textLength="33.639">
 close
 </text>

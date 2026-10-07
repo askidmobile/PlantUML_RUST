@@ -32,11 +32,11 @@ Waiting
 </g>
 <g id="Active_inner_trans_Processing_Waiting">
 <path d="M96.5,175 L96.5,215" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="100.5,215 96.5,220 92.5,215" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="96.5,215 100.5,206 96.5,210 92.5,206" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="Active_inner_trans_Waiting_Processing">
 <path d="M141.5,225.5 L156.5,225.5 L156.5,164.5 L141.5,164.5" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="141.5,168.5 136.5,164.5 141.5,160.5" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="141.5,164.5 150.5,168.5 146.5,164.5 150.5,160.5" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="final_final">
 <ellipse cx="96.5" cy="343" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
@@ -44,11 +44,11 @@ Waiting
 </g>
 <g id="trans_initial_Active">
 <path d="M96.5,27 L96.5,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="100.5,88 96.5,93 92.5,88" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="96.5,88 100.5,79 96.5,83 92.5,79" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="trans_Active_final">
 <path d="M96.5,272 L96.5,332" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="100.5,332 96.5,337 92.5,332" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="96.5,332 100.5,323 96.5,327 92.5,323" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

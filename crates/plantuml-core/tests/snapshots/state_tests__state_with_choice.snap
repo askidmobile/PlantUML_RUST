@@ -29,29 +29,29 @@ Invalid
 </g>
 <g id="trans_initial_check">
 <path d="M85.36600000000001,27 L115.12410000000001,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="118.719,86.246 117.316,92.494 111.529,89.754" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="115.124,88 114.773,78.157 112.932,83.506 107.583,81.665" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="trans_check_Valid">
 <path d="M115.12410000000001,108 L34.3971,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="37.593,217.702 31.391,219.292 31.201,212.892" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="34.397,215.297 43.004,210.51 37.403,211.302 36.612,205.7" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="74.83330000000001" y="150.9188" textLength="47.369">
 [valid]
 </text>
 </g>
 <g id="trans_check_Invalid">
 <path d="M115.12410000000001,108 L130.2631,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="134.224,214.738 130.962,220.248 126.302,215.856" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="130.263,215.297 132.966,205.826 129.565,210.346 125.045,206.944" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="120.12410000000001" y="161.6485" textLength="58.518">
 [invalid]
 </text>
 </g>
 <g id="trans_Valid_final">
 <path d="M34.3971,265.297 L85.36600000000001,325.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="88.415,322.707 88.603,329.108 82.317,327.887" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="85.366,325.297 82.588,315.848 82.129,321.486 76.491,321.027" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="trans_Invalid_final">
 <path d="M130.2631,265.297 L85.36600000000001,325.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polyline fill="none" points="88.569,327.693 82.37,329.3 82.163,322.901" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="85.366,325.297 93.961,320.488 88.362,321.294 87.555,315.695" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="choice_check">
 <text fill="#000" font-family="sans-serif" font-size="16" x="105.12410000000001" y="104" textLength="7.696">
