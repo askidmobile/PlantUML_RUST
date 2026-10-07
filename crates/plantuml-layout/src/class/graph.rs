@@ -91,7 +91,7 @@ fn sprite_scale_of(modifiers: &str) -> f64 {
 /// Добавка к ширине строки содержимого (поля и методы).
 ///
 /// Измерено по эталону: «bark()» 42.253 → 68.25, «meow()» 53.19 → 79.19.
-const CLASS_CONTENT_EXTRA: f64 = 26.0;
+const CLASS_CONTENT_EXTRA: f64 = 24.0;
 
 use super::config::ClassLayoutConfig;
 
