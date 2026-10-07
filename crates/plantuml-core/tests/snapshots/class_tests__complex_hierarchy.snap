@@ -26,40 +26,34 @@ expression: svg
 <g id="Repository">
 <rect fill="#F1F1F1" height="92.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="113.70719999999999" x="167.40660000000003" y="277.485"/>
 <ellipse cx="183.40660000000003" cy="293.485" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="10" x="199.40660000000003" y="292.485" textLength="53.569">
-«interface»
-</text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="199.40660000000003" y="308.485" textLength="75.94">
+<text fill="#000" font-family="sans-serif" font-size="14" x="199.40660000000003" y="296.485" textLength="75.94">
 Repository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="168.40660000000003" x2="280.1138" y1="315.485" y2="315.485"/>
-<line stroke="#181818" stroke-width="0.5" x1="168.40660000000003" x2="280.1138" y1="320.485" y2="320.485"/>
-<ellipse cx="175.40660000000003" cy="333.485" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="183.40660000000003" y="337.485" textLength="87.707">
+<line stroke="#181818" stroke-width="0.5" x1="168.40660000000003" x2="280.1138" y1="303.485" y2="303.485"/>
+<line stroke="#181818" stroke-width="0.5" x1="168.40660000000003" x2="280.1138" y1="308.485" y2="308.485"/>
+<ellipse cx="175.40660000000003" cy="321.485" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="183.40660000000003" y="325.485" textLength="87.707">
 findById(): T
 </text>
-<ellipse cx="175.40660000000003" cy="349.485" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="183.40660000000003" y="353.485" textLength="64.396">
+<ellipse cx="175.40660000000003" cy="337.485" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="183.40660000000003" y="341.485" textLength="64.396">
 save(): T
 </text>
 </g>
 <g id="AbstractRepository">
 <rect fill="#F1F1F1" height="92.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="166.9348" x="140.79280000000003" y="124.594"/>
 <ellipse cx="156.79280000000003" cy="140.594" fill="#A9DCDF" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="10" x="172.79280000000003" y="139.594" textLength="50.866">
-«abstract»
-</text>
-<text fill="#000" font-family="sans-serif" font-size="14" x="172.79280000000003" y="155.594" textLength="134.935">
+<text fill="#000" font-family="sans-serif" font-size="14" x="172.79280000000003" y="143.594" textLength="134.935">
 AbstractRepository
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="141.79280000000003" x2="306.72760000000005" y1="162.594" y2="162.594"/>
-<ellipse cx="148.79280000000003" cy="175.594" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="156.79280000000003" y="179.594" textLength="126.391">
+<line stroke="#181818" stroke-width="0.5" x1="141.79280000000003" x2="306.72760000000005" y1="150.594" y2="150.594"/>
+<ellipse cx="148.79280000000003" cy="163.594" fill="#FFCC00" rx="3" ry="3" stroke="#B38600" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="156.79280000000003" y="167.594" textLength="126.391">
 entityClass: Class
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="141.79280000000003" x2="306.72760000000005" y1="183.594" y2="183.594"/>
-<ellipse cx="148.79280000000003" cy="196.594" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="156.79280000000003" y="200.594" textLength="87.707">
+<line stroke="#181818" stroke-width="0.5" x1="141.79280000000003" x2="306.72760000000005" y1="171.594" y2="171.594"/>
+<ellipse cx="148.79280000000003" cy="184.594" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="156.79280000000003" y="188.594" textLength="87.707">
 findById(): T
 </text>
 </g>

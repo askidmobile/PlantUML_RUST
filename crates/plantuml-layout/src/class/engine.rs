@@ -245,9 +245,13 @@ impl ClassLayoutEngine {
                     ClassifierType::Entity => ClassifierKind::Entity,
                     _ => ClassifierKind::Class,
                 };
+                // Для `interface` и `abstract class` стереотип НЕ рисуется:
+                // эталон `Class: Наследование` содержит 15 текстов, а мы
+                // рисовали 17 — лишними были ровно «interface» и «abstract».
+                // Лишняя строка-стереотип давала +12 по высоте.
                 let stereo = match c.classifier_type {
-                    ClassifierType::Interface => Some("interface".to_string()),
-                    ClassifierType::AbstractClass => Some("abstract".to_string()),
+                    ClassifierType::Interface => None,
+                    ClassifierType::AbstractClass => None,
                     ClassifierType::Enum => Some("enum".to_string()),
                     ClassifierType::Annotation => Some("annotation".to_string()),
                     ClassifierType::Entity => Some("entity".to_string()),
