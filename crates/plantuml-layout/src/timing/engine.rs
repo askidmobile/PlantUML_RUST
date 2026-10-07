@@ -36,6 +36,12 @@ const TIMING_LABEL_INSET: f64 = 5.0;
 /// Измерено по эталону `timing_basic`: дорожка занимает 20.000..85.297.
 const ROBUST_LANE_HEIGHT: f64 = 65.297;
 
+/// База высоты дорожки `robust`; к ней добавляется `(n-1) x 20`.
+///
+/// 45.297 + 20 = 65.297 — прежняя высота при двух состояниях
+/// (`timing_basic`), поэтому эталонный кейс не меняется.
+const ROBUST_LANE_BASE: f64 = 45.297;
+
 /// Высота дорожки `concise`.
 ///
 /// Измерено по эталону: 85.297..141.594. Дорожки РАЗНОЙ высоты, поэтому
@@ -212,7 +218,22 @@ impl TimingLayoutEngine {
         let lane_heights: Vec<f64> = diagram
             .participants
             .iter()
-            .map(|participant| self.lane_height_of(participant))
+            .map(|participant| {
+                // `participant.states` парсер НЕ заполняет (всегда пуст),
+                // поэтому число различных состояний берём из уже
+                // сгруппированных изменений ряда.
+                let distinct = changes_by_participant
+                    .get(&participant.name)
+                    .map(|changes| {
+                        changes
+                            .iter()
+                            .map(|c| c.state.as_str())
+                            .collect::<std::collections::HashSet<_>>()
+                            .len()
+                    })
+                    .unwrap_or(0);
+                self.lane_height_of(participant, distinct)
+            })
             .collect();
         let mut lane_tops: Vec<f64> = Vec::with_capacity(lane_heights.len());
         let mut running_y = self.config.padding;
@@ -1046,7 +1067,20 @@ impl TimingLayoutEngine {
             .iter()
             .take(diagram.participants.len().saturating_sub(1))
         {
-            y += self.lane_height_of(participant) + self.config.lane_spacing;
+            // Число различных состояний: `participant.states` пуст, берём
+            // из изменений ряда (по имени ИЛИ алиасу — связь может
+            // ссылаться на любой из них).
+            let distinct = diagram
+                .state_changes
+                .iter()
+                .filter(|c| {
+                    c.participant == participant.name
+                        || Some(&c.participant) == participant.alias.as_ref()
+                })
+                .map(|c| c.state.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len();
+            y += self.lane_height_of(participant, distinct) + self.config.lane_spacing;
             push_line(left, y, right, y);
         }
     }
@@ -1056,9 +1090,26 @@ impl TimingLayoutEngine {
     /// В эталоне `timing_basic` дорожки РАЗНОЙ высоты: robust занимает
     /// 65.297, concise — 56.297. Единая высота давала ось на y = 150
     /// вместо эталонных 141.594.
-    fn lane_height_of(&self, participant: &TimingParticipant) -> f64 {
+    /// Высота дорожки `robust` ЗАВИСИТ от числа состояний ряда.
+    ///
+    /// Ступени идут ВВЕРХ от `base_y` на `level x ROBUST_STATE_LEVEL_STEP`,
+    /// поэтому при `n` состояниях лесенка занимает `(n-1) x 20`. Прежняя
+    /// константа 65.297 подходила только для `timing_basic`, где состояний
+    /// всего ДВА; в `Timing: Диаграмма` их по шесть на ряд, лесенка занимает
+    /// 100 и вылезала выше верхнего края дорожки — отсюда и `viewBox` с
+    /// `y = -46.5`, и имя ряда ВНУТРИ лесенки вместо положения над ней.
+    ///
+    /// База подобрана так, чтобы при `n = 2` высота осталась прежней:
+    /// 45.297 + 20 = 65.297.
+    fn lane_height_of(&self, participant: &TimingParticipant, distinct_states: usize) -> f64 {
         match participant.participant_type {
-            ParticipantType::Robust => ROBUST_LANE_HEIGHT,
+            ParticipantType::Robust => {
+                // Нижняя граница — прежняя константа: у ряда с одним-двумя
+                // состояниями высота не должна уменьшаться (проверено на
+                // `timing_basic`, где у ряда одно состояние).
+                let levels = distinct_states.saturating_sub(1) as f64;
+                (ROBUST_LANE_BASE + levels * ROBUST_STATE_LEVEL_STEP).max(ROBUST_LANE_HEIGHT)
+            }
             ParticipantType::Concise | ParticipantType::Binary | ParticipantType::Clock => {
                 CONCISE_LANE_HEIGHT
             }
