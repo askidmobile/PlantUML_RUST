@@ -5,10 +5,24 @@
 
 use indexmap::{IndexMap, IndexSet};
 
-/// Базовая ширина состояния, измеренная по эталону PlantUML.
-const STATE_BASE_WIDTH: f64 = 27.54;
-/// Прибавка к ширине состояния на каждый символ имени.
-const STATE_CHAR_WIDTH: f64 = 6.002;
+/// Зазор между двумя НАСТОЯЩИМИ состояниями в одном уровне.
+///
+/// Измерено на сервере: рамки на x=7 и x=92 по 50 шириной -> 35.
+/// У `state_simple` в одном уровне стоят настоящее состояние и
+/// псевдосостояние `[*]`, и там зазор 88.1 — см. `state_gap`.
+const STATE_SIBLING_GAP: f64 = 35.0;
+
+/// Отступ вокруг подписи состояния.
+///
+/// Измерено по эталону `State: Простой`: 41.9 -> 62, 76.4 -> 96,
+/// 75.3 -> 95.
+const STATE_WIDTH_PADDING: f64 = 20.0;
+
+/// Минимальная ширина состояния: у `Idle` при тексте 25.5 рамка 50.
+const STATE_MIN_WIDTH: f64 = 50.0;
+
+/// Кегль подписи состояния (в эталоне `font-size="14"`).
+const STATE_FONT_SIZE: f64 = 14.0;
 use plantuml_ast::state::{State, StateDiagram, StateType};
 use plantuml_model::{Point, Rect};
 
@@ -201,7 +215,10 @@ impl StateLayoutEngine {
                         }
                     })
                     .sum::<f64>()
-                    + (states.len().saturating_sub(1)) as f64 * self.config.horizontal_spacing;
+                    + states
+                        .windows(2)
+                        .map(|w| self.state_gap(&w[0], &w[1]))
+                        .sum::<f64>();
                 level_widths.insert(level, total_width);
             }
         }
@@ -257,7 +274,7 @@ impl StateLayoutEngine {
                     .copied()
                     .unwrap_or(self.config.margin);
 
-                for state_name in states {
+                for (state_index, state_name) in states.iter().enumerate() {
                     // Проверяем, это composite состояние?
                     if let Some(composite) = composite_states.get(state_name) {
                         // Раскладка вложенного состояния может отсутствовать,
@@ -284,7 +301,10 @@ impl StateLayoutEngine {
                         // Добавляем все элементы
                         elements.extend(container_elements);
 
-                        x += container_rect.width + self.config.horizontal_spacing;
+                        x += container_rect.width
+                            + states
+                                .get(state_index + 1)
+                                .map_or(0.0, |next| self.state_gap(state_name, next));
                     } else {
                         // Обычное состояние
                         let state_type = self.get_state_type_internal(diagram, state_name);
@@ -293,7 +313,10 @@ impl StateLayoutEngine {
                         state_positions.insert(state_name.clone(), bounds);
                         elements.push(elem);
 
-                        x += bounds.width + self.config.horizontal_spacing;
+                        x += bounds.width
+                            + states
+                                .get(state_index + 1)
+                                .map_or(0.0, |next| self.state_gap(state_name, next));
                     }
                 }
             }
@@ -1010,6 +1033,28 @@ impl StateLayoutEngine {
         )
     }
 
+    /// Зазор между двумя соседними элементами уровня.
+    ///
+    /// Измерено на сервере:
+    ///   два НАСТОЯЩИХ состояния рядом -> 35.0
+    ///     (`@startuml\n[*] --> A\nA --> C\nB --> C\n@enduml`: рамки
+    ///      на x=7 и x=92 по 50 шириной, то есть 92 − 57 = 35)
+    ///   настоящее рядом с ПСЕВДОСОСТОЯНИЕМ -> 88.1
+    ///     (`state_simple`: `Inactive` правый край 102.2, круг `[*]`
+    ///      левый край 190.3)
+    ///
+    /// Прежний код использовал одну константу 88.214 везде, из-за чего
+    /// `State: Простой` расходился: два настоящих состояния стояли через
+    /// 88 вместо 35 (эталон Completed 7…103, Failed 138…200).
+    fn state_gap(&self, a: &str, b: &str) -> f64 {
+        let pseudo = |n: &str| n == INITIAL_STATE_ID || n == FINAL_STATE_ID;
+        if pseudo(a) || pseudo(b) {
+            self.config.horizontal_spacing
+        } else {
+            STATE_SIBLING_GAP
+        }
+    }
+
     /// Ширина состояния по длине имени.
     ///
     /// Измерено по эталону PlantUML
@@ -1017,11 +1062,21 @@ impl StateLayoutEngine {
     /// 63.552, «Inactive» (8) — 75.556. Отсюда ширина ≈ 27.54 + 6.002 * n.
     /// Раньше ширина была фиксированной (120), из-за чего диаграмма
     /// получалась заметно шире эталона.
+    /// Ширина состояния: ЗАМЕР текста плюс отступ.
+    ///
+    /// Прежняя формула `27.54 + 6.002 * число_символов` была ОЦЕНКОЙ по
+    /// длине, а не замером. На `state_simple` она совпадала с эталоном
+    /// («Active» 6 символов и «Inactive» 8 — похожие слова), но на
+    /// `State: Простой` отступ выходил 26, 13.5, 5.1 и 22.1 при
+    /// постоянном в эталоне.
+    ///
+    /// Измерено по эталону `State: Простой`:
+    ///   Idle 25.5 -> 50 (упёрлось в минимум), Failed 41.9 -> 62,
+    ///   Completed 76.4 -> 96, Processing 75.3 -> 95,
+    /// то есть `max(текст + 20, 50)`.
     fn state_natural_width(&self, name: &str) -> f64 {
-        let chars = name.chars().count() as f64;
-        let width = STATE_BASE_WIDTH + STATE_CHAR_WIDTH * chars;
-        // Для очень коротких имён не даём фигуре выродиться
-        width.max(self.config.state_min_height)
+        let text = crate::text::TextMeasurer::default().width(name, STATE_FONT_SIZE);
+        (text + STATE_WIDTH_PADDING).max(STATE_MIN_WIDTH)
     }
 
     /// Создаёт простое состояние
