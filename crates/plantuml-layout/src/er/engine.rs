@@ -238,47 +238,58 @@ impl ErLayoutEngine {
 
         // Кружок-иконка сущности: эталон даёт эллипс r=11 с заливкой
         // `#ADD1B2` в точке (40.719, 23) при рамке от (7, 7).
+        // Пятно-буква рисуется только если его включает конфиг.
+        //
+        // Раньше кружок с буквой «E» выводился для КАЖДОЙ сущности
+        // безусловно. Ни в одном из эталонных файлов (22 штуки) пятна
+        // нет ни разу, поэтому безусловное рисование заведомо неверно.
+        // Условие, при котором PlantUML пятно всё-таки рисует, не
+        // установлено: пробы на сервере (одна связь и одна сущность в
+        // двух связях) пятна тоже не дали. Поэтому пятно убрано в
+        // конфиг по умолчанию, а не выдумано правило включения.
         let spot_x = bounds.x + ER_SPOT_OFFSET_X;
         let spot_y = bounds.y + ER_SPOT_OFFSET_Y;
-        elements.push(LayoutElement {
-            id: format!("entity_{}_spot", entity_id),
-            element_type: ElementType::Ellipse { label: None },
-            bounds: Rect::new(
-                spot_x - ER_SPOT_RADIUS,
-                spot_y - ER_SPOT_RADIUS,
-                ER_SPOT_RADIUS * 2.0,
-                ER_SPOT_RADIUS * 2.0,
-            ),
-            text: None,
-            properties: [
-                ("fill".to_string(), ER_SPOT_FILL.to_string()),
-                ("stroke".to_string(), "#181818".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        });
+        if self.config.show_entity_spot {
+            elements.push(LayoutElement {
+                id: format!("entity_{}_spot", entity_id),
+                element_type: ElementType::Ellipse { label: None },
+                bounds: Rect::new(
+                    spot_x - ER_SPOT_RADIUS,
+                    spot_y - ER_SPOT_RADIUS,
+                    ER_SPOT_RADIUS * 2.0,
+                    ER_SPOT_RADIUS * 2.0,
+                ),
+                text: None,
+                properties: [
+                    ("fill".to_string(), ER_SPOT_FILL.to_string()),
+                    ("stroke".to_string(), "#181818".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+            });
 
-        let letter_width = self.config.text.width_bold("E", ER_SPOT_LETTER_FONT_SIZE);
-        elements.push(LayoutElement {
-            id: format!("entity_{}_spot_letter", entity_id),
-            element_type: ElementType::Text {
-                text: "E".to_string(),
-                font_size: ER_SPOT_LETTER_FONT_SIZE,
-            },
-            bounds: Rect::new(
-                spot_x - letter_width / 2.0,
-                spot_y - ER_SPOT_LETTER_FONT_SIZE / 2.0,
-                letter_width,
-                ER_SPOT_LETTER_FONT_SIZE,
-            ),
-            text: None,
-            properties: [
-                ("fill".to_string(), "#000000".to_string()),
-                ("font-weight".to_string(), "700".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        });
+            let letter_width = self.config.text.width_bold("E", ER_SPOT_LETTER_FONT_SIZE);
+            elements.push(LayoutElement {
+                id: format!("entity_{}_spot_letter", entity_id),
+                element_type: ElementType::Text {
+                    text: "E".to_string(),
+                    font_size: ER_SPOT_LETTER_FONT_SIZE,
+                },
+                bounds: Rect::new(
+                    spot_x - letter_width / 2.0,
+                    spot_y - ER_SPOT_LETTER_FONT_SIZE / 2.0,
+                    letter_width,
+                    ER_SPOT_LETTER_FONT_SIZE,
+                ),
+                text: None,
+                properties: [
+                    ("fill".to_string(), "#000000".to_string()),
+                    ("font-weight".to_string(), "700".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+            });
+        }
 
         // Название — ОБЫЧНЫМ начертанием справа от кружка.
         //
