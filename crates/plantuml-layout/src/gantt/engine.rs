@@ -14,17 +14,29 @@ const GANTT_LABEL_INSET: f64 = 4.0;
 /// линии: 11.14 сверху и 127.55 снизу; header_y у нас равен padding.
 const GANTT_MONTH_TOP_ROW_Y: f64 = 11.14 - GANTT_MONTH_FONT_SIZE - 5.0;
 
-/// Верх подписи месяца под таблицей.
-const GANTT_MONTH_BOTTOM_ROW_Y: f64 = 127.55 - GANTT_MONTH_FONT_SIZE - 5.0;
-
 /// Размер шрифта подписей месяца (в эталоне 12).
 const GANTT_MONTH_FONT_SIZE: f64 = 12.0;
 
-/// Смещение ряда сокращённых дней недели от верха шапки (по эталону).
-const GANTT_WEEKDAY_ROW_Y: f64 = 83.7;
+/// Смещения НИЖНЕГО календаря от верха ПОСЛЕДНЕЙ строки задач.
+///
+/// Раньше нижний календарь стоял на фиксиленном расстоянии от ВЕРХА
+/// диаграммы (`header_y + const`), и это было верно только для трёх
+/// задач, под которые константы подбирались. На пяти задачах календарь
+/// налезал на таблицу: подписи дней выводились на y=112.70, тогда как
+/// последняя строка занимала y=118.40.
+///
+/// Измерено на двух диаграммах, отличающихся ЧИСЛОМ ЗАДАЧ:
+///   три задачи  (последняя строка 74.60): 98.70, 112.70, 127.55
+///   пять задач  (последняя строка 108.20): 132.31, 146.31, 161.16
+/// Разности от верха последней строки совпадают до сотых:
+///   дни недели +24.11, числа месяца +38.11, месяцы +52.96.
+const GANTT_BOTTOM_WEEKDAY_OFFSET: f64 = 16.10;
 
-/// Смещение ряда номеров дней месяца от верха шапки (по эталону).
-const GANTT_DAY_NUMBER_ROW_Y: f64 = 97.7;
+/// Смещение ряда чисел месяца в нижнем календаре (см. выше).
+const GANTT_BOTTOM_DAY_OFFSET: f64 = 30.10;
+
+/// Смещение ряда месяцев в нижнем календаре (см. выше).
+const GANTT_BOTTOM_MONTH_OFFSET: f64 = 47.95;
 
 /// Смещение ряда дней недели в ШАПКЕ.
 ///
@@ -657,6 +669,11 @@ impl GanttLayoutEngine {
     ) {
         let header_y = self.config.padding;
 
+        // Верх ПОСЛЕДНЕЙ строки задач: от него отсчитывается нижний
+        // календарь, потому что его положение зависит от числа задач.
+        let last_row_top = self.config.padding + self.config.header_height + tasks_height
+            - (self.config.row_height + self.config.row_spacing);
+
         // Заголовки таблицы задач: Start, End, Duration.
         // PlantUML выводит их над колонками слева от диаграммы.
         for (col, title) in ["Start", "End", "Duration"].iter().enumerate() {
@@ -712,7 +729,10 @@ impl GanttLayoutEngine {
             // Календарь повторяется дважды: в шапке и под таблицей.
             for (prefix, row_offset) in [
                 ("hdr_weekday", GANTT_HEADER_WEEKDAY_ROW_Y),
-                ("weekday", GANTT_WEEKDAY_ROW_Y),
+                (
+                    "weekday",
+                    last_row_top - header_y + GANTT_BOTTOM_WEEKDAY_OFFSET,
+                ),
             ] {
                 elements.push(LayoutElement {
                     id: format!("{prefix}_{day}"),
@@ -733,7 +753,7 @@ impl GanttLayoutEngine {
 
             for (prefix, row_offset) in [
                 ("hdr_date", GANTT_HEADER_DAY_NUMBER_ROW_Y),
-                ("date", GANTT_DAY_NUMBER_ROW_Y),
+                ("date", last_row_top - header_y + GANTT_BOTTOM_DAY_OFFSET),
             ] {
                 elements.push(LayoutElement {
                     id: format!("{prefix}_{day}"),
@@ -788,7 +808,10 @@ impl GanttLayoutEngine {
 
             for (id, y) in [
                 ("month_top", header_y + GANTT_MONTH_TOP_ROW_Y),
-                ("month_bottom", header_y + GANTT_MONTH_BOTTOM_ROW_Y),
+                (
+                    "month_bottom",
+                    last_row_top - header_y + GANTT_BOTTOM_MONTH_OFFSET,
+                ),
             ] {
                 elements.push(LayoutElement {
                     id: format!("{id}_{}", start_day),
