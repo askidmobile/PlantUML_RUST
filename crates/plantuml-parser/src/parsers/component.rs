@@ -419,6 +419,7 @@ fn parse_component_type(s: &str) -> ComponentType {
 
 fn parse_package_type(s: &str) -> PackageType {
     match s.to_lowercase().as_str() {
+        "database" => PackageType::Database,
         "package" => PackageType::Package,
         "node" => PackageType::Node,
         "folder" => PackageType::Folder,

@@ -293,6 +293,11 @@ pub enum PackageType {
     Frame,
     Cloud,
     Rectangle,
+    /// База данных (`database "Имя" { ... }`).
+    ///
+    /// Измерено по эталону `Component: Простой`: переход в `database`
+    /// даёт шаг 137 против 122 при переходе в обычный `package`.
+    Database,
 }
 
 impl ComponentPackage {
