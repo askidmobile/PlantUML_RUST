@@ -533,8 +533,25 @@ impl TimingLayoutEngine {
     /// левого края рамки равен `8.39 * длина + 4.8`, и наша `width` (НЕ
     /// `width_bold`) совпадает с этим на трёх точках.
     fn left_panel_width(&self, diagram: &TimingDiagram) -> f64 {
+        // Считается по ПЕРВОМУ участнику. Измерено пробой с асимметричными
+        // подписями: удлинение подписей ВТОРОГО участника не меняет ширину
+        // диаграммы ВООБЩЕ (259 при оба коротких и 259 при коротком первом
+        // + длинном втором), а первого — меняет (283). Проверка на
+        // playground: первый участник «Сервер», его самая длинная подпись
+        // «Processing» даёт 63.86 + 4.8 = 68.66 против эталонных 69.6;
+        // максимум же по ОБОИМ участникам («Disconnecting», 83.27) давал
+        // 88.07 — отсюда был весь остаток +17.3.
+        let first = diagram
+            .state_changes
+            .first()
+            .map(|c| c.participant.as_str());
         let mut max_width: f64 = 0.0;
         for change in &diagram.state_changes {
+            if let Some(name) = first {
+                if change.participant != name {
+                    continue;
+                }
+            }
             let w = crate::text::TextMeasurer::default()
                 .width(&change.state, self.config.label_font_size);
             max_width = max_width.max(w);
