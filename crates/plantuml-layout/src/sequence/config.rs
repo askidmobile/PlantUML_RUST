@@ -91,7 +91,7 @@ impl Default for SequenceLayoutConfig {
             line_height: 18.0,
             title_font_size: 14.0,
             title_line_height: 18.0, // высота строки
-            box_title_height: 30.0,  // высота заголовка бокса
+            box_title_height: 23.0,  // высота заголовка бокса
         }
     }
 }
