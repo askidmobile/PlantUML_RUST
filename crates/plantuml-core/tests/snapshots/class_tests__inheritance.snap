@@ -4,7 +4,7 @@ assertion_line: 56
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="CLASS" height="210px" preserveAspectRatio="none" style="width:204px;height:210px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 203.75560000000002 210.004" width="204px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="CLASS" height="211px" preserveAspectRatio="none" style="width:204px;height:211px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 203.75560000000002 210.59799999999998" width="204px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
@@ -24,20 +24,20 @@ expression: svg
 </defs>
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Animal">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.4036" x="51.035999999999994" y="124.297"/>
-<ellipse cx="67.036" cy="140.297" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="83.036" y="143.297" textLength="48.404">
+<rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="80.4036" x="51.035999999999994" y="124.594"/>
+<ellipse cx="67.036" cy="140.594" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="83.036" y="143.594" textLength="48.404">
 Animal
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="52.035999999999994" x2="130.43959999999998" y1="150.297" y2="150.297"/>
-<line stroke="#181818" stroke-width="0.5" x1="52.035999999999994" x2="130.43959999999998" y1="155.297" y2="155.297"/>
-<ellipse cx="59.035999999999994" cy="168.297" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="67.036" y="172.297" textLength="33.641">
+<line stroke="#181818" stroke-width="0.5" x1="52.035999999999994" x2="130.43959999999998" y1="150.594" y2="150.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="52.035999999999994" x2="130.43959999999998" y1="155.594" y2="155.594"/>
+<ellipse cx="59.035999999999994" cy="168.594" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="67.036" y="172.594" textLength="33.641">
 eat()
 </text>
 </g>
 <g id="Dog">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="68.3178" x="0" y="0"/>
+<rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="68.3178" x="0" y="0"/>
 <ellipse cx="16" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
 <text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="28.274">
 Dog
@@ -50,7 +50,7 @@ bark()
 </text>
 </g>
 <g id="Cat">
-<rect fill="#F1F1F1" height="64.297" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="78.9578" x="103.51780000000001" y="0"/>
+<rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="78.9578" x="103.51780000000001" y="0"/>
 <ellipse cx="119.51780000000001" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
 <text fill="#000" font-family="sans-serif" font-size="14" x="135.51780000000002" y="19" textLength="23.859">
 Cat
@@ -63,10 +63,10 @@ meow()
 </text>
 </g>
 <g id="edge_Dog_Animal">
-<path d="M91.2378,124.297 L91.2378,94.297 L34.1589,94.297 L34.1589,64.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M91.2378,124.594 L91.2378,94.594 L34.1589,94.594 L34.1589,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
 </g>
 <g id="edge_Cat_Animal">
-<path d="M91.2378,124.297 L91.2378,94.297 L142.9967,94.297 L142.9967,64.297" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
+<path d="M91.2378,124.594 L91.2378,94.594 L142.9967,94.594 L142.9967,64.594" fill="none" marker-end="url(#inheritance)" stroke="#181818" stroke-width="1"/>
 </g>
 </g>
 </svg>

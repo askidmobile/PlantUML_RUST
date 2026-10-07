@@ -221,7 +221,20 @@ impl Node {
             classifier.methods.len() as f64 * config.line_height + config.class_padding
         };
 
-        let height = header_height + fields_height + methods_height + config.class_padding;
+        // ЭТАЛОН НЕ ДОБАВЛЯЕТ padding: проверено замерами с сервера.
+        //
+        //   class A                    -> высота 48  (n = 1)
+        //   class A { +int x }         -> высота 64  (n = 2)
+        //   class A { +int x +int y } -> высота 81 (n = 3)
+        //
+        // Все три ложатся в `32 + n x 16.297` при n = 1 + поля + методы, то
+        // есть заголовок равен 48.297, а каждая строка добавляет 16.297.
+        //
+        // Прежняя формула прибавляла class_padding ТРИЖДЫ (в секции полей,
+        // в секции методов и в конце) — итого 56 вместо 48.297.
+        let _ = (fields_height, methods_height);
+        let rows = classifier.fields.len() + classifier.methods.len();
+        let height = header_height + config.line_height + rows as f64 * config.line_height;
         let height = height.max(config.min_class_height);
 
         Size::new(width, height)
