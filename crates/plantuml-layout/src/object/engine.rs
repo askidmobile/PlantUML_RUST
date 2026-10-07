@@ -11,6 +11,12 @@ const OBJECT_BASE_WIDTH: f64 = 12.41;
 /// Прибавка к ширине объекта на каждый символ имени.
 const OBJECT_CHAR_WIDTH: f64 = 8.724;
 
+/// Прибавка к ширине самого широкого текста объекта (имя или поле).
+///
+/// Измерено по эталону `Object: Диаграмма`: текст 211.2 -> рамка 223,
+/// текст 146.4 -> рамка 158.
+const OBJECT_FIELD_PADDING: f64 = 11.8;
+
 /// Высота полосы имени объекта.
 ///
 /// Эталон `object_basic`: рамка 36.3 высотой, подчёркивание имени — на
@@ -29,6 +35,14 @@ const OBJECT_TEXT_INSET: f64 = 7.0;
 
 /// Кегль подписи объекта (эталон `object_basic`: `font-size="14"`).
 const OBJECT_NAME_FONT_SIZE: f64 = 14.0;
+
+/// Кегль подписей полей объекта (в эталоне `font-size="12"`).
+const OBJECT_FIELD_FONT_SIZE: f64 = 12.0;
+
+/// Кегль подписей полей.
+fn object_field_font_size() -> f64 {
+    OBJECT_FIELD_FONT_SIZE
+}
 
 /// Насколько базис подписи выше конца полосы имени.
 ///
@@ -72,11 +86,35 @@ impl ObjectLayoutEngine {
         // Ширина объекта зависит от длины имени: измерено по эталону
         // («Пользователь», 12 символов — 117.1; «Заказ», 5 — 56.034),
         // отсюда ширина ≈ 12.41 + 8.724 * n.
+        // Ширина объекта определяется САМЫМ ШИРОКИМ содержимым: именем или
+        // полем. Прежняя формула учитывала только длину имени, поэтому блок
+        // `john : User` выходил 108 при эталонных 223.
+        //
+        // Измерено по эталону `Object: Диаграмма`: поле
+        // `email = "john@example.com"` имеет textLength 211.2, рамка 223 —
+        // то есть текст плюс 11.8. Поле `date = "2024-01-15"` даёт 146.4 и
+        // рамку 158 — та же прибавка 11.6.
         let widths: Vec<f64> = diagram
             .objects
             .iter()
             .map(|object| {
-                OBJECT_BASE_WIDTH + OBJECT_CHAR_WIDTH * object.display_name().chars().count() as f64
+                let measurer = crate::text::TextMeasurer::default();
+                let by_name = measurer.width(&object.display_name(), OBJECT_NAME_FONT_SIZE)
+                    + OBJECT_FIELD_PADDING;
+                let by_fields = object
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        measurer.width(
+                            &format!("{} = {}", field.name, field.value),
+                            object_field_font_size(),
+                        ) + OBJECT_FIELD_PADDING
+                    })
+                    .fold(0.0_f64, f64::max);
+                by_name.max(by_fields).max(
+                    OBJECT_BASE_WIDTH
+                        + OBJECT_CHAR_WIDTH * object.display_name().chars().count() as f64,
+                )
             })
             .collect();
         let max_width = widths.iter().cloned().fold(0.0_f64, f64::max);
@@ -87,7 +125,92 @@ impl ObjectLayoutEngine {
         // связь между ними шла по диагонали вместо вертикали.
         let diagram_width = max_width + self.config.padding * 2.0;
 
-        let mut y = self.config.padding;
+        // Раскладка по УРОВНЯМ СВЯЗЕЙ, а не списком в столбец.
+        //
+        // Комментарий выше обосновывал столбец эталоном `object_basic`, где
+        // объектов ДВА и они действительно стоят друг под другом. Но при
+        // общем родителе PlantUML разводит детей ПО ГОРИЗОНТАЛИ: эталон
+        // `Object: Диаграмма` ставит `john` сверху (x 71, ширина 223), а
+        // `order1` и `order2` — рядом под ним (x 7 и 200, ширина 158 у обоих).
+        // Столбец давал 169x412 против эталонных 373x253.
+        //
+        // Уровень: корни (без входящих связей) — 0, остальные — на единицу
+        // ниже самого глубокого родителя.
+        let heights: Vec<f64> = diagram
+            .objects
+            .iter()
+            .map(|object| {
+                let fields_height = object.fields.len() as f64 * self.config.field_height;
+                (30.0 + fields_height).max(self.config.object_min_height)
+            })
+            .collect();
+
+        let index_of: std::collections::HashMap<&str, usize> = diagram
+            .objects
+            .iter()
+            .enumerate()
+            .map(|(i, object)| (object.name.as_str(), i))
+            .collect();
+
+        let mut level = vec![0usize; diagram.objects.len()];
+        // Релаксация: уровень цели не меньше уровня источника плюс один.
+        // Числа объектов мало, поэтому простого прохода до стабилизации
+        // достаточно и не нужна топологическая сортировка.
+        for _ in 0..diagram.objects.len() {
+            let mut changed = false;
+            for link in &diagram.links {
+                if let (Some(&from), Some(&to)) = (
+                    index_of.get(link.from.as_str()),
+                    index_of.get(link.to.as_str()),
+                ) {
+                    if level[to] < level[from] + 1 {
+                        level[to] = level[from] + 1;
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+
+        // Ширина каждого уровня и его x-начало.
+        let level_count = level.iter().copied().max().unwrap_or(0) + 1;
+        let mut level_width = vec![0.0_f64; level_count];
+        for (i, &l) in level.iter().enumerate() {
+            level_width[l] += widths[i];
+        }
+        // Плюс промежутки между объектами уровня.
+        for (l, width) in level_width.iter_mut().enumerate() {
+            let count = level.iter().filter(|&&x| x == l).count();
+            if count > 1 {
+                *width += (count - 1) as f64 * self.config.horizontal_spacing;
+            }
+        }
+        let widest_level = level_width.iter().cloned().fold(0.0_f64, f64::max);
+
+        let mut level_x = vec![0.0_f64; level_count];
+        let mut level_y = vec![0.0_f64; level_count];
+        let mut cursor_y = self.config.padding;
+        for l in 0..level_count {
+            level_x[l] = self.config.padding + (widest_level - level_width[l]) / 2.0;
+            level_y[l] = cursor_y;
+            let row_height = level
+                .iter()
+                .enumerate()
+                .filter(|(_, &lv)| lv == l)
+                .map(|(i, _)| heights[i])
+                .fold(0.0_f64, f64::max);
+            cursor_y += row_height + self.config.vertical_spacing;
+        }
+
+        let mut cursor_x = level_x.clone();
+        let mut positions: Vec<(f64, f64)> = vec![(0.0, 0.0); diagram.objects.len()];
+        for (i, &l) in level.iter().enumerate() {
+            positions[i] = (cursor_x[l], level_y[l]);
+            cursor_x[l] += widths[i] + self.config.horizontal_spacing;
+        }
+
         let mut max_x = 0.0f64;
         let mut max_y = 0.0f64;
 
@@ -101,8 +224,10 @@ impl ObjectLayoutEngine {
             let display_name = object.display_name();
             let obj_width = widths[i];
 
-            // Создаём bounds: объект центрируется по общей оси диаграммы
-            let x = (diagram_width - obj_width) / 2.0;
+            // Координаты берутся из раскладки по уровням.
+            let _ = diagram_width;
+            let (x, y) = positions[i];
+            let _ = y;
             let bounds = Rect::new(x, y, obj_width, object_height);
             object_positions.insert(object.name.clone(), bounds);
 
@@ -199,7 +324,8 @@ impl ObjectLayoutEngine {
 
             // Объекты идут по одному в строке: PlantUML расставляет их
             // вертикально (эталон `object_basic` — 138x170).
-            y += object_height + self.config.vertical_spacing;
+            // Позиции заданы раскладкой по уровням; курсор больше не нужен.
+            let _ = object_height;
         }
 
         // 2. Добавляем связи
