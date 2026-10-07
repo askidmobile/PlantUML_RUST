@@ -1,0 +1,12 @@
+# Нормализация переводов строк.
+#
+# Тест `c4_upstream::tests::test_files_registered` сверяет ТОЧНЫЙ размер
+# ассетов (`assets/c4/C4.puml` = 68301 байт с LF). Без этих правил git на
+# Windows-раннере отдаёт файл с CRLF (70256 байт), и задание `test
+# windows-latest` падает. Ассеты библиотеки — бинарно-точные, конвертация
+# им не нужна.
+*.puml -text
+crates/plantuml-stdlib/assets/** -text
+
+# Остальные текстовые файлы — LF в рабочем дереве.
+* text=auto eol=lf
