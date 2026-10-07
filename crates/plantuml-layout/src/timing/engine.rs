@@ -646,7 +646,7 @@ impl TimingLayoutEngine {
         lane_y: f64,
         lane_height: f64,
         start_x: f64,
-        width: f64,
+        _width: f64,
         min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
@@ -786,7 +786,7 @@ impl TimingLayoutEngine {
         lane_y: f64,
         lane_height: f64,
         start_x: f64,
-        width: f64,
+        _width: f64,
         min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
