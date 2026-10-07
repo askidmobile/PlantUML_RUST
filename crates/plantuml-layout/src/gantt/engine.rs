@@ -30,6 +30,9 @@ const GANTT_MONTH_FONT_SIZE: f64 = 12.0;
 ///   пять задач  (последняя строка 108.20): 132.31, 146.31, 161.16
 /// Разности от верха последней строки совпадают до сотых:
 ///   дни недели +24.11, числа месяца +38.11, месяцы +52.96.
+/// Отступ линии оси от низа последней полосы.
+const GANTT_AXIS_OFFSET_Y: f64 = 2.0;
+
 const GANTT_BOTTOM_WEEKDAY_OFFSET: f64 = 16.10;
 
 /// Смещение ряда чисел месяца в нижнем календаре (см. выше).
@@ -802,6 +805,44 @@ impl GanttLayoutEngine {
         // Подпись центрируется по своему диапазону дней: в эталоне
         // «January 2024» (31 день) занимает центр 384.07 при диапазоне
         // 136.069..632.07 — совпадает.
+        // Линия оси под таблицей.
+        //
+        // Эталон `Gantt: Диаграмма` даёт две линии цвета #C0C0C0 толщиной 1
+        // на y=123.023: первая от 0 до 136.069 (ширина таблицы задач),
+        // вторая от 136.069 до 712.069 (ширина шкалы). Разрыв на границе
+        // таблицы. y = низ последней полосы + 2.0: 108.2 + 12.8 + 2.0.
+        //
+        // Раньше линии не было вовсе — календарь под таблицей начинался
+        // без разделительной черты.
+        let axis_y = last_row_top + self.config.row_height + GANTT_AXIS_OFFSET_Y;
+        let axis_right = start_x + (total_days as f64) * self.config.day_width;
+        for (id, x1, x2) in [
+            ("axis_table", 0.0, start_x),
+            ("axis_timeline", start_x, axis_right),
+        ] {
+            elements.push(LayoutElement {
+                id: id.to_string(),
+                bounds: Rect::new(x1, axis_y, x2 - x1, 0.0),
+                text: None,
+                properties: [
+                    ("stroke".to_string(), GANTT_GRID_COLOR.to_string()),
+                    ("stroke-width".to_string(), "1".to_string()),
+                ]
+                .into_iter()
+                .collect(),
+                element_type: ElementType::Edge {
+                    points: vec![Point::new(x1, axis_y), Point::new(x2, axis_y)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+        }
+
         for (start_day, days, label) in gantt_months(project_start, total_days) {
             let x = start_x + (start_day as f64) * self.config.day_width;
             let width = (days as f64) * self.config.day_width;
