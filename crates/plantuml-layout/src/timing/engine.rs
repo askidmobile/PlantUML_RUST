@@ -646,8 +646,8 @@ impl TimingLayoutEngine {
         lane_y: f64,
         lane_height: f64,
         start_x: f64,
-        _width: f64,
-        _min_time: f64,
+        width: f64,
+        min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
         let Some(changes) = changes else {
@@ -666,10 +666,19 @@ impl TimingLayoutEngine {
             base_y - level as f64 * ROBUST_STATE_LEVEL_STEP
         };
 
-        let step = |index: usize| start_x + index as f64 * TIME_TICK_STEP;
+        // Сегменты состояний ставятся ПО ВРЕМЕНИ, тем же масштабом, что и
+        // деления оси (`tick_position`). Прежде здесь стоял ИНДЕКСНЫЙ шаг
+        // `index * TIME_TICK_STEP`: при временах 0/100/200/500/600/800/
+        // 1000/1100 интервалы выходили равными, тогда как эталон даёт
+        // неравные (47.2 / 39.1 / 83.8). Измерено: подпись «Disconnected»
+        // у эталона на x=651.6, у нас была на 483.1 — сдвиг 168.5.
+        let step = |index: usize| {
+            let t = changes[index].time.as_f64();
+            start_x + (t - min_time) * self.config.time_scale
+        };
         let line_to = |index: usize| {
             if index + 1 == changes.len() {
-                step(index) + TIME_TICK_STEP
+                start_x + width
             } else {
                 step(index + 1)
             }
@@ -774,8 +783,8 @@ impl TimingLayoutEngine {
         lane_y: f64,
         lane_height: f64,
         start_x: f64,
-        _width: f64,
-        _min_time: f64,
+        width: f64,
+        min_time: f64,
         changes: Option<&Vec<&StateChange>>,
     ) {
         let Some(changes) = changes else {
@@ -790,10 +799,19 @@ impl TimingLayoutEngine {
         let bottom = center_y + CONCISE_STATE_HALF_HEIGHT;
         let slant = CONCISE_STATE_SLANT;
 
-        let step = |index: usize| start_x + index as f64 * TIME_TICK_STEP;
+        // Сегменты состояний ставятся ПО ВРЕМЕНИ, тем же масштабом, что и
+        // деления оси (`tick_position`). Прежде здесь стоял ИНДЕКСНЫЙ шаг
+        // `index * TIME_TICK_STEP`: при временах 0/100/200/500/600/800/
+        // 1000/1100 интервалы выходили равными, тогда как эталон даёт
+        // неравные (47.2 / 39.1 / 83.8). Измерено: подпись «Disconnected»
+        // у эталона на x=651.6, у нас была на 483.1 — сдвиг 168.5.
+        let step = |index: usize| {
+            let t = changes[index].time.as_f64();
+            start_x + (t - min_time) * self.config.time_scale
+        };
         let line_to = |index: usize| {
             if index + 1 == changes.len() {
-                step(index) + TIME_TICK_STEP
+                start_x + width
             } else {
                 step(index + 1)
             }
