@@ -143,9 +143,31 @@ impl ComponentLayoutEngine {
                 by_level[levels.get(&comp.name).copied().unwrap_or(0)].push(i);
             }
 
+            // УРОВНИ ЦЕНТРИРУЮТСЯ по общей оси, а не прижимаются влево.
+            //
+            // Измерено по эталону `Component: Простой`: уровни 0, 1, 2 и 3
+            // имеют центры 169, 169, 169 и 168.5 — то есть выровнены по
+            // одной вертикали. Прежде каждый уровень начинался от
+            // `margin`, из-за чего диаграмма выходила на 57 шире эталонной.
+            let row_widths: Vec<f64> = by_level
+                .iter()
+                .map(|row| {
+                    let mut probe: Vec<LayoutElement> = Vec::new();
+                    let mut w = 0.0_f64;
+                    for &i in row {
+                        let (comp, _) = all_components[i];
+                        let (_, b) = self.create_component_element(comp, 0.0, 0.0);
+                        w += b.width + self.config.horizontal_spacing;
+                        probe.clear();
+                    }
+                    (w - self.config.horizontal_spacing).max(0.0)
+                })
+                .collect();
+            let widest_row = row_widths.iter().cloned().fold(0.0_f64, f64::max);
+
             let mut cursor_y = self.config.margin;
-            for row in by_level.iter() {
-                let mut cursor_x = self.config.margin;
+            for (row_index, row) in by_level.iter().enumerate() {
+                let mut cursor_x = self.config.margin + (widest_row - row_widths[row_index]) / 2.0;
                 let mut row_height = self.component_natural_height();
                 for &i in row {
                     let (comp, _) = all_components[i];
