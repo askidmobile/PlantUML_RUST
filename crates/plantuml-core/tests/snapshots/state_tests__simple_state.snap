@@ -4,7 +4,7 @@ assertion_line: 26
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="278px" preserveAspectRatio="none" style="width:208px;height:278px;background:#FFFFFF;" version="1.1" viewBox="7 7 207.665 277.997" width="208px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="278px" preserveAspectRatio="none" style="width:226px;height:278px;background:#FFFFFF;" version="1.1" viewBox="7 7 225.66499999999996 277.997" width="226px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <defs>
 <marker id="arrow" markerHeight="8" markerUnits="userSpaceOnUse" markerWidth="10" orient="auto" refX="10" refY="4">
 <path d="M0,0 L10,4 L0,8 L4,4 Z" fill="#181818" stroke="#181818" stroke-linejoin="miter" stroke-width="1"/>
@@ -54,7 +54,7 @@ timeout
 </text>
 </g>
 <g id="trans_Inactive_Active">
-<path d="M82.556,240.297 L192.665,240.297 L192.665,113 L130.661,113" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
+<path d="M82.556,240.297 L210.665,240.297 L210.665,113 L130.661,113" fill="none" marker-end="url(#arrow)" stroke="#181818" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="87.556" y="235.297" textLength="49.069">
 resume
 </text>

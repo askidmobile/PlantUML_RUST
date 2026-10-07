@@ -1147,7 +1147,7 @@ impl StateLayoutEngine {
         let is_from_small = from_rect.width < 30.0 && from_rect.height < 30.0;
 
         let points = if is_backward_transition {
-            let offset = 50.0;
+            let offset = 68.0;
             let right_x = from_rect.x.max(to_rect.x) + from_rect.width.max(to_rect.width) + offset;
 
             let start = Point::new(from_rect.x + from_rect.width, from_center_y);
