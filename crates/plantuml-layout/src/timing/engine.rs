@@ -156,7 +156,7 @@ impl TimingLayoutEngine {
         // Верхняя граница диапазона больше не нужна: шкала строится по
         // числу событий, а не по значениям времени (см. `timeline_width`).
         // Нижняя используется при отрисовке ломаных состояний.
-        let (min_time, _max_time) = self.calculate_time_range(diagram);
+        let (min_time, max_time) = self.calculate_time_range(diagram);
 
         // 2. Создаём mapping участников к их lane индексам
         let participant_map: HashMap<String, usize> = diagram
@@ -207,9 +207,13 @@ impl TimingLayoutEngine {
         // Раньше длина считалась как `time_range * time_scale`, то есть
         // масштабировалась по значениям времени: при диапазоне 100 и
         // масштабе 0.43 выходило 43 против эталонных 105.
-        let events = self.collect_time_values(diagram).len().max(1);
+        // Длина оси считается ТЕМ ЖЕ масштабом, что и позиции делений
+        // (`tick_position`, строка ~955: `start_x + (t - min_time) *
+        // time_scale`). Прежде здесь стояла ИНДЕКСНАЯ формула
+        // `(событий-1) * TIME_TICK_STEP`, из-за чего ось обрывалась на
+        // 509.7, тогда как подписи делений доходили до 627.7.
         let timeline_width = TIME_FIRST_TICK_OFFSET
-            + (events.saturating_sub(1)) as f64 * TIME_TICK_STEP
+            + (max_time - min_time) * self.config.time_scale
             + TIME_AXIS_TAIL;
 
         // Высоты дорожек зависят от типа: в эталоне robust занимает
