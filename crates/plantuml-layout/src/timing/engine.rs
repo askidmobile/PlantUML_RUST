@@ -918,10 +918,25 @@ impl TimingLayoutEngine {
         // Деления: эталон `timing_basic` при двух событиях даёт ТРИ деления —
         // на 91.732, 141.732 и 191.732, то есть по одному на каждую границу
         // интервала, а не по одному на событие.
-        for index in 0..=times.len() {
-            let tick_x = start_x + index as f64 * TIME_TICK_STEP;
+        // Деления ставятся ПРОПОРЦИОНАЛЬНО ЗНАЧЕНИЮ времени.
+        //
+        // Прежний комментарий утверждал, что шаг делений ВСЕГДА 50 и не
+        // зависит от значений, и подкреплял это двумя замерами. Но в обоих
+        // случаях события шли через 100 единиц времени, а при масштабе
+        // 0.5 px на единицу это и даёт ровно 50 — гипотезы неразличимы.
+        //
+        // Пример `Timing: Диаграмма` их различает: события идут
+        // 0, 100, 200, 500, 600, 800, 1000, 1100. Эталон ставит метки на
+        // 89.1, 138.6, 188.6, 338.6, 638.6 — то есть 200 -> 500 даёт шаг
+        // 150, а не 50. Значит масштаб пропорционален времени, 0.5 px на
+        // единицу.
+        let min_time = times.iter().copied().fold(f64::INFINITY, f64::min);
+        let tick_position = |t: f64| start_x + (t - min_time) * self.config.time_scale;
+
+        for t in &times {
+            let tick_x = tick_position(*t);
             elements.push(LayoutElement {
-                id: format!("tick_{}", index),
+                id: format!("tick_{}", *t as i64),
                 bounds: Rect::new(tick_x - 0.5, y, 0.0, TIME_TICK_LENGTH),
                 text: None,
                 // Деления оси: цвет #333, толщина 2 (эталон).
@@ -951,9 +966,9 @@ impl TimingLayoutEngine {
         //
         // Ширина измеряется: эталон даёт «100» на x=131.235 при делении
         // 141.732, то есть `141.732 − 20.996 / 2`.
-        for (index, t) in times.iter().enumerate() {
+        for t in times.iter() {
             let t = *t;
-            let tick_x = start_x + index as f64 * TIME_TICK_STEP;
+            let tick_x = tick_position(t);
             let label_width = self
                 .config
                 .text

@@ -42,7 +42,7 @@ impl Default for TimingLayoutConfig {
             // x=88.2, метка 100 на x=131.2, то есть 0.43px на единицу.
             // Раньше стояло выдуманное 3.0, из-за чего диаграмма была
             // в семь раз шире эталона.
-            time_scale: 0.43,
+            time_scale: 0.5,
             robust_state_height: 30.0,
             concise_line_height: 20.0,
             label_font_size: 12.0,
