@@ -32,6 +32,22 @@ const USE_CASE_CHAR_HEIGHT: f64 = 0.95;
 ///
 /// Измерено по эталону `UseCase: Простой`: рамка 220.2, самый широкий
 /// эллипс 188.2.
+/// Верх рамки системы в режиме `left to right`.
+///
+/// Измерено по эталону `UseCase: Простой`: рамка стоит на y=7, тогда как
+/// общий `margin` равен 16.
+const LTR_PACKAGE_TOP: f64 = 7.0;
+
+/// Отступ от верха рамки до первого use case в режиме `left to right`.
+///
+/// Эталон: рамка на 7, верх первого эллипса на 42.
+const LTR_PACKAGE_TOP_INSET: f64 = 35.0;
+
+/// Отступ от низа последнего use case до низа рамки в режиме `left to right`.
+///
+/// Эталон: последний эллипс кончается на 377, рамка — на 393.
+const LTR_PACKAGE_BOTTOM_INSET: f64 = 16.0;
+
 const USECASE_SYSTEM_PADDING: f64 = 32.0;
 
 const LTR_USECASE_SPACING: f64 = 34.6;
@@ -141,8 +157,13 @@ impl UseCaseLayoutEngine {
             (
                 max_usecase_width + USECASE_SYSTEM_PADDING,
                 inner_height
-                    + self.config.package_header_height
-                    + self.config.package_padding * 2.0,
+                    + if is_left_to_right {
+                        // Эталон: содержимое занимает 42..377, рамка 7..393,
+                        // то есть 35 сверху и 16 снизу.
+                        LTR_PACKAGE_TOP_INSET + LTR_PACKAGE_BOTTOM_INSET
+                    } else {
+                        self.config.package_header_height + self.config.package_padding * 2.0
+                    },
             )
         } else {
             // Без package размеры области совпадают с содержимым
@@ -158,8 +179,8 @@ impl UseCaseLayoutEngine {
         let (system_x, system_y) = if is_left_to_right {
             // Актёры слева, система справа от них.
             (
-                self.config.margin + actor_total_width + ACTOR_LABEL_GAP,
-                self.config.margin,
+                self.config.margin + actor_total_width + ACTOR_LABEL_GAP - 20.5,
+                LTR_PACKAGE_TOP,
             )
         } else {
             (
@@ -182,9 +203,18 @@ impl UseCaseLayoutEngine {
 
         // Use case выравниваются по центру области
         let usecases_x = system_x + (system_width - max_usecase_width) / 2.0;
+        // Отступ от верха рамки до первого use case.
+        //
+        // В LTR-режиме он МЕНЬШЕ: эталон `UseCase: Простой` даёт рамку на
+        // y=7 и первый эллипс с верхом на 42, то есть 35. Общая формула
+        // (заголовок 30 + padding 25) даёт 55.
         let usecases_start_y = system_y
             + if has_package {
-                self.config.package_header_height + self.config.package_padding
+                if is_left_to_right {
+                    LTR_PACKAGE_TOP_INSET
+                } else {
+                    self.config.package_header_height + self.config.package_padding
+                }
             } else {
                 0.0
             };
