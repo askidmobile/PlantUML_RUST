@@ -1,0 +1,34 @@
+{
+  "инструмент": "image_gen__imagegen",
+  "режим": "Встроенная генерация изображения",
+  "дата": "2026-10-08",
+  "изображение": "cover.png",
+  "размер": {
+    "ширина": 1536,
+    "высота": 1024
+  },
+  "примечание": "Авторская иллюстрация для поста. Изображение не является скриншотом рендерера.",
+  "промпт_дословно": "Use case: ads-marketing\nAsset type: Finished editorial cover image for a Russian developer's personal Telegram post about returning to a long-paused open-source project plantuml-rs and preparing it for production.\nPrimary request: Create a distinctive, beautifully typeset technology editorial poster: text source becoming a clean UML diagram, conveying a project brought into working shape.\nCanvas: Landscape 3:2, ideally 1536 by 1024. Solid background, no transparency.\nScene/backdrop: Warm off-white paper with extremely subtle drafting-grid texture, lots of breathing room. A restrained technical print aesthetic, precise and human, with dark graphite and a few warm rust-orange accents.\nSubject: A large central illustrative composition where a small PlantUML source sheet feeds into neatly aligned UML participant cards and lifelines. Source at the left, sequence diagram at the right, with one clear rust-orange transition arrow between them. The diagram is an editorial illustration, not a screenshot of the product. Thin precise graphite lines, just enough tactile depth and soft paper shadows to feel physical.\nComposition: Strong hierarchy for mobile readability. Upper area holds the very large project name \"plantuml-rs\" in bold dark modern monospace. Below it is the smaller Russian subtitle \"Из текста — в диаграммы\". The source-to-diagram illustration fills the middle and lower two thirds. A small baseline at the bottom reads \"Rust / WebAssembly / SVG\". Use generous margins.\nExact readable code on the source sheet, four lines:\n\"@startuml\"\n\"Alice -> Bob: Hello\"\n\"Bob --> Alice: OK\"\n\"@enduml\"\nDiagram correctness: Two equal participant cards labeled \"Alice\" and \"Bob\". Two vertical dashed lifelines descending from their centers. At the upper message row, a solid horizontal right-pointing arrow from Alice to Bob labeled \"Hello\". At the lower row, a dashed horizontal left-pointing arrow from Bob to Alice labeled \"OK\". Four small, balanced participant cards total: two heads and two feet. All labels crisp. No extra diagram branches.\nTypography: Render every requested word exactly. In particular, \"plantuml-rs\" is lowercase with a hyphen, never \"plantuml.rs\". Subtitle Cyrillic must be correct.\nConstraints: A real finished raster editorial artwork. Keep the cover mature, clear and understated. No invented product logo, mascot, stock-photo laptop, rockets, confetti, people, glowing circuitry, neon, purple gradients, excessive 3D, fake badges, benchmark numbers, release version numbers, or extra copy. No claims of 100% compatibility. No watermark.",
+  "проверка_фактов": {
+    "коммит_исходников": "8066f6124a86ed5da59c6d7d570f0568891c378e",
+    "источники": [
+      "../../../CHANGELOG.md",
+      "../../../README.md",
+      "../../../playground/index.html",
+      "../../../crates/plantuml-wasm/src/lib.rs"
+    ],
+    "замер_C4": "87 секунд → 305 мс согласно CHANGELOG.md; повторный бенчмарк при подготовке поста не запускался.",
+    "CI": {
+      "статус_на_момент_проверки": "success",
+      "ссылка": "https://github.com/askidmobile/PlantUML_RUST/actions/runs/37647880654"
+    },
+    "Playground": {
+      "HTTP_статус_на_момент_проверки": 404,
+      "адрес": "https://askidmobile.github.io/PlantUML_RUST/playground/",
+      "деплой": "pending",
+      "ссылка_на_деплой": "https://github.com/askidmobile/PlantUML_RUST/actions/runs/37647880656",
+      "решение": "В посте дана ссылка на GitHub; завершённый публичный деплой не заявлен."
+    },
+    "совместимость": "Полная совместимость с PlantUML не заявлена."
+  }
+}
