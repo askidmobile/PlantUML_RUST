@@ -1,0 +1,5 @@
+@startuml
+[-> A : x1
+A ->] : x2
+A -> B : x3
+@enduml

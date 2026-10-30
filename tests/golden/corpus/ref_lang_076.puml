@@ -1,0 +1,6 @@
+@startuml
+User -> (Start)
+User --> (Use the application) : label
+
+:Admin: ---> (Use the application) : многострочная\nметка
+@enduml

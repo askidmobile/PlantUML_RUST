@@ -1,0 +1,6 @@
+@startgantt
+[t1] lasts 3 days
+[t2] starts at [t1]'s end
+[t2] lasts 2 days
+[m1] happens at [t2]'s end
+@endgantt

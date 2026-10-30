@@ -1,0 +1,6 @@
+@startuml
+class A
+class B
+A -up-> B
+A -left-> B
+@enduml

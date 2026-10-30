@@ -1,0 +1,16 @@
+@startuml
+alt c1
+A -> B : x1
+else c2
+A -> B : x2
+end
+opt c3
+A -> B : x3
+end
+loop c4
+A -> B : x4
+end
+par c5
+A -> B : x5
+end
+@enduml

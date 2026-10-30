@@ -1,0 +1,7 @@
+@startuml
+class A.B.C.D.Z { }
+
+' Или отключить автосоздание пакетов
+set separator none
+class A.B.C.D.Z { }
+@enduml

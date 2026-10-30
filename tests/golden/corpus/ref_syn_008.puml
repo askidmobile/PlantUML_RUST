@@ -1,0 +1,7 @@
+@startuml
+Alice -> Bob: Hello
+note left: Заметка слева
+note right: Заметка справа
+note over Alice: Заметка над Alice
+note over Alice, Bob: Заметка над обоими
+@enduml

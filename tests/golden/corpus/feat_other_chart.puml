@@ -1,0 +1,4 @@
+@startchart
+h-axis [a1,b1]
+bar "s1" [1,2]
+@endchart

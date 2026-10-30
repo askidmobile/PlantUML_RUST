@@ -1,0 +1,6 @@
+@startuml
+start
+:Первый шаг;
+:Второй шаг;
+stop
+@enduml

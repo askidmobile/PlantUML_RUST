@@ -1,0 +1,7 @@
+@startuml
+actor A1
+usecase U1
+(U2)
+A1 --> U1
+A1 --> (U2)
+@enduml

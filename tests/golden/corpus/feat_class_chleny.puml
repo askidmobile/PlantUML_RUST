@@ -1,0 +1,10 @@
+@startuml
+class A {
++x : int
+-y()
+#z
+~w
+{static} s
+{abstract} a()
+}
+@enduml

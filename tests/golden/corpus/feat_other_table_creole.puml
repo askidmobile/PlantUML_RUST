@@ -1,0 +1,7 @@
+@startuml
+A -> B : x1
+note left
+|= h1 |= h2 |
+| c1 | c2 |
+end note
+@enduml

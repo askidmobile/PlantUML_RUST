@@ -1,0 +1,9 @@
+@startmindmap
+* Заметки
+** Диаграммы
+*** Mermaid
+*** PlantUML
+left side
+** Текст
+*** Markdown
+@endmindmap

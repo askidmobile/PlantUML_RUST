@@ -1,0 +1,4 @@
+@startuml
+A -> B : [[https://e.example x1]]
+class C1 [[https://e.example]]
+@enduml

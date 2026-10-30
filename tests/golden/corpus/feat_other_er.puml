@@ -1,0 +1,9 @@
+@startuml
+entity E1 {
+*id
+--
+f1
+}
+entity E2
+E1 ||--o{ E2
+@enduml

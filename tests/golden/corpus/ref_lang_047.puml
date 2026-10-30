@@ -1,0 +1,4 @@
+@startuml
+class Foo #red-green ##[bold]blue
+class Bar #line:green;line.dashed;text:red
+@enduml

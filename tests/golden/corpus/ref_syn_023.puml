@@ -1,0 +1,11 @@
+@startuml
+state Parallel {
+    state A {
+        [*] --> A1
+    }
+    --
+    state B {
+        [*] --> B1
+    }
+}
+@enduml

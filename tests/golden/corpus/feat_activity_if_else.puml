@@ -1,0 +1,10 @@
+@startuml
+start
+:a1;
+if (c1) then (y1)
+:a2;
+else (n1)
+:a3;
+endif
+stop
+@enduml

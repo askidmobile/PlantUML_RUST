@@ -1,0 +1,25 @@
+@startuml
+|Пользователь|
+start
+:Открыть заметку;
+|Система|
+if (Есть диаграмма?) then (да)
+  :Рендер;
+  fork
+    :Показать;
+  fork again
+    :Кэшировать;
+  end fork
+else (нет)
+  :Текст;
+endif
+partition "Сохранение" {
+  while (Есть изменения?) is (да)
+    :Сохранить;
+  endwhile (нет)
+}
+repeat
+  :Синк;
+repeat while (Ошибка?) is (да) not (нет)
+stop
+@enduml

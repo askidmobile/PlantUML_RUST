@@ -1,0 +1,6 @@
+@startuml
+state S1 : d1
+S1 : d2
+state "Длинное имя" as S2
+S1 --> S2
+@enduml

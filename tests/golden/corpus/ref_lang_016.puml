@@ -1,0 +1,10 @@
+@startuml
+Alice -> Bob++ : активация
+Bob -> Charlie++ : активация
+Charlie --> Bob-- : деактивация
+Bob --> Alice-- : деактивация
+
+' Создание и уничтожение
+Alice -> Bob** : создание
+Bob -> Bob!! : уничтожение
+@enduml

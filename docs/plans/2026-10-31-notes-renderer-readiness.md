@@ -59,17 +59,18 @@ Error::EmptyDiagram                       // текст есть, элемент
 ## Фазы
 
 ### Фаза 0: Корпус и гейт (4 ч)
-- [ ] Импорт 128 примеров справочника → `scripts/import-doc-cases.py`, `tests/golden/cases/ref_*`
-- [ ] 99 примеров и 13 схем → `tests/golden/cases/feat_*`, `real_*`; враждебные → `tests/golden/hostile/`
-- [ ] Эталоны → `tests/golden/fetch_references.py`, `tests/golden/reference/`
-- [ ] Гейт с храповиком числа нарушений → `crates/plantuml-core/tests/gate_tests.rs`, `tests/golden/gate_baseline.txt`
+- [x] Импорт 128 примеров справочника → `scripts/import-doc-cases.py`, `tests/golden/cases/ref_*`
+- [x] 99 примеров и 13 схем → `tests/golden/cases/feat_*`, `real_*`; враждебные → `tests/golden/hostile/`
+- [x] Эталоны → `tests/golden/fetch_references.py`, `tests/golden/reference/`
+- [x] Гейт с храповиком числа нарушений → `crates/plantuml-core/tests/gate_tests.rs`, `tests/golden/gate_baseline.txt`
 - **Проверка:** `cargo test -p plantuml-core --test gate_tests` печатает сводку и фиксирует исходный уровень.
 
 ### Фаза 1: Безопасность встраивания (3 ч)
-- [ ] Аллокатор за возможностью `memory-limit` → `crates/plantuml-core/{Cargo.toml,src/lib.rs,src/alloc.rs}`, `crates/plantuml-wasm/Cargo.toml`, `tests/alloc_tests.rs`
-- [ ] Предел вложенности до разбора → `crates/plantuml-parser/src/lib.rs`, ошибка `TooDeep`
-- [ ] Враждебный корпус на потоке 2 МБ с таймаутом → `crates/plantuml-core/tests/robustness_tests.rs`
-- [ ] Ссылки: только http, https, mailto → `crates/plantuml-renderer/src/svg_renderer.rs`
+- [x] Аллокатор за возможностью `memory-limit` → `crates/plantuml-core/{Cargo.toml,src/lib.rs,src/alloc.rs}`, `crates/plantuml-wasm/Cargo.toml`, `tests/alloc_tests.rs`
+- [x] Предел вложенности до разбора → `crates/plantuml-parser/src/lib.rs`, ошибка `TooDeep`
+- [x] Враждебный корпус на потоке 2 МБ с таймаутом → `crates/plantuml-core/tests/robustness_tests.rs`
+- deviated: ссылки переехали в фазу 4: `[[…]]` сейчас вообще не разбирается, выводится текстом, опасного вывода нет
+- deviated: корпус лежит в `tests/golden/corpus/`, а не в `cases/`: `golden_tests` держит геометрию старых 24 кейсов, ему нельзя падать на новых
 - **Проверка:** `cargo test -p plantuml-core --test robustness_tests`; сборка без возможности не содержит `global_allocator`.
 
 ### Фаза 2: Диспетчер и общие команды (6 ч)
@@ -92,6 +93,7 @@ Error::EmptyDiagram                       // текст есть, элемент
 
 ### Фаза 4: Подписи (6 ч)
 - [ ] Единый разбор подписи: `\n`, creole, цвет, размер, таблицы, списки, спрайты → `crates/plantuml-renderer/src/`, `crates/plantuml-layout/src/text.rs`
+- [ ] Ссылки `[[…]]` разбираются, в вывод только http, https, mailto → `crates/plantuml-renderer/src/svg_renderer.rs`
 - [ ] `!define` с заменой в теле, `<$sprite>`, `<&icon>`, `<:emoji:>` → `crates/plantuml-preprocessor/src/`, `crates/plantuml-stdlib/`
 - [ ] C4 рисуется с заливкой и подписями → `crates/plantuml-stdlib/`, `crates/plantuml-layout/src/component/`
 - **Проверка:** гейт: 0 потерянных слов; сверка `real_*` глазами с эталоном.
@@ -123,11 +125,11 @@ Error::EmptyDiagram                       // текст есть, элемент
 
 | Требование | Фаза |
 |------------|------|
-| FR-001, FR-002 | 0 |
+| FR-001, FR-002 | 0 ✅ механизм, зелёный гейт после фаз 2–4 |
 | FR-003, FR-004 | 2 |
 | FR-005 | 2, 3 |
 | FR-006 | 4 |
-| FR-007, FR-008 | 1 |
+| FR-007, FR-008 | 1 ✅ |
 | FR-009 | 7 |
 | FR-010, FR-011 | 5 |
 | FR-012, FR-020 | 6 |

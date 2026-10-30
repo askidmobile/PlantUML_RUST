@@ -1,0 +1,32 @@
+@startuml
+title Оплата заказа
+autonumber
+actor Клиент as C
+box "Яттри" #LightBlue
+participant "Веб-приложение" as W
+participant API
+end box
+database "БД" as DB
+C -> W : Открыть корзину
+activate W
+W -> API : GET /cart
+activate API
+API -> DB : SELECT
+DB --> API : строки
+API --> W : 200 OK
+deactivate API
+alt есть товары
+  W -> API : POST /pay
+  note right of API : Идемпотентность\nпо ключу заказа
+  loop до 3 попыток
+    API -> API : повтор
+  end
+else корзина пуста
+  W --> C : Пустая корзина
+end
+ref over W, API : Подробности в другой схеме
+== Завершение ==
+...5 минут спустя...
+W --> C : Готово
+deactivate W
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+autonumber
+Bob -> Alice : первое
+Bob -> Alice : второе
+
+autonumber 15
+Bob -> Alice : с номера 15
+
+autonumber 40 10
+Bob -> Alice : с шагом 10
+
+autonumber "<b>[000]"
+Bob -> Alice : форматированный номер
+
+autonumber stop
+Bob -> Alice : без номера
+
+autonumber resume
+Bob -> Alice : продолжение
+
+' Многоуровневая нумерация
+autonumber 1.1.1
+Bob -> Alice : 1.1.1
+autonumber inc A
+Bob -> Alice : 2.1.1
+autonumber inc B
+Bob -> Alice : 2.2.1
+@enduml

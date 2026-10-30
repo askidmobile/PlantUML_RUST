@@ -1,0 +1,5 @@
+@startuml
+archimate #Technology "VPN" as v1 <<technology-device>>
+rectangle R1 #Business
+v1 --> R1
+@enduml

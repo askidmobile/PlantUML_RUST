@@ -1,0 +1,8 @@
+@startuml
+start
+:input; <<input>>
+:output; <<output>>
+:procedure; <<procedure>>
+:task; <<task>>
+end
+@enduml

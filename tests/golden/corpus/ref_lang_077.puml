@@ -1,0 +1,7 @@
+@startuml
+:Admin: as Admin
+(Use) as (Use)
+
+User <|-- Admin
+(Start) <|-- (Use)
+@enduml

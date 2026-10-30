@@ -1,0 +1,7 @@
+@startuml
+Alice -> Bob : запрос
+...
+Bob --> Alice : ответ
+...5 минут позже...
+Bob --> Alice : уточнение
+@enduml

@@ -1,0 +1,5 @@
+@startuml
+[*] --> State1
+State1 --> State2 : Событие
+State2 --> [*]
+@enduml

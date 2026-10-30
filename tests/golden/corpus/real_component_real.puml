@@ -1,0 +1,20 @@
+@startuml
+left to right direction
+package "Frontend" {
+  [React UI] as UI
+  [Lexical] as LX
+}
+node "Tauri" {
+  [Rust backend] as RB
+  database "SQLite" as DB
+}
+cloud "Cloud" {
+  [Proxy] as PX
+}
+interface "IPC" as I
+UI --> LX
+UI - I
+I - RB
+RB --> DB
+RB ..> PX : https
+@enduml

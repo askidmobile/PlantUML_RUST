@@ -1,0 +1,7 @@
+@startuml
+!$debug = %true()
+
+!if $debug
+    note: Debug mode
+!endif
+@enduml

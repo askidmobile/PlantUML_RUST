@@ -1,0 +1,6 @@
+@startuml
+== Инициализация ==
+Alice -> Bob: Init
+== Основная логика ==
+Alice -> Bob: Process
+@enduml

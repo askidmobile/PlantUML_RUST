@@ -1,0 +1,7 @@
+@startuml
+component C1 {
+port p1
+portin p2
+portout p3
+}
+@enduml

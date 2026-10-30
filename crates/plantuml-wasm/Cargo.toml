@@ -12,7 +12,7 @@ keywords = ["plantuml", "wasm", "webassembly"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-plantuml-core = { workspace = true }
+plantuml-core = { workspace = true, features = ["memory-limit"] }
 wasm-bindgen = { workspace = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 serde_json = { workspace = true }

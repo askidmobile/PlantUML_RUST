@@ -1,0 +1,30 @@
+@startuml
+class Object << general >>
+Object <|-- ArrayList
+
+note top of Object : В Java все классы наследуют от Object
+
+note "Плавающая заметка" as N1
+note "Связана с несколькими" as N2
+Object .. N2
+N2 .. ArrayList
+
+class Foo
+note left: на последнем определённом классе
+
+' Заметка на поле или методе
+class A {
+    {static} int counter
+    +void start(int timeout)
+}
+note right of A::counter
+    Заметка на поле
+end note
+note right of A::start
+    Заметка на методе
+end note
+
+' Заметка на связи
+Dummy --> Foo : связь
+note on link #red: заметка на связи
+@enduml

@@ -1,0 +1,7 @@
+@startuml
+Alice -> Bob : msg1
+|||
+Alice -> Bob : msg2 (после отступа)
+||45||
+Alice -> Bob : msg3 (после 45px)
+@enduml

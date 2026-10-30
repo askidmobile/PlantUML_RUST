@@ -1,0 +1,4 @@
+@startuml
+participant "Длинное имя" as A #red
+A -> A : self
+@enduml

@@ -1,0 +1,6 @@
+@startuml
+class Example {
+    {static} + instance: Example
+    {abstract} + process(): void
+}
+@enduml

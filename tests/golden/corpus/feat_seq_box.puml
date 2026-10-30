@@ -1,0 +1,7 @@
+@startuml
+box "Б1" #LightBlue
+participant A
+participant B
+end box
+A -> B : x1
+@enduml

@@ -1,0 +1,6 @@
+@startuml
+Alice -> Bob : <script>alert(1)</script>
+Bob -> Alice : </text><script>alert(2)</script><text>
+title "><img src=x onerror=alert(3)>
+note over Alice : <img:https://evil.example/track.png>
+@enduml

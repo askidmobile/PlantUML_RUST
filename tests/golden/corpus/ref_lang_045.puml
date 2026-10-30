@@ -1,0 +1,7 @@
+@startuml
+together {
+    class Together1
+    class Together2
+}
+class Alone
+@enduml

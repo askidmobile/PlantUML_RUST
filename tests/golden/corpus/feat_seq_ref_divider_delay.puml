@@ -1,0 +1,7 @@
+@startuml
+A -> B : x1
+ref over A,B : r1
+== d1 ==
+...d2...
+A -> B : x2
+@enduml

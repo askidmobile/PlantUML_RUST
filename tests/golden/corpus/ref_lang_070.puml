@@ -1,0 +1,13 @@
+@startuml
+[*] --> Active
+
+state Active {
+    [*] -> NumLockOff
+    NumLockOff --> NumLockOn : press
+    NumLockOn --> NumLockOff : press
+    --
+    [*] -> CapsLockOff
+    CapsLockOff --> CapsLockOn : press
+    CapsLockOn --> CapsLockOff : press
+}
+@enduml

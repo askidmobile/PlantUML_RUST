@@ -1,0 +1,7 @@
+@startuml
+start
+while (data available?)
+    :read data;
+endwhile
+stop
+@enduml

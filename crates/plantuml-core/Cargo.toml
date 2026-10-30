@@ -25,6 +25,9 @@ serde = { workspace = true, optional = true }
 default = []
 serde = ["dep:serde"]
 png = ["plantuml-renderer/png"]
+# Глобальный аллокатор с пределом 1 ГиБ. Для самостоятельных сборок (WASM):
+# встраивающему приложению библиотека не должна навязывать свой аллокатор.
+memory-limit = []
 
 [dev-dependencies]
 insta.workspace = true

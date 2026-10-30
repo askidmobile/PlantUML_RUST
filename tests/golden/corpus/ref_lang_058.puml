@@ -1,0 +1,6 @@
+@startuml
+start
+#HotPink:действие с цветом;
+#AAAAAA:серое действие;
+stop
+@enduml

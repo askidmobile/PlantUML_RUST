@@ -1,0 +1,8 @@
+@startuml
+start
+:action;
+(A)
+detach
+(A)
+:continue;
+@enduml

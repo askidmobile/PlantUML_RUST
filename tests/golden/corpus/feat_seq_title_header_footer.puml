@@ -1,0 +1,6 @@
+@startuml
+title t1
+header h1
+footer f1
+A -> B : x1
+@enduml

@@ -1,0 +1,5 @@
+@startuml
+group Заголовок [подпись]
+A -> B : x1
+end
+@enduml

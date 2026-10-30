@@ -1,0 +1,8 @@
+@startuml
+Alice -> Bob : запрос
+alt#Gold #LightBlue успех
+    Bob --> Alice : OK
+else #Pink ошибка
+    Bob --> Alice : Error
+end
+@enduml

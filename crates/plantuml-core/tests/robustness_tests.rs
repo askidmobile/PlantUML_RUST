@@ -127,3 +127,138 @@ fn test_valid_nested_input_still_parses() {
     let text = format!("{diagram:?}");
     assert!(text.contains("A"), "потерян класс A: {text}");
 }
+
+/// Глубина вложенности, заведомо выше предела.
+const DEEP: usize = 3000;
+
+/// Генераторы враждебных входов: глубокая вложенность и большой объём.
+fn generated_inputs() -> Vec<(&'static str, String)> {
+    let nested = |open: &str, close: &str, body: &str| {
+        format!(
+            "@startuml\n{}{body}\n{}@enduml\n",
+            open.repeat(DEEP),
+            close.repeat(DEEP)
+        )
+    };
+    vec![
+        ("вложенные alt", nested("alt a\n", "end\n", "A -> B")),
+        ("вложенные группы", nested("group g\n", "end\n", "A -> B")),
+        (
+            "вложенные package",
+            nested("package p {\n", "}\n", "class A"),
+        ),
+        ("вложенные state", nested("state S {\n", "}\n", "[*] --> X")),
+        (
+            "вложенные if",
+            format!(
+                "@startuml\nstart\n{}:a;\n{}stop\n@enduml\n",
+                "if (c) then (y)\n".repeat(DEEP),
+                "endif\n".repeat(DEEP)
+            ),
+        ),
+        (
+            "вложенные rectangle",
+            nested("rectangle r {\n", "}\n", "[C]"),
+        ),
+        (
+            "скобки в подписи",
+            format!("@startuml\nA -> B : {}\n@enduml\n", "(".repeat(DEEP)),
+        ),
+        (
+            "вложенный JSON",
+            format!(
+                "@startjson\n{}1{}\n@endjson\n",
+                "[".repeat(DEEP),
+                "]".repeat(DEEP)
+            ),
+        ),
+        (
+            "вложенный YAML",
+            format!(
+                "@startyaml\n{}@endyaml\n",
+                (0..DEEP)
+                    .map(|i| format!("{}k:\n", " ".repeat(i * 2)))
+                    .collect::<String>()
+            ),
+        ),
+        (
+            "глубокий mindmap",
+            format!(
+                "@startmindmap\n{}@endmindmap\n",
+                (1..DEEP.min(500))
+                    .map(|i| format!("{} n\n", "*".repeat(i)))
+                    .collect::<String>()
+            ),
+        ),
+        (
+            "вложенный salt",
+            format!(
+                "@startsalt\n{}{}@endsalt\n",
+                "{\n".repeat(DEEP),
+                "}\n".repeat(DEEP)
+            ),
+        ),
+        (
+            "большой sequence",
+            format!(
+                "@startuml\n{}@enduml\n",
+                (0..5000)
+                    .map(|i| format!("p{} -> p{} : сообщение {i}\n", i % 50, (i + 1) % 50))
+                    .collect::<String>()
+            ),
+        ),
+        (
+            "большой class",
+            format!(
+                "@startuml\n{}@enduml\n",
+                (0..800)
+                    .map(|i| format!("class C{i}\nC{i} --> C{}\n", (i * 7 + 1) % 800))
+                    .collect::<String>()
+            ),
+        ),
+        (
+            "длинная строка",
+            format!("@startuml\nA -> B : {}\n@enduml\n", "х".repeat(1_000_000)),
+        ),
+    ]
+}
+
+/// Рендер на потоке со стеком 2 МБ, как у рабочих потоков приложения.
+fn render_on_small_stack(source: String) -> bool {
+    std::thread::Builder::new()
+        .stack_size(2 * 1024 * 1024)
+        .spawn(move || render(&source, &RenderOptions::default()).is_ok())
+        .expect("поток создаётся")
+        .join()
+        .expect("рендер не паникует")
+}
+
+/// Враждебные входы не роняют процесс на стеке 2 МБ и укладываются в 5 секунд.
+#[test]
+fn test_hostile_corpus_survives_small_stack() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden/hostile");
+    let mut inputs = generated_inputs();
+    for entry in std::fs::read_dir(dir)
+        .expect("есть враждебный корпус")
+        .flatten()
+    {
+        let source = std::fs::read_to_string(entry.path()).expect("читается вход");
+        inputs.push(("файл корпуса", source));
+    }
+
+    for (name, source) in inputs {
+        let started = std::time::Instant::now();
+        let _ = render_on_small_stack(source);
+        let spent = started.elapsed();
+        assert!(spent.as_secs() < 5, "«{name}» занял {spent:?}");
+    }
+}
+
+/// Запрещённое не становится разрешённым: файлы и сеть из `render` недоступны.
+#[test]
+fn test_render_does_not_read_files_or_network() {
+    for target in ["/etc/passwd", "https://evil.example/x.puml"] {
+        let source = format!("@startuml\n!include {target}\nAlice -> Bob\n@enduml");
+        assert!(render(&source, &RenderOptions::default()).is_err());
+    }
+}

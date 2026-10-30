@@ -1,0 +1,13 @@
+@startuml
+:foo1;
+-> текст на стрелке;
+if (test) then
+    -[#blue]->
+    :foo2;
+    -[#green,dashed]-> длинный текст;
+    :foo3;
+else
+    -[#black,dotted]->
+    :foo4;
+endif
+@enduml

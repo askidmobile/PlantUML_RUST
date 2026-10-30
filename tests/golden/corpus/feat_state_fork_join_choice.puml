@@ -1,0 +1,12 @@
+@startuml
+state f1 <<fork>>
+state j1 <<join>>
+state c1 <<choice>>
+[*] --> f1
+f1 --> S1
+f1 --> S2
+S1 --> j1
+S2 --> j1
+j1 --> c1
+c1 --> S3 : v1
+@enduml

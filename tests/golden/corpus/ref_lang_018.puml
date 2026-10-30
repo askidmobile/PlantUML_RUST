@@ -1,0 +1,6 @@
+@startuml
+Alice -> Bob : hello
+activate Bob
+Bob -> Bob : action
+return bye
+@enduml

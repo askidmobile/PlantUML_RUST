@@ -1,0 +1,5 @@
+@startuml
+state "Длинное имя состояния" as long1
+long1 : описание
+[*] --> long1
+@enduml

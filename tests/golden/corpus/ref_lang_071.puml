@@ -1,0 +1,6 @@
+@startuml
+state c <<choice>>
+[*] --> c
+c --> Minor : [id <= 10]
+c --> Major : [id > 10]
+@enduml

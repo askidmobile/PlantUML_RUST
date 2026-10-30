@@ -1,0 +1,9 @@
+@startuml
+Alice -> Bob : запрос
+activate Bob #FFBBBB
+Bob -> Bob : внутренний вызов
+activate Bob #DarkSalmon
+Bob --> Alice : ответ
+deactivate Bob
+deactivate Bob
+@enduml

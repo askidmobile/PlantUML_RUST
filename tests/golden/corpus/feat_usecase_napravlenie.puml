@@ -1,0 +1,5 @@
+@startuml
+left to right direction
+actor A1
+A1 --> (U1)
+@enduml

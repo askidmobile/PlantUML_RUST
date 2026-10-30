@@ -1,0 +1,16 @@
+@startuml
+class Dummy {
+    - privateField : String
+    # protectedField : int
+    ~ packageField : double
+    + publicField : boolean
+    
+    - privateMethod()
+    # protectedMethod()
+    ~ packageMethod()
+    + publicMethod()
+    
+    {static} staticField : String
+    {abstract} abstractMethod()
+}
+@enduml

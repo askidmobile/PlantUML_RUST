@@ -1,0 +1,8 @@
+@startuml
+[C1]
+component C2
+interface I1
+() "I2" as I2
+[C1] --> I1
+C2 - I2
+@enduml

@@ -1,0 +1,10 @@
+@startuml
+Alice -> Bob: Синхронное сообщение
+Alice --> Bob: Пунктирная линия
+Alice ->> Bob: Тонкая стрелка
+Alice -->> Bob: Пунктирная тонкая
+Alice -\ Bob: Половина стрелки
+Alice -/ Bob: Половина стрелки (нижняя)
+Alice ->x Bob: Крест (потерянное)
+Alice -[#red]> Bob: Цветная стрелка
+@enduml

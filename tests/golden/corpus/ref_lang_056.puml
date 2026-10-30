@@ -1,0 +1,12 @@
+@startuml
+start
+split
+    :A;
+split again
+    :B;
+split again
+    :C;
+end split
+:D;
+end
+@enduml

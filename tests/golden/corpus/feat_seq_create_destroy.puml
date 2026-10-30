@@ -1,0 +1,6 @@
+@startuml
+A -> B : x1
+create C
+B -> C : x2
+destroy C
+@enduml

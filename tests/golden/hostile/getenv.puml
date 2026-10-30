@@ -1,0 +1,3 @@
+@startuml
+Alice -> Bob : %getenv("HOME") %load_json("/etc/passwd") %filename()
+@enduml

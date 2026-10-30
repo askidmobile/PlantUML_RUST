@@ -1,0 +1,18 @@
+@startuml
+abstract        AbstractClass
+abstract class  "Abstract Class" as AC
+annotation      Annotation
+circle          Circle
+()              CircleShort
+class           MyClass
+class           MyClass2 <<stereotype>>
+diamond         Diamond
+<>              DiamondShort
+entity          Entity
+enum            MyEnum
+exception       MyException
+interface       MyInterface
+metaclass       MetaClass
+protocol        Protocol
+struct          Struct
+@enduml

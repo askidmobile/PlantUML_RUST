@@ -1,0 +1,15 @@
+@startuml
+!$debug = %true()
+
+!if $debug
+    note: Debug mode
+!endif
+
+!ifdef VARIABLE
+    ' если определена
+!endif
+
+!ifndef VARIABLE
+    ' если не определена
+!endif
+@enduml

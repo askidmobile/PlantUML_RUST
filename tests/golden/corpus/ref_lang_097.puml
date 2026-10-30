@@ -1,0 +1,7 @@
+@startuml
+note as N
+  |= Column 1 |= Column 2 |
+  | Cell 1 | Cell 2 |
+  | Cell 3 | Cell 4 |
+end note
+@enduml

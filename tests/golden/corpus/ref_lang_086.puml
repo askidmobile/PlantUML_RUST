@@ -1,0 +1,9 @@
+@startuml
+skinparam class {
+    BackgroundColor PaleGreen
+    ArrowColor SeaGreen
+    BorderColor SpringGreen
+}
+skinparam classAttributeIconSize 0
+skinparam groupInheritance 3
+@enduml

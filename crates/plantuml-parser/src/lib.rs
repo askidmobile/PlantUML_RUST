@@ -7,6 +7,7 @@
 //! 2. Парсер (pest) — PEG грамматики для структуры
 
 pub mod error;
+pub mod limits;
 pub mod parsers;
 
 pub use error::ParseError;
@@ -39,6 +40,8 @@ pub type Result<T> = std::result::Result<T, ParseError>;
 /// assert!(diagram.is_ok());
 /// ```
 pub fn parse(source: &str) -> Result<Diagram> {
+    limits::check_nesting(source)?;
+
     // Определяем тип диаграммы
     let diagram_type = detect_diagram_type(source)?;
 

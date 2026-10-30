@@ -1,0 +1,5 @@
+@startuml
+skinparam actorStyle awesome  ' или hollow, или по умолчанию (stick man)
+actor Alice
+actor Bob
+@enduml

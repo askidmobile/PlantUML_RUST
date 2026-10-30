@@ -1,0 +1,6 @@
+@startuml
+Alice -> Bob++: Запрос
+Bob -> Charlie++: Подзапрос
+Charlie --> Bob--: Ответ
+Bob --> Alice--: Ответ
+@enduml

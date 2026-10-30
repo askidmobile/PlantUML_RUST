@@ -1,0 +1,8 @@
+@startuml
+Bob ->  Alice : solid arrow
+Bob --> Alice : dotted arrow
+Bob ->> Alice : thin arrow
+Bob -->> Alice : dotted thin
+Bob ->x Alice : lost message
+Bob <-> Alice : bidirectional
+@enduml

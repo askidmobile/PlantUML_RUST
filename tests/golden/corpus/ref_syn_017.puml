@@ -1,0 +1,7 @@
+@startuml
+start
+while (Условие?)
+    :Действие;
+endwhile
+stop
+@enduml

@@ -1,0 +1,7 @@
+@startuml
+start
+while (c1) is (y1)
+:a1;
+endwhile (n1)
+stop
+@enduml

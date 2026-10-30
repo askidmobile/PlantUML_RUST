@@ -1,0 +1,4 @@
+@startuml
+!define X Y1
+A -> B : X
+@enduml

@@ -1,0 +1,9 @@
+@startuml
+start
+if (Условие?) then (да)
+    :Действие A;
+else (нет)
+    :Действие B;
+endif
+stop
+@enduml

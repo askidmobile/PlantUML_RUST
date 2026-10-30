@@ -1,0 +1,4 @@
+@startuml
+hide footbox   ' скрыть нижние прямоугольники участников
+Alice -> Bob : hello
+@enduml

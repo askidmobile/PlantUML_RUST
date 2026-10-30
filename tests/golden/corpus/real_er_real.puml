@@ -1,0 +1,14 @@
+@startuml
+entity "Заметка" as note {
+  *id : uuid <<PK>>
+  --
+  title : text
+  folder_id : uuid <<FK>>
+}
+entity "Папка" as folder {
+  *id : uuid <<PK>>
+  --
+  name : text
+}
+folder ||--o{ note
+@enduml

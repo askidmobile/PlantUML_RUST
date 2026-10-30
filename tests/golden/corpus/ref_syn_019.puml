@@ -1,0 +1,9 @@
+@startuml
+start
+fork
+    :Ветка 1;
+fork again
+    :Ветка 2;
+end fork
+stop
+@enduml

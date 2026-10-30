@@ -1,0 +1,8 @@
+@startuml
+start
+:действие 1;
+:действие 2;
+stop
+
+' или end вместо stop
+@enduml

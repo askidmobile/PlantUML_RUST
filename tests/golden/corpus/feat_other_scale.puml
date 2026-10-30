@@ -1,0 +1,4 @@
+@startuml
+scale 2
+A -> B : x1
+@enduml

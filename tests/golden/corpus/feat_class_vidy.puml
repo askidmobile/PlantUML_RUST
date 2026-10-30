@@ -1,0 +1,11 @@
+@startuml
+abstract class A1
+interface I1
+enum E1 {
+V1
+}
+annotation An1
+struct St1
+protocol Pr1
+entity En1
+@enduml

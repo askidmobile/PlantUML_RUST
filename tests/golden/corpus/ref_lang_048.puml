@@ -1,0 +1,5 @@
+@startuml
+:Hello world;
+:Это многострочное
+действие;
+@enduml

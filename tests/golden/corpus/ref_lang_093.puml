@@ -1,0 +1,8 @@
+@startuml
+!procedure $myproc($arg)
+    participant $arg
+!endprocedure
+
+$myproc(Alice)
+$myproc(Bob)
+@enduml

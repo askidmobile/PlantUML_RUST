@@ -1,0 +1,5 @@
+@startuml
+A -> B : x1
+newpage p2
+A -> B : x2
+@enduml

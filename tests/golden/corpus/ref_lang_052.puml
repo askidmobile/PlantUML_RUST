@@ -1,0 +1,12 @@
+@startuml
+start
+switch (test?)
+case (A)
+    :Text 1;
+case (B)
+    :Text 2;
+case (C)
+    :Text 3;
+endswitch
+stop
+@enduml

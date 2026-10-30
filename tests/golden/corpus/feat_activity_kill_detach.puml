@@ -1,0 +1,9 @@
+@startuml
+start
+:a1;
+if (c1) then
+kill
+endif
+:a2;
+detach
+@enduml

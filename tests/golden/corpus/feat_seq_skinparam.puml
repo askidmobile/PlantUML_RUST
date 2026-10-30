@@ -1,0 +1,5 @@
+@startuml
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #eee
+A -> B : x1
+@enduml

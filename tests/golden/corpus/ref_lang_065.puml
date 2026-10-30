@@ -1,0 +1,8 @@
+@startuml
+[*] --> State1
+State1 --> [*]
+State1 : описание
+State1 : ещё описание
+State1 -> State2
+State2 --> [*]
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+Alice -> Bob: Запрос
+
+alt Успех
+    Bob --> Alice: OK
+else Ошибка
+    Bob --> Alice: Error
+end
+
+opt Опционально
+    Alice -> Bob: Дополнительно
+end
+
+loop 1000 раз
+    Alice -> Bob: Ping
+end
+
+par Параллельно
+    Alice -> Bob: Msg1
+else
+    Alice -> Charlie: Msg2
+end
+
+break Прервать
+    Alice -> Bob: Stop
+end
+
+critical Критическая секция
+    Alice -> Bob: Lock
+end
+
+group Группа [описание]
+    Alice -> Bob: Grouped
+end
+@enduml

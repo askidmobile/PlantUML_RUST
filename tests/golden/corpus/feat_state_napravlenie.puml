@@ -1,0 +1,4 @@
+@startuml
+left to right direction
+S1 --> S2
+@enduml

@@ -1,0 +1,6 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam classFontColor red
+skinparam classFontSize 10
+skinparam classFontName Courier
+@enduml

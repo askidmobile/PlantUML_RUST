@@ -34,11 +34,13 @@
 //! - `plantuml-renderer` — SVG/PNG рендеринг
 //! - `plantuml-themes` — темы и skinparam
 
+#[cfg(feature = "memory-limit")]
 pub mod alloc;
 mod error;
 mod options;
 mod pipeline;
 
+#[cfg(feature = "memory-limit")]
 pub use alloc::{memory_limit, memory_used, set_memory_limit, DEFAULT_MEMORY_LIMIT};
 pub use error::{Error, Result};
 pub use options::RenderOptions;
@@ -47,6 +49,7 @@ pub use options::RenderOptions;
 ///
 /// Защищает машину от исчерпания памяти, если макрос PlantUML уйдёт в
 /// бесконечный рост. Обоснование и способы настройки — в модуле [`alloc`].
+#[cfg(feature = "memory-limit")]
 #[global_allocator]
 static ALLOCATOR: alloc::LimitedAllocator = alloc::LimitedAllocator;
 

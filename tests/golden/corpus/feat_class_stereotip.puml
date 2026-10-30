@@ -1,0 +1,4 @@
+@startuml
+class A <<s1>>
+class B <<(X,#ff0000) s2>>
+@enduml

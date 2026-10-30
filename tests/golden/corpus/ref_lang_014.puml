@@ -1,0 +1,10 @@
+@startuml
+Alice -> Bob : запрос
+activate Bob
+Bob -> Charlie : подзапрос
+activate Charlie
+Charlie --> Bob : ответ
+deactivate Charlie
+Bob --> Alice : ответ
+deactivate Bob
+@enduml

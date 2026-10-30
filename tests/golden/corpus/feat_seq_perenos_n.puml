@@ -1,0 +1,4 @@
+@startuml
+A -> B : строка1\nстрока2
+note left : нота1\nнота2
+@enduml

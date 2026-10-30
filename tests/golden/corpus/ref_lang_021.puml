@@ -1,0 +1,22 @@
+@startuml
+Alice -> Bob : hello
+note left: заметка слева
+note right: заметка справа
+
+note left of Alice: заметка слева от Alice
+note right of Bob: заметка справа от Bob
+note over Alice: над Alice
+note over Alice, Bob: над обоими
+
+note over Alice
+  Многострочная
+  заметка
+end note
+
+' Формы заметок
+hnote over Alice : шестиугольная
+rnote over Bob : прямоугольная
+
+' Заметка на всех участниках
+note across: на всю ширину
+@enduml

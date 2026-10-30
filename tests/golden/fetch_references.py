@@ -97,8 +97,21 @@ def fetch(source: str) -> str:
     """
     url = SERVER + encode(source)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        svg = resp.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        # На синтаксическую ошибку сервер отвечает 400 и SVG с текстом ошибки.
+        # Это тоже эталон: такой исходник и у нас обязан давать ошибку.
+        if exc.code != 400:
+            raise
+        raw = exc.read()
+
+    # ditaa и формулы сервер отдаёт только растром. Эти типы вне объёма движка:
+    # метка говорит гейту, что схема обязана давать ошибку.
+    if raw.startswith(b"\x89PNG"):
+        return '<svg data-reference="bitmap"/>'
+    svg = raw.decode("utf-8")
 
     if "seems to generated a bad URL" in svg or "does not look like DEFLATE" in svg:
         raise ValueError(
@@ -156,7 +169,18 @@ def main() -> int:
         action="store_true",
         help="перезаписать существующие эталоны",
     )
+    parser.add_argument(
+        "--corpus",
+        action="store_true",
+        help="снять эталоны корпуса сверки (tests/golden/corpus)",
+    )
     args = parser.parse_args()
+
+    global CASES_DIR, REF_DIR, META_FILE
+    if args.corpus:
+        CASES_DIR = ROOT / "tests" / "golden" / "corpus"
+        REF_DIR = ROOT / "tests" / "golden" / "corpus_reference"
+        META_FILE = REF_DIR / "metadata.json"
 
     if not CASES_DIR.is_dir():
         print(f"нет директории с кейсами: {CASES_DIR}", file=sys.stderr)
@@ -209,6 +233,7 @@ def main() -> int:
             "svg_bytes": str(len(svg)),
         }
         print(f"  сохранено: {out.name} ({len(svg)} байт)")
+        time.sleep(0.3)
 
     META_FILE.write_text(
         json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

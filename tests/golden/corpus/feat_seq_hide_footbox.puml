@@ -1,0 +1,4 @@
+@startuml
+hide footbox
+A -> B : x1
+@enduml

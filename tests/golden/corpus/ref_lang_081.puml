@@ -1,0 +1,14 @@
+@startuml
+node "Web Server" {
+    [Apache]
+}
+
+node "App Server" {
+    [Tomcat]
+}
+
+database "MySQL"
+
+[Apache] --> [Tomcat]
+[Tomcat] --> [MySQL]
+@enduml

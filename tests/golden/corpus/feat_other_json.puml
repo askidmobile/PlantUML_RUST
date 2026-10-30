@@ -1,0 +1,3 @@
+@startjson
+{"k1":"v1","k2":[1,2],"k3":{"k4":true}}
+@endjson

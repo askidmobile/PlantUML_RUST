@@ -7,6 +7,8 @@
 //! из-за ошибки в аллокаторе. Здесь же, кроме этих четырёх тестов, нет
 //! никого, а сами они сериализованы мьютексом.
 
+#![cfg(feature = "memory-limit")]
+
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use plantuml_core::{memory_limit, memory_used, set_memory_limit, DEFAULT_MEMORY_LIMIT};

@@ -1,0 +1,6 @@
+@startuml
+:A1:
+:Имя: as A2
+A1 --> (U1)
+A2 --> (U1)
+@enduml

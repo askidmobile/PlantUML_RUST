@@ -1,0 +1,23 @@
+@startuml
+skinparam classAttributeIconSize 0
+package "Заметки" {
+  abstract class Block<T> {
+    # id : UUID
+    + {abstract} render() : Svg
+    {static} count : int
+  }
+  class UmlBlock extends Block {
+    - source : String
+    + render() : Svg
+  }
+  interface Serializable
+  enum Kind {
+    MERMAID
+    PLANTUML
+  }
+}
+UmlBlock ..|> Serializable
+Block "1" *-- "many" Kind : содержит >
+note left of UmlBlock : Заметка\nв две строки
+hide empty members
+@enduml

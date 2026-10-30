@@ -1,0 +1,7 @@
+@startuml
+start
+repeat
+:a1;
+repeat while (c1)
+stop
+@enduml

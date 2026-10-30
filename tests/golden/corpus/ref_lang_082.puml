@@ -1,0 +1,13 @@
+@startuml
+object user1 {
+    name = "John"
+    age = 30
+}
+
+object user2 {
+    name = "Jane"
+    age = 25
+}
+
+user1 --> user2 : friend
+@enduml

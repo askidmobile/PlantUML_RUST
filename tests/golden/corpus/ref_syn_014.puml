@@ -1,0 +1,12 @@
+@startuml
+package "Domain" {
+    class User
+    class Order
+}
+
+package "Infrastructure" {
+    class UserRepository
+}
+
+User <-- UserRepository
+@enduml

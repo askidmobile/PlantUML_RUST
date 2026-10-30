@@ -1,0 +1,9 @@
+@startuml
+start
+if (error?) then
+    :error;
+    kill
+endif
+:continue;
+stop
+@enduml

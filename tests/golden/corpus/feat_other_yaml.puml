@@ -1,0 +1,6 @@
+@startyaml
+k1: v1
+k2:
+  - a1
+  - a2
+@endyaml

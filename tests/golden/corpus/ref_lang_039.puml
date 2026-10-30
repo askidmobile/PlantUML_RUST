@@ -1,0 +1,6 @@
+@startuml
+class Foo<T extends Element> {
+    int size()
+}
+Foo *- Element
+@enduml

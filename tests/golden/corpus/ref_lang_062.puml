@@ -1,0 +1,10 @@
+@startuml
+|Swimlane1|
+start
+:action1;
+|#AntiqueWhite|Swimlane2|
+:action2;
+|Swimlane1|
+:action3;
+stop
+@enduml

@@ -1,0 +1,17 @@
+@startuml
+left to right direction
+
+actor User
+actor Admin
+
+rectangle System {
+    usecase "Войти" as UC1
+    usecase "Просмотр" as UC2
+    usecase "Редактировать" as UC3
+}
+
+User --> UC1
+User --> UC2
+Admin --> UC3
+Admin --> UC1
+@enduml

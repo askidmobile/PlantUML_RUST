@@ -1,0 +1,4 @@
+@startuml
+mainframe sd Sequence
+Alice -> Bob : hello
+@enduml

@@ -1,0 +1,10 @@
+@startuml
+!include <C4/C4_Container>
+Person(user, "Пользователь", "Пишет заметки")
+System_Boundary(c1, "Yttri") {
+  Container(app, "Desktop", "Tauri", "Приложение")
+  ContainerDb(db, "SQLite", "SQL", "Данные")
+}
+Rel(user, app, "Использует")
+Rel(app, db, "Читает/пишет")
+@enduml

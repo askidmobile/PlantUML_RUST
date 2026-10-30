@@ -1,0 +1,5 @@
+@startuml
+Alice -> Bob : ок
+это вообще не синтаксис ??? {{{
+Bob -> Alice : после мусора
+@enduml

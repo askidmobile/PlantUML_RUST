@@ -1,0 +1,12 @@
+@startuml
+note as N
+  <b>bold</b>
+  <i>italic</i>
+  <u>underlined</u>
+  <s>striked</s>
+  <font color="red">colored</font>
+  <color:blue>also colored</color>
+  <size:18>larger</size>
+  <back:yellow>background</back>
+end note
+@enduml

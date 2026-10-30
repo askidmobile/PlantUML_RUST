@@ -1,0 +1,6 @@
+@startuml
+A -> B : x1
+B --> A : x2
+A ->> B : x3
+A <- B : x4
+@enduml

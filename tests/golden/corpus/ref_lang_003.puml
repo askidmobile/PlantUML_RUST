@@ -1,0 +1,7 @@
+@startuml
+Alice -> Bob : page 1
+newpage
+Alice -> Bob : page 2
+newpage Заголовок страницы 3
+Alice -> Bob : page 3
+@enduml

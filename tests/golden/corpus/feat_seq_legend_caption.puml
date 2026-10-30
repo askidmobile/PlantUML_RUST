@@ -1,0 +1,7 @@
+@startuml
+legend right
+l1
+endlegend
+caption c1
+A -> B
+@enduml

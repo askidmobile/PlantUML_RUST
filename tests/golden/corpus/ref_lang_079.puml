@@ -1,0 +1,4 @@
+@startuml
+(Business usecase)/
+actor/ BusinessActor
+@enduml

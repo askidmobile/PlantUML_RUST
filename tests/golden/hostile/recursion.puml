@@ -1,0 +1,6 @@
+@startuml
+!function $f($x)
+  !return $f($x + "a")
+!endfunction
+Alice -> Bob : $f("a")
+@enduml

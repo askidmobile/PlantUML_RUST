@@ -1,0 +1,7 @@
+@startuml
+skinparam sequenceMessageAlign left   ' left (по умолчанию), center, right
+skinparam sequenceMessageAlign center
+skinparam sequenceMessageAlign right
+skinparam sequenceMessageAlign direction      ' зависит от направления стрелки
+skinparam sequenceMessageAlign reverseDirection
+@enduml

@@ -1,0 +1,22 @@
+@startuml
+class User {
+    - id: Long
+    - name: String
+    + getId(): Long
+    + setName(name: String): void
+}
+
+abstract class AbstractUser {
+    {abstract} + validate(): boolean
+}
+
+interface Comparable<T> {
+    + compareTo(other: T): int
+}
+
+enum Status {
+    ACTIVE
+    INACTIVE
+    DELETED
+}
+@enduml

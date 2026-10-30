@@ -1,0 +1,22 @@
+@startuml
+package "Frontend" {
+    [Web App]
+    [Mobile App]
+}
+
+package "Backend" {
+    [API Gateway]
+    [User Service]
+    [Order Service]
+}
+
+database "PostgreSQL" {
+}
+
+[Web App] --> [API Gateway]
+[Mobile App] --> [API Gateway]
+[API Gateway] --> [User Service]
+[API Gateway] --> [Order Service]
+[User Service] --> [PostgreSQL]
+[Order Service] --> [PostgreSQL]
+@enduml

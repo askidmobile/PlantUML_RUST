@@ -1,0 +1,10 @@
+@startuml
+participant Alice
+actor Bob
+boundary Controller
+control Logic
+entity Database
+database MySQL
+collections Queue
+queue MessageQueue
+@enduml

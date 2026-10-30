@@ -1,0 +1,3 @@
+@startuml
+Alice -> Alice : Сообщение\nсебе
+@enduml

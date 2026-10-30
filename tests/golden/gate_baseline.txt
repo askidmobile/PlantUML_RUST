@@ -1,0 +1,124 @@
+feat_activity_cvet_forma ACCEPTED
+feat_activity_elseif LOST y2
+feat_activity_kill_detach ACCEPTED
+feat_activity_note LOST n2
+feat_activity_repeat_is_not ERR
+feat_activity_split RAW 1 2 ветка
+feat_activity_switch LOST c1
+feat_class_kratnost_metka ERR
+feat_class_note RAW N
+feat_class_package LOST N1 П1
+feat_class_stereotip LOST s1 s2
+feat_class_strelka_up ERR
+feat_class_svyazi LOST A1 A2 A3 A4 A5 A6 A7 B1 B2 B3 B4 B5 B6 B7
+feat_class_vidy ERR
+feat_component_deployment ERR
+feat_component_napravlenie ERR
+feat_component_note LOST n1
+feat_component_porty ERR
+feat_other_archimate ERR
+feat_other_bez_tegov ERR
+feat_other_chart ERR
+feat_other_define LOST Y1
+feat_other_ebnf ERR
+feat_other_emoji RAW smile
+feat_other_gantt LOST Day day m1
+feat_other_gantt_project LOST Su
+feat_other_link RAW e example https
+feat_other_list_creole ERR
+feat_other_map RAW Map
+feat_other_math ERR
+feat_other_mindmap_left_side ERR
+feat_other_openiconic RAW heart
+feat_other_regex ERR
+feat_other_sprite ERR
+feat_other_yaml ERR
+feat_seq_ ERR
+feat_seq_cvet_strelki ERR
+feat_seq_group RAW group
+feat_seq_legend_caption ERR
+feat_seq_newpage RAW x2
+feat_seq_perenos_n LOST нота2
+feat_state_history ERR
+feat_state_opisanie LOST d1 d2
+feat_usecase_akter ERR
+feat_usecase_include_extend ERR
+feat_usecase_napravlenie LOST U1
+real_activity_real ERR
+real_c4 LOST container Данные Пишет Приложение
+real_class_real LOST T Заметки в
+real_component_real ERR
+real_empty_tags ERR
+real_gantt_real LOST day Релиз
+real_mindmap_real ERR
+real_no_tags ERR
+real_seq_real LOST по
+real_state_real LOST Видно всем
+real_styling ERR
+real_usecase_real ERR
+ref_lang_001 LOST Alice Bob Details Diagram Example Hello Or PlantUML UML Welcome You a about by can class com find https information keyword license like more on plantuml simple start syntax to typing will with
+ref_lang_002 ERR
+ref_lang_003 RAW 2 3
+ref_lang_008 ERR
+ref_lang_009 ERR
+ref_lang_011 ERR
+ref_lang_012 ERR
+ref_lang_013 LOST 001 002
+ref_lang_018 LOST bye
+ref_lang_019 RAW else group
+ref_lang_020 ERR
+ref_lang_022 ERR
+ref_lang_028 LOST Outer
+ref_lang_030 ERR
+ref_lang_031 LOST Generated Testable
+ref_lang_032 ERR
+ref_lang_033 ERR
+ref_lang_034 ERR
+ref_lang_035 LOST Class01 Class02 Class03 Class04 Class05 Class06 Class07 Class08 Class09 Class10 Class11 Class12 Class13 Interface14 агрегация ассоциация зависимость композиция наследование пунктирная реализация
+ref_lang_036 ERR
+ref_lang_037 ERR
+ref_lang_038 LOST Encrypted Getters Private Setters
+ref_lang_039 LOST T extends
+ref_lang_041 ERR
+ref_lang_042 ERR
+ref_lang_044 LOST dummyDown dummyLeft dummyRight dummyUp foo
+ref_lang_046 LOST A1 A2 A3 B1 B2 B3 C2 C3 D3
+ref_lang_047 ERR
+ref_lang_048 ERR
+ref_lang_052 LOST test
+ref_lang_053 ERR
+ref_lang_056 RAW 1 2 3 ветка
+ref_lang_057 LOST плавающая
+ref_lang_058 LOST AAAAAA HotPink This and color deprecated ignored instead is of syntax the write
+ref_lang_059 ERR
+ref_lang_060 RAW A
+ref_lang_063 ERR
+ref_lang_065 LOST ещё описание
+ref_lang_067 LOST описание
+ref_lang_073 LOST Многострочная заметка слева
+ref_lang_074 ERR
+ref_lang_075 ERR
+ref_lang_076 ERR
+ref_lang_077 ERR
+ref_lang_079 ERR
+ref_lang_084 ERR
+ref_lang_085 ERR
+ref_lang_086 ERR
+ref_lang_087 ERR
+ref_lang_088 ERR
+ref_lang_090 ERR
+ref_lang_094 ERR
+ref_lang_095 ERR
+ref_lang_096 ERR
+ref_lang_097 ERR
+ref_syn_001 ERR
+ref_syn_003 ERR
+ref_syn_007 RAW else group
+ref_syn_010 LOST T other
+ref_syn_012 LOST Class01 Class02 Class03 Class04 Class05 Class06 Class07 Class08 Class09 Class10 Class11 Class12 Class13 Class14 Class15 Class16 Агрегация Ассоциация Зависимость Композиция Наследование Пунктир Реализация Связь
+ref_syn_013 ERR
+ref_syn_014 LOST Domain Infrastructure
+ref_syn_023 ERR
+ref_syn_027 ERR
+ref_syn_030 LOST deprecated handwritten instead is option skinparam true write
+ref_syn_031 ERR

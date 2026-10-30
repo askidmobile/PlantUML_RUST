@@ -1,0 +1,10 @@
+@startuml
+box "Internal" #LightBlue
+    participant Bob
+    participant Alice
+end box
+participant Other
+
+Bob -> Alice : внутри
+Alice -> Other : наружу
+@enduml

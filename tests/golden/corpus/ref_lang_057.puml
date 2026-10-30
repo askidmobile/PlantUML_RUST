@@ -1,0 +1,11 @@
+@startuml
+start
+:foo1;
+floating note left: плавающая заметка
+:foo2;
+note right
+  Многострочная
+  заметка
+end note
+stop
+@enduml

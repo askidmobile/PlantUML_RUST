@@ -1,0 +1,7 @@
+@startuml
+Alice -> Bob : создать
+create Charlie
+Bob -> Charlie : new
+Charlie --> Bob : ok
+destroy Charlie
+@enduml

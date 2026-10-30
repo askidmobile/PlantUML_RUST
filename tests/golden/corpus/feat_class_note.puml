@@ -1,0 +1,6 @@
+@startuml
+class A
+note left of A : n1
+note "n2" as N
+A .. N
+@enduml

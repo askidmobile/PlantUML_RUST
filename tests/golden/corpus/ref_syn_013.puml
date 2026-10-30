@@ -1,0 +1,3 @@
+@startuml
+Company "1" *-- "many" Employee
+@enduml

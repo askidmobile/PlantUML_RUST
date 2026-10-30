@@ -1,0 +1,7 @@
+@startuml
+rectangle R1 {
+usecase U1
+}
+actor A1
+A1 --> U1
+@enduml

@@ -1,0 +1,23 @@
+@startuml
+package "P1" {
+[C1]
+}
+node "N1" {
+[C2]
+}
+cloud "Cl1" {
+[C3]
+}
+database "D1" {
+[C4]
+}
+folder "F1" {
+[C5]
+}
+frame "Fr1" {
+[C6]
+}
+rectangle "R1" {
+[C7]
+}
+@enduml

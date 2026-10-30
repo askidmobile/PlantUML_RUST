@@ -1,0 +1,7 @@
+@startuml
+object O1 {
+f1 = v1
+}
+object O2
+O1 --> O2
+@enduml

@@ -1,0 +1,15 @@
+@startuml
+class Dummy1 { +myMethods() }
+class Dummy2 { +hiddenMethod() }
+class Dummy3 <<Serializable>> { String name }
+
+hide members                    ' скрыть все члены
+hide <<Serializable>> circle    ' скрыть круг у стереотипа
+show Dummy1 methods             ' показать методы Dummy1
+show <<Serializable>> fields    ' показать поля Serializable
+
+' Скрыть/удалить классы
+hide Foo2
+remove Foo3
+hide @unlinked                  ' скрыть несвязанные классы
+@enduml

@@ -1,0 +1,12 @@
+@startuml
+A -> B : x1
+note left : n1
+note right : n2
+note over A,B : n3
+note over A
+много
+строк
+end note
+hnote over A : n4
+rnote over B : n5
+@enduml

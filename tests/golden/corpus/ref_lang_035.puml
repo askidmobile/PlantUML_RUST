@@ -1,0 +1,9 @@
+@startuml
+Class01 <|-- Class02 : наследование
+Class03 *-- Class04 : композиция
+Class05 o-- Class06 : агрегация
+Class07 --> Class08 : зависимость
+Class09 -- Class10 : ассоциация
+Class11 <.. Class12 : пунктирная зависимость
+Class13 ..|> Interface14 : реализация
+@enduml

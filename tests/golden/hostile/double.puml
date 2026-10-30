@@ -1,0 +1,9 @@
+@startuml
+!$s = "aaaaaaaaaaaaaaaa"
+!$i = 0
+!while ($i < 60)
+  !$s = $s + $s
+  !$i = $i + 1
+!endwhile
+Alice -> Bob : $s
+@enduml

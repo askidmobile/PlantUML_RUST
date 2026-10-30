@@ -1,0 +1,6 @@
+@startuml
+!function $f($a)
+!return $a + "z1"
+!endfunction
+A -> B : $f("y")
+@enduml

@@ -1,0 +1,4 @@
+@startuml
+Alice -> Bob : [[javascript:alert(1) клик]]
+class A [[javascript:alert(2)]]
+@enduml

@@ -1,0 +1,7 @@
+@startuml
+start
+repeat
+    :Действие;
+repeat while (Продолжить?)
+stop
+@enduml

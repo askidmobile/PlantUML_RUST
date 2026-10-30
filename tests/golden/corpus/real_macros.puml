@@ -1,0 +1,13 @@
+@startuml
+!$name = "Боб"
+!function $hi($x)
+  !return "Привет, " + $x
+!endfunction
+!procedure $msg($a, $b)
+  $a -> $b : $hi($b)
+!endprocedure
+$msg("Алиса", $name)
+!if (%strlen($name) > 2)
+  note over Алиса : длинное имя
+!endif
+@enduml

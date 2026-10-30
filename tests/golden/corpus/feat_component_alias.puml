@@ -1,0 +1,5 @@
+@startuml
+[Длинное имя] as C1
+component "Другое" as C2
+C1 --> C2 : m1
+@enduml

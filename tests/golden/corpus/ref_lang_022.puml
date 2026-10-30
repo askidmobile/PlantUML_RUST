@@ -1,0 +1,4 @@
+@startuml
+note over Alice : первая
+/ note over Bob : вторая (выровнена)
+@enduml

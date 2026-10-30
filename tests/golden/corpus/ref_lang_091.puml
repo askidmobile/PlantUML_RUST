@@ -1,0 +1,6 @@
+@startuml
+!include common.puml
+!include_once styles.puml
+!include <stdlib/aws>
+!include https://example.com/common.puml
+@enduml

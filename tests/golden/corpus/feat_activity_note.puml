@@ -1,0 +1,7 @@
+@startuml
+start
+:a1;
+note right : n1
+floating note left: n2
+stop
+@enduml

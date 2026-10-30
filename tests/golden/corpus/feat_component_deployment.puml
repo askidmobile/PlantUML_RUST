@@ -1,0 +1,15 @@
+@startuml
+actor A1
+artifact Ar1
+boundary B1
+card Ca1
+collections Co1
+control Ct1
+entity E1
+file Fi1
+hexagon H1
+queue Q1
+stack St1
+storage So1
+usecase U1
+@enduml

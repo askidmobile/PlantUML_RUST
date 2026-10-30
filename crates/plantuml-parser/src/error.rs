@@ -42,6 +42,10 @@ pub fn syntax_error_from_pest(
 /// Ошибки парсинга PlantUML
 #[derive(Error, Debug)]
 pub enum ParseError {
+    /// Вложенность превышает предел: дальше разбор мог бы переполнить стек
+    #[error("слишком глубокая вложенность в строке {line}: допустимо не более {limit} уровней")]
+    TooDeep { limit: usize, line: usize },
+
     /// Неожиданный токен
     #[error("неожиданный токен '{token}' в строке {line}, позиция {column}")]
     UnexpectedToken {

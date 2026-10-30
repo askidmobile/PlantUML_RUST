@@ -1,0 +1,10 @@
+@startuml
+[*] --> Active
+Active --> Inactive
+
+note left of Active : заметка слева
+note right of Inactive
+    Многострочная
+    заметка
+end note
+@enduml

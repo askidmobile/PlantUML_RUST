@@ -1,0 +1,9 @@
+@startuml
+note as N
+  * Item 1
+  * Item 2
+    ** Nested
+  # Numbered 1
+  # Numbered 2
+end note
+@enduml

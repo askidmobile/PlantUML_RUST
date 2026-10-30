@@ -1,0 +1,7 @@
+@startuml
+skinparam backgroundColor #EEEEEE
+skinparam handwritten true
+skinparam shadowing false
+skinparam monochrome true
+skinparam monochrome reverse
+@enduml

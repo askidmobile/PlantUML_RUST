@@ -1,0 +1,10 @@
+@startuml
+Class01 <|-- Class02 : Наследование
+Class03 *-- Class04 : Композиция
+Class05 o-- Class06 : Агрегация
+Class07 <-- Class08 : Ассоциация
+Class09 -- Class10 : Связь
+Class11 <.. Class12 : Зависимость
+Class13 ..|> Class14 : Реализация
+Class15 .. Class16 : Пунктир
+@enduml

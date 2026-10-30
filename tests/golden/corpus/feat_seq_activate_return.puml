@@ -1,0 +1,6 @@
+@startuml
+A -> B ++ : x1
+B -> C ++ : x2
+return x3
+return x4
+@enduml

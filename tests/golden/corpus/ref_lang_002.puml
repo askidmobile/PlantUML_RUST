@@ -1,0 +1,7 @@
+@startuml
+title Заголовок диаграммы
+header Верхний колонтитул
+footer Нижний колонтитул %page% из %lastpage%
+
+' диаграмма...
+@enduml

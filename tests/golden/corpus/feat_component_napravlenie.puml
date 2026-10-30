@@ -1,0 +1,4 @@
+@startuml
+left to right direction
+[C1] --> [C2]
+@enduml

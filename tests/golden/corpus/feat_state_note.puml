@@ -1,0 +1,7 @@
+@startuml
+S1 --> S2
+note left of S1 : n1
+note right of S2
+много
+end note
+@enduml

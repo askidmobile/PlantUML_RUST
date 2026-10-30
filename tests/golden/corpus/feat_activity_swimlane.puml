@@ -1,0 +1,8 @@
+@startuml
+|L1|
+start
+:a1;
+|L2|
+:a2;
+stop
+@enduml

@@ -1,0 +1,7 @@
+@startuml
+start
+partition P1 {
+:a1;
+}
+stop
+@enduml

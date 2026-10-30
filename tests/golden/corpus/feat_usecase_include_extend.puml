@@ -1,0 +1,4 @@
+@startuml
+(U1) .> (U2) : <<include>>
+(U3) ..> (U1) : <<extend>>
+@enduml

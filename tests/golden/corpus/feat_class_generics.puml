@@ -1,0 +1,5 @@
+@startuml
+class A<T> {
++x : List<T>
+}
+@enduml

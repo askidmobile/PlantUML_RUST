@@ -1,0 +1,4 @@
+@startuml
+Bob -[#red]> Alice : red
+Bob -[#0000FF]-> Alice : blue
+@enduml

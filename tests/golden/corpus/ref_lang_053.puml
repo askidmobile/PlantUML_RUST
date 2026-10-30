@@ -1,0 +1,8 @@
+@startuml
+start
+repeat
+    :read data;
+    :process;
+repeat while (more data?) is (yes) not (no)
+stop
+@enduml

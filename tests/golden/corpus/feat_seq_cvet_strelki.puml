@@ -1,0 +1,4 @@
+@startuml
+A -[#red]> B : x1
+A -[#0000FF]-> B : x2
+@enduml

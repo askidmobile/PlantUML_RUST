@@ -1,0 +1,11 @@
+@startuml
+start
+partition Initialization {
+    :read config;
+    :init variables;
+}
+partition Running {
+    :main process;
+}
+stop
+@enduml

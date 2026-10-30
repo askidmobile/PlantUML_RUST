@@ -1,0 +1,3 @@
+@startuml
+A "1" *-- "many" B : метка >
+@enduml

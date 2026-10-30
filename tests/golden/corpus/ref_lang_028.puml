@@ -1,0 +1,10 @@
+@startuml
+!pragma teoz true
+box "Outer" #LightBlue
+    participant Bob
+    box "Inner"
+        participant Alice
+        participant John
+    end box
+end box
+@enduml

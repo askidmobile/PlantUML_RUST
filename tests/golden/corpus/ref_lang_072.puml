@@ -1,0 +1,10 @@
+@startuml
+state Somp {
+    state entry1 <<entryPoint>>
+    state exit1 <<exitPoint>>
+    entry1 --> inner
+    inner --> exit1
+}
+[*] --> entry1
+exit1 --> [*]
+@enduml

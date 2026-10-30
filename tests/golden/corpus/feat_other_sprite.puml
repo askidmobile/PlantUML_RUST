@@ -1,0 +1,9 @@
+@startuml
+sprite $s1 [4x4/16] {
+FFFF
+F00F
+F00F
+FFFF
+}
+A -> B : <$s1> x1
+@enduml

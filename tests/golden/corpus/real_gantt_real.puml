@@ -1,0 +1,7 @@
+@startgantt
+Project starts 2026-11-01
+[Спека] lasts 5 days
+[Реализация] lasts 10 days
+[Реализация] starts at [Спека]'s end
+[Релиз] happens at [Реализация]'s end
+@endgantt

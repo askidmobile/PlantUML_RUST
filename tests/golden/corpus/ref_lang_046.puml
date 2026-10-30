@@ -1,0 +1,10 @@
+@startuml
+skinparam groupInheritance 3  ' группировать от 3 наследников
+
+A1 <|-- B1
+A2 <|-- B2
+A2 <|-- C2
+A3 <|-- B3
+A3 <|-- C3
+A3 <|-- D3
+@enduml

@@ -1,0 +1,12 @@
+@startuml
+left to right direction
+
+rectangle Restaurant {
+    usecase "Eat Food" as UC1
+    usecase "Pay" as UC2
+}
+
+actor Guest
+Guest --> UC1
+Guest --> UC2
+@enduml

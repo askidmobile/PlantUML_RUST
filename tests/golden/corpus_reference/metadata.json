@@ -1,0 +1,1484 @@
+{
+  "feat_activity_cvet_forma": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3047c089a9a5166d7e04e8b88ccb63881aef343ac06f905fdbfd25e3def8d094",
+    "svg_bytes": "1518",
+    "svg_sha256": "5e0c70837f0364a4a2fd2d52e51bce99963fddd8d6a330b4ab86b198405b5565"
+  },
+  "feat_activity_elseif": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d8104d4f120ec4cfe8e31cb34a0181f75635482b034c41ccb716d1cf4aaf786f",
+    "svg_bytes": "4888",
+    "svg_sha256": "78877e20ccc6f599153e99f1d4e67a0653af56d0e7f9904dbc3910ca22126b15"
+  },
+  "feat_activity_fork": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "639a782ea235460aae7c177ddc15b951d5f9aaa2f84506e7f758a84cff659b71",
+    "svg_bytes": "2973",
+    "svg_sha256": "a6d4a50ecf35985b0d8e78a3b38c7177d1f3080f618946b9237f89c15f39c147"
+  },
+  "feat_activity_if_else": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a98012b051fb2542a74e933a315b84a1501fca0a84d853ef23f2c318b98b82e2",
+    "svg_bytes": "4353",
+    "svg_sha256": "ef57d8725d75ac6550534509cd8f3f983f2eda0749b4a3f3a84450f4c5f80107"
+  },
+  "feat_activity_kill_detach": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "25ab1afe5fda0e551773bf388edebe2b337a38c283550f236872b16a2502f969",
+    "svg_bytes": "1658",
+    "svg_sha256": "de1ff5fb3bce4e6aa148f797c4281c847fc6e98cb0424bfb1025ef43e449e091"
+  },
+  "feat_activity_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6335cfda17d0ee5482583df7b175c4729bfcde040936ba2ade3852607be4ee7d",
+    "svg_bytes": "2224",
+    "svg_sha256": "b2b1e5de828358bd1f6758f49e84df5b6642509315d69666abfe236a455bae8e"
+  },
+  "feat_activity_partition": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fc76f1a248075355977665dadc10de374b117628e760afb6035f1e6da2f084f4",
+    "svg_bytes": "1786",
+    "svg_sha256": "ac13a424cae0797005a192f537b3da8be9836c3dbef662a3183c633c9721d011"
+  },
+  "feat_activity_repeat": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1982c33802a2d44e005f6177666ae8e411ed768acb8adc6e1a40ded90b5d8e72",
+    "svg_bytes": "2869",
+    "svg_sha256": "5068ed9910479bc754e5ccfcb6a3f5487b4e41ce40454f60bf4e06e6f71cad40"
+  },
+  "feat_activity_repeat_is_not": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "477841c77a4755fd40578e624e6641d34211fd46753c865d51c5db215d8839a8",
+    "svg_bytes": "3054",
+    "svg_sha256": "dbf25d570520dce38494cc0ebaf4237090a37b2a332a07156e58be5d360523d1"
+  },
+  "feat_activity_split": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "31b16c229ad831907506fe289ba8d07634762be743b75be84d8868f44802a806",
+    "svg_bytes": "2921",
+    "svg_sha256": "c1470d7a284837095127ee8835ac0d38548ef84ad80b6abb010579e9da67cbc6"
+  },
+  "feat_activity_strelka_s_metkoy": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "353e06e5a88356a36dca6e88523b64b86b68700aa866ee8d92cb1a87f9f25997",
+    "svg_bytes": "2032",
+    "svg_sha256": "8ba7b7eaa67c8ed95af2023d70dd7a10ff0c59341db82d681af8cfa3d773bb49"
+  },
+  "feat_activity_swimlane": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d4cfea3b5371dab5f8dbd05ea59f791e38e047ad4b6bb71a387d519e0a8808d0",
+    "svg_bytes": "2719",
+    "svg_sha256": "7d7e1ceeb1d20714a110954b8a05a4d3ca10fd2544c99bc2d5033294c200cf66"
+  },
+  "feat_activity_switch": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c59f44b61baeeecfd0be50f5d65d0b61068e5736099eda4b1fbeb7f4582e4b2b",
+    "svg_bytes": "3836",
+    "svg_sha256": "c21024ced976e91234851ef840113378620887e0968fb6961305ddc9af0c2614"
+  },
+  "feat_activity_while": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3d0ce72ff196c82651d3c24eb9c910ec06c590972a7b32c4f0ce1379f91f7cdd",
+    "svg_bytes": "2925",
+    "svg_sha256": "d41893f06ea0574c699337daad362968798f1a8a33e1ed99d55e441072b18beb"
+  },
+  "feat_class_chleny": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "938938d0ce36db22a0f2b0d45a6c71708897d3cbed3611b06b20c93767974e6a",
+    "svg_bytes": "2383",
+    "svg_sha256": "b8dd6c06f10a58ff94af55296bbedfe0ebec9cab2d3c2e9436116ea8807b0991"
+  },
+  "feat_class_extends": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1a8d7af6900caa392b221eb665542c27450436297f0b43f88b9136bc1c0d8441",
+    "svg_bytes": "4354",
+    "svg_sha256": "8b30121f30c8a5a09963f0d38a5f9de14a7765134a57f51019b590fc58b352ae"
+  },
+  "feat_class_generics": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9666961bdfdd9c15ed0307d40b0b7778b7d090a5602906a9063d7b8f0a7eb409",
+    "svg_bytes": "1980",
+    "svg_sha256": "1b233bbe342302ed1e6f554a8be99518287e3bab4edbc88a75ff05ad364d11a8"
+  },
+  "feat_class_hide": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "29f43d00404bf1670d0a3102fae8036b14c377cf5a90291be17788dab4ce9419",
+    "svg_bytes": "777",
+    "svg_sha256": "63d5996e922050c71222b423875ef2b5807c48271c3f59a730f5e5eeb2b53e03"
+  },
+  "feat_class_kratnost_metka": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4fb6f957a7ec814357811cef2697b07461f88b5057711c4d85b24cb8176ac2ad",
+    "svg_bytes": "3564",
+    "svg_sha256": "5f6227c9ecc787b8908021df78d19609e7dd78f16367630efd569253d96e72bb"
+  },
+  "feat_class_napravlenie": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6dca2d460d58f322e344b8ceea08747a7403e55989d530a728d98bc893eacebf",
+    "svg_bytes": "3088",
+    "svg_sha256": "9f4504ec70c6527bb412add814051b74f2a63fd735ab12d88924b3bd49936a84"
+  },
+  "feat_class_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "03e20845cc0d055f3d0ee4877c5847e5e5b8af93e8a8bd27ba70f34219045001",
+    "svg_bytes": "2588",
+    "svg_sha256": "f15451d4da78ea7a6da46288853281fde1c64d35d061d70082d5ec1fc941d452"
+  },
+  "feat_class_package": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7d6eaee8a3bf8c8f5d1b05a24bea92227548a22bb629577a3af38506bbd839b5",
+    "svg_bytes": "3774",
+    "svg_sha256": "7ac7df5f20bd622aef973a64b0f3e74a0941bac6a24a60eda38b0fa51616d205"
+  },
+  "feat_class_razdelitel": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9793217aeec2c31b55d3e2dc76f4ac3bece649d641f92d3d053eba9e868e47f4",
+    "svg_bytes": "2142",
+    "svg_sha256": "7a668ddbe534a8477bab0a89fca7173cb23c33abccb67436169fcec2cbbef521"
+  },
+  "feat_class_stereotip": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a6367ffbfdf209d2773d8566df45c8410f44101679303adf25e1f00a05546375",
+    "svg_bytes": "2544",
+    "svg_sha256": "f59f70a0fc89f88f6cc440aa8601a9aa91ef24d508c6301ab2b20f2bede0438c"
+  },
+  "feat_class_strelka_up": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4e97703826d426bad266ab6a9b047589f21b3b15dbd0b8eb799340e8af346f12",
+    "svg_bytes": "3567",
+    "svg_sha256": "bb99ec04719cd8d3a5a6414234274422321948f3a27129f9af13836520fbe779"
+  },
+  "feat_class_svyazi": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e2aab8eeafcc38c17dac16f74189b8b2f14e301baadd06effc13e26430817ca9",
+    "svg_bytes": "19781",
+    "svg_sha256": "3fdf297ba0aa112d6267c7398e6c6dea2b8af109095d74f518cfcdcbf821da10"
+  },
+  "feat_class_vidy": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "14eb773e244d96808094abdcb9caa6aa899e75d3dedfb3327fbb62797d82ac55",
+    "svg_bytes": "8176",
+    "svg_sha256": "203a9bb63c48b2b083b545817737129c43299f250619ab007cd4636aefcf5972"
+  },
+  "feat_component_alias": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "93d4e2e747dce5e9a7abed6637e0f775b210954777039dd27066cb2b273a24ca",
+    "svg_bytes": "2306",
+    "svg_sha256": "43ee3b797ed78f327e588ffcd3b8735348cc09dbd9d3fe6307c8528d7cad9872"
+  },
+  "feat_component_bazovye": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9cfa3ac7be42cf2c7734950a017f1365f9027b56daa6a33125e77af1411a47d3",
+    "svg_bytes": "3032",
+    "svg_sha256": "7ec5c427990b89615b1e705d645585d7525d3fd6fbfd0190c428cf026f67f478"
+  },
+  "feat_component_deployment": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "81914cad1a35d6d3d67985c407dd5fa6815e4fd7537ecc4c69480026a0a1a8d5",
+    "svg_bytes": "6480",
+    "svg_sha256": "d5c1c140cdd723a7d98bb6576c85f13c55001f2fc8c712a226b2eaded7902c94"
+  },
+  "feat_component_napravlenie": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "43fb0318f936da44c942ff60741c19b2faa14c544b97f5feaba1349202eefb88",
+    "svg_bytes": "2155",
+    "svg_sha256": "aadf36395d38484c94559eb5d7d74f5d35d8d9a90e7a4418b8f60024929b9869"
+  },
+  "feat_component_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "74fe2857016ec9fe17405e24630078c1b29d9114a8bb044f95c7cf132a4e2a8f",
+    "svg_bytes": "1594",
+    "svg_sha256": "0aa077f8fc053acfc78c8597eda602ce0deb4681551a3e9ef2851298b73c5e31"
+  },
+  "feat_component_package_node_cloud": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "17bc8545886cf6344eac1930e39f0e1f08596d8a64817086840eeba40b7acdf6",
+    "svg_bytes": "9317",
+    "svg_sha256": "1d86900f61a3defad923e07cfd51e1f08ab655da090257d2fe2c4802ee33f506"
+  },
+  "feat_component_porty": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ffdc6c1865e4b160bc0a27b2e18cf8b094508c307e475a9fe59e9eed00fd94b0",
+    "svg_bytes": "1901",
+    "svg_sha256": "ab56d3300b4e3f73c60fa4fc69891d26c7e9a6137b27698e75da6a4962ff2fff"
+  },
+  "feat_other_archimate": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "08ac0dfe5cbd0d9d02b56eaba2ef043b243616e5f25fd4a7309726b6818bb793",
+    "svg_bytes": "2023",
+    "svg_sha256": "14a97051bf6b61d40abc5cccf367f8296c23f02cc012bc7f3a1f364a7d97f77d"
+  },
+  "feat_other_bez_tegov": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ccbf08af9c3dcff18f13f14608a1460aae24c0be04b76e7f8572d66f68ee5843",
+    "svg_bytes": "1988",
+    "svg_sha256": "ad493c2bd1ed0bfbdd53f241d24b102d365ea2c4bf2b79b0ac8a1c27050bc0ca"
+  },
+  "feat_other_chart": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "232ba51ac5ca67f3053713af332151ac3957bc4f3f04bddd678d8e538b22ddc0",
+    "svg_bytes": "2185",
+    "svg_sha256": "b65484b8adaa9925e215df218374149911d5897c0270e0dba105216149377eac"
+  },
+  "feat_other_comment": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d142354236f083ee45b74fa7ae7464d75ff466d47cbd3910b27db72c13096ebf",
+    "svg_bytes": "2028",
+    "svg_sha256": "5fd5541127615fb56df96a4ad9a5f6413ea74651eea7a193558d7a3f800ef59a"
+  },
+  "feat_other_define": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "84aa76ee5f369c97f8492fb69c8f76d29d8ba14bde192de8c65b4329dd516e00",
+    "svg_bytes": "1974",
+    "svg_sha256": "8ecc2d34ed1883c84d3d953d8d3ed728dfcfb857bc4b86b9fdde5c65b86b5280"
+  },
+  "feat_other_ditaa": {
+    "plantuml_version": "не указана",
+    "source_sha256": "6e691af0a1abcf2ecf9b5b5d44555be1738aa3c5a71b6106e893bbc6d6497fc9",
+    "svg_bytes": "30",
+    "svg_sha256": "2ab14895ddfb44a0296d6fa08a54f36f46297f15d8098f1c79e17720fe82745d"
+  },
+  "feat_other_ebnf": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f69a4c7083b931f668473fdf42d90c640bec81526d5aad2b947c4f86c9bbb937",
+    "svg_bytes": "2377",
+    "svg_sha256": "a71c7d6a79651f3a264600c7bac7227056a23033958a028ffe5a7ecfeaf6b5e8"
+  },
+  "feat_other_emoji": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f35e5be6c07cf92c72fbce2b128db20bf6abc8c8b59dffb4b4c4502a094b1671",
+    "svg_bytes": "3515",
+    "svg_sha256": "c957acc45b7699e42fd216cff1c0327ff6184752dc88a9163ff5e4febab860a4"
+  },
+  "feat_other_er": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6154f063c8c8c48a374166287a06f3f5de3f6beef167a80435bbe61790d0bc65",
+    "svg_bytes": "3264",
+    "svg_sha256": "26a3d1a8bc5f8a36187877d3de587eed13018a6763ac615d8937a741192606ba"
+  },
+  "feat_other_foreach": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8ce8e05f89b8a0f5c855ec21cf4bd5ff500bdbd206b4cede3ea937dee09943ce",
+    "svg_bytes": "2391",
+    "svg_sha256": "44240c2a8d90acfa1837035ab17e240c1140021f74bcfe068a42d486a4f00a3e"
+  },
+  "feat_other_function": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a309504e8cda5dbabe57239adf681988f70f318054770dc220dc1c581d65811e",
+    "svg_bytes": "2045",
+    "svg_sha256": "ba002a664539a2fc93052a64550835a2d83aae3a0f16960eeedb023b891317ac"
+  },
+  "feat_other_gantt": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ee2a23485d934a3a15dae33eab91232b66b20ad447d968222cd693a8e797183c",
+    "svg_bytes": "4444",
+    "svg_sha256": "1d18f882e1b63d4508013e4f2a1a5703bee138b720c6a44cfcb6a9869175786c"
+  },
+  "feat_other_gantt_project": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1fc67ed9a51d48de7b7ec0a77363001f691196bd837188a51d2a818e8e91c062",
+    "svg_bytes": "3682",
+    "svg_sha256": "9aee90de057759cda42eb044500ae2d7e3651877198942fb4b73e2e9c2d5dddd"
+  },
+  "feat_other_json": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "017b4a596666c8cd3b947e0698cf8d4d9c3f2dab5934c3ba96f2fc6f0b8e8729",
+    "svg_bytes": "3389",
+    "svg_sha256": "17780e69811038476b99d35e297277d634ab675614ac9ec3155bbd46d95e769a"
+  },
+  "feat_other_link": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3e3fd709c5c2c9cbd9486e0f9788f21de8553341717efa01c04ec8a11acfc302",
+    "svg_bytes": "4735",
+    "svg_sha256": "194f2cf483fcb3e1115c1647151b4432d5cb0be8a8625ced903731a6d9f518a4"
+  },
+  "feat_other_list_creole": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0889cdbedef5b7e155d444508e3890fad9931555fe2ae7ad90278fac5a83658f",
+    "svg_bytes": "1208",
+    "svg_sha256": "4afe9e7ffb195edadf483424e289543ad642d9aaba59c08e453633384937ee18"
+  },
+  "feat_other_map": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2065d5108760edc94138b910b9edb38c6a92ca2102d156b455714c638011f6dc",
+    "svg_bytes": "1071",
+    "svg_sha256": "6982b6a9f394c1149307310c653e192dcaee9f1c80cb18b783b8fc2ea49bda5b"
+  },
+  "feat_other_math": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fecd327d74fee23f57abb756b2a76c8c37ebe2d78b7a5fa4dd06c2a8a2fab806",
+    "svg_bytes": "469",
+    "svg_sha256": "c70d9ba47141ccdc0b75fdf851dc19d8f2be8b5505ba54fe810cb848a2662e56"
+  },
+  "feat_other_mindmap": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3942ba27408cdbfd9a3910253d742055136dc61f52f29c69b9bad42997667724",
+    "svg_bytes": "1434",
+    "svg_sha256": "f2f578489d0fdaa0057e8f1ff7054a42a8d32605fe8f1611b6d30514114766f4"
+  },
+  "feat_other_mindmap_cvet": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8cdbf0b9b42e7e9829842681076b80181ae671cb1fdf4200375a15aa70330b93",
+    "svg_bytes": "1064",
+    "svg_sha256": "9f045370f8005c6d524a5cf622a718d071a37d6d729c4df1d868c7b95beab601"
+  },
+  "feat_other_mindmap_left_side": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f07d6f7a8cc5cb4dbb541a6abb6d5b2108f0bcbc26499615462d7243a781048d",
+    "svg_bytes": "1442",
+    "svg_sha256": "de7a1d23930f43773ee7dc64271e6bceaca53e91c776ecec590d13882e7098bc"
+  },
+  "feat_other_nwdiag": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "982e9696b65f03f0302fa9acfe75a9d9ada6e0e0f7538001536a798bd737f0fb",
+    "svg_bytes": "2148",
+    "svg_sha256": "b6587e1a775066fd3268c17005f454c67933bcbb594f9a07ed52b60fbb6efe4b"
+  },
+  "feat_other_object": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "77881aece986bc0de3076cd551042ec89eeb29c9fd941e1de605b5616ce40a74",
+    "svg_bytes": "1786",
+    "svg_sha256": "9bbfd5ab6e01d26c69429e5adf7df55c9a0d3adbca19f98f6b33fcc1c76bd603"
+  },
+  "feat_other_openiconic": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b9a1c843fb54046e561e91f6d88cbadaa7517391b52a615a8a71eaf79370abf8",
+    "svg_bytes": "2492",
+    "svg_sha256": "bda6ee7b5db619ee41f29677948114ac54f3be30b475c0cd57e4fbfa56b8506a"
+  },
+  "feat_other_pragma": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3e4fd53d96644c1cef76851460a7fde428027ae2a64a82a27c1b8a10f0c8d735",
+    "svg_bytes": "3006",
+    "svg_sha256": "e6d364fe80431ad85605045fe62dac2f221ffa2b14b3786f38b15cb231db1c2d"
+  },
+  "feat_other_regex": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "476bec105d9265ebbcda15bc19c2a3fc933c2259f820609616bbb8af8a22d3b3",
+    "svg_bytes": "646",
+    "svg_sha256": "876a48b1eff9f2e53c670ceee8262bca2ea77bc0f186fdb8fc189769cc35b06f"
+  },
+  "feat_other_salt": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "143a09e4a00c410ab2fa4b01338fcaa1e8fd557b135dbc57a57bf56f185e5b48",
+    "svg_bytes": "1489",
+    "svg_sha256": "b5a8f8b5bcfa7face22bdfa9aa370a5a4721df3330ff87b1bc9f408cffeaad8a"
+  },
+  "feat_other_scale": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "226ce7e130b8bc2baad5e4a2567281190a57c20d28cf6c39357e639310734600",
+    "svg_bytes": "2002",
+    "svg_sha256": "2da21667eef7090ef0ffa2449b3611c49687c6d3def0f3bf513a651722c09f2d"
+  },
+  "feat_other_sprite": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "bf65992a1167a1245261031e67e2c417b86e7852460492529480488c5c7306a9",
+    "svg_bytes": "2238",
+    "svg_sha256": "cf031df5ca154109cdadb0a95c63b35af7dd531d245ccf816af6ae1d6aeec37f"
+  },
+  "feat_other_table_creole": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "12b162eecb729a022ede85b133684d7d5ed0e5582bb5f20aaee924816cebd700",
+    "svg_bytes": "3224",
+    "svg_sha256": "fe28f0cea2019cc0a581b3c262c349f79ddaab54b7bf9149fb5b049cb047b917"
+  },
+  "feat_other_theme_cerulean": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9214d86528e9cb2d45ba467a8be10c17efe13e2ce9680fe131b34aaa9976ca4e",
+    "svg_bytes": "2475",
+    "svg_sha256": "af8ecd7344488bcaff018c3ca8dd5a26a098572b3213f5188b56bb3e33923e80"
+  },
+  "feat_other_theme_plain": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "5f60d8e09841db42aed570aef8382168fc87ccf3fde71535d72fc5e6ad7eebf0",
+    "svg_bytes": "2066",
+    "svg_sha256": "96cd3188213b3f8acf3e15801dc9199df19a4cfca06a91721bd9104c806ca8b2"
+  },
+  "feat_other_timing": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e249544f3392ca4516d521008681186bbcc75dcb307b69de1b3a5a1b1f12b557",
+    "svg_bytes": "3141",
+    "svg_sha256": "44ab6879e2472ab156ebfd4a07019920f0c52fb5ecb250a54f53b63db670a149"
+  },
+  "feat_other_wbs": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e2c8bef1cc566cc45ea07a9931df65e747bc6fa055d2752d2ac0f4801833fcf4",
+    "svg_bytes": "1551",
+    "svg_sha256": "247fd234344136414f5089a244bd6cb8c280fb6510f91a9b95d9e0c0926912c7"
+  },
+  "feat_other_yaml": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3027c6af02136ec24c446878db39df59d06077cce67c3f0c954cef3e7ef1a89f",
+    "svg_bytes": "2167",
+    "svg_sha256": "2a8ac8fef02ce48158ac2cc52c9eeec36c40435e8243ec81554307c09430bdb3"
+  },
+  "feat_seq_": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ab9d1bf8ceb9d756cf1042e58510c76f5213f19973eff2131559ada12a3323db",
+    "svg_bytes": "2731",
+    "svg_sha256": "95ee00fbe2ed6ae3704f70e6b0156ee08fc661e0686512df433a2606ee79188c"
+  },
+  "feat_seq_activate_return": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "35a0eaaab9ae799fb5e92ffd153fbd9a2d8ecc97651df51587c2f049e19fae19",
+    "svg_bytes": "4019",
+    "svg_sha256": "f28496c8865429c96e2bdde8f6c06946610d087847bf8db4ba5fc38986280cd4"
+  },
+  "feat_seq_alias_cvet": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "675e423a58d32678b1706c3a93fe0b025585ea7bf22b7d85eb15cbc71f4bf252",
+    "svg_bytes": "1696",
+    "svg_sha256": "ffb1b08dc17128042b956e030e4fa73b033caf067c7d7b784ed56d0204c0c302"
+  },
+  "feat_seq_alt_else_opt_loop_par": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1698a14bb70ec07c021fa737093bc37bfe8d5e382f409d22d8f7931f1ca1b46b",
+    "svg_bytes": "5910",
+    "svg_sha256": "040b1f392e4fe659ff5f2a4608a810dd59c6d7c2c45dd23c203be31a1068877f"
+  },
+  "feat_seq_autonumber": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3d7d6eafe1a0e59b3a58d71ee2450bbe785b208ebf810232162178a74a0c3f8f",
+    "svg_bytes": "2582",
+    "svg_sha256": "e61aeb6f4852fe7531ff6d4744cf6c58d359636c81f50ee072521d6c506a13c7"
+  },
+  "feat_seq_bazovye_strelki": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4512fe2903477b000385d5f84430d201a79aba4655e44e1cdc5361087c558a37",
+    "svg_bytes": "3128",
+    "svg_sha256": "f11e49a3a7f7d74ad89a7f2e0464e17ef62d5e7cccc7ea2259389d3ebba366ae"
+  },
+  "feat_seq_box": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "63e3ae5154ee77457fbd113484f1aca378bb49220e2cdd806dd9f83310c9e3c7",
+    "svg_bytes": "2280",
+    "svg_sha256": "1e46dab1021e0f18503bd448b124f8cea17ed24505ebfb04e7aae78eb1f8ee78"
+  },
+  "feat_seq_create_destroy": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7009eb06cc68554e8758b36eb14804a579937122be7db6dd9ffc184ac4dde00f",
+    "svg_bytes": "3199",
+    "svg_sha256": "b3d5e95d57a39f58e108190c8247327914230c24f54008469c03d583054c69fe"
+  },
+  "feat_seq_creole": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "cc04979231bb1d37cee4f18935a753698717a74d508de57526b09b795947dc30",
+    "svg_bytes": "2790",
+    "svg_sha256": "c7a6708a2b1d070c32774d3fbbaf954b7a365518e3e9090ed5ec87fb1acf20a6"
+  },
+  "feat_seq_cvet_strelki": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "51dc4b332da6667d547ccb4b7fc1b18bda0d96391a1b7efc4ffa95f9f69864ae",
+    "svg_bytes": "2374",
+    "svg_sha256": "cc6c1219bfb76fedc6f665ec86f800abb61fbb78ea058b2bdbaa82dd0d356a9f"
+  },
+  "feat_seq_group": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "533e360b22874a4f8db4783de2f4f598a99953449e428ff7447180186e18fed5",
+    "svg_bytes": "2630",
+    "svg_sha256": "cb9646a09cdb25cf90492b619d6c490fe5d40c1fa6ee24fc24d435ace677178e"
+  },
+  "feat_seq_hide_footbox": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "858788531855db791dc4af6ee23f77e1a5f68ec8645521e2932236278c7bfc92",
+    "svg_bytes": "1615",
+    "svg_sha256": "172488c81da65df6a7ab97098b2e6fb3d7506c866ee14563f09ce40180026de3"
+  },
+  "feat_seq_legend_caption": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "67cd6f59abff4839411a3e08b7b722d131f991891b54ed05520528c3129f29fd",
+    "svg_bytes": "2324",
+    "svg_sha256": "2b370f7fbfe743c8f2063cdd3f47b167f7ab9710f1771c76d51b6971b8c797f5"
+  },
+  "feat_seq_newpage": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b3a8f4ef59c94e9f0b2d3385f3c26a9213434a0532c8910947ba6eaf48c45ed5",
+    "svg_bytes": "2121",
+    "svg_sha256": "d353c97ef923a04a1307c93017898cb34bf2abc058cf38a48f35748dbce8fa88"
+  },
+  "feat_seq_note_varianty": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d1c32da026d02aca4f2579c4fddb4098ca9db7efff2146f561a72b67a0f9aa43",
+    "svg_bytes": "4150",
+    "svg_sha256": "2d6e835891fc2dce95d3727ef856632b93c462b72b080b3e4a09773606011e3e"
+  },
+  "feat_seq_participant_tipy": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ada6d00f8886d190312d39f37537aa2ed73ac3ba8914a5c8f8d7633300394275",
+    "svg_bytes": "7418",
+    "svg_sha256": "27c2da16ca84d89e6b04d5cec9c6a26c681f5d65cc5f412fa1d32a564778198f"
+  },
+  "feat_seq_perenos_n": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "48a9488c986220351d53d9c3718c2b1bfd55424bb1633277cd4ab2d52a4c613c",
+    "svg_bytes": "2589",
+    "svg_sha256": "7cde8b492f8cf3d400fb3f742c497c3b7cac5c265b518864f99c644673b7476a"
+  },
+  "feat_seq_ref_divider_delay": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "670e4e10ccea76866201ef42a122f3d251964f2197a053f18fba34fcd3d3b360",
+    "svg_bytes": "4078",
+    "svg_sha256": "8462444e02ce5f4c7b7889dbff99c8191cc31c49b9d5843ab2713ea67b75f4a8"
+  },
+  "feat_seq_skinparam": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b7a397caf27ccb0f4e38abf25b34bb63fddd2a8c0dcc4ee6c35d1ddf4482c1bf",
+    "svg_bytes": "2068",
+    "svg_sha256": "572371f10a86111815c168ff08ce9b9c32c38edb1ae91a38d6d54d1b9bfda178"
+  },
+  "feat_seq_title_header_footer": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8828414d84c500280c337922bf71fbe1cb9bf79fdc881afa14672ee4ae89ceec",
+    "svg_bytes": "2449",
+    "svg_sha256": "97f72160bb4edf02bdb86a2f3108cf7fb9e57e27be6aebe394bd3544032ce012"
+  },
+  "feat_state_bazovye": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ade542624c69b4f7d1753be297167e2da669b401a4a3b903f4d0396f5fbbb332",
+    "svg_bytes": "3024",
+    "svg_sha256": "4da3b0cf5fee4e763de91eb3538fa6b6d5076e25cd945bd0f2ea02f559142299"
+  },
+  "feat_state_fork_join_choice": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0c5eeca42f0a199c3e6ff820c77b972d5a8ccf8566e337a2e44ad4e553244fd7",
+    "svg_bytes": "5463",
+    "svg_sha256": "65a1fbfcc253545eb4342720db0377e6d8e2f63dd2f85e464cfadc7b12dca6ae"
+  },
+  "feat_state_history": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8cddd254ec4c5adfa537a94a021cddd362b98bf1cb63278cce6ef085ab76e254",
+    "svg_bytes": "3169",
+    "svg_sha256": "ac538ba29fb0d4de5f42ea9be0b9a045aa5c828ff74a1e4e04e466b9f205dc13"
+  },
+  "feat_state_konkurentnye": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6413db7532981b731b8df8ea27077f1a82da3c4512fce57c071081d1adbb3b67",
+    "svg_bytes": "3135",
+    "svg_sha256": "3de6c87f8a898226918ed0aca5c2146f9e9300a25b64e82b657951f9e72c9206"
+  },
+  "feat_state_napravlenie": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "dbbc3d6810b322cee13794168c99df5323c632a6965aab8e6673de165bb42844",
+    "svg_bytes": "3128",
+    "svg_sha256": "b0d561605a74f6914924de1f6d6edf8c14aeae67a00a594012aefa53ff91b0f9"
+  },
+  "feat_state_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1c3f38c7ec3492fe2961ac5c8c59fda7676577266d437b2e5214ec94942ff34e",
+    "svg_bytes": "2808",
+    "svg_sha256": "7910afbba63cfa2b23abb914ffcf3035076272923bd7cb59555c46d1fb74cc14"
+  },
+  "feat_state_opisanie": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "51ae7c1f6555f7509f0f6231b393a888b388034ed380f0151bde1c33a8ea32a2",
+    "svg_bytes": "1875",
+    "svg_sha256": "c98a5669ad09ff98fa6f180e8e39967cc4e33b6c9608c2f731d7f47fb6159de0"
+  },
+  "feat_state_vlozhennye": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3a93a709a07249b1c500820e800e6036b581c26451ad3e488eaf9a2f2e99cdcd",
+    "svg_bytes": "3427",
+    "svg_sha256": "be33999e0ae9667042b904b47bea3dddf5b0845fb6f5b398e9614842d45b5608"
+  },
+  "feat_usecase_akter": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e8a12727a67912b7c37746377582fca175db2af91040e8e5ecb4d5b5488e81c8",
+    "svg_bytes": "2522",
+    "svg_sha256": "b75db452e0bd7a83d4af93ba66707cc6bc4a3355c0f2ffcfe5269d691e0c6153"
+  },
+  "feat_usecase_bazovye": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c72a410284f2e3f09105deffb296fa8d8083b70dd10d5ad2a8de6da5f0731b6c",
+    "svg_bytes": "2423",
+    "svg_sha256": "af0420a43d576ff59b5de1091cfc2b587792114cd655d81f4b9975eaea06b5b5"
+  },
+  "feat_usecase_include_extend": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c831a7f895ae49f7e59f6359e69e979ab6e386ea8adb17e79d015290ea73fcf9",
+    "svg_bytes": "2515",
+    "svg_sha256": "87e4dc7904ef6d45ec3188be293a3f5caab58ce8a45b365206835f1ac6a30658"
+  },
+  "feat_usecase_napravlenie": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9555da76255532d98427966feceb2d59e30e7527f05019f2b3d384c8bb92c452",
+    "svg_bytes": "1620",
+    "svg_sha256": "cced0d3904f6b7e4b62d08bed2769e58c68cc85b96f5844d5d1bf8002b858c65"
+  },
+  "feat_usecase_rectangle": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b1b9734fb6981872e1b8d5171f47832e98d8bcc1e163121e3c14175d6ebdb9a1",
+    "svg_bytes": "1928",
+    "svg_sha256": "f1d2e0a2abf2c1c1ce52b3fc2131983457ea5831cf4627acab9f14f0f8587e8a"
+  },
+  "real_activity_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8e95500ffc07026283d17d5b6d4f82b5d85909641a9105fa357815322b279fb5",
+    "svg_bytes": "12883",
+    "svg_sha256": "3291b2202209049b2cb8a644943dd09c72771e34ea333198f418d72a663bd1c0"
+  },
+  "real_ai_prompt_example": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9859d4c4d3dccfbe712c46158f763d94087c33eb2d0674d9d90dee1b7c89d71d",
+    "svg_bytes": "2581",
+    "svg_sha256": "29d1d9ec06376121656d019830fa755e8d8a9680041c44ee0e3f2b9b032767f1"
+  },
+  "real_c4": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "677a90349082462a4ad74694ffdddd85ca836abef9d14c87a1556b369f72e985",
+    "svg_bytes": "7089",
+    "svg_sha256": "ec6cbc7a0bb72d386b887322a444bcb8986c454f30e4371927f5dd83cc705a78"
+  },
+  "real_class_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8e8a2dc0a72e917ce8d5cf966792def10aaa92c5dc337552d280219edb035f5d",
+    "svg_bytes": "8536",
+    "svg_sha256": "483b020de79b6dcbe9fdc73e18c2570e542612fb09d72367585bf6afa1261c31"
+  },
+  "real_component_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "98ec685739b145e3e0dae17197d7a2ec939506df13c736b1579f88ab270ac6cf",
+    "svg_bytes": "9054",
+    "svg_sha256": "db511e0d33a8931ea45a483c5f7d49bd05d18456501ececdfbb7d57db5fce6ab"
+  },
+  "real_empty_tags": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1a659415258ffab728a7e2caf6c78b78fb13a9540a990635172152b0420c2e3d",
+    "svg_bytes": "5332",
+    "svg_sha256": "347e9071d722798049fef09816a1f76e3541dd340f33a70b549fe2db61b9f901"
+  },
+  "real_er_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a940fe3081fda45479a4d304470ccae2efcfed4af29b06baae7a70a052bae8dd",
+    "svg_bytes": "3889",
+    "svg_sha256": "21abd38a496688a4bbfd8339a22a5adae4ef465d9feded3cc3408267c8ea33e1"
+  },
+  "real_gantt_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "de407cbe95b1a0ce982b8d278c8a8d1430fa745d88c30dab6bbf26fffe39abdb",
+    "svg_bytes": "9932",
+    "svg_sha256": "3fe6c6d3faf08aac99b1669a2cfbdca67f23a918a451976ed41f1974e0295ce2"
+  },
+  "real_macros": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a388f43515cc1ce147ac388f4c6bb6d27b788aa1b95d840ec86ca2c8bbc21568",
+    "svg_bytes": "2687",
+    "svg_sha256": "25f3d99e72279b92eef7e8e42344f09f4a75792ee0060de00462949aa0fb0d99"
+  },
+  "real_mindmap_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ca9ced156e4977ce98333a856ec7c6be614fcdde47e4f336ee13b83d4ee72488",
+    "svg_bytes": "2707",
+    "svg_sha256": "8d96103c08d639876802418f51eab0c7e331aed7929aec063ef9c6818edc0e72"
+  },
+  "real_no_tags": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "17dfff40fe402517e1ac5c4daa1c820fbc9b33f7d36aaa638edec42eea78b73d",
+    "svg_bytes": "2128",
+    "svg_sha256": "236238fa8bf7a73c47a40abe03cf55b4973981cca8a85f8dbd0494b783343995"
+  },
+  "real_seq_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1a3a78d890448e033dea5b45b2206e30dfed39c793cddc2e3626d826cbc0376f",
+    "svg_bytes": "14930",
+    "svg_sha256": "3c17c854f285fe4a33bc82e7b0e5216a278ad4a50904c3b8cde5b55e5d6ec0eb"
+  },
+  "real_state_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "07ab99db9bd33bf1f57c46740f9c1266b9b7679b1740ede2db8c48d59cc54946",
+    "svg_bytes": "9890",
+    "svg_sha256": "0cc6a263e3246c3b6fee04e97d9fea9cb1ed2aa47b79f65b85c5e0f229902674"
+  },
+  "real_styling": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "61679ef6e5b292e593fa81678a6436537faecf7672fd9535e53b5d6aa76669ec",
+    "svg_bytes": "4961",
+    "svg_sha256": "57686bb0c0a8e01e2109acadd46ac77b24d442ccb99d989a1ae26659c79cc441"
+  },
+  "real_syntax_error": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "afc691adfb99526eb2291843b7157d26f5c0d6c7275f678ed206ff3b27cdf358",
+    "svg_bytes": "15428",
+    "svg_sha256": "0fe5cf28d97a2efc06af488f8ec98cfbec8ba863635e50d846e4053405b4b7ad"
+  },
+  "real_usecase_real": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "bdcb1786ae4b70ac95fbac389534d0d96b7806e045bab1783cb1221bca4f9bb9",
+    "svg_bytes": "4016",
+    "svg_sha256": "dd0efe37abc7950b16063087b88cebdb70572dbea4b8dbe7b32626270bdf3e6b"
+  },
+  "ref_lang_001": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "69b9af8f248d7f81180a968679ee573de35ff06642019243cde3ef48ba1d2e69",
+    "svg_bytes": "5389",
+    "svg_sha256": "b8139224e6ceac8e5d60157f3b1b0c1d5502d7cf88c0bc8a59085bc8d8a27565"
+  },
+  "ref_lang_002": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3f0deb3e210eefed3479a25b03592f32d4f0de2f43fca7d29387a3f03fd8536d",
+    "svg_bytes": "1039",
+    "svg_sha256": "08d1ed9dd118ab4eded6f7214a1c136dd18c573ca98a7eba513e0983b0a20af1"
+  },
+  "ref_lang_003": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a02108710ffe7d5763b53cf271a7cc89e7b489b8677a6cc11b6e12bc8b15511a",
+    "svg_bytes": "2290",
+    "svg_sha256": "1cbbab33525118f79d6d4a7274a6ebef9403695890ebfe60043f88123a11ec20"
+  },
+  "ref_lang_004": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "908874fcf4378223463a5e9edc78491598a93cbe1511b39ce333c9fd763eec03",
+    "svg_bytes": "11094",
+    "svg_sha256": "881cbb7f99076777b3478503287226f72a7ca61ea7fe3a0270597b48c0de3479"
+  },
+  "ref_lang_005": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2172af2466cd29104105a8dbdb9cb08594e089a723514b8b9fb06b28e5415ebe",
+    "svg_bytes": "2462",
+    "svg_sha256": "d4bcb612ab85765084374daa4461708ddb85887870e453aa70722284e897c82e"
+  },
+  "ref_lang_006": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a5bd9ee94c475f20c349f4b65e72a24bf078efd1618b8960b4bcfecc38dcd8f0",
+    "svg_bytes": "2143",
+    "svg_sha256": "310275730034147f870d4e48573877d1ecfff7bfd9732c53ca2a1fb269a6ce37"
+  },
+  "ref_lang_007": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f39cccc659785521b5a62bd72d37b0494013e8fd1e1473d4279977d00c16d5df",
+    "svg_bytes": "2473",
+    "svg_sha256": "4c3e67812135c75eaac89f759cadfe99ba0d4489d2b38fc2681c9789fb035bb4"
+  },
+  "ref_lang_008": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a60276ed87726958594d50e37374a740f6ca9e7ff0a8fad615ec027daca011a0",
+    "svg_bytes": "4304",
+    "svg_sha256": "d8cb82becdceabf184428f5e77a0a597ee3fbe84086ca43ee5c269bb47ea390b"
+  },
+  "ref_lang_009": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ab010f117f2d52f1fd48dc0bd09c9297647c782277033ea559482507fbaf0354",
+    "svg_bytes": "2477",
+    "svg_sha256": "af3efe6637c81d93588013da2529ae92c2f2c6727d5373beba1a6b62676103b2"
+  },
+  "ref_lang_010": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "87409f0fc34046225092b1d1d098fd6bade311789f1432c3868fe6939bd81a92",
+    "svg_bytes": "1761",
+    "svg_sha256": "35f94a77668359ca07ed249c309c373213c5674069742441c9830a2586d06d97"
+  },
+  "ref_lang_011": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c4572e2ec50d6abdf1bb7ae91a0b89232dd91608954b089b99acd90f740509f7",
+    "svg_bytes": "3429",
+    "svg_sha256": "66fe44317e4320a0b9dfafe49106b1548c6a36ce36da28f48e88da264984c4cf"
+  },
+  "ref_lang_012": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f5ea050bddf3db55f8b5282f39826c72489df6652574ecfc8c403745367cb4be",
+    "svg_bytes": "624",
+    "svg_sha256": "f5e8b42f0e8d94624c60c2f064ee43690cee03ec0c328978fc47d55aa64e05f9"
+  },
+  "ref_lang_013": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "52f36254b9a24b6e25df24f29e9aaa26b68d89c5f34d917f939dc2b9685dfde6",
+    "svg_bytes": "6622",
+    "svg_sha256": "ae7f206a0548784782ef70f55cc7043f0ef043c4136a1a6fc8c672a0d37c4b56"
+  },
+  "ref_lang_014": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9fda8b638a6c3e3eb2a2683f89ab27e1bd3f5e725c867ad2b703e6918efee8c3",
+    "svg_bytes": "4292",
+    "svg_sha256": "8f8c74c20bca1fe79ff5ee60d758df23e9d3878d68af81999353158a2d320a61"
+  },
+  "ref_lang_015": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "600b28b4afdb6b49dc8523ddebfdd2a8d0ea4f2bc696f32fd5832e70f16a65c1",
+    "svg_bytes": "3456",
+    "svg_sha256": "dd6783c827a281846bb4a1309df0e26376596e4b997ecacc6f1c4261f9e03431"
+  },
+  "ref_lang_016": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a178a8d74504f1181801947955ffb75ff4940913c67ceb49693445f08f5fb8eb",
+    "svg_bytes": "5381",
+    "svg_sha256": "cf42b266b7ba0654d83f17a81cd92c8db1886c9cee21a4931d498737e9694856"
+  },
+  "ref_lang_017": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0f86a608f2e0032a5c48926dc2d46edc7455009dd39a217d61be05b0ea83994c",
+    "svg_bytes": "3817",
+    "svg_sha256": "99d28753df7c043c56fce7b27d543493eded9d2d514bdcabd3a0f1de42c45431"
+  },
+  "ref_lang_018": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c88ed3b7282bcd2874cd179632eb059dd43256f05d4cb0aebd8318c48ee28eef",
+    "svg_bytes": "3214",
+    "svg_sha256": "e7ad81574fd0b206b8d6c6940a61121aeed6c3dfdff796b8b0a5e031ad5aa0e2"
+  },
+  "ref_lang_019": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "efb244ad037a0ccb6e026785168120d9759559cfec9275f298cf7eed7025a45d",
+    "svg_bytes": "10975",
+    "svg_sha256": "cf2a8a8c3d61932ee3b38f48f883f846a7c912d7427abe7999f01b11523adc3f"
+  },
+  "ref_lang_020": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "55c51259d5ca2f69fc18d54f768cb38c61eb4f1597ff3478469cd87e666966ab",
+    "svg_bytes": "4036",
+    "svg_sha256": "c137967d7f0efd465e4ab4a837b88e1a6682a5ba6bdfcca93c1d41405e3e744d"
+  },
+  "ref_lang_021": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0a798ae48605f629777e2e763525406958876d23332c80c75e49c36d9057f0c2",
+    "svg_bytes": "6209",
+    "svg_sha256": "c9e39540784d96ada501d00b6efada5c5610bca3bec2821f85fae66fdb70f398"
+  },
+  "ref_lang_022": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "bf5a936a030a10b698810dcce228499a97301d286a4f19061e3572fa4b448283",
+    "svg_bytes": "2901",
+    "svg_sha256": "29d02e43f86ff6962ac5823afa2ee8e220e7f4da6095f0e3bcaf6d21ef20417f"
+  },
+  "ref_lang_023": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "175df3631ad7b49a60685177b642381368116490db9918d4e25a58826d786871",
+    "svg_bytes": "4445",
+    "svg_sha256": "5b1a205ad83009dfa04fa61e8d7e0b2503528116d4b5b5f6fc1ad55095632e92"
+  },
+  "ref_lang_024": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8190581795c29e05c06bba2249a98a62f1f4172cd5a2d5099914e006f25ea017",
+    "svg_bytes": "3524",
+    "svg_sha256": "5c25881bed293cbf56319256b862153b8c8aa57fe56429c2d6660e98e2d62a96"
+  },
+  "ref_lang_025": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fc8a4cc3612b64df4bc660a5031e80de39a082461b3c3f53678ebf2c3bca7aa8",
+    "svg_bytes": "4461",
+    "svg_sha256": "c0fdaf12c7727b398903d446e0c32ed9f154b9ba1169fbeb42fef9f139c99f3a"
+  },
+  "ref_lang_026": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "185edcd4c3fd812b188bd443e81f960ffdeba81bdb7dc7e574c3f38e264a02bd",
+    "svg_bytes": "2946",
+    "svg_sha256": "66c10ff778445b6a35c22354c651594cb8161ca29c17d2c0997fcf51aa1703f8"
+  },
+  "ref_lang_027": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ea911476fa5bc7aa5a19ef7a90b88d158941fad030c4569806c6efc21c60bb07",
+    "svg_bytes": "3511",
+    "svg_sha256": "7de9c77ce4979a00ba973ce49086488d6acd2e499f64e7e7b2cb8b0822cbdee6"
+  },
+  "ref_lang_028": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6834f85ef8b9f44afa5ee8ecd7c1ae3b23debb0b773a0a27bb0f5788d275ec3a",
+    "svg_bytes": "2951",
+    "svg_sha256": "88d894b80294a9e7b72abb3f3552b86b3f854d1c274764c3f8904dc6e7ddaadf"
+  },
+  "ref_lang_029": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "cb8eef32a69c8d2a6bb2019aee0a53b573aac9adbfff597221d60c500d66735c",
+    "svg_bytes": "20186",
+    "svg_sha256": "70accb2ec31e87bc24f5f62bd15539e876f81572e28ffb465cd42d02668a1f5d"
+  },
+  "ref_lang_030": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "86ff9354b6a03db90298c3acd2e9dde801ae9a430f84957663ce2dc6951db65a",
+    "svg_bytes": "2470",
+    "svg_sha256": "9255421dbea941f922b7d5c3b233718ffe4e57dc3cb710bd70fa5718ad164c1d"
+  },
+  "ref_lang_031": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e599a58179ac95cd885ea6b4847cdca898df08ef91e00b878e32637b05b7e97f",
+    "svg_bytes": "4063",
+    "svg_sha256": "bc43bc58a3f01dc65aee1a4ff270c690ccb480c378f878a1e3930b7f1a4a91af"
+  },
+  "ref_lang_032": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a964db07a5f8445098384bf425b3c55eac3e4dabca890dd9a28c8774e6bec9cf",
+    "svg_bytes": "5121",
+    "svg_sha256": "8241abe44128aae875c795e9ca127d1c242fede1d966d153c8ba43012d3d8225"
+  },
+  "ref_lang_033": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9f10ec44e63eb414e02acd0128fb3daa81d5358cfa9be96fa3e66242460107e4",
+    "svg_bytes": "3913",
+    "svg_sha256": "3aec7c7f37c40594bdb2c87adf3316d367e08a17f58e751610df9f2c38f48bdd"
+  },
+  "ref_lang_034": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "08dea2f11ef1d9273fe241b65f045848937f241a7b18c5e4230fb5b10eac0e34",
+    "svg_bytes": "14366",
+    "svg_sha256": "22e462b8e985967b86af193735b1439ae323d20bdff483eb018e1e0fb729e2c1"
+  },
+  "ref_lang_035": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "5934ba712fa780206635cc330a74b8bcbecebad32c86a4c5f6b9fdd06d8bcf5f",
+    "svg_bytes": "21127",
+    "svg_sha256": "868c36c401dc1c96c0ba190084a2ba2c88ea30dfae66331d31923e6207178ab7"
+  },
+  "ref_lang_036": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "10f3f66ad0fe52414d14f70aca343b58db6b81120d9a04f23f8f0580bbad7bbf",
+    "svg_bytes": "9299",
+    "svg_sha256": "ded8d704644219d7a5ab9cdb6239ce9be01f3d1a8641b06d1099e3ce9b29066e"
+  },
+  "ref_lang_037": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f93d5103689d35daffb6132a3687662419654686a09910925035f4f232ed01b6",
+    "svg_bytes": "4260",
+    "svg_sha256": "6dcc7c0476fc613d88489d0b016ef2d5a35b3401bcc8873bea005ad4ffeb1066"
+  },
+  "ref_lang_038": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "399b68bc3f413ee035c05fa0e7634d294e0a039e82946f487b7b1241d5c7b385",
+    "svg_bytes": "4125",
+    "svg_sha256": "a34a49b32e689cb4d6485e72029648b5811b8ae9ce6494cc7385f73745615d6b"
+  },
+  "ref_lang_039": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "5c5e5f7580ad6bba4ced1d7e7f7e11f9fa2f3245e0cd882905c374a893b0096a",
+    "svg_bytes": "3589",
+    "svg_sha256": "233edcc1d91c8130fdb7027718d58d06c886a41b74900827e7b038645d32bb2d"
+  },
+  "ref_lang_040": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "be567e35645031eaca1c5cb82b1cf8f5103b93669aeb6874928b88f4ca9311db",
+    "svg_bytes": "16428",
+    "svg_sha256": "d5975c8c2d1e2a34ccdf2a3ac6bfac3760ec4319dab7f35da02897b38e087896"
+  },
+  "ref_lang_041": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3b37985e073dafc75735183ab695e3db6256cfd837b36c1a26e5bde063e53c36",
+    "svg_bytes": "5168",
+    "svg_sha256": "93ec330b5cf48b1b113c46922339cc3ef69f0cc044690c53bbae30a9fd041219"
+  },
+  "ref_lang_042": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "70874332ce32af575b81335cb40fa05b62c20fb6e3d4ef49a6d8dcb6a08ddd68",
+    "svg_bytes": "12670",
+    "svg_sha256": "eee40c8b173f54cab17f307a304d5deb101f93ed6a0a38441380840463b7f511"
+  },
+  "ref_lang_043": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "357233a441fa9bee03bbf37d98858d33998d5d683a69831d6b5d04104ec7f2e3",
+    "svg_bytes": "15565",
+    "svg_sha256": "9a171bd5901dca5c8c57089e8f36e02a2977934dbbbd289a9123ff3d412dacbe"
+  },
+  "ref_lang_044": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "158c35bbe16454884f5279433b690cbebe178f92ac2885000b55bbf8949ea271",
+    "svg_bytes": "8408",
+    "svg_sha256": "b513ca418bbaba37617906ebe4522c2ba47766af85b95121b6500bf3e82437f5"
+  },
+  "ref_lang_045": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c007fbe377a534b6353c03145c71e03351cc847930bb30d1934048e7c03fcdb9",
+    "svg_bytes": "3878",
+    "svg_sha256": "3dc827231212b676c91de8dd5a59e141ab3ab9c44eeeea073113ff4bb0bb6e31"
+  },
+  "ref_lang_046": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fad66d12df2c4fccc650e2d87142af9a48b5c3d9832cd1408db449d49ec1acad",
+    "svg_bytes": "13811",
+    "svg_sha256": "128e5b97d9461e7f6260a4c31116ea719cadaa18c82e9411e962be031f8c5f0b"
+  },
+  "ref_lang_047": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2251334c8f87355cb1e34f8d8fc1836d3436831d0ed48227150fc9af1cae18af",
+    "svg_bytes": "2965",
+    "svg_sha256": "5fa1e3be3324f149db52545595f441e8bedd57c25a6032e31216dd1c83632354"
+  },
+  "ref_lang_048": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0aac782cde589801bcd1d929a6c7c61e9cd1cb943da890211356d422b9bd9425",
+    "svg_bytes": "1305",
+    "svg_sha256": "d1f4e492a28ccd33d257040f08e1e9d17e60da18b71875fa7cdda1061f7fec1b"
+  },
+  "ref_lang_049": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "dae4a8fddfe366be8abcd1ad0e8beac85047ac05382b4782081a811bff5309bf",
+    "svg_bytes": "2012",
+    "svg_sha256": "4be5f405e2cba1bd3ec0d853a4ba7cbb57f88a42651df263d434264949af2f81"
+  },
+  "ref_lang_050": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4c0105fd96f70b65c5db737926f068f70d5b970a67085bfa2af79c7be0685616",
+    "svg_bytes": "3825",
+    "svg_sha256": "fccee305899860a111d74a4b9c8a9ef85178e0de9b29de0812790778e0530ece"
+  },
+  "ref_lang_051": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b75df40e1c61bacef590be0e249d699f2ad0c75109752a6a29be435ad430b1e1",
+    "svg_bytes": "6327",
+    "svg_sha256": "e44b56b567d24647a62bc990333af6fa10a534faf83d57593b67f63b7310bf3e"
+  },
+  "ref_lang_052": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3ab8f5f09ba55b4a76f99612340bc39bd0d993a575e5b234d4bc36819feb7186",
+    "svg_bytes": "4898",
+    "svg_sha256": "cb2ff6d6f8cec580b10cdf4e11d7395e9f8541c24f9201925360827d167a98a6"
+  },
+  "ref_lang_053": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4eafdf2055d7de8fbb97428a154341a75ecc88112f134a99c9d1a13aa84f0a19",
+    "svg_bytes": "3813",
+    "svg_sha256": "dccb44c149c4e14c660c989c1cf5ac8144dffbda9228c732266aa3c767e2ce89"
+  },
+  "ref_lang_054": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "33278c1010a5dd74a3ff722b894df846660bd40067d8bb69c1e251e8a94fa912",
+    "svg_bytes": "2749",
+    "svg_sha256": "5a5ad8fe1b81e5dbfd3a56648b82787c88d0acc8900f0044dfd758e8122dbdd8"
+  },
+  "ref_lang_055": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "184fc77191498b5c29c4af881393ec050ff6ba0e1e5fa964486d01f545b43857",
+    "svg_bytes": "3049",
+    "svg_sha256": "942920f60a31cfacb481446d7bf5879f8c8bf8a0ae70b8cfb0948574029dddda"
+  },
+  "ref_lang_056": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "386bfe112baea8b8d1c01beb005c7f72a62810fd4f7784aaa27baccc14c39889",
+    "svg_bytes": "4172",
+    "svg_sha256": "9dc1b2204cc09938d88bd0d5850d281ac18c948318e63c6c5007f18726c24171"
+  },
+  "ref_lang_057": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1fb8c8ed938a36b2adb1263d9dcba94875d7d17a77a9b5a0db19f22e65cb4923",
+    "svg_bytes": "3111",
+    "svg_sha256": "ae79c7b99f8e8620a4da6dfdcb7a90240075afa762bb44d2ede5e9a6e1c2a934"
+  },
+  "ref_lang_058": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f72543c54f40c9f4f6dadc95168af1490db6a1209fa833d7e4669304861af2a9",
+    "svg_bytes": "2669",
+    "svg_sha256": "23d91733d73fee804ca3a3ae715fa04553a4d024f027a55b420763fc33ea3d8c"
+  },
+  "ref_lang_059": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "99195745d8bbcd135b12e285fbee8b58e03c58ce89325665d115840d29ba1826",
+    "svg_bytes": "4260",
+    "svg_sha256": "8fe25f23654db4a6d3069917c918f4b5b9e8c33a05e4086fe9bd4c6389d5ce58"
+  },
+  "ref_lang_060": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1abd6d7ae679456516a4374e23ad48c7bf8c8a4f6932a628a9a9caf2e063a9dd",
+    "svg_bytes": "2464",
+    "svg_sha256": "8ceb5ace0edcadad0118e89617843e9d1460cfca9a18bca75fe9341157f00944"
+  },
+  "ref_lang_061": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4f61158f61d9f9d77cc106a151f8603bbcfd61affe8357ed0f55cd4f17fcd15e",
+    "svg_bytes": "3216",
+    "svg_sha256": "8239797b2ba00e0919d697b7a9d74dea30c2a9224711a62ed3b809028db1d06c"
+  },
+  "ref_lang_062": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3f58b3d252192a729fb2f8c28a67bbacf0630527d0eb7071bfbe7ddf1408d494",
+    "svg_bytes": "3621",
+    "svg_sha256": "57c12898964c103868ac2eb23728703323a87299f0f52734d5379e17f28ab17e"
+  },
+  "ref_lang_063": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8fe3a8fe7e73af1b4cc4f6bba495dc6dacc054b1b9e3d69dfb77f1e2f1b26155",
+    "svg_bytes": "3345",
+    "svg_sha256": "33a9eeddbc6bdefda25f54ddea1286eb9a158c892bee4eb59d248945ac073398"
+  },
+  "ref_lang_064": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "cf530d51779932be59447d60e33240d96d1919ea2fc506c5c0aff94d0e81f300",
+    "svg_bytes": "2519",
+    "svg_sha256": "6697b0a00cfdae2c6d628d3e1717415c6aaa3836ea9bed00ec67ae99afef7d92"
+  },
+  "ref_lang_065": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "6230097c9e97e23de4a7f9356c1c187a49ec5aec493676cf8840d0aaae15d8be",
+    "svg_bytes": "3873",
+    "svg_sha256": "13acd9852ea2febbfbd237b1a33d956a896f1db445ffe42b13d4038a2e6de4e7"
+  },
+  "ref_lang_066": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "5fb4b11e7f9cd16f24b3ff606ccc09c07d64f2a00fe7ab5edb53e015edaff14a",
+    "svg_bytes": "4336",
+    "svg_sha256": "9cd590ba73d42a59b10c3614db6d891283663c8793b38f086a41bdd6abbce8e8"
+  },
+  "ref_lang_067": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7c641603693189cf799c98bdb84c41c9e82e027819bc8ef9de06e0d9db549ce5",
+    "svg_bytes": "1680",
+    "svg_sha256": "8ff3479e70218b31f866b7d54026cd101cb0d016d573287d76ca4e614465309d"
+  },
+  "ref_lang_068": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "34454f0de127abbf61ab176a002090ce58b0290684828b9c6d37da525b86d5a9",
+    "svg_bytes": "5165",
+    "svg_sha256": "1a3a5dc1c0d6fb05d6394ced6a8fdc2140116a65cb34fb59d54426cc22ada5ca"
+  },
+  "ref_lang_069": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "5a88e97282dc4635e64f80c73a0de3bd690026a72a4f59d49b1c9add2429d5dc",
+    "svg_bytes": "4835",
+    "svg_sha256": "1312a33e0406b87109995096807b37cb915af1b3636fa34a658da8c19c78b570"
+  },
+  "ref_lang_070": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "048564bb2021912833c5b38b233f6188df66b6fefb09aba6c9c59d64c26c0d9d",
+    "svg_bytes": "7461",
+    "svg_sha256": "3850de4c881427f3f1a1ff6996e3def12979cd795f4364a6d9b6636bac5edb97"
+  },
+  "ref_lang_071": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a5d265fdf08e268d8bdcfe67e3cec4e0124e89a18029dbb6a850ccfde77941f8",
+    "svg_bytes": "3318",
+    "svg_sha256": "3b55a96f5af6dc105470aec8f88990f6dd38fc0fefc98f57cc0ef0125bfefea1"
+  },
+  "ref_lang_072": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e088c8d975ca05a58135ddae627168851f0814f4d4eb2db5350afba8f4e6214f",
+    "svg_bytes": "4224",
+    "svg_sha256": "430fab32f7943a61c0ba66aa6306c3f859ea8f4a4548e5b311ff3791850cba6b"
+  },
+  "ref_lang_073": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ed2cdc03ed9cffadb22fc18135260925ffbd4a795ccd6dab5324449650b1bbfe",
+    "svg_bytes": "3753",
+    "svg_sha256": "5e8291f61a05818dce225f2381825390347adcb09711b542c2030e77e0f807df"
+  },
+  "ref_lang_074": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b9c128700a64f0fb6766596cc1feae8c99378250727fd06f6ddc6e68231978f7",
+    "svg_bytes": "1827",
+    "svg_sha256": "26b606010ff15b6360c7443f5dd7600de0909bf0dda1db877b0e5ead417d5ea7"
+  },
+  "ref_lang_075": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e0fee8c3b80669b0cfbb7a8b6bbb82499bfaffe83680b860c4522368a9af6143",
+    "svg_bytes": "2493",
+    "svg_sha256": "8f5b9f034f25532cc9918d71e8603ad4975068840ada40a6245c31c838202955"
+  },
+  "ref_lang_076": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a67995937802d21c20c8132412b15d32e8b749bc80688000942c55fd6cba15b2",
+    "svg_bytes": "3885",
+    "svg_sha256": "bd1a3d0ff11c44b471d9b5e1572531ff89dc13ce7407e2a881ae38713e6ca0ea"
+  },
+  "ref_lang_077": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1f3bf7818257612ee5a2ffda5b3492043090e174ed990daf4bcd4a6225cc7461",
+    "svg_bytes": "2920",
+    "svg_sha256": "de720d4c2ef6df77c2cfc6afdaa23bf07012fbd48b88388e7f80802744430fdb"
+  },
+  "ref_lang_078": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4d38581982425088758c8957b961752a3650a0234f3d79730d9ceb7e02150172",
+    "svg_bytes": "2957",
+    "svg_sha256": "6e25288f5cee322240d6352bfd53617cbe30a0dd00e262465e15b2e0461753ce"
+  },
+  "ref_lang_079": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7abaf513392b3768fa06ef7b524764fc4efb71a053ea644daa43f888de82b147",
+    "svg_bytes": "1455",
+    "svg_sha256": "0dc210aab5671d3eebee3fc6e41e09d44f6d397daece43527754f3217cca32b1"
+  },
+  "ref_lang_080": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9a2ac295b711670c74e5fb730f224880010208313beb573168a03f7cca24258e",
+    "svg_bytes": "6447",
+    "svg_sha256": "a3ae507e3c297387bbe7fbd3afe5cf32711d7baa9c49f2fe5cfa0385f088f531"
+  },
+  "ref_lang_081": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9f353d7438c3039df9e733185a59726ab7a9857d3a0c39588fa014a04f4e3c61",
+    "svg_bytes": "4650",
+    "svg_sha256": "139b6b3ac6c9e206aab8d464a5f4a882fd43a569d54ecba9f11ca091e591ec35"
+  },
+  "ref_lang_082": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f3c330b030f3580733d7ebbb489c271576498bbbb0074fbb5ffbef1b24fd0b25",
+    "svg_bytes": "2239",
+    "svg_sha256": "a24d3d640cd0fc2b559bc28446f750e09718425c156a403c05a07cb5d3d307bc"
+  },
+  "ref_lang_083": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "42799e5ba64a9e3ff00d747de1605e1e8cfe4ce15e7ad7334163770fe09328fa",
+    "svg_bytes": "4572",
+    "svg_sha256": "95a86a6bb7f2fd44742c628f4cdad96d23cc4782be46643f5a4a5a2b5e553ffd"
+  },
+  "ref_lang_084": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c81b8d5663f30272b2e9fe2ab86d11d37961057b2035f46a80568959e1c20a6c",
+    "svg_bytes": "3044",
+    "svg_sha256": "3ca8a6e74ee1be8e9b2ceca7991cd0d85191f21aa53c012329f625fafc2a0e5b"
+  },
+  "ref_lang_085": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "95aa931f64baf80b42e10a682d76e51c1528af563085a94cbafd74bbf08ab68a",
+    "svg_bytes": "888",
+    "svg_sha256": "9d3b407edb84290ac15fba009b084af1e19a26ef4b086510705100017afa9d77"
+  },
+  "ref_lang_086": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fd73e1af4e6ea53327ad8741b261df42da959ccf5e8810707db3b38705a5297c",
+    "svg_bytes": "564",
+    "svg_sha256": "cbe7a1fe25831b7151860a1126dd29345694aad25bc22667c10b0a4e1dbae696"
+  },
+  "ref_lang_087": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3dc6df41ce48a4a76bbef1695b282afbbda46a46606d11535f19fc9239998d4a",
+    "svg_bytes": "1292",
+    "svg_sha256": "f5e8f96525902335e23278849c8ebf17e6a4331f40814619be8b6e4ce8af6827"
+  },
+  "ref_lang_088": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3db4a1407b1f9aa02b840944318c02988418c37556420a96315cedd59c16cb4a",
+    "svg_bytes": "508",
+    "svg_sha256": "82a9d781d7e712ff35d2eb2f202caade35d6d6f7de82c0d86efaa2b60a4bf28b"
+  },
+  "ref_lang_089": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d3ddb0424f9ed96487c3549ae2ca1fdfc623c1be8423546866cbfa4e70aa8b33",
+    "svg_bytes": "6360",
+    "svg_sha256": "e69483e54130a4c05ad650a13ce133bb94b657fbf0a55e0048f76d52e55efce1"
+  },
+  "ref_lang_090": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7bc28842a5f0b6f6a09548ee5e96cae22554bff23d3a5eb265cc9cfacc8510fd",
+    "svg_bytes": "1031",
+    "svg_sha256": "6d31368d781da3dc229b8c76e55e5752bf1c0f9f864b11ca73396cd75ade09c6"
+  },
+  "ref_lang_091": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4fb19a0184bb2803979b85efcb62442f3ccf3272e46343f09a32c8d43e5f3df0",
+    "svg_bytes": "6235",
+    "svg_sha256": "49abd6ae915d14006e7fdeeee0f7d7756e9ed8ded30a53118e2c12f6f5bfbf9f"
+  },
+  "ref_lang_092": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e78d8986d67852ed82aab2ff40d089e83a6e779b97172ecef1ed50c5b52ada8d",
+    "svg_bytes": "6251",
+    "svg_sha256": "fabfb4bf3ce282f89db3942d93302f761061ed970337dc66ad22eb7e53d62b64"
+  },
+  "ref_lang_093": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "04c4dfb5199d2e32358af136080228ab8a3a34dc28206f7cf2b6b441b48e412b",
+    "svg_bytes": "1807",
+    "svg_sha256": "d92e1a1d0300f047219ab0c7db1646282f2cdd24cf55de45ee52bf7783750697"
+  },
+  "ref_lang_094": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "146bfb58b2d1be6eee16dc554f5a4d15c81e3208cd61528a92c604b798ecbe77",
+    "svg_bytes": "480",
+    "svg_sha256": "634acf539f333c9be2b453c43ad8319b852d812cd44ed082e6ca831c8f611bbd"
+  },
+  "ref_lang_095": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "62b32f4006a715ef2d42be062952470f8a763537b49845b4abb07d2b7ad15d23",
+    "svg_bytes": "1914",
+    "svg_sha256": "706b801a8fd2e357089893258fb44ec9f7ccea34b6aef45e27e25852324f3b16"
+  },
+  "ref_lang_096": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ff034a49836073f919d897f59f35e2e73a2a22814da221436a484f200afeefe7",
+    "svg_bytes": "1540",
+    "svg_sha256": "6dd9f2114fa09ba97bea7a7e9a9ea0b88c1c4dab0bf719bb1669a04eeaea4acd"
+  },
+  "ref_lang_097": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "695bbfef9f16488b24bb83a6a476bd50ef8e98e941888ea8046981846b8de56d",
+    "svg_bytes": "1967",
+    "svg_sha256": "c90a33f1f2b6b21143a7341219cfeb4ff14f5fee370309deb094a362c7eaa293"
+  },
+  "ref_lang_098": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c75fe5bde9070c33afaa83839300f5df0ef0e81cdf8695541f27be0d8ca1394c",
+    "svg_bytes": "5991",
+    "svg_sha256": "4a320e37caf1c0a601b236401cf56ab9537217d7868fc2b46f1930eee82bf84d"
+  },
+  "ref_syn_001": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "a2755f66593a7dff1eaff6d33e5d014197e8d9e7720f85f440b84aeadd7a41f2",
+    "svg_bytes": "5401",
+    "svg_sha256": "24765755972e65ebbf452368bef79bb968507b6a7d8a3677c14085feebe2dbe8"
+  },
+  "ref_syn_002": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8823e191ca33d51d78d6941a6c25d1e445c87ac11e05e92f6598be2e39b65332",
+    "svg_bytes": "8305",
+    "svg_sha256": "a859d2a59f7b4cb8e2b1df5431665df2d2b64c7e1335dbbff7965a68f772a12b"
+  },
+  "ref_syn_003": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ecb6c6e203c434155b7d883c8d950e0be0c48e2b3c411ee955fce2fdaf54ed13",
+    "svg_bytes": "5060",
+    "svg_sha256": "7fe5c41b8764de5f24a839d7629113de43c576a5743bf6b426f1e4bdfc32e43f"
+  },
+  "ref_syn_004": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "64fd8fdd81594460761c8dc72d1882ca09e299c16ac0dd69ac60914983384d0d",
+    "svg_bytes": "1665",
+    "svg_sha256": "d74c5fb5869e06575f7813eb3983ced63ecce33218e701761e28431083f6226a"
+  },
+  "ref_syn_005": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4e5d0bea1e84bc9b49d983e257a7b5377cfa189c97d7c22faa7613a3d7b0d91a",
+    "svg_bytes": "4296",
+    "svg_sha256": "56b4978cf8c8b5a0a9a1eb48a1730c7f828533428ed8a35d113d4a9ca9c674c2"
+  },
+  "ref_syn_006": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "38527d8fbd4d1579bd45f85157a34605e45ef3fb78a75ca5db96964d01e18e30",
+    "svg_bytes": "4276",
+    "svg_sha256": "effe4533bbe7946908085fbc2b44d5bb9af3a6cc50bd3d094370e149128099cc"
+  },
+  "ref_syn_007": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "87b37cd468bef66902ae8dd57ede4c9e6b293b1b774983099c264bc8e97b9976",
+    "svg_bytes": "11012",
+    "svg_sha256": "63f3ab93eed477ea46093d18e096beec569d4adc5e4b263de24dd4b986d7c5c3"
+  },
+  "ref_syn_008": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4835224b607cb8a4e73e53dd9c79fe7541ec124e6ee1ec4a2c324893981c8f1f",
+    "svg_bytes": "3787",
+    "svg_sha256": "a2436988ef322124a260acf6fe2508cac0f7a3db6195404d50afeeb86267d06b"
+  },
+  "ref_syn_009": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "05ab09458267303bd1c482696cf323b1f12a1a5a010a566215615f6c0958ac88",
+    "svg_bytes": "3554",
+    "svg_sha256": "83c4189f468c109dfc7d21eda6b2879326e1895ace991ed43100160078b025ac"
+  },
+  "ref_syn_010": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d6ef458b28ebd74c5a77d71d85aab87f718c8d73b7092ce7df7680dc75dd3255",
+    "svg_bytes": "6399",
+    "svg_sha256": "492e447ed57009a2d75c51c50fa52fe34c24a98a49d7c03fdb246d254a429795"
+  },
+  "ref_syn_011": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f1dff9afa52f91e109e698c934619909c54277da73a2101361850ba33e32c5f3",
+    "svg_bytes": "2155",
+    "svg_sha256": "d4904ce1666066255e99d73f9dbb0c4494388fd7a078c215b878bf5c7095e9f8"
+  },
+  "ref_syn_012": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c09008323b14130f80f7470f64f21c0aacac4a002d930aa64fe48ebaae63f011",
+    "svg_bytes": "23836",
+    "svg_sha256": "9a651ff2c2fee0babfa3bef9ea545a4c022a2663af54b004fd5ac667e3d85ae2"
+  },
+  "ref_syn_013": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2f10bfddc488bc1b8c5eae56f350530522aae296124a2e0d16e9d456ccfa60c9",
+    "svg_bytes": "3369",
+    "svg_sha256": "9f655fff089c9268c3e7dd5b4f041f12c09a57f5bf4e73adce35c0ec4bfdaef9"
+  },
+  "ref_syn_014": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "9799cd4892e5eb7cbed458321f0d213fbd94f41eeaf019af90467082db7be086",
+    "svg_bytes": "5642",
+    "svg_sha256": "a9b743ca3433ec7ba7317f1f2c76bed6de6916b2a8c167aae2c158497df75581"
+  },
+  "ref_syn_015": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "65ab48b59ee7880d9db0a2706de6c0493516d6c262962ca0d954e1a570b9086c",
+    "svg_bytes": "2000",
+    "svg_sha256": "673df40529fcd005f0bfc310315693b139fe3d84cb0099d4c24e61baa3eb76ad"
+  },
+  "ref_syn_016": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f7065a803bdeed4f5107df6867a0e785fc64fb04edb7022d9e1c6898b93e3b9e",
+    "svg_bytes": "3859",
+    "svg_sha256": "477b2d0bed5a546940495a8c0ef6132d23348344db6250db5374bae05bdd824d"
+  },
+  "ref_syn_017": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4ccb8aa56d1ee0ad6c3e34b78c85f440dee3d12bfd66a873f3f39710a02020ac",
+    "svg_bytes": "2768",
+    "svg_sha256": "78ece7e24ea375b072fc779c5c47f563a408dc7c5aa2fe44f22ad1a20268feca"
+  },
+  "ref_syn_018": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0d0a624a6f297e44cf154baefbdc16829cdea6a70c05cb26347f2419184c7103",
+    "svg_bytes": "3138",
+    "svg_sha256": "3f7cbc0210b6e37e5e22c522fed853e4489a488629dab8b2362aaa1719418be5"
+  },
+  "ref_syn_019": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "f2712536b957352639ec48366afd59e8a148b5b35a2ef905d1368bf26a859045",
+    "svg_bytes": "3019",
+    "svg_sha256": "0335d17c199a74d5adef907221aa91447f236ec67840b04ae0ffb5fbbcfdf383"
+  },
+  "ref_syn_020": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "99f405d986a213fdcdcf9162ac2ef3c52766c1ae7167e465204e018e0499d5b7",
+    "svg_bytes": "3804",
+    "svg_sha256": "3b6b66d357aaadcd9f5baecdad76e344afbb087eb03428fe160b10d91b715047"
+  },
+  "ref_syn_021": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "71d474ab8890ad056df8d82b26179516fd03f145e7514acc575a5df96f92a848",
+    "svg_bytes": "3205",
+    "svg_sha256": "6f0d1d8a111905a9c19e2f5098b207a45098f4801ece967460113948ae921d9d"
+  },
+  "ref_syn_022": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "b285b205ac2bc8295bc4c20abe9fda8e118eb813de34f681608c33a86f197018",
+    "svg_bytes": "5242",
+    "svg_sha256": "6dfb2b81743dbb8d6f70b602cc171a273471a560eb76c7a18446528f04ce6492"
+  },
+  "ref_syn_023": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "aea5c6f32351b82c4944366c5a0324d30ca7432217251af675b1e05e6ee816ac",
+    "svg_bytes": "4243",
+    "svg_sha256": "3b4751790b4328c04c869a7aaf0e38513df5c23876d6e2b04da36edd922e41eb"
+  },
+  "ref_syn_024": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d6c1599e68327c11cf46437617d49726b3b8f7b91c69b2031ca8d674b51ec40a",
+    "svg_bytes": "8850",
+    "svg_sha256": "15d84c5e90a5b54fa3e04aa141f9590974f429d86c6d4b17350fa17badff71eb"
+  },
+  "ref_syn_025": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "bf3eb4a29726c15dce0e78147e7954577a6aa16cf93645a85fc2e5c6e34561e8",
+    "svg_bytes": "4832",
+    "svg_sha256": "8398caf3346b7bccdbd1f6a5ca25e1906b40b1d04ff3e2e2f29c85500789ce08"
+  },
+  "ref_syn_026": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2e76a9c666922a1c13a0c6f4133b3703429b620c4cf61c5a1f0a5c33a2f804cd",
+    "svg_bytes": "1128",
+    "svg_sha256": "a3de157ebbf35fde52d5a61cd14c7c3693c00882d0599dcae422d0c30f670d59"
+  },
+  "ref_syn_027": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ca88fb0b1305387ba56d67f4830cc3f5ef9d1133589999978531919eb6195b55",
+    "svg_bytes": "955",
+    "svg_sha256": "fb297d7de50b01d3f868331683413ee924e02e734a925d07ed19590f04721d37"
+  },
+  "ref_syn_028": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d32df7709f09b1ba9ba12d6be9052e752d8999916f9ba7b5223bb085d0b9b249",
+    "svg_bytes": "6235",
+    "svg_sha256": "49abd6ae915d14006e7fdeeee0f7d7756e9ed8ded30a53118e2c12f6f5bfbf9f"
+  },
+  "ref_syn_029": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e78d8986d67852ed82aab2ff40d089e83a6e779b97172ecef1ed50c5b52ada8d",
+    "svg_bytes": "6251",
+    "svg_sha256": "fabfb4bf3ce282f89db3942d93302f761061ed970337dc66ad22eb7e53d62b64"
+  },
+  "ref_syn_030": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7132aa19e0213330efb8817e36ec658954d6f721a1a922369f106db330c164ee",
+    "svg_bytes": "10312",
+    "svg_sha256": "65c1e5081c11c307468d144b52edb047c69fd45eefccc024cc8e9248df7c40bc"
+  },
+  "ref_syn_031": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "37b7da00a9d081914943d8646d67d1876b9a6e3816d6a0c21998fb524ddddc0c",
+    "svg_bytes": "421",
+    "svg_sha256": "c430352b80f454e6926232d5199135c2c6b2aca9e2c4f32e8ec421724e734204"
+  }
+}

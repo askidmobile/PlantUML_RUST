@@ -1,0 +1,7 @@
+@startuml
+!function $double($x)
+    !return $x * 2
+!endfunction
+
+!$result = $double(5)
+@enduml

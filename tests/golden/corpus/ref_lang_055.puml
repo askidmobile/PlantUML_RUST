@@ -1,0 +1,11 @@
+@startuml
+start
+fork
+    :action 1;
+fork again
+    :action 2;
+end fork
+stop
+
+' Или end merge вместо end fork
+@enduml

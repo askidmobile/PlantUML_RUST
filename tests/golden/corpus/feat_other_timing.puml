@@ -1,0 +1,9 @@
+@startuml
+robust "R1" as R
+concise "C1" as C
+@0
+R is s1
+C is s2
+@10
+R is s3
+@enduml

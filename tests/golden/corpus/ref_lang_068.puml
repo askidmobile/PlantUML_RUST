@@ -1,0 +1,9 @@
+@startuml
+state S {
+    [*] -> S1
+    S1 --> S2
+}
+[*] --> S
+S --> [H] : shallow history
+S --> [H*] : deep history
+@enduml

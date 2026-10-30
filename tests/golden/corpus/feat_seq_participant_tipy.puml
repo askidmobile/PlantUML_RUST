@@ -1,0 +1,10 @@
+@startuml
+actor A1
+boundary B1
+control C1
+entity E1
+database D1
+collections L1
+queue Q1
+A1 -> B1
+@enduml

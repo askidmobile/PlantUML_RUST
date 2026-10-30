@@ -1,0 +1,10 @@
+@startuml
+!pragma teoz true
+
+{start} Alice -> Bob : начало
+Bob -> Max : что-то
+Max -> Bob : ответ
+{end} Bob -> Alice : конец
+
+{start} <-> {end} : время выполнения
+@enduml

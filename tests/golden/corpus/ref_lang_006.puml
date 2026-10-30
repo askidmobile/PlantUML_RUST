@@ -1,0 +1,4 @@
+@startuml
+participant "Длинное имя" as LongName #red
+actor Bob #lightblue
+@enduml

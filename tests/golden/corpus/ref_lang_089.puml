@@ -1,0 +1,6 @@
+@startuml
+!$name = "Alice"
+!$color = "#FF0000"
+
+participant $name #$color
+@enduml

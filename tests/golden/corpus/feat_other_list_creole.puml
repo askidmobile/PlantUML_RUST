@@ -1,0 +1,7 @@
+@startuml
+note as N
+* i1
+** i2
+# i3
+end note
+@enduml
