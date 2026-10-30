@@ -61,6 +61,8 @@ pub struct State {
     pub exit_action: Option<String>,
     /// Действие во время нахождения
     pub do_action: Option<String>,
+    /// Заметки, написанные внутри тела составного состояния
+    pub notes: Vec<Note>,
 }
 
 impl State {
@@ -79,6 +81,7 @@ impl State {
             entry_action: None,
             exit_action: None,
             do_action: None,
+            notes: Vec::new(),
         }
     }
 

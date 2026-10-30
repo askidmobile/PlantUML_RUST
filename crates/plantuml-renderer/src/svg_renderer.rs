@@ -1797,16 +1797,18 @@ impl SvgRenderer {
         group = group.add(separator);
 
         // 4. Описание (entry/exit/do actions) если есть
+        // Каждая строка описания (`S1 : a`, `S1 : b`) — отдельный текст.
         if let Some(desc) = description {
-            let desc_y = separator_y + 15.0;
-            let desc_text = svg::node::element::Text::new(desc)
-                .set("x", bounds.x + 5.0)
-                .set("y", desc_y)
-                .set("font-family", theme.font_family.as_str())
-                .set("font-size", theme.font_size - 2.0)
-                .set("fill", theme.text_color.to_css());
+            for (index, line) in desc.lines().enumerate() {
+                let desc_text = svg::node::element::Text::new(line)
+                    .set("x", bounds.x + 5.0)
+                    .set("y", separator_y + 15.0 + index as f64 * 16.3)
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", theme.font_size - 2.0)
+                    .set("fill", theme.text_color.to_css());
 
-            group = group.add(desc_text);
+                group = group.add(desc_text);
+            }
         }
 
         group

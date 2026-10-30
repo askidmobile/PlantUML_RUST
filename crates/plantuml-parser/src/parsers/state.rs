@@ -32,7 +32,113 @@ pub fn parse_state(source: &str) -> Result<StateDiagram> {
         }
     }
 
+    resolve_aliases(&mut diagram);
     Ok(diagram)
+}
+
+/// Добавляет состояние в список; повторное упоминание дополняет существующее.
+///
+/// `S1 : описание` после `state S1` — это ещё одна строка описания того же
+/// состояния, а не новое состояние: иначе строки терялись или рисовались
+/// отдельными блоками.
+fn merge_state(states: &mut Vec<State>, new: State) {
+    // Состояние известно и по имени, и по псевдониму (`state "Имя" as id`,
+    // затем `id : описание`).
+    let Some(existing) = states.iter_mut().find(|s| {
+        s.name == new.name
+            || s.alias.as_deref() == Some(new.name.as_str())
+            || new.alias.as_deref() == Some(s.name.as_str())
+    }) else {
+        states.push(new);
+        return;
+    };
+
+    let description = match (existing.description.take(), new.description.clone()) {
+        (Some(old), Some(added)) => Some(format!("{old}\n{added}")),
+        (old, added) => old.or(added),
+    };
+    if new.state_type != StateType::Simple || !new.substates.is_empty() {
+        let (alias, color, notes) = (
+            existing.alias.take().or(new.alias.clone()),
+            existing.color.take().or(new.color.clone()),
+            std::mem::take(&mut existing.notes),
+        );
+        *existing = new;
+        existing.alias = alias;
+        existing.color = color;
+        existing.notes.splice(0..0, notes);
+    } else {
+        if existing.alias.is_none() {
+            existing.alias = new.alias;
+        }
+        if existing.color.is_none() {
+            existing.color = new.color;
+        }
+        if existing.stereotype.is_none() {
+            existing.stereotype = new.stereotype;
+        }
+    }
+    existing.description = description;
+}
+
+/// Заменяет псевдонимы (`state "Длинное имя" as S2`) настоящими именами в
+/// переходах и заметках: иначе у состояния появлялся двойник с именем-алиасом.
+fn resolve_aliases(diagram: &mut StateDiagram) {
+    fn collect(states: &[State], map: &mut std::collections::HashMap<String, String>) {
+        for state in states {
+            if let Some(alias) = &state.alias {
+                map.insert(alias.clone(), state.name.clone());
+            }
+            collect(&state.substates, map);
+            for region in &state.regions {
+                collect(region, map);
+            }
+        }
+    }
+    // `S1[H]` ссылается на историю составного состояния: псевдоним стоит перед скобкой.
+    fn rename(name: &str, map: &std::collections::HashMap<String, String>) -> String {
+        let (base, suffix) = match name.find('[') {
+            Some(at) if at > 0 => name.split_at(at),
+            _ => (name, ""),
+        };
+        match map.get(base) {
+            Some(real) => format!("{real}{suffix}"),
+            None => name.to_string(),
+        }
+    }
+    fn apply(
+        transitions: &mut [Transition],
+        states: &mut [State],
+        map: &std::collections::HashMap<String, String>,
+    ) {
+        for t in transitions {
+            t.from = rename(&t.from, map);
+            t.to = rename(&t.to, map);
+        }
+        for state in states {
+            apply(&mut state.internal_transitions, &mut state.substates, map);
+            for region in &mut state.regions {
+                apply(&mut [], region, map);
+            }
+            for note in &mut state.notes {
+                for anchor in &mut note.anchors {
+                    *anchor = rename(anchor, map);
+                }
+            }
+        }
+    }
+
+    let mut map = std::collections::HashMap::new();
+    collect(&diagram.states, &mut map);
+    if map.is_empty() {
+        return;
+    }
+    apply(&mut diagram.transitions, &mut diagram.states, &map);
+    for note in &mut diagram.notes {
+        for anchor in &mut note.anchors {
+            *anchor = rename(anchor, &map);
+        }
+    }
 }
 
 /// Парсит тело диаграммы
@@ -41,7 +147,7 @@ fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut StateDiagram) {
         match inner.as_rule() {
             Rule::state_def => {
                 if let Some(state) = parse_state_def(inner) {
-                    diagram.add_state(state);
+                    merge_state(&mut diagram.states, state);
                 }
             }
             Rule::transition => {
@@ -72,7 +178,7 @@ fn parse_statement(inner: pest::iterators::Pair<Rule>, diagram: &mut StateDiagra
     match inner.as_rule() {
         Rule::state_def => {
             if let Some(state) = parse_state_def(inner) {
-                diagram.add_state(state);
+                merge_state(&mut diagram.states, state);
             }
         }
         Rule::transition => {
@@ -96,6 +202,7 @@ fn parse_state_def(pair: pest::iterators::Pair<Rule>) -> Option<State> {
             Rule::state_composite => return parse_state_composite(inner),
             Rule::state_simple => return parse_state_simple(inner),
             Rule::state_alias => return parse_state_alias(inner),
+            Rule::state_stereotype => return parse_state_stereotype(inner),
             Rule::state_choice => return parse_state_special(inner, StateType::Choice),
             Rule::state_fork_join => {
                 let text = inner.as_str().to_lowercase();
@@ -126,6 +233,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     let mut substates = Vec::new();
     let mut internal_transitions = Vec::new();
     let mut regions: Vec<Vec<State>> = Vec::new();
+    let mut notes = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -143,6 +251,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
                 // сваливались в один список.
                 let mut sub_diagram = StateDiagram::new();
                 let mut current_region: Option<Vec<State>> = None;
+                let mut inner_notes = Vec::new();
 
                 for statement in inner.into_inner() {
                     if statement.as_rule() == Rule::region_separator {
@@ -155,11 +264,14 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
 
                     let mut one = StateDiagram::new();
                     parse_statement(statement, &mut one);
-                    match &mut current_region {
-                        Some(region) => region.append(&mut one.states),
-                        None => sub_diagram.states.append(&mut one.states),
+                    for state in one.states.drain(..) {
+                        match &mut current_region {
+                            Some(region) => merge_state(region, state),
+                            None => merge_state(&mut sub_diagram.states, state),
+                        }
                     }
                     sub_diagram.transitions.append(&mut one.transitions);
+                    inner_notes.append(&mut one.notes);
                 }
 
                 // Последний регион тоже нужно сохранить
@@ -169,6 +281,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
 
                 substates = sub_diagram.states;
                 internal_transitions = sub_diagram.transitions;
+                notes = inner_notes;
             }
             _ => {}
         }
@@ -191,6 +304,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
         entry_action: None,
         exit_action: None,
         do_action: None,
+        notes,
     })
 }
 
@@ -238,6 +352,7 @@ fn parse_state_simple(pair: pest::iterators::Pair<Rule>) -> Option<State> {
         entry_action: None,
         exit_action: None,
         do_action: None,
+        notes: Vec::new(),
     })
 }
 
@@ -277,7 +392,27 @@ fn parse_state_alias(pair: pest::iterators::Pair<Rule>) -> Option<State> {
         entry_action: None,
         exit_action: None,
         do_action: None,
+        notes: Vec::new(),
     })
+}
+
+/// Парсит состояние со стереотипом `state Имя <<Тип>>`.
+fn parse_state_stereotype(pair: pest::iterators::Pair<Rule>) -> Option<State> {
+    let mut state = None;
+    let mut names = Vec::new();
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::state_name_part => state = Some(State::new(extract_name(inner))),
+            Rule::stereotype_name => names.push(inner.as_str().to_string()),
+            _ => {}
+        }
+    }
+    let mut state = state?;
+    state.stereotype = Some(plantuml_ast::common::Stereotype {
+        names,
+        background_color: None,
+    });
+    Some(state)
 }
 
 /// Парсит специальное состояние (choice, fork, join, etc.)
@@ -307,6 +442,7 @@ fn parse_state_special(pair: pest::iterators::Pair<Rule>, state_type: StateType)
         entry_action: None,
         exit_action: None,
         do_action: None,
+        notes: Vec::new(),
     })
 }
 
@@ -355,7 +491,7 @@ fn extract_transition_endpoint(pair: pest::iterators::Pair<Rule>) -> String {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::initial_final_state => return "[*]".to_string(),
-            Rule::history_state => return inner.as_str().to_string(),
+            Rule::history_state | Rule::state_history_ref => return inner.as_str().to_string(),
             Rule::simple_identifier => return inner.as_str().to_string(),
             _ => {}
         }
@@ -748,5 +884,37 @@ join1 --> [*]
         let join = diagram.states.iter().find(|s| s.name == "join1");
         assert!(join.is_some());
         assert_eq!(join.unwrap().state_type, StateType::Join);
+    }
+    /// Строки `S1 : текст` дополняют описание состояния, а псевдоним
+    /// заменяется настоящим именем в переходах.
+    #[test]
+    fn test_description_lines_merge_and_alias_resolves() {
+        let source = "@startuml\nstate S1 : d1\nS1 : d2\nstate \"Длинное имя\" as S2\nS2 : d3\nS1 --> S2\n@enduml";
+        let diagram = parse_state(source).expect("разбирается");
+        assert_eq!(diagram.states.len(), 2, "двойников быть не должно");
+        let s1 = diagram.states.iter().find(|s| s.name == "S1").expect("S1");
+        assert_eq!(s1.description.as_deref(), Some("d1\nd2"));
+        let long = diagram
+            .states
+            .iter()
+            .find(|s| s.name == "Длинное имя")
+            .expect("состояние с псевдонимом");
+        assert_eq!(long.description.as_deref(), Some("d3"));
+        assert_eq!(diagram.transitions[0].to, "Длинное имя");
+    }
+
+    /// `S1[H]` разбирается, а вложенные составные состояния с отступом
+    /// и разделителем регионов не ломают закрывающую скобку.
+    #[test]
+    fn test_history_ref_and_indented_nested_composites() {
+        let source = "@startuml\nstate S1 {\nS2 --> S3\n}\nS4 --> S1[H]\n@enduml";
+        let diagram = parse_state(source).expect("разбирается");
+        assert_eq!(diagram.transitions[0].to, "S1[H]");
+
+        let source = "@startuml\nstate P {\n    state A {\n        [*] --> A1\n    }\n    --\n    state B {\n        [*] --> B1\n    }\n}\n@enduml";
+        let diagram = parse_state(source).expect("разбирается");
+        let parallel = &diagram.states[0];
+        assert_eq!(parallel.substates.len(), 1);
+        assert_eq!(parallel.regions.len(), 1);
     }
 }

@@ -1226,15 +1226,35 @@ impl ActivityLayoutEngine {
         let mut properties = HashMap::new();
         properties.insert("fill".to_string(), ACTIVITY_NOTE_BACKGROUND.to_string());
         elements.push(LayoutElement {
-            id: format!("note_{}", elements.len()),
+            id: format!("note_shape_{}", elements.len()),
             bounds: Rect::new(x, top, width, height),
             text: None,
             properties,
-            element_type: ElementType::Rectangle {
-                label: note.text.clone(),
-                corner_radius: 0.0,
+            element_type: ElementType::Note {
+                label: String::new(),
+                fold: 10.0,
             },
         });
+        // Текст построчно: подпись примечания в одну строку многострочного
+        // текста не переносит.
+        for (index, line) in lines.iter().enumerate() {
+            let baseline = top + 5.0 + (index as f64 + 1.0) * 15.0;
+            elements.push(LayoutElement {
+                id: format!("note_text_{}", elements.len()),
+                bounds: Rect::new(
+                    x + 10.0,
+                    baseline - self.config.font_size,
+                    self.config.text.width(line.trim(), self.config.font_size),
+                    self.config.font_size,
+                ),
+                text: None,
+                properties: HashMap::new(),
+                element_type: ElementType::Text {
+                    text: line.trim().to_string(),
+                    font_size: self.config.font_size,
+                },
+            });
+        }
     }
 
     /// Фигура действия с учётом стереотипа и цвета.

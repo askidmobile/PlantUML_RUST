@@ -70,7 +70,7 @@ state_def = {
 state_composite = {
     "state" ~ ws+ ~ state_name_part ~ state_alias_part? ~ state_stereotype_part? ~ ws* ~ "{" ~ NEWLINE ~
     body ~
-    "}"
+    ws* ~ "}"
 }
 
 // Простое объявление состояния
@@ -129,12 +129,14 @@ transition = {
 transition_from = { 
     initial_final_state 
     | history_state
+    | state_history_ref
     | simple_identifier 
 }
 
 transition_to = { 
     initial_final_state 
     | history_state
+    | state_history_ref
     | simple_identifier 
 }
 
@@ -143,6 +145,9 @@ initial_final_state = { "[*]" }
 
 // [H] или [H*] - история
 history_state = { "[H]" | "[H*]" }
+
+// `Состояние[H]` и `Состояние[H*]` — история составного состояния.
+state_history_ref = ${ simple_identifier ~ ("[H*]" | "[H]") }
 
 // Стрелки перехода
 arrow = {
