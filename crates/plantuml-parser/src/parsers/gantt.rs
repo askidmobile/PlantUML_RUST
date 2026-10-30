@@ -282,6 +282,12 @@ fn parse_task_modifiers(pair: pest::iterators::Pair<Rule>, task: &mut GanttTask)
                     Rule::complete_modifier => {
                         task.complete = parse_complete_modifier(modifier);
                     }
+                    Rule::color_modifier => {
+                        task.color = modifier
+                            .into_inner()
+                            .find(|p| p.as_rule() == Rule::color_value)
+                            .map(|p| plantuml_ast::common::Color::parse(p.as_str()));
+                    }
                     Rule::on_modifier => {
                         task.resource = parse_on_modifier(modifier);
                     }
@@ -420,6 +426,7 @@ fn parse_milestone(pair: pest::iterators::Pair<Rule>) -> Option<GanttMilestone> 
 
 /// Парсит milestone time
 fn parse_milestone_time(pair: pest::iterators::Pair<Rule>) -> MilestoneTime {
+    let text = pair.as_str().to_string();
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::date_value => {
@@ -428,7 +435,15 @@ fn parse_milestone_time(pair: pest::iterators::Pair<Rule>) -> MilestoneTime {
                 }
             }
             Rule::task_ref => {
-                return MilestoneTime::After(extract_task_ref_inner(inner));
+                let task = extract_task_ref_inner(inner);
+                let text = text.trim();
+                return if text.starts_with("after") {
+                    MilestoneTime::After(task)
+                } else if text.ends_with("start") {
+                    MilestoneTime::AtStart(task)
+                } else {
+                    MilestoneTime::AtEnd(task)
+                };
             }
             _ => {}
         }
@@ -495,6 +510,17 @@ fn extract_task_ref_inner(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Веха различает `at end`, `at start` и `after`; цвет задачи не теряется.
+    #[test]
+    fn test_milestone_times_and_task_color() {
+        let source = "@startgantt\n[t] lasts 2 days\n[t] is colored in #FF0000\n[a] happens at [t]'s end\n[b] happens at [t]'s start\n[c] happens after [t]'s end\n@endgantt";
+        let d = parse_gantt(source).expect("разбирается");
+        assert!(d.tasks[0].color.is_some());
+        assert!(matches!(d.milestones[0].happens, MilestoneTime::AtEnd(_)));
+        assert!(matches!(d.milestones[1].happens, MilestoneTime::AtStart(_)));
+        assert!(matches!(d.milestones[2].happens, MilestoneTime::After(_)));
+    }
 
     #[test]
     fn test_parse_simple_gantt() {

@@ -93,6 +93,18 @@ const GANTT_LINK_HEAD_LENGTH: f64 = 4.0;
 /// Половина высоты треугольника стрелки связи (эталон: 60.2 → 68.2).
 const GANTT_LINK_HALF_HEIGHT: f64 = 4.0;
 
+/// Размер ромба вехи.
+const GANTT_MILESTONE_SIZE: f64 = 12.0;
+
+/// Подпись длительности: «1 day», «3 days».
+fn duration_text(days: u32) -> String {
+    if days == 1 {
+        "1 day".to_string()
+    } else {
+        format!("{days} days")
+    }
+}
+
 /// Цвет линий сетки (эталон `gantt_basic`: `#C0C0C0`, толщина 1).
 const GANTT_GRID_COLOR: &str = "#C0C0C0";
 
@@ -240,12 +252,122 @@ fn format_gantt_date(project_start: &GanttDate, day: u32) -> String {
     format!("{name} {day_of_month}")
 }
 
-use plantuml_ast::gantt::{GanttDate, GanttDiagram, TaskDuration, TaskStart, Weekday};
+use plantuml_ast::gantt::{
+    GanttDate, GanttDiagram, MilestoneTime, TaskDuration, TaskStart, Weekday,
+};
 use plantuml_model::{Point, Rect};
 
 use super::GanttLayoutConfig;
 use crate::traits::LayoutResult;
 use crate::{EdgeType, ElementType, LayoutElement};
+
+/// Число дней от 1970-01-01 для григорианской даты.
+fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
+    let y = i64::from(year) - i64::from(month <= 2);
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = (i64::from(month) + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + i64::from(day) - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// Календарь диаграммы: настоящие дни недели и закрытые дни.
+///
+/// Без `Project starts` дат нет вовсе: PlantUML нумерует дни («Day 3»), показывает
+/// только числа и ничего не считает закрытым, поэтому `start` тогда `None`.
+struct Calendar {
+    start: Option<GanttDate>,
+    closed: Vec<Weekday>,
+    holidays: Vec<GanttDate>,
+}
+
+impl Calendar {
+    fn from_diagram(diagram: &GanttDiagram) -> Self {
+        let start = diagram.project_start.clone();
+        let known = start.is_some();
+        Self {
+            closed: if known {
+                diagram.closed_days.iter().map(|c| c.day).collect()
+            } else {
+                Vec::new()
+            },
+            holidays: if known {
+                diagram.holidays.iter().map(|h| h.date.clone()).collect()
+            } else {
+                Vec::new()
+            },
+            start,
+        }
+    }
+
+    fn day_number(date: &GanttDate) -> i64 {
+        days_from_civil(date.year, date.month.clamp(1, 12), date.day.clamp(1, 31))
+    }
+
+    /// Смещение даты от старта проекта в днях.
+    fn offset_of(&self, date: &GanttDate) -> Option<i64> {
+        Some(Self::day_number(date) - Self::day_number(self.start.as_ref()?))
+    }
+
+    /// Номер дня недели (0 — понедельник) для смещения от старта.
+    fn weekday_index(&self, offset: u32) -> usize {
+        let Some(start) = &self.start else {
+            return (offset % 7) as usize;
+        };
+        // 1970-01-01 был четвергом.
+        (Self::day_number(start) + i64::from(offset) + 3).rem_euclid(7) as usize
+    }
+
+    fn is_closed(&self, offset: u32) -> bool {
+        let Some(start) = &self.start else {
+            return false;
+        };
+        const WEEKDAYS: [Weekday; 7] = [
+            Weekday::Monday,
+            Weekday::Tuesday,
+            Weekday::Wednesday,
+            Weekday::Thursday,
+            Weekday::Friday,
+            Weekday::Saturday,
+            Weekday::Sunday,
+        ];
+        if self.closed.contains(&WEEKDAYS[self.weekday_index(offset)]) {
+            return true;
+        }
+        let day = Self::day_number(start) + i64::from(offset);
+        self.holidays.iter().any(|h| Self::day_number(h) == day)
+    }
+
+    /// Первый открытый день, начиная с `day` (с предохранителем от «закрыто всё»).
+    fn next_open(&self, mut day: u32) -> u32 {
+        for _ in 0..366 {
+            if !self.is_closed(day) {
+                return day;
+            }
+            day += 1;
+        }
+        day
+    }
+
+    /// Конец (исключительно) задачи из `days` рабочих дней, начатой в `start`.
+    fn end_after(&self, start: u32, days: u32) -> u32 {
+        if self.closed.is_empty() && self.holidays.is_empty() {
+            return start + days;
+        }
+        let mut day = start;
+        let mut left = days;
+        let mut guard = 0_u32;
+        while left > 0 && guard < 100_000 {
+            if !self.is_closed(day) {
+                left -= 1;
+            }
+            day += 1;
+            guard += 1;
+        }
+        day
+    }
+}
 
 /// Layout engine для Gantt Diagrams
 pub struct GanttLayoutEngine {
@@ -269,19 +391,28 @@ impl GanttLayoutEngine {
     pub fn layout(&self, diagram: &GanttDiagram) -> LayoutResult {
         let mut elements = Vec::new();
 
-        // Определяем даты начала и окончания проекта
-        let project_start = diagram
-            .project_start
+        let calendar = Calendar::from_diagram(diagram);
+        let relative = calendar.start.is_none();
+        let project_start = calendar
+            .start
             .clone()
             .unwrap_or_else(|| GanttDate::new(2024, 1, 1));
 
         // Вычисляем позиции задач
-        let task_positions = self.calculate_task_positions(diagram, &project_start);
+        let task_positions = self.calculate_task_positions(diagram, &calendar);
+        let milestone_days: Vec<u32> = diagram
+            .milestones
+            .iter()
+            .map(|m| self.milestone_day(&m.happens, &task_positions, &calendar))
+            .collect();
+        // Задачи, затем вехи: у вех своя строка таблицы.
+        let rows = diagram.tasks.len() + diagram.milestones.len();
 
         // Находим общую длительность
         let total_days = task_positions
             .values()
             .map(|(_start, end)| *end)
+            .chain(milestone_days.iter().map(|d| d + 1))
             .max()
             .unwrap_or(30);
 
@@ -294,18 +425,13 @@ impl GanttLayoutEngine {
         // создавался высотой 1000.0 с комментарием «будет обрезано», но
         // обрезания нет, и calculate_bounds() раздувал высоту диаграммы
         // до ~1000px (weekends.svg: viewBox 1030 при 136–241 у остальных).
-        let tasks_height =
-            (diagram.tasks.len() as f64) * (self.config.row_height + self.config.row_spacing);
+        let tasks_height = (rows as f64) * (self.config.row_height + self.config.row_spacing);
         self.draw_header(
             &mut elements,
             timeline_start_x,
             &project_start,
             total_days,
-            &diagram
-                .closed_days
-                .iter()
-                .map(|c| c.day)
-                .collect::<Vec<_>>(),
+            &calendar,
             tasks_height,
         );
 
@@ -314,13 +440,9 @@ impl GanttLayoutEngine {
             &mut elements,
             timeline_start_x,
             timeline_width,
-            diagram.tasks.len(),
+            rows,
             total_days,
-            &diagram
-                .closed_days
-                .iter()
-                .map(|c| c.day)
-                .collect::<Vec<_>>(),
+            &calendar.closed,
         );
 
         // 3. Рисуем задачи
@@ -335,13 +457,19 @@ impl GanttLayoutEngine {
             // эталона (394 против 800px).
             if let Some((start_day, end_day)) = task_positions.get(&task.name) {
                 let col_width = GANTT_TABLE_COL_WIDTH;
-                let date_text = |day: u32| format_gantt_date(&project_start, day);
+                let date_text = |day: u32| {
+                    if relative {
+                        format!("Day {}", day + 1)
+                    } else {
+                        format_gantt_date(&project_start, day)
+                    }
+                };
 
                 let cells = [
                     date_text(*start_day),
                     // Конец показывается как последний день включительно
                     date_text(end_day.saturating_sub(1)),
-                    format!("{} days", end_day - start_day),
+                    duration_text(end_day - start_day),
                 ];
 
                 for (col, text) in cells.iter().enumerate() {
@@ -382,9 +510,14 @@ impl GanttLayoutEngine {
                     id: format!("task_bar_{}", i),
                     bounds: Rect::new(bar_x, bar_y, bar_width, self.config.bar_height),
                     text: None,
-                    properties: [("stroke-width".to_string(), "1".to_string())]
-                        .into_iter()
-                        .collect(),
+                    properties: {
+                        let mut props = HashMap::new();
+                        props.insert("stroke-width".to_string(), "1".to_string());
+                        if let Some(color) = &task.color {
+                            props.insert("fill".to_string(), color.to_css());
+                        }
+                        props
+                    },
                     element_type: ElementType::Rectangle {
                         label: String::new(),
                         corner_radius: 3.0,
@@ -445,6 +578,94 @@ impl GanttLayoutEngine {
                     }
                 }
             }
+        }
+
+        // 3.4. Вехи: строка таблицы, ромб в своём дне и подпись справа от него.
+        for (j, milestone) in diagram.milestones.iter().enumerate() {
+            let i = diagram.tasks.len() + j;
+            let day = milestone_days[j];
+            let row_y = self.config.padding
+                + self.config.header_height
+                + (i as f64) * (self.config.row_height + self.config.row_spacing);
+            let date_text = |d: u32| {
+                if relative {
+                    format!("Day {}", d + 1)
+                } else {
+                    format_gantt_date(&project_start, d)
+                }
+            };
+            let cells = [date_text(day), date_text(day), duration_text(1)];
+            for (col, text) in cells.iter().enumerate() {
+                let cell_w = self.config.text.width(text, self.config.label_font_size) + 6.0;
+                elements.push(LayoutElement {
+                    id: format!("milestone_cell_{}_{}", j, col),
+                    bounds: Rect::new(
+                        self.config.padding + col as f64 * GANTT_TABLE_COL_WIDTH,
+                        row_y + GANTT_CELL_BASELINE_OFFSET - self.config.label_font_size,
+                        cell_w,
+                        self.config.label_font_size,
+                    ),
+                    text: None,
+                    properties: HashMap::new(),
+                    element_type: ElementType::Text {
+                        text: text.clone(),
+                        font_size: self.config.label_font_size,
+                    },
+                });
+            }
+
+            let center_x = timeline_start_x + (day as f64 + 0.5) * self.config.day_width;
+            let top = row_y + (self.config.row_height - GANTT_MILESTONE_SIZE) / 2.0;
+            let half = GANTT_MILESTONE_SIZE / 2.0;
+            let mut properties = HashMap::new();
+            properties.insert(
+                "fill".to_string(),
+                milestone
+                    .color
+                    .as_ref()
+                    .map_or_else(|| "#000000".to_string(), |c| c.to_css()),
+            );
+            elements.push(LayoutElement {
+                id: format!("milestone_{}", j),
+                bounds: Rect::new(
+                    center_x - half,
+                    top,
+                    GANTT_MILESTONE_SIZE,
+                    GANTT_MILESTONE_SIZE,
+                ),
+                text: None,
+                properties,
+                element_type: ElementType::Polygon {
+                    points: vec![
+                        Point::new(half, 0.0),
+                        Point::new(GANTT_MILESTONE_SIZE, half),
+                        Point::new(half, GANTT_MILESTONE_SIZE),
+                        Point::new(0.0, half),
+                    ],
+                    label: None,
+                    font_size: 0.0,
+                },
+            });
+            let label_width = self
+                .config
+                .text
+                .width(&milestone.name, self.config.date_font_size);
+            elements.push(LayoutElement {
+                id: format!("milestone_label_{}", j),
+                bounds: Rect::new(
+                    center_x + half + GANTT_LABEL_INSET,
+                    row_y + GANTT_BAR_INSET + GANTT_TASK_LABEL_BASELINE_OFFSET
+                        - self.config.date_font_size,
+                    label_width,
+                    self.config.date_font_size,
+                ),
+                text: None,
+                properties: HashMap::new(),
+                element_type: ElementType::Text {
+                    text: milestone.name.clone(),
+                    font_size: self.config.date_font_size,
+                },
+            });
         }
 
         // 3.5. Связи «задача начинается с конца другой».
@@ -574,7 +795,7 @@ impl GanttLayoutEngine {
         let total_width = timeline_start_x + timeline_width + self.config.padding;
         let total_height = self.config.padding
             + self.config.header_height
-            + (diagram.tasks.len() as f64) * (self.config.row_height + self.config.row_spacing)
+            + (rows as f64) * (self.config.row_height + self.config.row_spacing)
             + self.config.padding;
 
         let mut result = LayoutResult {
@@ -593,11 +814,33 @@ impl GanttLayoutEngine {
             + GANTT_BAR_INSET
     }
 
+    /// Номер дня (с нуля), на который приходится веха.
+    fn milestone_day(
+        &self,
+        happens: &MilestoneTime,
+        positions: &HashMap<String, (u32, u32)>,
+        calendar: &Calendar,
+    ) -> u32 {
+        match happens {
+            MilestoneTime::AtEnd(id) => positions
+                .get(id)
+                .map_or(0, |(_, end)| end.saturating_sub(1)),
+            MilestoneTime::AtStart(id) => positions.get(id).map_or(0, |(start, _)| *start),
+            MilestoneTime::After(id) => positions.get(id).map_or(0, |(_, end)| *end),
+            MilestoneTime::AtDate(date) => calendar
+                .offset_of(date)
+                .map_or(0, |d| d.clamp(0, 100_000) as u32),
+            MilestoneTime::AfterPrevious => {
+                positions.values().map(|(_, end)| *end).max().unwrap_or(0)
+            }
+        }
+    }
+
     /// Вычисляет позиции задач (начало и конец в днях)
     fn calculate_task_positions(
         &self,
         diagram: &GanttDiagram,
-        _project_start: &GanttDate,
+        calendar: &Calendar,
     ) -> HashMap<String, (u32, u32)> {
         let mut positions: HashMap<String, (u32, u32)> = HashMap::new();
         let mut current_day = 0u32;
@@ -609,7 +852,10 @@ impl GanttLayoutEngine {
                     .get(id)
                     .map(|(_, end)| *end)
                     .unwrap_or(current_day),
-                TaskStart::AtDate(_) => current_day, // Упрощение
+                // Без `Project starts` даты не к чему привязать.
+                TaskStart::AtDate(date) => calendar
+                    .offset_of(date)
+                    .map_or(current_day, |d| d.clamp(0, 100_000) as u32),
                 TaskStart::With(ref id) => positions
                     .get(id)
                     .map(|(start, _)| *start)
@@ -619,18 +865,21 @@ impl GanttLayoutEngine {
                     .map(|(_, end)| *end)
                     .unwrap_or(current_day),
             };
+            // Задача не начинается в закрытый день.
+            let start_day = calendar.next_open(start_day);
 
-            let duration = match &task.duration {
-                TaskDuration::Days(d) => *d,
-                TaskDuration::Weeks(w) => w * 7,
-                TaskDuration::Until(_) => 5, // Упрощение
+            let end_day = match &task.duration {
+                TaskDuration::Days(d) => calendar.end_after(start_day, *d),
+                TaskDuration::Weeks(w) => start_day + w * 7,
+                TaskDuration::Until(date) => calendar.offset_of(date).map_or(start_day + 5, |d| {
+                    (d.clamp(0, 100_000) as u32 + 1).max(start_day + 1)
+                }),
                 TaskDuration::EndsAt(ref id) => positions
                     .get(id)
-                    .map(|(_, end)| end.saturating_sub(start_day))
-                    .unwrap_or(5),
+                    .map(|(_, end)| *end)
+                    .unwrap_or(start_day + 5)
+                    .max(start_day + 1),
             };
-
-            let end_day = start_day + duration;
 
             let task_id = task.id.clone().unwrap_or_else(|| task.name.clone());
             positions.insert(task_id, (start_day, end_day));
@@ -653,9 +902,10 @@ impl GanttLayoutEngine {
         start_x: f64,
         project_start: &GanttDate,
         total_days: u32,
-        closed_days: &[Weekday],
+        calendar: &Calendar,
         tasks_height: f64,
     ) {
+        let relative = calendar.start.is_none();
         let header_y = self.config.padding;
 
         // Верх ПОСЛЕДНЕЙ строки задач: от него отсчитывается нижний
@@ -687,42 +937,39 @@ impl GanttLayoutEngine {
         for day in 0..total_days {
             let x = start_x + (day as f64) * self.config.day_width;
 
-            // Проверяем выходной ли это день
-            let day_of_week = (day % 7) as usize;
-            let weekdays = [
-                Weekday::Monday,
-                Weekday::Tuesday,
-                Weekday::Wednesday,
-                Weekday::Thursday,
-                Weekday::Friday,
-                Weekday::Saturday,
-                Weekday::Sunday,
-            ];
-            let is_closed = closed_days.contains(&weekdays[day_of_week]);
+            let day_of_week = calendar.weekday_index(day);
+            let is_closed = calendar.is_closed(day);
 
             // Под каждой колонкой PlantUML выводит ДВА ряда подписей:
-            // сокращённый день недели (Mo, Tu, ...) на y=98.696 и номер дня
-            // месяца (1, 2, 3, ...) на y=112.696. Раньше показывался только
-            // каждый пятый день одним рядом, из-за чего шапка диаграммы
-            // была на два ряда ниже эталонной.
+            // сокращённый день недели (Mo, Tu, ...) и номер дня месяца.
+            // Раньше показывался только каждый пятый день одним рядом, из-за
+            // чего шапка диаграммы была на два ряда ниже эталонной.
             let weekday_short = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
                 .get(day_of_week)
                 .copied()
                 .unwrap_or("Mo");
 
             // Номер дня ВНУТРИ месяца: PlantUML начинает отсчёт заново
-            // с каждым месяцем. Раньше нумерация шла подряд до 35, из-за
-            // чего февральские дни были подписаны как 32…35.
-            let month_day = month_day_at(project_start, day);
+            // с каждым месяцем. Без даты старта это просто порядковый номер.
+            let month_day = if relative {
+                day + 1
+            } else {
+                month_day_at(project_start, day)
+            };
 
             // Календарь повторяется дважды: в шапке и под таблицей.
-            for (prefix, row_offset) in [
-                ("hdr_weekday", GANTT_HEADER_WEEKDAY_ROW_Y),
-                (
-                    "weekday",
-                    last_row_top - header_y + GANTT_BOTTOM_WEEKDAY_OFFSET,
-                ),
-            ] {
+            let weekday_rows: &[(&str, f64)] = if relative {
+                &[]
+            } else {
+                &[
+                    ("hdr_weekday", GANTT_HEADER_WEEKDAY_ROW_Y),
+                    (
+                        "weekday",
+                        last_row_top - header_y + GANTT_BOTTOM_WEEKDAY_OFFSET,
+                    ),
+                ]
+            };
+            for &(prefix, row_offset) in weekday_rows {
                 elements.push(LayoutElement {
                     id: format!("{prefix}_{day}"),
                     bounds: Rect::new(
@@ -829,9 +1076,21 @@ impl GanttLayoutEngine {
             });
         }
 
-        for (start_day, days, label) in gantt_months(project_start, total_days) {
+        let months = if relative {
+            Vec::new()
+        } else {
+            gantt_months(project_start, total_days)
+        };
+        for (start_day, days, label) in months {
             let x = start_x + (start_day as f64) * self.config.day_width;
             let width = (days as f64) * self.config.day_width;
+            // Подпись, не помещающаяся в свой диапазон, сокращается до трёх
+            // букв без года: так делает PlantUML (эталон: три дня — «Nov»).
+            let label = if self.config.text.width_bold(&label, GANTT_MONTH_FONT_SIZE) > width {
+                label.chars().take(3).collect()
+            } else {
+                label
+            };
 
             for (id, y) in [
                 ("month_top", header_y + GANTT_MONTH_TOP_ROW_Y),
@@ -997,6 +1256,38 @@ impl Default for GanttLayoutEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 2026-11-01 — воскресенье; суббота закрыта и сдвигает конец задачи.
+    #[test]
+    fn test_calendar_weekday_and_closed_days() {
+        let mut diagram = GanttDiagram::new();
+        diagram.project_start = Some(GanttDate::new(2026, 11, 1));
+        diagram.closed_days.push(plantuml_ast::gantt::ClosedDay {
+            day: Weekday::Saturday,
+        });
+        let calendar = Calendar::from_diagram(&diagram);
+        assert_eq!(calendar.weekday_index(0), 6);
+        assert!(calendar.is_closed(6));
+        // Шесть открытых дней, начатых в воскресенье, пересекают субботу.
+        assert_eq!(calendar.end_after(0, 7), 8);
+        // Без даты старта дни не считаются закрытыми.
+        assert!(!Calendar::from_diagram(&GanttDiagram::new()).is_closed(5));
+    }
+
+    /// Веха занимает свою строку и рисуется ромбом.
+    #[test]
+    fn test_milestone_is_drawn() {
+        let mut diagram = GanttDiagram::new();
+        diagram.add_task(GanttTask::new("t1").lasts_days(3));
+        diagram.add_milestone(plantuml_ast::gantt::GanttMilestone {
+            name: "m1".into(),
+            happens: MilestoneTime::AtEnd("t1".into()),
+            color: None,
+        });
+        let result = GanttLayoutEngine::new().layout(&diagram);
+        assert!(result.elements.iter().any(|e| e.id == "milestone_0"));
+        assert!(result.elements.iter().any(|e| e.id == "milestone_label_0"));
+    }
     use plantuml_ast::gantt::GanttTask;
 
     #[test]
@@ -1023,7 +1314,8 @@ mod tests {
         );
 
         let engine = GanttLayoutEngine::new();
-        let positions = engine.calculate_task_positions(&diagram, &GanttDate::new(2024, 1, 1));
+        let positions =
+            engine.calculate_task_positions(&diagram, &Calendar::from_diagram(&diagram));
 
         assert_eq!(positions.get("Task 1"), Some(&(0, 5)));
         assert_eq!(positions.get("Task 2"), Some(&(5, 8)));

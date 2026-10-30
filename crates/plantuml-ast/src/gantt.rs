@@ -272,8 +272,12 @@ impl GanttMilestone {
 pub enum MilestoneTime {
     /// После предыдущей задачи
     AfterPrevious,
-    /// После указанной задачи
+    /// После указанной задачи (следующий день за её концом)
     After(String),
+    /// В последний день указанной задачи (`happens at [T]'s end`)
+    AtEnd(String),
+    /// В первый день указанной задачи (`happens at [T]'s start`)
+    AtStart(String),
     /// В указанную дату
     AtDate(GanttDate),
 }
