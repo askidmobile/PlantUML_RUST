@@ -34,7 +34,41 @@ pub fn parse_component(source: &str) -> Result<ComponentDiagram> {
         }
     }
 
+    declare_implicit_endpoints(&mut diagram);
     Ok(diagram)
+}
+
+/// Создаёт элементы, которые упомянуты только в связях.
+///
+/// PlantUML рисует `[A] --> [B]` без объявлений; раскладка ищет концы связи
+/// среди элементов, поэтому без этого связь и обе подписи молча пропадали.
+fn declare_implicit_endpoints(diagram: &mut ComponentDiagram) {
+    fn collect(
+        components: &[Component],
+        packages: &[ComponentPackage],
+        known: &mut std::collections::HashSet<String>,
+    ) {
+        for c in components {
+            known.insert(c.name.clone());
+            known.extend(c.alias.clone());
+        }
+        for p in packages {
+            known.insert(p.name.clone());
+            collect(&p.components, &p.packages, known);
+        }
+    }
+    let mut known = std::collections::HashSet::new();
+    collect(&diagram.components, &diagram.packages, &mut known);
+    let ends: Vec<String> = diagram
+        .connections
+        .iter()
+        .flat_map(|c| [c.from.clone(), c.to.clone()])
+        .collect();
+    for name in ends {
+        if known.insert(name.clone()) {
+            diagram.components.push(Component::new(name));
+        }
+    }
 }
 
 /// Разбирает `archimate #Layer "Name" as alias`.
@@ -46,9 +80,13 @@ fn parse_archimate_def(pair: pest::iterators::Pair<Rule>) -> Option<Component> {
     let mut name = String::new();
     let mut alias = None;
     let mut layer = None;
+    let mut explicit_stereotype = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::stereotype_part => {
+                explicit_stereotype = extract_stereotype(inner);
+            }
             Rule::archimate_layer => {
                 // Убираем ведущий '#'
                 layer = Some(inner.as_str().trim_start_matches('#').to_string());
@@ -67,23 +105,33 @@ fn parse_archimate_def(pair: pest::iterators::Pair<Rule>) -> Option<Component> {
         return None;
     }
 
-    // Цвета слоёв Archimate по документации PlantUML
-    let (color, stereotype) = match layer.as_deref() {
-        Some("Business") => ("#FFFFCC", "business"),
-        Some("Application") => ("#CCFFFF", "application"),
-        Some("Technology") => ("#CCFFCC", "technology"),
-        Some("Motivation") => ("#CCCCFF", "motivation"),
-        Some("Strategy") => ("#FFCCFF", "strategy"),
-        Some("Physical") => ("#FFEECC", "physical"),
-        Some("Implementation") => ("#FFCCCC", "implementation"),
-        _ => ("#FFFFFF", "archimate"),
-    };
+    let (color, stereotype) = layer
+        .as_deref()
+        .and_then(archimate_layer_style)
+        .unwrap_or(("#FFFFFF", "archimate"));
 
     let mut component = Component::new(name);
     component.alias = alias;
     component.color = Some(Color::from_hex(color));
-    component.stereotype = Some(plantuml_ast::common::Stereotype::new(stereotype));
+    // Явный стереотип (`<<technology-device>>`) точнее слоя.
+    component.stereotype = Some(
+        explicit_stereotype.unwrap_or_else(|| plantuml_ast::common::Stereotype::new(stereotype)),
+    );
     Some(component)
+}
+
+/// Цвета слоёв Archimate по документации PlantUML: (заливка, стереотип).
+fn archimate_layer_style(layer: &str) -> Option<(&'static str, &'static str)> {
+    Some(match layer {
+        "Business" => ("#FFFFCC", "business"),
+        "Application" => ("#CCFFFF", "application"),
+        "Technology" => ("#CCFFCC", "technology"),
+        "Motivation" => ("#CCCCFF", "motivation"),
+        "Strategy" => ("#FFCCFF", "strategy"),
+        "Physical" => ("#FFEECC", "physical"),
+        "Implementation" => ("#FFCCCC", "implementation"),
+        _ => return None,
+    })
 }
 
 /// Парсит тело диаграммы
@@ -110,7 +158,9 @@ fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut ComponentDiagram)
                 }
             }
             Rule::package_def | Rule::nested_package_def => {
-                if let Some(pkg) = parse_package_def(inner) {
+                if let Some(pkg) =
+                    parse_package_def(inner, &mut diagram.connections, &mut diagram.notes)
+                {
                     diagram.packages.push(pkg);
                 }
             }
@@ -218,7 +268,11 @@ fn parse_interface_def(pair: pest::iterators::Pair<Rule>) -> Option<Component> {
 }
 
 /// Парсит пакет
-fn parse_package_def(pair: pest::iterators::Pair<Rule>) -> Option<ComponentPackage> {
+fn parse_package_def(
+    pair: pest::iterators::Pair<Rule>,
+    connections: &mut Vec<Connection>,
+    notes: &mut Vec<Note>,
+) -> Option<ComponentPackage> {
     let mut name = String::new();
     let mut package_type = PackageType::Package;
     let mut stereotype: Option<Stereotype> = None;
@@ -242,7 +296,7 @@ fn parse_package_def(pair: pest::iterators::Pair<Rule>) -> Option<ComponentPacka
             }
             Rule::package_body => {
                 // Парсим содержимое пакета
-                parse_package_body(inner, &mut components, &mut packages);
+                parse_package_body(inner, &mut components, &mut packages, connections, notes);
             }
             _ => {}
         }
@@ -267,9 +321,23 @@ fn parse_package_body(
     pair: pest::iterators::Pair<Rule>,
     components: &mut Vec<Component>,
     packages: &mut Vec<ComponentPackage>,
+    connections: &mut Vec<Connection>,
+    notes: &mut Vec<Note>,
 ) {
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            // Связи и заметки внутри контейнера принадлежат всей диаграмме:
+            // раскладка ищет концы связей по именам среди всех элементов.
+            Rule::connection => {
+                if let Some(conn) = parse_connection(inner) {
+                    connections.push(conn);
+                }
+            }
+            Rule::note_stmt => {
+                if let Some(note) = parse_note(inner) {
+                    notes.push(note);
+                }
+            }
             Rule::component_def => {
                 if let Some(comp) = parse_component_def(inner) {
                     components.push(comp);
@@ -281,7 +349,7 @@ fn parse_package_body(
                 }
             }
             Rule::package_def | Rule::nested_package_def => {
-                if let Some(pkg) = parse_package_def(inner) {
+                if let Some(pkg) = parse_package_def(inner, connections, notes) {
                     packages.push(pkg);
                 }
             }
@@ -489,9 +557,13 @@ fn extract_color(pair: pest::iterators::Pair<Rule>) -> Option<Color> {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::color {
             let text = inner.as_str();
-            if let Some(hex) = text.strip_prefix('#') {
+            // Слой Archimate в роли цвета (`rectangle R #Business`) даёт
+            // цвет слоя, остальные имена остаются именованными цветами.
+            let name = text.trim_start_matches('#');
+            if let Some((hex, _)) = archimate_layer_style(name) {
                 return Some(Color::from_hex(hex));
             }
+            return Some(Color::parse(text));
         }
     }
     None
@@ -532,6 +604,46 @@ fn extract_note_target(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Связь без объявлений создаёт оба элемента.
+    #[test]
+    fn test_implicit_endpoints_are_declared() {
+        let d = parse_component("@startuml\n[C1] --> [C2]\n@enduml").expect("разбирается");
+        let names: Vec<_> = d.components.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["C1", "C2"]);
+    }
+
+    /// Порты, `usecase` и заметки с связями внутри контейнера доходят до диаграммы.
+    #[test]
+    fn test_ports_usecase_and_package_body() {
+        let source = "@startuml\ncomponent C1 {\nport p1\nportin p2\nportout p3\n[A] --> [B]\nnote right of [A] : n1\n}\nusecase U1\n@enduml";
+        let d = parse_component(source).expect("разбирается");
+        assert_eq!(d.packages[0].components.len(), 3);
+        assert_eq!(d.connections.len(), 1);
+        assert_eq!(d.notes.len(), 1);
+        assert!(d
+            .components
+            .iter()
+            .any(|c| c.component_type == ComponentType::UseCase));
+        // A и B объявлены неявно, пакет и порты не дублируются.
+        assert_eq!(d.components.iter().filter(|c| c.name == "A").count(), 1);
+    }
+
+    /// Archimate: стереотип в `<<..>>` с дефисом и слой в роли цвета.
+    #[test]
+    fn test_archimate_stereotype_and_layer_color() {
+        let source = "@startuml\narchimate #Technology \"VPN\" as v1 <<technology-device>>\nrectangle R1 #Business\nv1 --> R1\n@enduml";
+        let d = parse_component(source).expect("разбирается");
+        let vpn = &d.components[0];
+        assert_eq!(
+            vpn.stereotype
+                .as_ref()
+                .and_then(|s| s.names.first())
+                .map(String::as_str),
+            Some("technology-device")
+        );
+        assert_eq!(d.components.len(), 2);
+    }
 
     /// Все типы связей и направлений из документации разбираются.
     ///

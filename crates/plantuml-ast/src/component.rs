@@ -76,6 +76,8 @@ pub enum ComponentType {
     Entity,
     /// Collections (коллекция)
     Collections,
+    /// Вариант использования (`usecase` внутри deployment)
+    UseCase,
 }
 
 impl ComponentType {
@@ -105,6 +107,8 @@ impl ComponentType {
             "boundary" => Some(Self::Boundary),
             "entity" => Some(Self::Entity),
             "collections" => Some(Self::Collections),
+            "usecase" => Some(Self::UseCase),
+            "portin" | "portout" => Some(Self::Port),
             _ => None,
         }
     }

@@ -55,8 +55,8 @@ statement = _{
 // Business, Application, Technology, Motivation, Strategy, Physical,
 // Implementation.
 archimate_def = {
-    "archimate" ~ ws+ ~ archimate_layer ~ ws+ ~ quoted_string ~
-    (ws+ ~ "as" ~ ws+ ~ identifier)?
+    "archimate" ~ ws+ ~ (archimate_layer ~ ws+)? ~ quoted_string ~
+    (ws+ ~ "as" ~ ws+ ~ identifier)? ~ stereotype_part? ~ ws*
 }
 
 archimate_layer = @{ "#" ~ (ASCII_ALPHA)+ }
@@ -142,6 +142,10 @@ non_container_keyword = {
     | "label"
     | "person"
     | "collections"
+    | "usecase"
+    | "portin"
+    | "portout"
+    | "port"
 }
 
 // Ключевые слова для типов компонентов (все вместе для parse_component_type)
@@ -397,7 +401,7 @@ name_suffix = _{ (alias_part ~ stereotype_part?) | (stereotype_part ~ alias_part
 // Стереотипов может быть НЕСКОЛЬКО подряд: стандартная библиотека
 // C4-PlantUML пишет `rectangle "..." <<system_boundary>><<boundary>> as x`.
 stereotype_part = { ws* ~ ("<<" ~ stereotype_name ~ ">>")+ }
-stereotype_name = { (LETTER | NUMBER | "_" | " ")+ }
+stereotype_name = { (LETTER | NUMBER | "_" | "-" | " ")+ }
 color_part = { ws* ~ color }
 
 // === Заметки ===
@@ -459,7 +463,9 @@ identifier = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 quoted_string = { "\"" ~ inner_string ~ "\"" }
 inner_string = { (!("\"") ~ ANY)* }
 
-color = { "#" ~ hex_color }
+// Цвет: шестнадцатеричный либо именованный (`#red`, слои Archimate `#Business`).
+color = { "#" ~ ((hex_color ~ !(LETTER | NUMBER | "_")) | color_name) }
+color_name = @{ LETTER ~ (LETTER | NUMBER)* }
 hex_color = @{ ASCII_HEX_DIGIT{3,8} }
 
 rest_of_line = { (!NEWLINE ~ ANY)* }

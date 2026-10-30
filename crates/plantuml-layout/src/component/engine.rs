@@ -295,6 +295,15 @@ impl ComponentLayoutEngine {
             }
         }
 
+        layout_side_notes(
+            &diagram.notes,
+            &component_positions,
+            &mut elements,
+            &self.config.text,
+            self.config.font_size,
+            self.config.margin,
+        );
+
         // Вычисляем bounds
         let mut result = LayoutResult {
             elements,
@@ -979,6 +988,65 @@ impl ComponentLayoutEngine {
         }
 
         (start, end)
+    }
+}
+
+/// Ставит заметки правее всех фигур на высоте своей цели.
+///
+/// Раскладка не оставляет места сбоку от элементов, поэтому сторона
+/// `left/top/bottom` пока не учитывается: важнее, чтобы текст заметки попал
+/// на схему и не лёг на чужие фигуры.
+/// shortcut: сторона заметки игнорируется, заменит общий послойный движок.
+pub(crate) fn layout_side_notes(
+    notes: &[plantuml_ast::common::Note],
+    positions: &HashMap<String, Rect>,
+    elements: &mut Vec<LayoutElement>,
+    text: &crate::text::TextMeasurer,
+    font_size: f64,
+    margin: f64,
+) {
+    const NOTE_GAP: f64 = 30.0;
+    const NOTE_PADDING: f64 = 20.0;
+    const NOTE_LINE_HEIGHT: f64 = 16.0;
+    const NOTE_FOLD: f64 = 10.0;
+
+    let left = elements
+        .iter()
+        .map(|e| e.bounds.x + e.bounds.width)
+        .fold(margin, f64::max)
+        + NOTE_GAP;
+    let mut free_y = margin;
+    for note in notes {
+        let lines: Vec<&str> = note.text.lines().collect();
+        let width = lines
+            .iter()
+            .map(|l| text.width(l, font_size))
+            .fold(0.0_f64, f64::max)
+            + NOTE_PADDING;
+        let height = lines.len().max(1) as f64 * NOTE_LINE_HEIGHT + 12.0;
+        let target_y = note
+            .anchors
+            .iter()
+            .find_map(|a| positions.get(a))
+            .map(|r| r.y + r.height / 2.0 - height / 2.0);
+        let y = target_y.unwrap_or(free_y).max(free_y);
+        free_y = y + height + 10.0;
+
+        let mut properties = HashMap::new();
+        properties.insert("fill".to_string(), "#FEFFDD".to_string());
+        properties.insert("text-align".to_string(), "left".to_string());
+        properties.insert("text-inset".to_string(), "6".to_string());
+        properties.insert("font-size".to_string(), "13".to_string());
+        elements.push(LayoutElement {
+            id: format!("note_{}", elements.len()),
+            bounds: Rect::new(left, y, width, height),
+            text: None,
+            properties,
+            element_type: ElementType::Note {
+                label: note.text.clone(),
+                fold: NOTE_FOLD,
+            },
+        });
     }
 }
 
