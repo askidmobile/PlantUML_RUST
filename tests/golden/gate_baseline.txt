@@ -1,4 +1,3 @@
-feat_activity_cvet_forma LOST This and color deprecated ignored instead is of red syntax the write
 feat_activity_elseif LOST y2
 feat_activity_note LOST n2
 feat_activity_repeat_is_not ERR
@@ -9,36 +8,21 @@ feat_class_package LOST N1 П1
 feat_class_stereotip LOST s1 s2
 feat_class_strelka_up ERR
 feat_class_vidy ERR
-feat_component_deployment ERR
-feat_component_napravlenie LOST C1 C2
-feat_component_note LOST n1
-feat_component_porty ERR
-feat_other_archimate ERR
 feat_other_chart ERR
 feat_other_ebnf ERR
-feat_other_gantt LOST Day day m1
-feat_other_gantt_project LOST Su
 feat_other_list_creole ERR
 feat_other_map RAW Map
 feat_other_math ERR
-feat_other_mindmap_left_side ERR
 feat_other_regex ERR
-feat_other_yaml ERR
 feat_seq_ ERR
 feat_seq_group RAW group
 feat_seq_newpage RAW x2
 feat_state_history ERR
 feat_state_opisanie LOST d1 d2
-feat_usecase_akter LOST U1
-feat_usecase_include_extend LOST U1 U2 U3 extend include
-feat_usecase_napravlenie LOST U1
 real_activity_real ERR
 real_c4 LOST container person
 real_class_real LOST T Заметки
-real_gantt_real LOST day Релиз
-real_mindmap_real ERR
 real_state_real LOST Видно всем
-real_usecase_real ERR
 ref_lang_002 ERR
 ref_lang_003 RAW 2 3
 ref_lang_008 ERR
@@ -57,26 +41,17 @@ ref_lang_037 ERR
 ref_lang_038 LOST Encrypted Getters Private Setters
 ref_lang_039 LOST T extends
 ref_lang_042 ERR
-ref_lang_044 LOST dummyDown dummyLeft dummyRight dummyUp foo
 ref_lang_047 ERR
 ref_lang_052 LOST test
 ref_lang_053 ERR
 ref_lang_056 RAW 1 2 3 ветка
 ref_lang_057 LOST плавающая
-ref_lang_058 LOST AAAAAA HotPink This and color deprecated ignored instead is of syntax the write
 ref_lang_059 ERR
 ref_lang_060 RAW A
 ref_lang_063 ERR
 ref_lang_065 LOST ещё описание
 ref_lang_067 LOST описание
 ref_lang_073 LOST Многострочная заметка слева
-ref_lang_074 ERR
-ref_lang_075 ERR
-ref_lang_076 ERR
-ref_lang_077 ERR
-ref_lang_079 ERR
-ref_lang_084 ERR
-ref_lang_087 ERR
 ref_lang_090 LOST Debug mode
 ref_lang_095 ERR
 ref_lang_096 ERR
@@ -87,4 +62,3 @@ ref_syn_010 LOST T other
 ref_syn_014 LOST Domain Infrastructure
 ref_syn_023 ERR
 ref_syn_027 LOST Debug mode
-ref_syn_030 LOST deprecated handwritten instead is option skinparam true write

@@ -34,7 +34,9 @@ fn svg_text(svg: &str) -> String {
 ///
 /// Сервер печатает их кеглем 10 над диаграммой. Содержимым схемы они не являются.
 fn reference_text(svg: &str) -> String {
-    let has_warning = svg.contains("is deprecated") || svg.contains("is ignored");
+    // В эталоне между словами стоят неразрывные пробелы.
+    let flat = svg.replace("&#160;", " ").replace('\u{a0}', " ");
+    let has_warning = flat.contains("is deprecated") || flat.contains("is ignored");
     text_of(svg, has_warning)
 }
 
@@ -155,7 +157,9 @@ fn check(name: &str, source: &str, reference: &str) -> Option<String> {
     };
     let have = words(&svg_text(&svg));
     let lost: Vec<&str> = want.difference(&have).map(String::as_str).collect();
-    let raw: Vec<&str> = have.difference(&want).map(String::as_str).collect();
+    // Предупреждения сервера — не потеря, но и не сырая разметка, если мы их тоже вывели.
+    let full = words(&svg_text(reference));
+    let raw: Vec<&str> = have.difference(&full).map(String::as_str).collect();
     if !lost.is_empty() {
         return Some(format!("{name} LOST {}", lost.join(" ")));
     }

@@ -11,6 +11,7 @@
 //! результат переводит в свои элементы. Рекурсии нет: глубина приходит из схемы.
 
 pub mod order;
+pub mod scene;
 pub mod simplex;
 
 use simplex::{solve, Constraint};
@@ -44,6 +45,32 @@ pub struct GraphEdge {
     /// Концы на одном ранге: `A -right-> B`, заметка сбоку
     pub same_rank: bool,
     pub weight: i64,
+    /// Выводить ломаную от `to` к `from`: `A -up-> B` раскладывается как `B` над `A`, но идёт от `A`
+    pub reverse_path: bool,
+}
+
+impl GraphEdge {
+    /// Ребро по записи стрелки PlantUML: длина линии и явное направление.
+    pub fn from_arrow(from: usize, to: usize, arrow: plantuml_ast::common::ArrowShape) -> Self {
+        use plantuml_ast::common::ArrowHint;
+        let span = (i64::from(arrow.length) - 1).max(1);
+        let (from_node, to_node, same_rank, reverse_path) = match arrow.hint {
+            Some(ArrowHint::Up) => (to, from, false, true),
+            Some(ArrowHint::Down) => (from, to, false, false),
+            Some(ArrowHint::Right) => (from, to, true, false),
+            Some(ArrowHint::Left) => (to, from, true, true),
+            None => (from, to, arrow.length <= 1, false),
+        };
+        Self {
+            from: from_node,
+            to: to_node,
+            label: None,
+            min_rank: if same_rank { 0 } else { span },
+            same_rank,
+            weight: 1,
+            reverse_path,
+        }
+    }
 }
 
 /// Кластер: пакет, составное состояние
@@ -498,6 +525,20 @@ fn assign_positions(
         }
     }
 
+    // Рёбра одного ранга держат порядок и оставляют место подписи.
+    for edge in input
+        .edges
+        .iter()
+        .filter(|e| e.same_rank && e.from < n && e.to < n)
+    {
+        let label = edge
+            .label
+            .map_or(0.0, |(w, h)| if horizontal { h } else { w });
+        let gap =
+            (vertices[edge.from].width + vertices[edge.to].width) / 2.0 + input.node_sep + label;
+        constraints.push(fixed(edge.from, edge.to, gap));
+    }
+
     // Порядок кластеров в разных рядах может расходиться; такие дуги дают цикл.
     let base = n + cluster_count * 2;
     let mut constraints = drop_cycles(base, constraints);
@@ -761,13 +802,19 @@ fn finish(
         if let Some(v) = label_vertex[index] {
             let (cx, cy) = center(v);
             labels[index] = Some((cx, cy));
-        } else if edge.label.is_some() {
+        } else if let Some((_, label_h)) = edge.label {
             let (ax, ay) = center(upper);
             let (bx, by) = center(lower);
-            labels[index] = Some(((ax + bx) / 2.0, (ay + by) / 2.0));
+            // Концы на одном ранге: подпись над линией.
+            let lift = if edge.same_rank {
+                label_h / 2.0 + 2.0
+            } else {
+                0.0
+            };
+            labels[index] = Some(((ax + bx) / 2.0, (ay + by) / 2.0 - lift));
         }
         clip_ends(&mut points, nodes[upper], nodes[lower]);
-        if flipped[index] {
+        if flipped[index] != edge.reverse_path {
             points.reverse();
         }
         edges.push(points);
@@ -899,6 +946,31 @@ mod tests {
             weight: 1,
             ..GraphEdge::default()
         }
+    }
+
+    #[test]
+    fn test_arrow_length_and_hints_choose_placement() {
+        use plantuml_ast::common::ArrowShape;
+        let short = GraphEdge::from_arrow(0, 1, ArrowShape::parse("->"));
+        assert!(short.same_rank);
+        let long = GraphEdge::from_arrow(0, 1, ArrowShape::parse("--->"));
+        assert_eq!(long.min_rank, 2);
+        let up = GraphEdge::from_arrow(0, 1, ArrowShape::parse("-up->"));
+        assert_eq!((up.from, up.to), (1, 0));
+        assert!(up.reverse_path);
+        let left = GraphEdge::from_arrow(0, 1, ArrowShape::parse("-left->"));
+        assert!(left.same_rank && left.reverse_path);
+
+        let r = layout(&input(
+            vec![node(None), node(None)],
+            vec![GraphEdge::from_arrow(0, 1, ArrowShape::parse("-up->"))],
+        ));
+        assert!(r.nodes[1].y + r.nodes[1].height <= r.nodes[0].y, "{r:?}");
+        let path = &r.edges[0];
+        assert!(
+            path[0].1 > path[path.len() - 1].1,
+            "ломаная идёт от начала связи: {path:?}"
+        );
     }
 
     fn input(nodes: Vec<GraphNode>, edges: Vec<GraphEdge>) -> GraphInput {

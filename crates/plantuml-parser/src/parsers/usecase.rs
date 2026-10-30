@@ -269,6 +269,7 @@ fn parse_relationship(
     let mut relation_type = UseCaseRelationType::Association;
     let mut label: Option<String> = None;
     let mut is_dashed = false;
+    let mut arrow = plantuml_ast::common::ArrowShape::default();
     let mut ends = Vec::new();
 
     for inner in pair.into_inner() {
@@ -282,6 +283,7 @@ fn parse_relationship(
                 ends.push((to.clone(), is_paren_endpoint(&inner)));
             }
             Rule::arrow => {
+                arrow = plantuml_ast::common::ArrowShape::parse(inner.as_str());
                 // Определяем тип связи по стрелке
                 for arrow_inner in inner.into_inner() {
                     match arrow_inner.as_rule() {
@@ -324,6 +326,7 @@ fn parse_relationship(
             to,
             relation_type,
             label,
+            arrow,
         },
         ends,
     ))

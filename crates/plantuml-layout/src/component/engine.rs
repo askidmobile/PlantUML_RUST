@@ -4,7 +4,8 @@
 
 use std::collections::HashMap;
 
-use plantuml_ast::component::{Component, ComponentDiagram, ComponentType, Connection};
+use plantuml_ast::common::Direction;
+use plantuml_ast::component::{Component, ComponentDiagram, ComponentType};
 use plantuml_model::{Point, Rect};
 
 use super::config::ComponentLayoutConfig;
@@ -20,44 +21,31 @@ use super::config::ComponentLayoutConfig;
 /// верхнего уровня шаг другой — 123 = 46 + 77 (эталон `component_basic`).
 const COMPONENT_IN_PACKAGE_SPACING: f64 = 60.0;
 
-/// Верхний отступ над первым уровнем, если он внутри пакета.
-///
-/// Измерено по эталону `Component: Простой`: подпись `Frontend` на y=21,
-/// первый блок на 41 при `margin` 7.
-const CONTAINER_TOP_EXTRA: f64 = 34.0;
+/// Высота строки подписи.
+const LINE_HEIGHT: f64 = 16.297;
 
-const CONTAINER_HEADER_EXTRA: f64 = 15.0;
-
-/// То же при переходе из `package` в `database`.
-///
-/// Измерено на сервере: `package` -> `database` даёт шаг 137.
-const CONTAINER_DATABASE_EXTRA: f64 = 30.0;
+const COMPONENT_RIGHT_EXTRA: f64 = 6.81;
+const COMPONENT_BOTTOM_EXTRA: f64 = 16.0;
+const NODE_LEFT_EXTRA: f64 = 9.0;
+const NODE_RIGHT_EXTRA: f64 = 29.0;
+/// Рамка не уже этого значения и шире заголовка на столько (измерено по эталону).
+const PACKAGE_MIN_WIDTH: f64 = 150.0;
+const PACKAGE_TITLE_EXTRA: f64 = 76.0;
 
 const COMPONENT_BASE_WIDTH: f64 = 4.6;
 /// Прибавка к ширине компонента на каждый символ подписи.
 const COMPONENT_CHAR_WIDTH: f64 = 11.43;
 /// Высота компонента по эталону.
 const COMPONENT_HEIGHT: f64 = 46.297;
-/// Насколько контейнер шире своего заголовка (измерено по эталону).
-const PACKAGE_TITLE_EXTRA: f64 = 76.0;
 
 /// Добавка к ширине артефакта (измерено по эталону deployment_basic).
 const ARTIFACT_TEXT_PADDING: f64 = 30.0;
 
 /// Высота артефакта (измерено по эталону).
 const ARTIFACT_HEIGHT: f64 = 39.297;
+use crate::graph::scene::{Scene, SceneEdge};
+use crate::graph::Direction as GraphDirection;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
-
-/// Layout engine для component diagrams
-/// Добавка к ширине для плоских компонентов (эталон 13.81 при поле
-/// рендерера 7).
-const COMPONENT_RIGHT_EXTRA: f64 = 6.81;
-
-/// Дополнительное правое поле для диаграмм с объёмными узлами.
-///
-/// Эталон: правый край узла на 25 от края холста при поле рендерера 7,
-/// то есть 18 сверх общего margin.
-const NODE_RIGHT_EXTRA: f64 = 18.0;
 
 pub struct ComponentLayoutEngine {
     config: ComponentLayoutConfig,
@@ -78,295 +66,156 @@ impl ComponentLayoutEngine {
 
     /// Выполняет layout диаграммы
     pub fn layout(&self, diagram: &ComponentDiagram) -> LayoutResult {
-        let mut elements = Vec::new();
-        let mut component_positions: HashMap<String, Rect> = HashMap::new();
-
-        // Сначала располагаем компоненты в grid-layout
-        let components: Vec<&Component> = diagram.components.iter().collect();
-        // PlantUML размещает компоненты вертикально (в эталоне три
-        // компонента стоят на x=7 друг под другом). Раньше использовалась
-        // сетка по sqrt(n), дававшая 2-3 колонки и широкую низкую диаграмму.
-        let num_cols = 1;
-
-        for (i, comp) in components.iter().enumerate() {
-            let row = i / num_cols;
-            let col = i % num_cols;
-
-            let x = self.config.margin
-                + col as f64 * (self.config.component_width + self.config.horizontal_spacing);
-            let y = self.config.margin
-                + row as f64 * (self.config.component_height + self.config.vertical_spacing);
-
-            let (elem, bounds) = self.create_component_element(comp, x, y);
-
-            // Сохраняем позицию по имени и алиасу
-            component_positions.insert(comp.name.clone(), bounds);
-            if let Some(alias) = &comp.alias {
-                component_positions.insert(alias.clone(), bounds);
-            }
-
-            elements.push(elem);
-        }
-
-        // Располагаем пакеты
-        // Узлы начинаются сразу под компонентами.
-        //
-        // Раньше здесь безусловно резервировалась одна строка
-        // (`components.len() / num_cols + 1`), даже когда компонентов нет
-        // вовсе. Из-за этого диаграмма из одного узла сдвигалась вниз на
-        // 123px, а холст начинался с y=123.3 вместо 7.
-        let component_rows = components.len().div_ceil(num_cols.max(1));
-        let mut package_y = self.config.margin
-            + component_rows as f64 * (self.config.component_height + self.config.vertical_spacing);
-
-        // Узлы ставятся с отступом node_margin, а не общим margin.
-        let node_x = if diagram.packages.is_empty() {
-            self.config.margin
-        } else {
-            self.config.node_margin
-        };
-
-        // ПЕРВЫЙ ПРОХОД: раскладываем узлы от общего начала.
-        //
-        // Раньше все узлы ставились по одному `node_x`, то есть
-        // выравнивались РАМКИ. Эталон выравнивает ВЛОЖЕННЫЕ фигуры:
-        // измерено на сервере по четырём вариантам диаграммы — центр
-        // вложенной фигуры первого узла совпадает с центром второго
-        // (97/97, 82/82, 214/214). Именно поэтому ребро в эталоне
-        // вертикально: `M97,85.64 C97,112.56 97,156.7 97,185.1`.
-        // ГЛОБАЛЬНАЯ РАСКЛАДКА ПО УРОВНЯМ СВЯЗЕЙ — но ТОЛЬКО когда пакеты
-        // не являются узлами (`node`).
-        //
-        // Эталон `Component: Простой` выстраивает компоненты из РАЗНЫХ
-        // пакетов в общую цепочку по связям: React App (y=41), Redux Store
-        // (147), API Gateway (269), затем двое рядом — Auth Service (375,
-        // x=22) и User Service (375, x=187), потом Users DB (511). Уровни
-        // по longest-path совпадают с этими y.
-        //
-        // Но у `deployment_basic` пакеты — это `node`, и там раскладка
-        // ПОПАКЕТНАЯ: попытка применить общий граф сломала его с 295 до 404
-        // по ширине, хотя он был точен (0.0 x 2.0).
-        let uses_nodes = diagram
-            .packages
-            .iter()
-            .any(|pkg| pkg.package_type == plantuml_ast::component::PackageType::Node);
-
-        let mut global_positions: HashMap<String, (f64, f64)> = HashMap::new();
-        if !uses_nodes {
-            let mut all_components: Vec<(
-                &Component,
-                Option<&plantuml_ast::component::ComponentPackage>,
-            )> = Vec::new();
-            for comp in &diagram.components {
-                all_components.push((comp, None));
-            }
-            Self::collect_all_components(&diagram.packages, &mut all_components);
-
-            let levels = Self::assign_component_levels(&all_components, &diagram.connections);
-            let level_count = levels.values().copied().max().unwrap_or(0) + 1;
-            let mut by_level: Vec<Vec<usize>> = vec![Vec::new(); level_count];
-            for (i, (comp, _)) in all_components.iter().enumerate() {
-                by_level[levels.get(&comp.name).copied().unwrap_or(0)].push(i);
-            }
-
-            // УРОВНИ ЦЕНТРИРУЮТСЯ по общей оси, а не прижимаются влево.
-            //
-            // Измерено по эталону `Component: Простой`: уровни 0, 1, 2 и 3
-            // имеют центры 169, 169, 169 и 168.5 — то есть выровнены по
-            // одной вертикали. Прежде каждый уровень начинался от
-            // `margin`, из-за чего диаграмма выходила на 57 шире эталонной.
-            let row_widths: Vec<f64> = by_level
-                .iter()
-                .map(|row| {
-                    let mut probe: Vec<LayoutElement> = Vec::new();
-                    let mut w = 0.0_f64;
-                    for &i in row {
-                        let (comp, _) = all_components[i];
-                        let (_, b) = self.create_component_element(comp, 0.0, 0.0);
-                        w += b.width + self.config.horizontal_spacing;
-                        probe.clear();
-                    }
-                    (w - self.config.horizontal_spacing).max(0.0)
-                })
-                .collect();
-            let widest_row = row_widths.iter().cloned().fold(0.0_f64, f64::max);
-
-            // Верхний отступ: над первым уровнем тоже стоит ЗАГОЛОВОК
-            // пакета. Эталон `Component: Простой`: подпись `Frontend` на
-            // y=21, первый блок на 41 при margin 7 — то есть 34.
-            let mut cursor_y = self.config.margin
-                + if by_level
-                    .first()
-                    .and_then(|r| r.first())
-                    .and_then(|&i| all_components[i].1)
-                    .is_some()
-                {
-                    CONTAINER_TOP_EXTRA
-                } else {
-                    0.0
-                };
-            for (row_index, row) in by_level.iter().enumerate() {
-                let mut cursor_x = self.config.margin + (widest_row - row_widths[row_index]) / 2.0;
-                let mut row_height = self.component_natural_height();
-                for &i in row {
-                    let (comp, _) = all_components[i];
-                    let (_, bounds) = self.create_component_element(comp, cursor_x, cursor_y);
-                    global_positions.insert(comp.name.clone(), (cursor_x, cursor_y));
-                    if let Some(alias) = &comp.alias {
-                        global_positions.insert(alias.clone(), (cursor_x, cursor_y));
-                    }
-                    cursor_x += bounds.width + self.config.horizontal_spacing;
-                    row_height = row_height.max(bounds.height);
-                }
-                // СМЕНА КОНТЕЙНЕРА ДОБАВЛЯЕТ МЕСТО ПОД ЕГО ЗАГОЛОВОК.
-                //
-                // Измерено на сервере:
-                //   внутри пакета                       -> шаг 106
-                //   package -> package                  -> шаг 122 (+16)
-                //   package -> database                 -> шаг 137 (+31)
-                // (база 106 = 46 высота блока + 60 отступ). Проверено на
-                // playground `Backend` -> `PostgreSQL`, где шаг 136 —
-                // совпадает с предсказанными 137 в пределах округления.
-                // БАЗОВЫЙ ШАГ РАЗНЫЙ: у компонентов ВЕРХНЕГО уровня 77
-                // (эталон `component_basic`: блоки на y=7 и y=130, шаг 123
-                // = 46 + 77), у компонентов ВНУТРИ ПАКЕТОВ 60 (эталон
-                // `Component: Простой`: шаг 106 = 46 + 60).
-                let in_package = row.first().and_then(|&i| all_components[i].1).is_some();
-                let base_spacing = if in_package {
-                    COMPONENT_IN_PACKAGE_SPACING
-                } else {
-                    self.config.vertical_spacing
-                };
-                cursor_y += row_height + base_spacing;
-                if let Some(next) = by_level.get(row_index + 1) {
-                    // Важна СМЕНА контейнера, а не смена его типа:
-                    // `Frontend` -> `Backend` — разные пакеты ОДНОГО типа,
-                    // и добавка там тоже есть (замер: шаг 122).
-                    let container_of =
-                        |row: &Vec<usize>| row.first().and_then(|&i| all_components[i].1);
-                    if let (Some(cur), Some(nxt)) = (container_of(row), container_of(next)) {
-                        if cur.name != nxt.name {
-                            cursor_y += if matches!(
-                                nxt.package_type,
-                                plantuml_ast::component::PackageType::Package
-                            ) {
-                                CONTAINER_HEADER_EXTRA
-                            } else {
-                                CONTAINER_DATABASE_EXTRA
-                            };
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut laid: Vec<(Vec<LayoutElement>, Rect, HashMap<String, Rect>)> = Vec::new();
-        for pkg in &diagram.packages {
-            let laid_pkg = self.layout_package(pkg, node_x, package_y, &global_positions);
-            package_y = laid_pkg.1.y + laid_pkg.1.height + self.config.package_vertical_spacing;
-            laid.push(laid_pkg);
-        }
-
-        // ВТОРОЙ ПРОХОД: сдвигаем узлы так, чтобы связанные фигуры встали
-        // на одну вертикаль. Ограничение — не левее поля.
-        let shifts = self.align_package_children(&laid, &diagram.connections, node_x);
-
-        for (index, (pkg_elements, _bounds, inner_positions)) in laid.into_iter().enumerate() {
-            let shift = shifts.get(index).copied().unwrap_or(0.0);
-
-            for mut elem in pkg_elements {
-                elem.bounds.x += shift;
-                elements.push(elem);
-            }
-
-            // Добавляем позиции вложенных компонентов
-            for (name, rect) in inner_positions {
-                component_positions.insert(
-                    name,
-                    Rect::new(rect.x + shift, rect.y, rect.width, rect.height),
-                );
-            }
-        }
-
-        // Создаём связи
-        for conn in &diagram.connections {
-            if let Some(edge) = self.create_connection_element(conn, &component_positions) {
-                elements.push(edge);
-            }
-        }
-
-        layout_side_notes(
-            &diagram.notes,
-            &component_positions,
-            &mut elements,
-            &self.config.text,
-            self.config.font_size,
-            self.config.margin,
+        let mut scene = Scene::new(
+            self.config.horizontal_spacing,
+            COMPONENT_IN_PACKAGE_SPACING,
+            self.config.package_padding,
+            self.config.text.clone(),
         );
-
-        // Вычисляем bounds
-        let mut result = LayoutResult {
-            elements,
-            bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
-        };
-        result.calculate_bounds();
-
-        // Отступы.
-        //
-        // У объёмных узлов deployment поля БОЛЬШЕ, чем у плоских
-        // компонентов. Измерено по эталонам, снятым с сервера:
-        //   один узел:         слева 16, справа 25
-        //   плоский компонент: слева  7, справа 13.8
-        // Узлы размещаются с отступом `node_margin`, а начало координат
-        // остаётся на `margin`, поэтому левое поле складывается из обоих.
-        let has_nodes = !diagram.packages.is_empty();
-        if has_nodes {
-            result.bounds.x = self.config.margin;
-            let content_right = result.bounds.x + result.bounds.width;
-            result.bounds.width = (content_right - result.bounds.x) + NODE_RIGHT_EXTRA;
-        } else {
-            // Плоские компоненты: добавки к габаритам измерены отдельно по
-            // осям. Эталон component_basic имеет поля слева 7, справа 13.81,
-            // сверху 7, снизу 29.42; поле рендерера даёт по 7, остальное
-            // добавляет движок.
-            result.bounds.width += COMPONENT_RIGHT_EXTRA;
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            scene.set_direction(GraphDirection::LeftToRight);
         }
-        // Нижний отступ РАЗНЫЙ для двух случаев.
-        //
-        // У компонентов ВЕРХНЕГО уровня (эталон `component_basic`, без
-        // пакетов) верны два отступа: 323 при содержимом 7..309.
-        // У компонентов В ПАКЕТАХ (эталон `Component: Простой`) нижний
-        // отступ вдвое меньше. Числа ПЕРЕСЧИТАНЫ после правок
-        // `CONTAINER_HEADER_EXTRA` 16 -> 15 и `CONTAINER_DATABASE_EXTRA`
-        // 31 -> 30 (они сделали зазор между уровнями точным: 90 вместо
-        // 91, и содержимое сдвинулось вверх): содержимое кончается на
-        // **557.5**, холст эталона **598** при верхнем крае 41, то есть
-        // снизу **40.5**. Прежняя редакция этого комментария говорила
-        // «559 и 41» — эти числа УСТАРЕЛИ.
-        //
-        // Остаток: у нас холст `599.188`, то есть снизу **41.688** против
-        // эталонных 40.5 — расхождение **1.188**. Оно НЕ сводится к
-        // `margin` (7) или `2*margin` (14), поэтому подбор значения здесь
-        // НЕДОПУСТИМ без нового замера.
-        //
-        // Прежняя константа `margin * 2` верна только для первого случая;
-        // проверка показала, что её замена на `margin` ломает
-        // `component_basic` (2.0 -> 9.0) и `deployment_basic` (2.0 -> 5.0).
-        // Уточнение: у `deployment_basic` пакеты — это `node`, и там
-        // удвоенный отступ ВЕРЕН (замена ломала его: 2.0 -> 5.0). Малый
-        // отступ нужен только для обычных `package`/`database`.
-        let packages_are_nodes = diagram
-            .packages
-            .iter()
-            .any(|pkg| pkg.package_type == plantuml_ast::component::PackageType::Node);
-        let bottom_margin = if diagram.packages.is_empty() || packages_are_nodes {
-            self.config.margin * 2.0
-        } else {
-            self.config.margin
-        };
-        result.bounds.height += bottom_margin;
 
+        for comp in &diagram.components {
+            self.add_component(&mut scene, None, comp);
+        }
+        for pkg in &diagram.packages {
+            self.add_package(&mut scene, None, pkg);
+        }
+        for conn in &diagram.connections {
+            scene.add_edge(SceneEdge {
+                from: conn.from.clone(),
+                to: conn.to.clone(),
+                label: conn.label.clone(),
+                arrow: conn.arrow,
+                dashed: conn.dashed,
+                edge_type: EdgeType::Association,
+                properties: HashMap::new(),
+            });
+        }
+        for note in &diagram.notes {
+            scene.add_note(note.clone());
+        }
+
+        // Поля холста сверх общих рендерера сняты с эталонов: у плоских компонентов
+        // справа 13.8, снизу 23; у объёмных узлов слева 16, справа 25.
+        let has_clusters = !diagram.packages.is_empty();
+        let mut result = scene.build();
+        if has_clusters {
+            result.bounds.x -= NODE_LEFT_EXTRA;
+            result.bounds.width += NODE_LEFT_EXTRA + NODE_RIGHT_EXTRA;
+            result.bounds.height += self.config.margin;
+        } else {
+            result.bounds.width += COMPONENT_RIGHT_EXTRA;
+            result.bounds.height += COMPONENT_BOTTOM_EXTRA;
+        }
         result
+    }
+
+    /// Рамка контейнера: вид зависит от его типа.
+    fn cluster_element(&self, name: &str, kind: &str, stereotype: Option<&str>) -> LayoutElement {
+        let mut properties: HashMap<String, String> =
+            [("font-weight".to_string(), "700".to_string())]
+                .into_iter()
+                .collect();
+        properties.insert("cluster-shape".to_string(), kind.to_string());
+        if let Some(stereotype) = stereotype {
+            properties.insert("stereotype".to_string(), stereotype.to_string());
+        }
+        LayoutElement {
+            id: format!("package_{}", name.replace(' ', "_")),
+            bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
+            text: None,
+            properties,
+            element_type: ElementType::Group {
+                label: Some(name.to_string()),
+                children: Vec::new(),
+            },
+        }
+    }
+
+    /// Высота заголовка рамки с учётом числа строк подписи.
+    fn cluster_title_height(&self, name: &str) -> f64 {
+        let lines = name.replace("\\n", "\n").lines().count().max(1) as f64;
+        self.config.package_header_height + (lines - 1.0) * LINE_HEIGHT
+    }
+
+    fn add_package(
+        &self,
+        scene: &mut Scene,
+        parent: Option<usize>,
+        pkg: &plantuml_ast::component::ComponentPackage,
+    ) {
+        use plantuml_ast::component::PackageType;
+        let kind = match pkg.package_type {
+            PackageType::Package => "package",
+            PackageType::Node => "node",
+            PackageType::Folder => "folder",
+            PackageType::Frame => "frame",
+            PackageType::Cloud => "cloud",
+            PackageType::Rectangle => "rectangle",
+            PackageType::Database => "database",
+        };
+        let title = self
+            .config
+            .text
+            .width_bold(&pkg.name, self.config.font_size);
+        let stereotype = pkg
+            .stereotype
+            .as_ref()
+            .and_then(|s| s.names.first())
+            .map(String::as_str);
+        let cluster = scene.add_cluster(
+            parent,
+            &[pkg.name.as_str()],
+            self.cluster_title_height(&pkg.name),
+            (title + PACKAGE_TITLE_EXTRA).max(PACKAGE_MIN_WIDTH),
+            self.cluster_element(&pkg.name, kind, stereotype),
+        );
+        for comp in &pkg.components {
+            self.add_component(scene, Some(cluster), comp);
+        }
+        for nested in &pkg.packages {
+            self.add_package(scene, Some(cluster), nested);
+        }
+    }
+
+    fn add_component(&self, scene: &mut Scene, cluster: Option<usize>, comp: &Component) {
+        let mut names: Vec<&str> = vec![comp.name.as_str()];
+        if let Some(alias) = &comp.alias {
+            names.push(alias.as_str());
+        }
+
+        // Компонент с содержимым — это рамка.
+        if !comp.children.is_empty() {
+            let title = self
+                .config
+                .text
+                .width_bold(&comp.name, self.config.font_size);
+            let inner = scene.add_cluster(
+                cluster,
+                &names,
+                self.cluster_title_height(&comp.name),
+                title + self.config.package_padding * 2.0,
+                self.cluster_element(&comp.name, "rectangle", None),
+            );
+            for child in &comp.children {
+                self.add_component(scene, Some(inner), child);
+            }
+            return;
+        }
+
+        let (mut element, bounds) = self.create_component_element(comp, 0.0, 0.0);
+        if let Some(stereotype) = comp.stereotype.as_ref().and_then(|s| s.names.first()) {
+            element
+                .properties
+                .insert("stereotype".to_string(), stereotype.clone());
+        }
+        let mut elements = vec![element];
+        if comp.component_type == ComponentType::Artifact {
+            elements.extend(self.create_artifact_icon(bounds));
+        }
+        scene.add_node(cluster, &names, elements);
     }
 
     /// Создаёт элемент компонента
@@ -417,10 +266,7 @@ impl ComponentLayoutEngine {
         // 118.9x46.297). Отсюда ширина ≈ 4.6 + 11.43 * n, высота 46.297.
         // Раньше размер был фиксированным (40x40), из-за чего диаграмма
         // расходилась с эталоном.
-        let chars = name.chars().count() as f64;
-        let width =
-            (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars).max(self.config.component_width);
-        let height = self.config.component_height.max(COMPONENT_HEIGHT);
+        let (width, height) = self.label_box(name);
 
         LayoutElement {
             id: format!("component_{}", name.replace(' ', "_")),
@@ -434,15 +280,26 @@ impl ComponentLayoutEngine {
         }
     }
 
-    /// Высота компонента (по эталону).
-    fn component_natural_height(&self) -> f64 {
-        self.config.component_height.max(COMPONENT_HEIGHT)
-    }
-
     /// Создаёт артефакт.
     ///
     /// Измерено по эталону deployment_basic: «app.jar» при тексте 49.027
     /// занимает 79.027x39.297, то есть ширина — текст плюс 30, высота 39.297.
+    /// Размер фигуры по подписи; многострочная подпись растягивает её.
+    fn label_box(&self, name: &str) -> (f64, f64) {
+        let text = name.replace("\\n", "\n");
+        let lines = text.lines().count().max(1);
+        if lines == 1 {
+            let chars = name.chars().count() as f64;
+            let width = (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars)
+                .max(self.config.component_width);
+            return (width, self.config.component_height.max(COMPONENT_HEIGHT));
+        }
+        (
+            self.config.text.width(&text, self.config.font_size) + 30.0,
+            COMPONENT_HEIGHT + (lines - 1) as f64 * LINE_HEIGHT,
+        )
+    }
+
     fn create_artifact_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
         let width = self.config.text.width(name, self.config.font_size) + ARTIFACT_TEXT_PADDING;
 
@@ -559,13 +416,11 @@ impl ComponentLayoutEngine {
 
     /// Создаёт элемент базы данных (цилиндр)
     fn create_database_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        let chars = name.chars().count() as f64;
-        let width =
-            (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars).max(self.config.component_width);
+        let (width, height) = self.label_box(name);
 
         LayoutElement {
             id: format!("database_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, width, COMPONENT_HEIGHT),
+            bounds: Rect::new(x, y, width, height),
             text: None,
             properties: std::collections::HashMap::new(),
             // База данных рисуется цилиндром, а не эмодзи: символ 🛢
@@ -685,310 +540,6 @@ impl ComponentLayoutEngine {
             },
         }
     }
-
-    /// Располагает пакет и возвращает элементы, bounds и позиции вложенных компонентов
-    /// Сдвиги узлов, выравнивающие связанные вложенные фигуры по вертикали.
-    ///
-    /// Первый узел остаётся на месте, остальные сдвигаются так, чтобы
-    /// центр фигуры-источника совпал с центром фигуры-приёмника. Если
-    /// после этого узел вылезает левее поля, весь набор сдвигается вправо.
-    fn align_package_children(
-        &self,
-        laid: &[(Vec<LayoutElement>, Rect, HashMap<String, Rect>)],
-        connections: &[plantuml_ast::component::Connection],
-        node_x: f64,
-    ) -> Vec<f64> {
-        let mut shifts = vec![0.0_f64; laid.len()];
-        let mut known = vec![false; laid.len()];
-        if let Some(first) = known.first_mut() {
-            *first = true;
-        }
-
-        // Какому узлу принадлежит вложенная фигура.
-        let mut owner: HashMap<&str, usize> = HashMap::new();
-        for (index, (_, _, inner)) in laid.iter().enumerate() {
-            for name in inner.keys() {
-                owner.insert(name.as_str(), index);
-            }
-        }
-
-        let centre = |index: usize, name: &str| -> Option<f64> {
-            laid[index]
-                .2
-                .get(name)
-                .map(|rect| rect.x + rect.width / 2.0)
-        };
-
-        // Проходов столько же, сколько узлов: сдвиг распространяется по цепочке.
-        for _ in 0..laid.len() {
-            for conn in connections {
-                let (Some(&source), Some(&target)) =
-                    (owner.get(conn.from.as_str()), owner.get(conn.to.as_str()))
-                else {
-                    continue;
-                };
-                if source == target {
-                    continue;
-                }
-
-                match (known[source], known[target]) {
-                    (true, false) => {
-                        if let (Some(from), Some(to)) =
-                            (centre(source, &conn.from), centre(target, &conn.to))
-                        {
-                            shifts[target] = from + shifts[source] - to;
-                            known[target] = true;
-                        }
-                    }
-                    (false, true) => {
-                        if let (Some(from), Some(to)) =
-                            (centre(source, &conn.from), centre(target, &conn.to))
-                        {
-                            shifts[source] = to + shifts[target] - from;
-                            known[source] = true;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // Ни один узел не должен уехать левее поля.
-        let leftmost = laid
-            .iter()
-            .enumerate()
-            .map(|(index, (_, bounds, _))| bounds.x + shifts[index])
-            .fold(f64::INFINITY, f64::min);
-        if leftmost < node_x && leftmost.is_finite() {
-            let correction = node_x - leftmost;
-            for shift in &mut shifts {
-                *shift += correction;
-            }
-        }
-
-        shifts
-    }
-
-    /// Собирает компоненты ВСЕХ пакетов (рекурсивно) в один список.
-    fn collect_all_components<'a>(
-        packages: &'a [plantuml_ast::component::ComponentPackage],
-        out: &mut Vec<(
-            &'a Component,
-            Option<&'a plantuml_ast::component::ComponentPackage>,
-        )>,
-    ) {
-        for pkg in packages {
-            for comp in &pkg.components {
-                out.push((comp, Some(pkg)));
-            }
-            Self::collect_all_components(&pkg.packages, out);
-        }
-    }
-
-    /// Присваивает уровням компоненты по длине longest-path.
-    fn assign_component_levels(
-        all: &[(
-            &Component,
-            Option<&plantuml_ast::component::ComponentPackage>,
-        )],
-        connections: &[plantuml_ast::component::Connection],
-    ) -> HashMap<String, usize> {
-        let mut level: HashMap<String, usize> = HashMap::new();
-        for (comp, _) in all {
-            level.entry(comp.name.clone()).or_insert(0);
-        }
-        for _ in 0..=all.len() {
-            let mut changed = false;
-            for conn in connections {
-                if let (Some(from), Some(to)) =
-                    (level.get(&conn.from).copied(), level.get(&conn.to).copied())
-                {
-                    if to < from + 1 {
-                        level.insert(conn.to.clone(), from + 1);
-                        changed = true;
-                    }
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-        level
-    }
-
-    fn layout_package(
-        &self,
-        pkg: &plantuml_ast::component::ComponentPackage,
-        x: f64,
-        y: f64,
-        global: &HashMap<String, (f64, f64)>,
-    ) -> (Vec<LayoutElement>, Rect, HashMap<String, Rect>) {
-        let mut elements = Vec::new();
-        let mut positions = HashMap::new();
-
-        // Компоненты внутри контейнера располагаются вертикально: в эталоне
-        // `node` содержит один элемент под заголовком. Раньше использовалась
-        // сетка по sqrt(n), а размеры брались из конфига (40x40) вместо
-        // контентных, из-за чего контейнер расходился по габаритам.
-        let mut max_row = 0;
-        let mut inner_width: f64 = 0.0;
-        let mut inner_height: f64 = 0.0;
-
-        for (i, comp) in pkg.components.iter().enumerate() {
-            max_row = i;
-
-            let (comp_x, comp_y) = match global.get(&comp.name) {
-                Some(&(gx, gy)) => (gx, gy),
-                None => (
-                    x + self.config.package_padding,
-                    y + self.config.package_header_height
-                        + self.config.package_padding
-                        + i as f64
-                            * (self.component_natural_height() + self.config.vertical_spacing),
-                ),
-            };
-            let _ = i;
-
-            let (elem, bounds) = self.create_component_element(comp, comp_x, comp_y);
-            inner_width = inner_width.max(bounds.width);
-            inner_height = comp_y - y + bounds.height
-                - self.config.package_header_height
-                - self.config.package_padding;
-            positions.insert(comp.name.clone(), bounds);
-            if let Some(alias) = &comp.alias {
-                positions.insert(alias.clone(), bounds);
-            }
-            elements.push(elem);
-
-            // У артефакта в правом верхнем углу — иконка документа.
-            // Измерено по эталону `deployment_basic`: рамка 57.49..136.52,
-            // иконка 119.517..131.517 по x и 51..65 по y, то есть 12x14
-            // на 17 от правого края и 5 от верхнего.
-            if comp.component_type == ComponentType::Artifact {
-                elements.extend(self.create_artifact_icon(bounds));
-            }
-        }
-
-        // Вычисляем размер пакета по фактическому содержимому
-        let _ = max_row;
-
-        // Ширина контейнера: PlantUML растягивает его под заголовок.
-        // Измерено по эталону deployment_basic: контейнер «Сервер приложений»
-        // имеет ширину 241 при заголовке 165.136, «Сервер БД» — 162 при
-        // 86.181, то есть ширина = заголовок + 76. Берётся максимум из
-        // содержимого и заголовка.
-        // Заголовок узла рисуется ЖИРНЫМ, а он шире обычного примерно
-        // на 8.3%. Без этого узел выходил уже эталонного.
-        let title_width = self
-            .config
-            .text
-            .width_bold(&pkg.name, self.config.font_size);
-        let pkg_width = (inner_width + self.config.package_padding * 2.0)
-            .max(title_width + PACKAGE_TITLE_EXTRA);
-        let pkg_height =
-            inner_height + self.config.package_header_height + self.config.package_padding * 2.0;
-
-        let pkg_bounds = Rect::new(x, y, pkg_width.max(150.0), pkg_height.max(100.0));
-
-        // Создаём элемент пакета (group)
-        let pkg_elem = LayoutElement {
-            id: format!("package_{}", pkg.name.replace(' ', "_")),
-            bounds: pkg_bounds,
-            text: None,
-            // Заголовок узла PlantUML рисует ПОЛУЖИРНЫМ: в эталоне
-            // deployment_basic обе подписи («Сервер приложений» и
-            // «Сервер БД») имеют font-weight="700".
-            properties: [("font-weight".to_string(), "700".to_string())]
-                .into_iter()
-                .collect(),
-            element_type: ElementType::Group {
-                label: Some(pkg.name.clone()),
-                children: Vec::new(),
-            },
-        };
-
-        // Вставляем пакет первым (под компонентами)
-        elements.insert(0, pkg_elem);
-
-        (elements, pkg_bounds, positions)
-    }
-
-    /// Создаёт элемент связи
-    fn create_connection_element(
-        &self,
-        conn: &Connection,
-        positions: &HashMap<String, Rect>,
-    ) -> Option<LayoutElement> {
-        let from_rect = positions.get(&conn.from)?;
-        let to_rect = positions.get(&conn.to)?;
-
-        let (start, end) = self.calculate_connection_points(from_rect, to_rect);
-
-        let min_x = start.x.min(end.x);
-        let min_y = start.y.min(end.y);
-        let max_x = start.x.max(end.x);
-        let max_y = start.y.max(end.y);
-
-        Some(LayoutElement {
-            id: format!(
-                "conn_{}_{}",
-                conn.from.replace(' ', "_"),
-                conn.to.replace(' ', "_")
-            ),
-            bounds: Rect::new(
-                min_x,
-                min_y,
-                (max_x - min_x).max(1.0),
-                (max_y - min_y).max(1.0),
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Edge {
-                points: vec![start, end],
-                label: conn.label.clone(),
-                arrow_start: false,
-                arrow_end: true,
-                dashed: conn.dashed,
-                edge_type: EdgeType::Association,
-                from_cardinality: None,
-                to_cardinality: None,
-            },
-        })
-    }
-
-    /// Вычисляет точки соединения для связи
-    fn calculate_connection_points(&self, from: &Rect, to: &Rect) -> (Point, Point) {
-        let from_center_x = from.x + from.width / 2.0;
-        let from_center_y = from.y + from.height / 2.0;
-        let to_center_x = to.x + to.width / 2.0;
-        let to_center_y = to.y + to.height / 2.0;
-
-        let dx = to_center_x - from_center_x;
-        let dy = to_center_y - from_center_y;
-
-        let start;
-        let end;
-
-        if dy.abs() > dx.abs() {
-            if dy > 0.0 {
-                start = Point::new(from_center_x, from.y + from.height);
-                end = Point::new(to_center_x, to.y);
-            } else {
-                start = Point::new(from_center_x, from.y);
-                end = Point::new(to_center_x, to.y + to.height);
-            }
-        } else {
-            if dx > 0.0 {
-                start = Point::new(from.x + from.width, from_center_y);
-                end = Point::new(to.x, to_center_y);
-            } else {
-                start = Point::new(from.x, from_center_y);
-                end = Point::new(to.x + to.width, to_center_y);
-            }
-        }
-
-        (start, end)
-    }
 }
 
 /// Ставит заметки правее всех фигур на высоте своей цели.
@@ -997,59 +548,6 @@ impl ComponentLayoutEngine {
 /// `left/top/bottom` пока не учитывается: важнее, чтобы текст заметки попал
 /// на схему и не лёг на чужие фигуры.
 /// shortcut: сторона заметки игнорируется, заменит общий послойный движок.
-pub(crate) fn layout_side_notes(
-    notes: &[plantuml_ast::common::Note],
-    positions: &HashMap<String, Rect>,
-    elements: &mut Vec<LayoutElement>,
-    text: &crate::text::TextMeasurer,
-    font_size: f64,
-    margin: f64,
-) {
-    const NOTE_GAP: f64 = 30.0;
-    const NOTE_PADDING: f64 = 20.0;
-    const NOTE_LINE_HEIGHT: f64 = 16.0;
-    const NOTE_FOLD: f64 = 10.0;
-
-    let left = elements
-        .iter()
-        .map(|e| e.bounds.x + e.bounds.width)
-        .fold(margin, f64::max)
-        + NOTE_GAP;
-    let mut free_y = margin;
-    for note in notes {
-        let lines: Vec<&str> = note.text.lines().collect();
-        let width = lines
-            .iter()
-            .map(|l| text.width(l, font_size))
-            .fold(0.0_f64, f64::max)
-            + NOTE_PADDING;
-        let height = lines.len().max(1) as f64 * NOTE_LINE_HEIGHT + 12.0;
-        let target_y = note
-            .anchors
-            .iter()
-            .find_map(|a| positions.get(a))
-            .map(|r| r.y + r.height / 2.0 - height / 2.0);
-        let y = target_y.unwrap_or(free_y).max(free_y);
-        free_y = y + height + 10.0;
-
-        let mut properties = HashMap::new();
-        properties.insert("fill".to_string(), "#FEFFDD".to_string());
-        properties.insert("text-align".to_string(), "left".to_string());
-        properties.insert("text-inset".to_string(), "6".to_string());
-        properties.insert("font-size".to_string(), "13".to_string());
-        elements.push(LayoutElement {
-            id: format!("note_{}", elements.len()),
-            bounds: Rect::new(left, y, width, height),
-            text: None,
-            properties,
-            element_type: ElementType::Note {
-                label: note.text.clone(),
-                fold: NOTE_FOLD,
-            },
-        });
-    }
-}
-
 impl Default for ComponentLayoutEngine {
     fn default() -> Self {
         Self::new()
@@ -1065,7 +563,9 @@ mod tests {
         let mut diagram = ComponentDiagram::new();
         diagram.components.push(Component::new("API"));
         diagram.components.push(Component::database("MySQL"));
-        diagram.connections.push(Connection::new("API", "MySQL"));
+        diagram
+            .connections
+            .push(plantuml_ast::component::Connection::new("API", "MySQL"));
 
         let engine = ComponentLayoutEngine::new();
         let result = engine.layout(&diagram);

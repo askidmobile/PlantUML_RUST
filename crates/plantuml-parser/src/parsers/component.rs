@@ -364,6 +364,7 @@ fn parse_connection(pair: pest::iterators::Pair<Rule>) -> Option<Connection> {
     let mut to = String::new();
     let mut label: Option<String> = None;
     let mut dashed = false;
+    let mut arrow = plantuml_ast::common::ArrowShape::default();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -374,6 +375,7 @@ fn parse_connection(pair: pest::iterators::Pair<Rule>) -> Option<Connection> {
                 to = extract_connection_endpoint(inner);
             }
             Rule::arrow => {
+                arrow = plantuml_ast::common::ArrowShape::parse(inner.as_str());
                 // Проверяем тип стрелки
                 for arrow_inner in inner.into_inner() {
                     if arrow_inner.as_rule() == Rule::arrow_dashed {
@@ -399,6 +401,7 @@ fn parse_connection(pair: pest::iterators::Pair<Rule>) -> Option<Connection> {
         label,
         color: None,
         dashed,
+        arrow,
     })
 }
 

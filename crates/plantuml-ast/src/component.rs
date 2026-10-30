@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::common::{Color, DiagramMetadata, Note, Stereotype};
+use crate::common::{ArrowShape, Color, DiagramMetadata, Note, Stereotype};
 
 /// Диаграмма компонентов/развёртывания
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -242,6 +242,8 @@ pub struct Connection {
     pub color: Option<Color>,
     /// Пунктирная линия
     pub dashed: bool,
+    /// Форма стрелки
+    pub arrow: ArrowShape,
 }
 
 impl Connection {
@@ -254,6 +256,7 @@ impl Connection {
             label: None,
             color: None,
             dashed: false,
+            arrow: ArrowShape::default(),
         }
     }
 

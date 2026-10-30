@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::common::{Color, DiagramMetadata, Direction, Note, Stereotype};
+use crate::common::{ArrowShape, Color, DiagramMetadata, Direction, Note, Stereotype};
 
 /// Диаграмма вариантов использования
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -105,6 +105,8 @@ pub struct UseCaseRelationship {
     pub relation_type: UseCaseRelationType,
     /// Метка
     pub label: Option<String>,
+    /// Форма стрелки
+    pub arrow: ArrowShape,
 }
 
 impl UseCaseRelationship {
@@ -115,6 +117,7 @@ impl UseCaseRelationship {
             to: to.into(),
             relation_type: UseCaseRelationType::Association,
             label: None,
+            arrow: ArrowShape::default(),
         }
     }
 

@@ -231,6 +231,86 @@ pub enum LineStyle {
     Bold,
 }
 
+/// Явное направление стрелки: `-up->`, `-left->`
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ArrowHint {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+/// Что записано в стрелке связи графовой диаграммы.
+///
+/// В PlantUML длина линии задаёт раскладку: `->` ставит концы на один ранг,
+/// `-->` на соседние, `--->` через один.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArrowShape {
+    pub head_from: bool,
+    pub head_to: bool,
+    /// Число символов линии
+    pub length: u8,
+    pub hint: Option<ArrowHint>,
+}
+
+impl Default for ArrowShape {
+    /// Обычная `-->`
+    fn default() -> Self {
+        Self {
+            head_from: false,
+            head_to: true,
+            length: 2,
+            hint: None,
+        }
+    }
+}
+
+impl ArrowShape {
+    /// Разбирает запись стрелки, например `<-[#red]up-->`.
+    pub fn parse(text: &str) -> Self {
+        // Стиль в квадратных скобках на форму не влияет.
+        let mut plain = String::with_capacity(text.len());
+        let mut depth = 0usize;
+        for c in text.chars() {
+            match c {
+                '[' => depth += 1,
+                ']' => depth = depth.saturating_sub(1),
+                _ if depth == 0 => plain.push(c),
+                _ => {}
+            }
+        }
+        let lower = plain.to_lowercase();
+        let hint = [
+            ("up", ArrowHint::Up),
+            ("down", ArrowHint::Down),
+            ("do", ArrowHint::Down),
+            ("left", ArrowHint::Left),
+            ("le", ArrowHint::Left),
+            ("right", ArrowHint::Right),
+            ("ri", ArrowHint::Right),
+            ("u", ArrowHint::Up),
+            ("d", ArrowHint::Down),
+            ("l", ArrowHint::Left),
+            ("r", ArrowHint::Right),
+        ]
+        .iter()
+        .find(|(word, _)| {
+            lower.find(word).is_some_and(|at| {
+                lower[..at].contains(['-', '.'])
+                    && lower[at + word.len()..].contains(['-', '.', '>'])
+            })
+        })
+        .map(|(_, hint)| *hint);
+        let length = lower.chars().filter(|c| matches!(c, '-' | '.')).count();
+        Self {
+            head_from: lower.starts_with('<'),
+            head_to: lower.ends_with('>'),
+            length: length.clamp(1, 16) as u8,
+            hint,
+        }
+    }
+}
+
 /// Выравнивание легенды относительно диаграммы
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LegendAlign {
@@ -263,6 +343,8 @@ pub struct DiagramMetadata {
     pub direction: Option<Direction>,
     /// Выравнивание легенды (`legend right`)
     pub legend_align: LegendAlign,
+    /// Спрайты из `sprite $имя ...`: их можно вставлять в любую подпись
+    pub sprites: Vec<crate::class::Sprite>,
     /// Рамка вокруг диаграммы (`mainframe Заголовок`)
     pub mainframe: Option<String>,
     /// Заголовок новой страницы (`newpage Заголовок`)
