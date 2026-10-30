@@ -823,6 +823,12 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
         return Ok(DiagramKind::Component);
     }
 
+    // Цветная стрелка `A -[#red]> B` без объявлений — сообщение sequence;
+    // скобки в ней не имя компонента.
+    if has_styled_arrow(&source_lower) {
+        return Ok(DiagramKind::Sequence);
+    }
+
     // Паттерн [Component] --> [Other] — но только если нет sequence-признаков
     if has_component_bracket_pattern(&source_lower)
         && !source_lower.contains(" -> ")  // sequence arrows с пробелами
@@ -879,6 +885,21 @@ mod directed_arrow_tests {
             assert_ne!(kind, DiagramKind::Sequence, "уйдёт в sequence: {source}");
         }
     }
+}
+
+/// Есть ли стрелка со стилем в скобках: `-[#red]>`, `-[bold]->`, `..[#0000FF]>`.
+fn has_styled_arrow(source_lower: &str) -> bool {
+    source_lower.lines().any(|line| {
+        let line = line.trim();
+        !line.starts_with('\'')
+            && ["-[", ".["].iter().any(|open| {
+                line.find(open).is_some_and(|at| {
+                    line[at + 2..].find(']').is_some_and(|close| {
+                        line[at + 2 + close + 1..].starts_with(['>', '-', '.'])
+                    })
+                })
+            })
+    })
 }
 
 /// Есть ли в исходнике стрелка с ЯВНЫМ направлением.

@@ -24,6 +24,8 @@ pub struct ParticipantMetrics {
     /// `actor`/`boundary`/`control`/`entity`/`database` фигурами, а не
     /// прямоугольниками, причём и сверху, и снизу.
     pub participant_type: ParticipantType,
+    /// Стереотип (`«Имя»`) и цвет круга-«спота» перед ним, если задан
+    pub stereotype: Option<(String, Option<String>)>,
 }
 
 /// Информация об активации
@@ -101,6 +103,7 @@ impl AutonumberState {
     pub fn next(&mut self) -> String {
         // Формируем строку номера
         let num_str = self.format_number();
+        let current = self.levels.last().copied().unwrap_or(1);
 
         // Инкрементируем последний уровень
         if let Some(last) = self.levels.last_mut() {
@@ -109,7 +112,7 @@ impl AutonumberState {
 
         // Применяем формат если есть
         if let Some(fmt) = &self.format {
-            self.apply_format(fmt, &num_str)
+            self.apply_format(fmt, &num_str, current)
         } else {
             num_str
         }
@@ -124,24 +127,23 @@ impl AutonumberState {
             .join(".")
     }
 
-    /// Применяет формат к номеру
-    fn apply_format(&self, fmt: &str, num_str: &str) -> String {
-        // Простая замена: 0 -> число
-        if fmt.contains("00") {
-            // Для multi-level берём последний уровень для форматирования с нулями
-            let last = self
-                .levels
-                .last()
-                .copied()
-                .unwrap_or(1)
-                .saturating_sub(self.step);
-            fmt.replace("00", &format!("{:02}", last))
-        } else if fmt.contains('0') {
-            fmt.replace('0', num_str)
-        } else {
+    /// Применяет формат к номеру.
+    ///
+    /// Первая подряд идущая группа нулей — место номера, а её длина —
+    /// минимальная ширина: `[000]` даёт `[001]`. Остальной текст формата
+    /// (в том числе теги `<b>`) остаётся как есть.
+    fn apply_format(&self, fmt: &str, num_str: &str, current: u32) -> String {
+        let Some(start) = fmt.find('0') else {
             // Если формат не содержит 0, добавляем номер в начало
-            format!("{}{}", num_str, fmt)
-        }
+            return format!("{}{}", num_str, fmt);
+        };
+        let zeros = fmt[start..].chars().take_while(|c| *c == '0').count();
+        let number = if self.levels.len() > 1 {
+            num_str.to_string()
+        } else {
+            format!("{:0width$}", current, width = zeros)
+        };
+        format!("{}{}{}", &fmt[..start], number, &fmt[start + zeros..])
     }
 }
 
@@ -166,6 +168,22 @@ pub struct DiagramMetrics {
     pub autonumber: AutonumberState,
     /// Стек вызовов для return (caller, callee)
     pub call_stack: Vec<(String, String)>,
+    /// X, где начинаются сообщения от левого края диаграммы (`[->`)
+    pub boundary_left_x: f64,
+    /// X, где кончаются сообщения к правому краю диаграммы (`->]`)
+    pub boundary_right_x: f64,
+    /// Якоря сообщений: имя -> (Y сообщения, X середины стрелки)
+    pub anchors: std::collections::HashMap<String, (f64, f64)>,
+    /// Отправитель и получатель последнего сообщения
+    pub last_message_ends: Option<(String, String)>,
+    /// Позиция потока до последнего размещённого сообщения или заметки:
+    /// на неё возвращается следующий элемент после `&` и `/`
+    pub item_flow_start: f64,
+    /// Позиция потока, ниже которой он не должен уйти после «параллельного»
+    /// элемента
+    pub parallel_floor: Option<f64>,
+    /// Правый край последней заметки
+    pub last_note_right: f64,
 }
 
 impl DiagramMetrics {
@@ -181,6 +199,13 @@ impl DiagramMetrics {
             completed_activations: Vec::new(),
             autonumber: AutonumberState::default(),
             call_stack: Vec::new(),
+            boundary_left_x: 0.0,
+            boundary_right_x: 0.0,
+            anchors: std::collections::HashMap::new(),
+            last_message_ends: None,
+            item_flow_start: 0.0,
+            parallel_floor: None,
+            last_note_right: 0.0,
         }
     }
 
@@ -297,6 +322,7 @@ impl DiagramMetrics {
                 name.to_string(),
                 ParticipantMetrics {
                     participant_type: ParticipantType::Participant,
+                    stereotype: None,
                     id: name.to_string(),
                     display_name: name.to_string(), // Для автоматических участников display_name = id
                     center_x: x,

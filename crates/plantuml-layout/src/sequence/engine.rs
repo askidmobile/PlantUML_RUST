@@ -102,8 +102,9 @@ fn figure_extra_below(participant_type: ParticipantType) -> f64 {
 }
 
 use plantuml_ast::sequence::{
-    Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
-    ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
+    Activation, ActivationType, ArrowType, AutonumberCommand, BoundarySide, Delay, Divider,
+    Duration, Fragment, FragmentType, Message, ParticipantType, Reference, Return, SequenceDiagram,
+    SequenceElement,
 };
 use plantuml_model::{Point, Rect};
 
@@ -149,6 +150,35 @@ const FRAGMENT_FRAME_LEFT_HALF: f64 = 16.0;
 /// линия 1230.5, рамка на 1251.5. Оба раза ровно 21.
 const FRAGMENT_FRAME_RIGHT_HALF: f64 = 21.0;
 
+/// На сколько выше становится блок участника со стереотипом: вторая строка.
+///
+/// Эталон `ref_lang_031`: блок 46.594 против обычных 30.297.
+const STEREOTYPE_HEADER_EXTRA: f64 = 16.297;
+
+/// Добавка к ширине блока участника с кружком-«спотом» перед стереотипом.
+const SPOT_EXTRA_WIDTH: f64 = 28.0;
+
+/// Длина стрелки к краю диаграммы сверх ширины подписи: слева (`[->`).
+///
+/// Эталон `ref_lang_011`: подпись 135.878, стрелка от края 159.878.
+const BOUNDARY_LEFT_EXTRA: f64 = 24.0;
+
+/// То же справа (`->]`): подпись 143.813, стрелка 161.8.
+const BOUNDARY_RIGHT_EXTRA: f64 = 18.0;
+
+/// Насколько отступает от линии жизни край стрелки длительности `{a} <-> {b}`
+/// по вертикали: эталон `ref_lang_032` — на 2 от сообщения.
+const DURATION_INSET: f64 = 2.0;
+
+/// Сдвиг заголовка и рамки вложенного box на каждый уровень вложенности.
+const BOX_LEVEL_STEP: f64 = 17.266;
+
+/// Сколько добавляется к ширине текста заметки до ширины рамки.
+const NOTE_WIDTH_EXTRA: f64 = 20.17;
+
+/// Зазор между заметками на одной строке.
+const NOTE_PARALLEL_GAP: f64 = 4.0;
+
 /// Layout engine для sequence diagrams
 pub struct SequenceLayoutEngine {
     config: SequenceLayoutConfig,
@@ -169,11 +199,28 @@ impl SequenceLayoutEngine {
 
     /// Выполняет layout диаграммы
     pub fn layout(&self, diagram: &SequenceDiagram) -> LayoutResult {
+        // Стереотип добавляет участнику вторую строку, а блоки всех
+        // участников в ряду одной высоты (эталон `ref_lang_031`), поэтому
+        // высота блока растёт у всей диаграммы сразу.
+        if diagram
+            .participants
+            .iter()
+            .any(|p| p.stereotype.as_ref().is_some_and(|s| !s.names.is_empty()))
+        {
+            let mut config = self.config.clone();
+            config.participant_height += STEREOTYPE_HEADER_EXTRA;
+            return Self { config }.layout_diagram(diagram);
+        }
+        self.layout_diagram(diagram)
+    }
+
+    fn layout_diagram(&self, diagram: &SequenceDiagram) -> LayoutResult {
         let mut metrics = DiagramMetrics::new();
         let mut elements = Vec::new();
 
         // 1. Размещаем участников
         self.layout_participants(diagram, &mut metrics, &mut elements);
+        self.place_boundaries(diagram, &mut metrics);
 
         // 1.5. Добавляем box группировки (фоновые прямоугольники)
         // Должны быть добавлены в начало, чтобы рендерились под участниками
@@ -294,7 +341,9 @@ impl SequenceLayoutEngine {
             SequenceElement::Message(msg) => {
                 let is_self_message = msg.from == msg.to;
 
-                if is_self_message {
+                if msg.from_boundary.is_some() || msg.to_boundary.is_some() {
+                    // Стрелка к краю диаграммы: её длину задают сами края
+                } else if is_self_message {
                     // Self-message: текст справа от петли.
                     // Берём те же константы, что и при построении геометрии:
                     // раньше здесь стояло 40.0 против 42.0 в отрисовке, из-за
@@ -370,7 +419,13 @@ impl SequenceLayoutEngine {
     ) -> Vec<LayoutElement> {
         let mut elements = Vec::new();
 
-        for (i, pbox) in diagram.boxes.iter().enumerate() {
+        // Внешний box рисуется раньше вложенных, иначе он закрыл бы их.
+        let mut ordered: Vec<(usize, &plantuml_ast::sequence::ParticipantBox)> =
+            diagram.boxes.iter().enumerate().collect();
+        ordered.sort_by_key(|(_, pbox)| pbox.depth);
+        let max_depth = diagram.boxes.iter().map(|b| b.depth).max().unwrap_or(0);
+
+        for (i, pbox) in ordered {
             if pbox.participants.is_empty() {
                 continue;
             }
@@ -392,14 +447,16 @@ impl SequenceLayoutEngine {
                 continue;
             }
 
-            // Добавляем отступы
-            let padding = 10.0;
+            // Добавляем отступы. Внешний box шире вложенного на один отступ
+            // за каждый уровень, чтобы рамки не сливались.
+            let padding = 10.0 + 6.0 * (max_depth - pbox.depth) as f64;
             min_x -= padding;
             max_x += padding;
 
-            // Box начинается выше участников и заканчивается на footer_y + footer_height
-            let box_y = 5.0; // Немного выше margin
-                             // Высота будет определена позже при рендеринге (на всю высоту диаграммы)
+            // Box начинается выше участников и заканчивается на footer_y + footer_height;
+            // вложенный начинается на высоту заголовка ниже внешнего
+            let box_y = 5.0 + BOX_LEVEL_STEP * pbox.depth as f64;
+            // Высота будет определена позже при рендеринге (на всю высоту диаграммы)
 
             let mut properties = std::collections::HashMap::new();
             if let Some(title) = &pbox.title {
@@ -436,6 +493,11 @@ impl SequenceLayoutEngine {
             std::collections::HashMap::new();
         let mut participant_types: std::collections::HashMap<String, ParticipantType> =
             std::collections::HashMap::new();
+        // Стереотип участника и цвет его кружка-«спота»
+        let mut participant_stereotypes: std::collections::HashMap<
+            String,
+            (String, Option<String>),
+        > = std::collections::HashMap::new();
 
         for participant in &diagram.participants {
             let name = participant
@@ -448,7 +510,18 @@ impl SequenceLayoutEngine {
             if !participant_order.contains(&name) {
                 participant_order.push(name.clone());
                 participant_names.insert(name.clone(), display_name);
-                participant_types.insert(name, participant.participant_type);
+                participant_types.insert(name.clone(), participant.participant_type);
+                if let Some(stereotype) = &participant.stereotype {
+                    let text = if stereotype.names.is_empty() {
+                        String::new()
+                    } else {
+                        format!("«{}»", stereotype.names.join(", "))
+                    };
+                    let spot = stereotype.background_color.as_ref().map(|c| c.to_css());
+                    if !text.is_empty() || spot.is_some() {
+                        participant_stereotypes.insert(name, (text, spot));
+                    }
+                }
             }
         }
 
@@ -457,6 +530,9 @@ impl SequenceLayoutEngine {
 
         // Если есть боксы с заголовками, сдвигаем участников вниз
         let has_box_titles = diagram.boxes.iter().any(|b| b.title.is_some());
+        // Заголовки вложенных box лежат друг под другом: каждый следующий
+        // уровень добавляет BOX_LEVEL_STEP (эталон `ref_lang_028`)
+        let box_levels = diagram.boxes.iter().map(|b| b.depth).max().unwrap_or(0);
 
         // При наличии актёра PlantUML сдвигает весь верхний ряд участников
         // вниз, освобождая место для стик-фигуры над прямоугольником:
@@ -468,7 +544,7 @@ impl SequenceLayoutEngine {
 
         let participant_y = self.config.margin
             + if has_box_titles {
-                self.config.box_title_height
+                self.config.box_title_height + BOX_LEVEL_STEP * box_levels as f64
             } else {
                 0.0
             }
@@ -479,7 +555,23 @@ impl SequenceLayoutEngine {
             .iter()
             .map(|name| {
                 let display_name = participant_names.get(name).unwrap_or(name);
-                self.config.participant_width_for_name(display_name)
+                let width = self.config.participant_width_for_name(display_name);
+                match participant_stereotypes.get(name) {
+                    Some((text, spot)) => {
+                        let stereo = if text.is_empty() {
+                            0.0
+                        } else {
+                            self.config.participant_width_for_name(text)
+                        };
+                        let extra = if spot.is_some() {
+                            SPOT_EXTRA_WIDTH
+                        } else {
+                            0.0
+                        };
+                        width.max(stereo) + extra
+                    }
+                    None => width,
+                }
             })
             .collect();
 
@@ -488,8 +580,13 @@ impl SequenceLayoutEngine {
         let spacing_map =
             self.calculate_participant_spacing(diagram, &participant_order, &participant_widths);
 
-        // Размещаем участников с вычисленными расстояниями
-        let mut x = self.config.margin;
+        // Размещаем участников с вычисленными расстояниями.
+        //
+        // Сообщения от левого края диаграммы (`[->`) начинаются левее первой
+        // линии жизни, поэтому ряд сдвигается вправо на их длину.
+        let (left_need, _) = self.boundary_needs(&diagram.elements);
+        let first_half = participant_widths.first().copied().unwrap_or(0.0) / 2.0;
+        let mut x = self.config.margin + (left_need - first_half).max(0.0);
 
         for (i, name) in participant_order.iter().enumerate() {
             let display_name = participant_names.get(name).unwrap_or(name);
@@ -518,11 +615,13 @@ impl SequenceLayoutEngine {
                     width,
                     header_bounds: bounds,
                     participant_type: ptype,
+                    stereotype: participant_stereotypes.get(name).cloned(),
                 },
             );
 
             // Создаём визуальный элемент
-            let element = self.create_participant_element(name, display_name, &bounds, ptype);
+            let mut element = self.create_participant_element(name, display_name, &bounds, ptype);
+            apply_stereotype(&mut element, participant_stereotypes.get(name));
             elements.push(element);
 
             // Расстояние до следующего участника
@@ -541,6 +640,50 @@ impl SequenceLayoutEngine {
         metrics.max_x = x;
     }
 
+    /// Насколько диаграмме нужно места слева и справа от крайних линий
+    /// жизни для сообщений без участника (`[->`, `->]`).
+    ///
+    /// Длина такой стрелки — ширина подписи плюс запас; числа сняты с
+    /// эталона `ref_lang_011`.
+    fn boundary_needs(&self, elements: &[SequenceElement]) -> (f64, f64) {
+        let mut left = 0.0_f64;
+        let mut right = 0.0_f64;
+        for element in elements {
+            match element {
+                SequenceElement::Message(msg) => {
+                    let width = self.config.message_label_width(&msg.label) - 16.0;
+                    for side in [msg.from_boundary, msg.to_boundary].into_iter().flatten() {
+                        match side {
+                            BoundarySide::Left => left = left.max(width + BOUNDARY_LEFT_EXTRA),
+                            BoundarySide::Right => right = right.max(width + BOUNDARY_RIGHT_EXTRA),
+                        }
+                    }
+                }
+                SequenceElement::Fragment(frag) => {
+                    for section in &frag.sections {
+                        let (l, r) = self.boundary_needs(&section.elements);
+                        left = left.max(l);
+                        right = right.max(r);
+                    }
+                }
+                _ => {}
+            }
+        }
+        (left, right)
+    }
+
+    /// Запоминает, где кончаются стрелки к краям диаграммы.
+    fn place_boundaries(&self, diagram: &SequenceDiagram, metrics: &mut DiagramMetrics) {
+        let (left_need, right_need) = self.boundary_needs(&diagram.elements);
+        let centers = || metrics.participants.values().map(|p| p.center_x);
+        let min_x = centers().fold(f64::MAX, f64::min);
+        let max_x = centers().fold(f64::MIN, f64::max);
+        if min_x <= max_x {
+            metrics.boundary_left_x = min_x - left_need;
+            metrics.boundary_right_x = max_x + right_need;
+        }
+    }
+
     /// Собирает порядок участников из сообщений диаграммы
     fn collect_participants_order(&self, diagram: &SequenceDiagram, order: &mut Vec<String>) {
         for element in &diagram.elements {
@@ -556,17 +699,33 @@ impl SequenceLayoutEngine {
     ) {
         match element {
             SequenceElement::Message(msg) => {
-                if !order.contains(&msg.from) {
-                    order.push(msg.from.clone());
-                }
-                if !order.contains(&msg.to) {
-                    order.push(msg.to.clone());
+                // Конец за краем диаграммы участником не является
+                for name in [&msg.from, &msg.to] {
+                    if !name.is_empty() && !order.contains(name) {
+                        order.push(name.clone());
+                    }
                 }
             }
             SequenceElement::Fragment(frag) => {
                 for section in &frag.sections {
                     for elem in &section.elements {
                         self.collect_participants_from_element_order(elem, order);
+                    }
+                }
+            }
+            // Участник, упомянутый только в заметке или ссылке, тоже
+            // получает линию жизни
+            SequenceElement::Note(note) => {
+                for name in &note.anchors {
+                    if !order.contains(name) {
+                        order.push(name.clone());
+                    }
+                }
+            }
+            SequenceElement::Reference(reference) => {
+                for name in &reference.participants {
+                    if !order.contains(name) {
+                        order.push(name.clone());
                     }
                 }
             }
@@ -707,6 +866,7 @@ impl SequenceLayoutEngine {
         // Стек вызовов ведётся при обходе: он нужен, чтобы определить
         // участников `return` (callee -> caller)
         let mut call_stack: Vec<(String, String)> = Vec::new();
+        let mut last_ends: Option<(String, String)> = None;
         for element in &diagram.elements {
             self.collect_message_span(
                 element,
@@ -714,6 +874,7 @@ impl SequenceLayoutEngine {
                 has_autonumber,
                 messages_by_span,
                 &mut call_stack,
+                &mut last_ends,
             );
         }
     }
@@ -727,9 +888,18 @@ impl SequenceLayoutEngine {
         has_autonumber: bool,
         messages_by_span: &mut std::collections::BTreeMap<usize, Vec<(usize, usize, f64)>>,
         call_stack: &mut Vec<(String, String)>,
+        last_ends: &mut Option<(String, String)>,
     ) {
         match element {
+            SequenceElement::Activation(act) if act.activation_type == ActivationType::Activate => {
+                if let Some((from, to)) = last_ends.clone() {
+                    if to == act.participant && !from.is_empty() {
+                        call_stack.push((from, to));
+                    }
+                }
+            }
             SequenceElement::Message(msg) => {
+                *last_ends = Some((msg.from.clone(), msg.to.clone()));
                 // Стек вызовов нужен, чтобы определить участников `return`
                 if msg.activate {
                     call_stack.push((msg.from.clone(), msg.to.clone()));
@@ -798,6 +968,7 @@ impl SequenceLayoutEngine {
                             has_autonumber,
                             messages_by_span,
                             call_stack,
+                            last_ends,
                         );
                     }
                 }
@@ -918,7 +1089,34 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
+        // После `&` и `/` элемент встаёт на строку предыдущего, а поток после
+        // него не должен уйти выше, чем был.
+        let floor = if matches!(element, SequenceElement::Parallel) {
+            None
+        } else {
+            metrics.parallel_floor
+        };
+        self.layout_element_inner(element, metrics, elements);
+        if let Some(floor) = floor {
+            metrics.parallel_floor = None;
+            metrics.current_y = metrics.current_y.max(floor);
+        }
+    }
+
+    fn layout_element_inner(
+        &self,
+        element: &SequenceElement,
+        metrics: &mut DiagramMetrics,
+        elements: &mut Vec<LayoutElement>,
+    ) {
         match element {
+            SequenceElement::Parallel => {
+                metrics.parallel_floor = Some(metrics.current_y);
+                metrics.current_y = metrics.item_flow_start;
+            }
+            SequenceElement::Duration(duration) => {
+                self.layout_duration(duration, metrics, elements);
+            }
             SequenceElement::Message(msg) => {
                 self.layout_message(msg, metrics, elements);
             }
@@ -1011,8 +1209,16 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        // Извлекаем последний вызов из стека
-        if let Some((caller, callee)) = metrics.call_stack.pop() {
+        // Извлекаем последний вызов из стека. Если стек пуст (`activate`
+        // без сообщения к участнику), возвращаемся по последнему сообщению:
+        // молча терять текст `return` нельзя.
+        let call = metrics.call_stack.pop().or_else(|| {
+            metrics
+                .last_message_ends
+                .clone()
+                .filter(|(from, to)| !from.is_empty() && !to.is_empty())
+        });
+        if let Some((caller, callee)) = call {
             // Создаём return message: callee --> caller
             let mut msg = Message::new(&callee, &caller, ret.label.clone().unwrap_or_default());
             msg.line_style = LineStyle::Dashed;
@@ -1066,6 +1272,9 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
+        // Позиция потока до сообщения: сюда вернётся следующий элемент после `&`
+        metrics.item_flow_start = metrics.current_y;
+
         // Сначала вычисляем количество строк текста
         let line_count = msg.label.matches("\\n").count() + msg.label.matches('\n').count();
 
@@ -1081,17 +1290,33 @@ impl SequenceLayoutEngine {
         metrics.last_message_y = y;
 
         // Получаем X координаты ДО активации (чтобы стрелка шла к центру lifeline)
-        let from_x = metrics.lifeline_x(&msg.from, &self.config);
-        let to_x = metrics.lifeline_x(&msg.to, &self.config);
+        let boundary_x = |side: BoundarySide| match side {
+            BoundarySide::Left => metrics.boundary_left_x,
+            BoundarySide::Right => metrics.boundary_right_x,
+        };
+        let from_x = match msg.from_boundary {
+            Some(side) => boundary_x(side),
+            None => metrics.lifeline_x(&msg.from, &self.config),
+        };
+        let to_x = match msg.to_boundary {
+            Some(side) => boundary_x(side),
+            None => metrics.lifeline_x(&msg.to, &self.config),
+        };
+        metrics.last_message_ends = Some((msg.from.clone(), msg.to.clone()));
+        if let Some(anchor) = &msg.anchor {
+            metrics
+                .anchors
+                .insert(anchor.clone(), (y, (from_x + to_x) / 2.0));
+        }
 
         // Обрабатываем активацию на сообщении
         // Важно: активация начинается с Y позиции ЭТОГО сообщения
-        if msg.activate {
+        if msg.activate && !msg.to.is_empty() {
             metrics.activate_at(&msg.to, y);
             // Добавляем в call_stack для return
             metrics.call_stack.push((msg.from.clone(), msg.to.clone()));
         }
-        if msg.deactivate {
+        if msg.deactivate && !msg.from.is_empty() {
             metrics.deactivate(&msg.from);
         }
 
@@ -1128,7 +1353,9 @@ impl SequenceLayoutEngine {
                 Point::new(from_x, y + loop_height),
             ]
         } else {
-            vec![Point::new(from_x, y), Point::new(to_x, y)]
+            // `A ->(10) B`: конец стрелки ниже начала на заданное смещение
+            let shift = f64::from(msg.shift.unwrap_or(0));
+            vec![Point::new(from_x, y), Point::new(to_x, y + shift)]
         };
 
         // Определяем стиль линии (используется при рендеринге)
@@ -1161,6 +1388,30 @@ impl SequenceLayoutEngine {
         if let Some(ref num) = autonumber {
             properties.insert("autonumber".to_string(), num.clone());
         }
+        // Вид наконечников, цвет и толщина: рендерер рисует по ним
+        // `->>`, `->x`, `->o`, `-\\`, `<->`, `-[#red]>`, `-[bold]>`.
+        if msg.arrow_type != ArrowType::Normal {
+            properties.insert(
+                "head-end".to_string(),
+                head_name(msg.arrow_type).to_string(),
+            );
+        }
+        if let Some(start) = msg.start_arrow {
+            properties.insert("head-start".to_string(), head_name(start).to_string());
+        }
+        if let Some(color) = &msg.color {
+            properties.insert("stroke".to_string(), color.to_css());
+        }
+        if msg.bold {
+            properties.insert("stroke-width".to_string(), "2".to_string());
+        }
+        // Подпись стрелки, идущей к линии жизни слева от края, кончается у
+        // линии жизни, а не начинается у края (эталон `ref_lang_011`).
+        if msg.from_boundary == Some(BoundarySide::Left) {
+            properties.insert("label-end-x".to_string(), (to_x - 17.0).to_string());
+        } else if msg.to_boundary == Some(BoundarySide::Left) {
+            properties.insert("label-end-x".to_string(), (from_x - 7.0).to_string());
+        }
 
         let edge = LayoutElement {
             id: format!("msg_{}_{}", msg.from, msg.to),
@@ -1177,7 +1428,7 @@ impl SequenceLayoutEngine {
                 } else {
                     Some(label)
                 },
-                arrow_start: false,
+                arrow_start: msg.start_arrow.is_some(),
                 arrow_end: true,
                 dashed: is_dashed, // пунктирная линия для --> (response)
                 edge_type: EdgeType::Association, // стандартные стрелки sequence diagram
@@ -1196,7 +1447,42 @@ impl SequenceLayoutEngine {
         } else {
             self.config.message_spacing
         };
-        metrics.advance_y(height);
+        metrics.advance_y(height + f64::from(msg.shift.unwrap_or(0)));
+    }
+
+    /// Размещает стрелку длительности между двумя якорями.
+    ///
+    /// Вертикальная двусторонняя стрелка стоит посередине начальной стрелки,
+    /// подпись справа (эталон `ref_lang_032`).
+    fn layout_duration(
+        &self,
+        duration: &Duration,
+        metrics: &mut DiagramMetrics,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        let (Some(&(y1, x)), Some(&(y2, _))) = (
+            metrics.anchors.get(&duration.from),
+            metrics.anchors.get(&duration.to),
+        ) else {
+            return;
+        };
+        let (top, bottom) = (y1 + DURATION_INSET, y2 - DURATION_INSET);
+        elements.push(LayoutElement {
+            id: format!("duration_{}_{}", duration.from, duration.to),
+            bounds: Rect::new(x - 0.5, top, 1.0, (bottom - top).max(1.0)),
+            text: None,
+            properties: std::collections::HashMap::new(),
+            element_type: ElementType::Edge {
+                points: vec![Point::new(x, top), Point::new(x, bottom)],
+                label: (!duration.label.is_empty()).then(|| duration.label.clone()),
+                arrow_start: true,
+                arrow_end: true,
+                dashed: false,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
+            },
+        });
     }
 
     /// Размещает фрагмент (alt, opt, loop, etc.)
@@ -1307,7 +1593,17 @@ impl SequenceLayoutEngine {
         // Прежний расчёт брал ТОЛЬКО условие. На коротком условии это
         // совпадало, а на большой диаграмме рамка `alt` выходила 231 против
         // эталонных 1211 — содержимое из неё вылезало и растягивало холст.
-        let by_condition = condition_width + FRAGMENT_CONDITION_EXTRA;
+        let mut by_condition = condition_width + FRAGMENT_CONDITION_EXTRA;
+        // Ярлык группы несёт её название, и оно длиннее слова `group`:
+        // ярлык, условие и их отступы должны уместиться в рамке.
+        if let Some(title) = frag
+            .title
+            .as_deref()
+            .filter(|_| frag.fragment_type == FragmentType::Group)
+        {
+            let tab = self.config.text.width_bold(title, 13.0) + 45.0;
+            by_condition = by_condition.max(tab + condition_width + 26.0);
+        }
         let by_content =
             (max_x - min_x).max(0.0) + FRAGMENT_FRAME_LEFT_HALF + FRAGMENT_FRAME_RIGHT_HALF;
         let width = by_condition.max(by_content);
@@ -1326,7 +1622,8 @@ impl SequenceLayoutEngine {
             FragmentType::Par => "par",
             FragmentType::Break => "break",
             FragmentType::Critical => "critical",
-            FragmentType::Group => "group",
+            // Ярлык группы подписан её названием, а не словом `group`
+            FragmentType::Group => frag.title.as_deref().unwrap_or("group"),
             FragmentType::Ref => "ref",
         };
 
@@ -1346,9 +1643,7 @@ impl SequenceLayoutEngine {
             // Заголовок фрагмента (alt/opt/loop) PlantUML рисует
             // ПОЛУЖИРНЫМ: в эталоне sequence_fragments все три элемента
             // («alt», «[Успешно]», «[Ошибка]») имеют font-weight="700".
-            properties: [("font-weight".to_string(), "700".to_string())]
-                .into_iter()
-                .collect(),
+            properties: fragment_properties(frag),
             element_type: ElementType::Fragment {
                 fragment_type: fragment_type_str.to_string(),
                 sections: layout_sections,
@@ -1432,6 +1727,8 @@ impl SequenceLayoutEngine {
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
+        metrics.item_flow_start = metrics.current_y;
+
         // Примечание после сообщения ставится СРАЗУ под ним.
         //
         // Измерено по эталону `sequence_notes`: стрелка на 70.43,
@@ -1444,6 +1741,16 @@ impl SequenceLayoutEngine {
             metrics.current_y
         };
 
+        // Ширина по тексту: эталон `sequence_notes` — текст 73.83, рамка 94,
+        // то есть текст плюс 20.17. Короче базовой ширины рамка не бывает.
+        let text_width = note
+            .text
+            .replace("\\n", "\n")
+            .split('\n')
+            .map(|line| self.config.text.width(line, NOTE_FONT_SIZE))
+            .fold(0.0_f64, f64::max);
+        let note_width = self.config.note_width.max(text_width + NOTE_WIDTH_EXTRA);
+
         // Определяем X позицию
         let x = if note.anchors.is_empty() {
             self.config.margin
@@ -1455,10 +1762,10 @@ impl SequenceLayoutEngine {
                 // Отступ заметки от линии жизни. Измерено по эталону:
                 // линия Bob на x=106.487, заметка начинается на 110.987,
                 // то есть отступ 4.5.
-                NotePosition::Left => anchor_x - self.config.note_width - NOTE_ANCHOR_GAP,
+                NotePosition::Left => anchor_x - note_width - NOTE_ANCHOR_GAP,
                 NotePosition::Right => anchor_x + NOTE_ANCHOR_GAP,
-                NotePosition::Over => anchor_x - self.config.note_width / 2.0,
-                NotePosition::Top | NotePosition::Bottom => anchor_x - self.config.note_width / 2.0,
+                NotePosition::Over => anchor_x - note_width / 2.0,
+                NotePosition::Top | NotePosition::Bottom => anchor_x - note_width / 2.0,
             }
         } else {
             // Over multiple participants.
@@ -1476,10 +1783,18 @@ impl SequenceLayoutEngine {
                 .last()
                 .and_then(|a| metrics.participant_center_x(a))
                 .unwrap_or(first_x);
-            (first_x + last_x) / 2.0 - self.config.note_width / 2.0
+            (first_x + last_x) / 2.0 - note_width / 2.0
         };
 
-        let bounds = Rect::new(x, y, self.config.note_width, self.config.note_height);
+        // Заметка на той же строке (`/ note ...`) не налезает на предыдущую
+        let x = if metrics.parallel_floor.is_some() {
+            x.max(metrics.last_note_right + NOTE_PARALLEL_GAP)
+        } else {
+            x
+        };
+        metrics.last_note_right = x + note_width;
+
+        let bounds = Rect::new(x, y, note_width, self.config.note_height);
 
         // Цвет заметки в PlantUML — светло-жёлтый (#FEFFDD).
         // Раньше заливка бралась из темы (серо-голубая #E2E2F0), из-за чего
@@ -1602,6 +1917,13 @@ impl SequenceLayoutEngine {
         match act.activation_type {
             ActivationType::Activate => {
                 metrics.activate(&act.participant);
+                // Явный `activate B` после `A -> B` делает A вызывающим для
+                // следующего `return`.
+                if let Some((from, to)) = metrics.last_message_ends.clone() {
+                    if to == act.participant && !from.is_empty() {
+                        metrics.call_stack.push((from, to));
+                    }
+                }
             }
             ActivationType::Deactivate | ActivationType::Destroy => {
                 // Завершаем активацию на той же отметке, где начинается
@@ -1788,13 +2110,61 @@ impl SequenceLayoutEngine {
                 },
             };
 
-            elements.push(LayoutElement {
+            let mut footer = LayoutElement {
                 id: format!("footer_{}", id),
                 bounds,
                 text: None,
                 properties: std::collections::HashMap::new(),
                 element_type,
-            });
+            };
+            apply_stereotype(&mut footer, participant.stereotype.as_ref());
+            elements.push(footer);
+        }
+    }
+}
+
+/// Свойства рамки фрагмента: жирный шрифт, цвет рамки (`alt#Gold`), фон
+/// (`alt#Gold #LightBlue`) и фоны веток (`else #Pink`).
+fn fragment_properties(frag: &Fragment) -> std::collections::HashMap<String, String> {
+    let mut properties = std::collections::HashMap::new();
+    properties.insert("font-weight".to_string(), "700".to_string());
+    if let Some(color) = &frag.color {
+        properties.insert("stroke".to_string(), color.to_css());
+    }
+    if let Some(color) = &frag.background {
+        properties.insert("fill".to_string(), color.to_css());
+    }
+    for (i, section) in frag.sections.iter().enumerate() {
+        if let Some(color) = &section.background {
+            properties.insert(format!("section-fill-{i}"), color.to_css());
+        }
+    }
+    properties
+}
+
+/// Имя наконечника для свойства `head-end` / `head-start` ребра.
+fn head_name(arrow: ArrowType) -> &'static str {
+    match arrow {
+        ArrowType::Normal => "normal",
+        ArrowType::Thin => "thin",
+        ArrowType::Circle => "circle",
+        ArrowType::Cross => "cross",
+        ArrowType::HalfTop => "half-top",
+        ArrowType::HalfBottom => "half-bottom",
+    }
+}
+
+/// Кладёт стереотип участника в свойства его блока: рендерер рисует его
+/// курсивом над именем, а кружок-«спот» — слева.
+fn apply_stereotype(element: &mut LayoutElement, stereotype: Option<&(String, Option<String>)>) {
+    if let Some((text, spot)) = stereotype {
+        element
+            .properties
+            .insert("stereotype".to_string(), text.clone());
+        if let Some(color) = spot {
+            element
+                .properties
+                .insert("stereotype-spot".to_string(), color.clone());
         }
     }
 }
@@ -1879,7 +2249,11 @@ mod tests {
             sections: vec![plantuml_ast::sequence::FragmentSection {
                 condition: None,
                 elements: vec![SequenceElement::Message(Message::new("Alice", "Bob", "OK"))],
+                background: None,
             }],
+            title: None,
+            color: None,
+            background: None,
         };
 
         diagram.add_element(SequenceElement::Fragment(fragment));
@@ -2029,5 +2403,56 @@ mod tests {
             "Should have exactly 1 participant footer, got {}",
             footer_count
         );
+    }
+
+    fn edge_ys(result: &LayoutResult) -> Vec<f64> {
+        result
+            .elements
+            .iter()
+            .filter(|e| e.id.starts_with("msg_"))
+            .filter_map(|e| match &e.element_type {
+                ElementType::Edge { points, .. } => points.first().map(|p| p.y),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// `& B -> C` стоит на строке предыдущего сообщения.
+    #[test]
+    fn test_parallel_message_shares_row() {
+        let mut diagram = SequenceDiagram::new();
+        diagram.add_element(SequenceElement::Message(Message::new("A", "B", "x")));
+        diagram.add_element(SequenceElement::Parallel);
+        diagram.add_element(SequenceElement::Message(Message::new("B", "C", "y")));
+        diagram.add_element(SequenceElement::Message(Message::new("A", "C", "z")));
+
+        let ys = edge_ys(&SequenceLayoutEngine::new().layout(&diagram));
+        assert_eq!(ys.len(), 3);
+        assert!((ys[0] - ys[1]).abs() < 1e-9, "{ys:?}");
+        assert!(ys[2] > ys[1], "{ys:?}");
+    }
+
+    /// Сообщение от края диаграммы не создаёт участника с пустым именем и
+    /// начинается левее первой линии жизни.
+    #[test]
+    fn test_boundary_message_has_no_phantom_participant() {
+        let mut message = Message::new("", "A", "входящее");
+        message.from_boundary = Some(BoundarySide::Left);
+        let mut diagram = SequenceDiagram::new();
+        diagram.add_element(SequenceElement::Message(message));
+
+        let result = SequenceLayoutEngine::new().layout(&diagram);
+        assert!(!result.elements.iter().any(|e| e.id == "participant_"));
+        let start = result
+            .elements
+            .iter()
+            .find_map(|e| match &e.element_type {
+                ElementType::Edge { points, .. } if e.id.starts_with("msg_") => {
+                    points.first().map(|p| p.x)
+                }
+                _ => None,
+            })
+            .expect("стрелка не найдена");
+        assert!(start < 40.0, "стрелка начинается у левого края: {start}");
     }
 }

@@ -12,6 +12,9 @@ use plantuml_themes::{Color, Theme};
 /// Цвет рамки фрагмента (alt/opt/loop) в эталоне PlantUML.
 const FRAGMENT_BORDER: &str = "#000";
 
+/// Прозрачность фона фрагмента: он рисуется поверх линий жизни.
+const FRAGMENT_FILL_OPACITY: f64 = 0.4;
+
 /// Цвет заливки заголовка фрагмента в эталоне PlantUML.
 const FRAGMENT_HEADER_FILL: &str = "#EEE";
 
@@ -474,6 +477,125 @@ fn arrow_head_kind(edge_type: EdgeType, diagram_type: Option<&str>) -> ArrowHead
             Some("SEQUENCE") | Some("ACTIVITY") => ArrowHeadKind::Closed,
             _ => ArrowHeadKind::Open,
         },
+    }
+}
+
+/// Наконечники sequence-сообщений кроме обычной стрелки.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SeqHead {
+    /// `->>`: две линии «галочкой»
+    Thin,
+    /// `->x`: крест вместо стрелки (потерянное сообщение)
+    Cross,
+    /// `->o`: кружок
+    Circle,
+    /// `-\\`: верхняя половина стрелки
+    HalfTop,
+    /// `-/`: нижняя половина стрелки
+    HalfBottom,
+}
+
+impl SeqHead {
+    fn parse(name: Option<&str>) -> Option<Self> {
+        match name? {
+            "thin" => Some(Self::Thin),
+            "cross" => Some(Self::Cross),
+            "circle" => Some(Self::Circle),
+            "half-top" => Some(Self::HalfTop),
+            "half-bottom" => Some(Self::HalfBottom),
+            _ => None,
+        }
+    }
+
+    /// Насколько линия не доходит до конца: крест и кружок стоят на ней.
+    fn line_trim(self) -> f64 {
+        match self {
+            Self::Cross => 7.0,
+            Self::Circle => 8.0,
+            Self::Thin | Self::HalfTop | Self::HalfBottom => 0.0,
+        }
+    }
+}
+
+/// Рисует наконечник sequence-сообщения. Размеры сняты с эталона
+/// `ref_syn_003`: «галочка» 10 на 4, крест 10 на 10 толщиной 2 на 7 от
+/// конца, половинки — половина обычной стрелки.
+fn seq_head_elements(
+    head: SeqHead,
+    tip: Point,
+    from: Point,
+    color: &str,
+    background: &str,
+) -> Vec<Element> {
+    let Some((tx, ty)) = unit_vector(from, tip) else {
+        return Vec::new();
+    };
+    let perpendicular = (-ty, tx);
+    let at = |t: f64, s: f64| arrow_point(tip, (tx, ty), perpendicular, t, s);
+    // «Верх» остаётся верхом и у стрелки, идущей справа налево
+    let up = if tx >= 0.0 { -1.0 } else { 1.0 };
+
+    let line = |a: Point, b: Point, width: f64| {
+        Element::from(
+            svg::node::element::Line::new()
+                .set("x1", fmt(a.x))
+                .set("y1", fmt(a.y))
+                .set("x2", fmt(b.x))
+                .set("y2", fmt(b.y))
+                .set("stroke", color)
+                .set("stroke-width", width),
+        )
+    };
+    let polygon = |points: Vec<Point>, fill: &str| {
+        render_arrow_head(&ArrowHead {
+            points,
+            closed: true,
+            fill: Some(fill.to_string()),
+            stroke: Some(color.to_string()),
+            stroke_width: 1.0,
+        })
+    };
+
+    match head {
+        SeqHead::Thin => vec![
+            line(at(0.0, 0.0), at(-ARROW_HEAD_LENGTH, -ARROW_HEAD_HALF), 1.0),
+            line(at(0.0, 0.0), at(-ARROW_HEAD_LENGTH, ARROW_HEAD_HALF), 1.0),
+        ],
+        SeqHead::Cross => vec![
+            line(at(-12.0, -5.0), at(-2.0, 5.0), 2.0),
+            line(at(-12.0, 5.0), at(-2.0, -5.0), 2.0),
+        ],
+        SeqHead::Circle => {
+            const RADIUS: f64 = 4.0;
+            const SEGMENTS: usize = 16;
+            let center = at(-RADIUS - 2.0, 0.0);
+            let points = (0..SEGMENTS)
+                .map(|i| {
+                    let angle = std::f64::consts::TAU * i as f64 / SEGMENTS as f64;
+                    Point::new(
+                        center.x + RADIUS * angle.cos(),
+                        center.y + RADIUS * angle.sin(),
+                    )
+                })
+                .collect();
+            vec![polygon(points, background)]
+        }
+        SeqHead::HalfTop => vec![polygon(
+            vec![
+                at(0.0, 0.0),
+                at(-ARROW_HEAD_LENGTH, up * ARROW_HEAD_HALF),
+                at(-ARROW_HEAD_LENGTH, 0.0),
+            ],
+            color,
+        )],
+        SeqHead::HalfBottom => vec![polygon(
+            vec![
+                at(0.0, 0.0),
+                at(-ARROW_HEAD_LENGTH, 0.0),
+                at(-ARROW_HEAD_LENGTH, -up * ARROW_HEAD_HALF),
+            ],
+            color,
+        )],
     }
 }
 
@@ -1013,6 +1135,12 @@ impl SvgRenderer {
                         .properties
                         .get("stroke-width")
                         .and_then(|value| value.parse().ok()),
+                    head_end: element.properties.get("head-end").map(String::as_str),
+                    head_start: element.properties.get("head-start").map(String::as_str),
+                    label_end_x: element
+                        .properties
+                        .get("label-end-x")
+                        .and_then(|value| value.parse().ok()),
                 };
                 group = self.render_edge(
                     points,
@@ -1076,6 +1204,7 @@ impl SvgRenderer {
                     fragment_type,
                     sections,
                     bold,
+                    &element.properties,
                     theme,
                     group,
                 );
@@ -1311,6 +1440,63 @@ impl SvgRenderer {
         // не пишет вовсе, а мы добавляли пустой текстовый узел.
         if label.is_empty() {
             return group;
+        }
+
+        // Участник со стереотипом: курсивная строка `«Имя»` над именем и,
+        // если задан, кружок-«спот» слева. Размеры сняты с эталона
+        // `ref_lang_031`.
+        if let Some(stereotype) = properties.get("stereotype") {
+            let font_size = properties
+                .get("font-size")
+                .and_then(|value| value.parse::<f64>().ok())
+                .unwrap_or(theme.font_size);
+            let spot = properties.get("stereotype-spot");
+            let text_left = if spot.is_some() { 35.0 } else { 7.0 };
+            if let Some(color) = spot {
+                group = group.add(
+                    svg::node::element::Ellipse::new()
+                        .set("cx", bounds.x + 18.0)
+                        .set("cy", bounds.y + (bounds.height / 2.0).min(18.0))
+                        .set("rx", 11)
+                        .set("ry", 11)
+                        .set("fill", color.as_str())
+                        .set("stroke", theme.node_border.to_css())
+                        .set("stroke-width", 1),
+                );
+            }
+            if stereotype.is_empty() {
+                // Только кружок: подпись остаётся одна и стоит правее него
+                let center = bounds.x + text_left + (bounds.width - text_left - 7.0) / 2.0;
+                return group.add(
+                    svg::node::element::Text::new(label)
+                        .set("x", center)
+                        .set("y", bounds.y + bounds.height / 2.0)
+                        .set("text-anchor", "middle")
+                        .set("dominant-baseline", "middle")
+                        .set("font-family", theme.font_family.as_str())
+                        .set("font-size", font_size)
+                        .set("fill", theme.text_color.to_css()),
+                );
+            }
+            group = group.add(
+                svg::node::element::Text::new(stereotype.as_str())
+                    .set("x", bounds.x + text_left)
+                    .set("y", bounds.y + 19.995)
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("font-style", "italic")
+                    .set("fill", theme.text_color.to_css()),
+            );
+            let name_center = bounds.x + text_left + (bounds.width - text_left - 7.0) / 2.0;
+            return group.add(
+                svg::node::element::Text::new(label)
+                    .set("x", name_center)
+                    .set("y", bounds.y + 36.292)
+                    .set("text-anchor", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", font_size)
+                    .set("fill", theme.text_color.to_css()),
+            );
         }
 
         // Текст по центру
@@ -2154,15 +2340,17 @@ impl SvgRenderer {
         // Насколько отступить от концов линии, чтобы она не вылезала за
         // наконечник. У «галочки» выреза нет — линия доходит до конца.
         let head_trim = arrow_line_trim(head_kind);
-        let trim_start = if arrow_start && draws_head {
-            head_trim
-        } else {
-            0.0
+        let end_seq = SeqHead::parse(style.head_end);
+        let start_seq = SeqHead::parse(style.head_start);
+        let trim_start = match start_seq {
+            Some(head) if arrow_start => head.line_trim(),
+            _ if arrow_start && draws_head => head_trim,
+            _ => 0.0,
         };
-        let trim_end = if arrow_end && draws_head {
-            head_trim
-        } else {
-            0.0
+        let trim_end = match end_seq {
+            Some(head) if arrow_end => head.line_trim(),
+            _ if arrow_end && draws_head => head_trim,
+            _ => 0.0,
         };
 
         // Направление линии считаем по ИСХОДНЫМ точкам, а не по
@@ -2222,7 +2410,12 @@ impl SvgRenderer {
         // `url(#arrow)` не разрешается при вставке SVG через `innerHTML`,
         // и стрелки пропадали в браузере. Порядок как в эталоне:
         // сначала линия, затем фигура наконечника.
-        if let Some((tip, from)) = end_tip {
+        let background = theme.background_color.to_css();
+        if let (Some(head), Some((tip, from))) = (end_seq, end_tip) {
+            for element in seq_head_elements(head, tip, from, &edge_color, &background) {
+                group = group.add(element);
+            }
+        } else if let Some((tip, from)) = end_tip {
             if let Some(head) = arrow_head_points(
                 head_kind,
                 tip,
@@ -2234,7 +2427,11 @@ impl SvgRenderer {
                 group = group.add(render_arrow_head(&head));
             }
         }
-        if let Some((tip, from)) = start_tip {
+        if let (Some(head), Some((tip, from))) = (start_seq, start_tip) {
+            for element in seq_head_elements(head, tip, from, &edge_color, &background) {
+                group = group.add(element);
+            }
+        } else if let Some((tip, from)) = start_tip {
             // Начало связи: направление наружу — от соседней точки к первой.
             if let Some(head) = arrow_head_points(
                 head_kind,
@@ -2327,6 +2524,13 @@ impl SvgRenderer {
                 let mid_x = (points[0].x + points[1].x) / 2.0;
                 let mid_y = (points[0].y + points[1].y) / 2.0;
                 (mid_x, mid_y - 5.0, "middle")
+            };
+
+            // Подпись, прижатая к правому краю (стрелка от левого края
+            // диаграммы): позиция задана явно.
+            let (base_x, anchor) = match style.label_end_x {
+                Some(end_x) => (end_x, "end"),
+                None => (base_x, anchor),
             };
 
             // PlantUML не использует белый фон для текста — текст просто над стрелкой
@@ -2712,15 +2916,24 @@ impl SvgRenderer {
     }
 
     /// Рендерит Combined Fragment (alt, opt, loop, etc.) в стиле PlantUML
+    #[allow(clippy::too_many_arguments)]
     fn render_fragment(
         &self,
         bounds: &Rect,
         fragment_type: &str,
         sections: &[FragmentSection],
         bold: bool,
+        properties: &std::collections::HashMap<String, String>,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
+        // Цвет рамки (`alt#Gold`) и фон (`alt#Gold #LightBlue`)
+        let border = properties
+            .get("stroke")
+            .map(String::as_str)
+            .unwrap_or(FRAGMENT_BORDER);
+        let frame_fill = properties.get("fill").map(String::as_str).unwrap_or("none");
+
         // 1. СПЛОШНАЯ рамка фрагмента (как в PlantUML)
         // PlantUML использует более толстую рамку для фрагментов (1.5px)
         // В эталоне PlantUML рамка фрагмента чёрная (#000), а не цвет
@@ -2730,9 +2943,15 @@ impl SvgRenderer {
             .set("y", bounds.y)
             .set("width", bounds.width)
             .set("height", bounds.height)
-            .set("fill", "none")
-            .set("stroke", FRAGMENT_BORDER)
+            .set("fill", frame_fill)
+            .set("stroke", border)
             .set("stroke-width", 1.5);
+        // Рамка лежит выше линий жизни: полупрозрачный фон не прячет их
+        let rect = if frame_fill == "none" {
+            rect
+        } else {
+            rect.set("fill-opacity", FRAGMENT_FILL_OPACITY)
+        };
 
         group = group.add(rect);
 
@@ -2769,7 +2988,7 @@ impl SvgRenderer {
         let pentagon = Path::new()
             .set("d", pentagon_path)
             .set("fill", FRAGMENT_HEADER_FILL)
-            .set("stroke", FRAGMENT_BORDER)
+            .set("stroke", border)
             .set("stroke-width", 1.5);
 
         group = group.add(pentagon);
@@ -2831,6 +3050,19 @@ impl SvgRenderer {
                 // сообщению и растягивало блок «else».
                 let separator_y = section.start_y - FRAGMENT_SEPARATOR_OFFSET;
 
+                // Фон ветки (`else #Pink`) — от разделителя до низа рамки
+                if let Some(fill) = properties.get(&format!("section-fill-{i}")) {
+                    let section_fill = Rectangle::new()
+                        .set("x", bounds.x)
+                        .set("y", separator_y)
+                        .set("width", bounds.width)
+                        .set("height", (bounds.y + bounds.height - separator_y).max(0.0))
+                        .set("fill", fill.as_str())
+                        .set("fill-opacity", FRAGMENT_FILL_OPACITY)
+                        .set("stroke", "none");
+                    group = group.add(section_fill);
+                }
+
                 // Пунктирная линия
                 let separator_line = Path::new()
                     .set(
@@ -2855,22 +3087,19 @@ impl SvgRenderer {
                 // Текст условия else слева, ПОД линией.
                 // В эталоне PlantUML линия на y=139.695, текст на y=151.906,
                 // то есть на ~12px ниже. Раньше текст рисовался над линией.
-                let else_label = if let Some(cond) = &section.condition {
-                    format!("[{cond}]")
-                } else {
-                    "[else]".to_string()
-                };
+                // `else` без условия подписи не имеет: эталон `ref_lang_019`
+                if let Some(cond) = &section.condition {
+                    let else_text = svg::node::element::Text::new(format!("[{cond}]"))
+                        .set("x", bounds.x + 5.0)
+                        .set("y", separator_y + 12.0)
+                        .set("font-family", theme.font_family.as_str())
+                        // В эталоне размер 11 и жирный
+                        .set("font-size", FRAGMENT_CONDITION_FONT_SIZE)
+                        .set("font-weight", if bold { "700" } else { "bold" })
+                        .set("fill", theme.text_color.to_css());
 
-                let else_text = svg::node::element::Text::new(else_label)
-                    .set("x", bounds.x + 5.0)
-                    .set("y", separator_y + 12.0)
-                    .set("font-family", theme.font_family.as_str())
-                    // В эталоне размер 11 и жирный
-                    .set("font-size", FRAGMENT_CONDITION_FONT_SIZE)
-                    .set("font-weight", if bold { "700" } else { "bold" })
-                    .set("fill", theme.text_color.to_css());
-
-                group = group.add(else_text);
+                    group = group.add(else_text);
+                }
             }
 
             // Дочерние элементы секции
@@ -3322,6 +3551,13 @@ fn normalize_element_colors(element: &LayoutElement) -> Option<LayoutElement> {
 struct EdgeStyle<'a> {
     color: Option<&'a str>,
     width: Option<f64>,
+    /// Наконечник конца sequence-сообщения: `thin`, `cross`, `circle`,
+    /// `half-top`, `half-bottom`; иначе обычная стрелка.
+    head_end: Option<&'a str>,
+    /// То же для начала двусторонней стрелки.
+    head_start: Option<&'a str>,
+    /// Правый край подписи: подпись выравнивается по нему, а не по началу.
+    label_end_x: Option<f64>,
 }
 
 /// Оформление текста: жирность и цвет.

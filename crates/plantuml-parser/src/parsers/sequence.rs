@@ -7,9 +7,9 @@ use pest_derive::Parser;
 
 use plantuml_ast::common::{Color, LineStyle, Note, NotePosition, Stereotype};
 use plantuml_ast::sequence::{
-    Activation, ActivationType, ArrowType, AutonumberCommand, AutonumberStart, Delay, Divider,
-    Fragment, FragmentSection, FragmentType, Message, Participant, ParticipantBox, ParticipantType,
-    Reference, Return, SequenceDiagram, SequenceElement,
+    Activation, ActivationType, ArrowType, AutonumberCommand, AutonumberStart, BoundarySide, Delay,
+    Divider, Duration, Fragment, FragmentSection, FragmentType, Message, Participant,
+    ParticipantBox, ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
 };
 
 use crate::error::syntax_error_from_pest;
@@ -34,8 +34,27 @@ type FragmentStackEntry = (
     Vec<SequenceElement>,
 );
 
-/// Состояние текущего box: (title, color, participants)
+/// Оформление открытого фрагмента: название группы, рамка, фон и фон текущей
+/// ветки. Стоит рядом со стеком, а не в нём, чтобы не раздувать кортеж.
+#[derive(Default, Clone)]
+struct FragmentStyle {
+    title: Option<String>,
+    color: Option<Color>,
+    background: Option<Color>,
+    section_background: Option<Color>,
+}
+
+/// Состояние открытого box: (title, color, participants)
 type BoxState = (Option<String>, Option<Color>, Vec<String>);
+
+/// Всё изменяемое состояние разбора, которое не лежит в самой диаграмме.
+struct ParseState {
+    fragment_stack: Vec<FragmentStackEntry>,
+    styles: Vec<FragmentStyle>,
+    current_section_elements: Vec<SequenceElement>,
+    /// Стек открытых box: вложенные box лежат друг над другом
+    boxes: Vec<BoxState>,
+}
 
 /// Парсит sequence diagram из исходного кода
 pub fn parse_sequence(source: &str) -> Result<SequenceDiagram> {
@@ -43,20 +62,17 @@ pub fn parse_sequence(source: &str) -> Result<SequenceDiagram> {
         .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = SequenceDiagram::new();
-    let mut fragment_stack: Vec<FragmentStackEntry> = Vec::new();
-    let mut current_section_elements: Vec<SequenceElement> = Vec::new();
-    let mut current_box: Option<BoxState> = None;
+    let mut state = ParseState {
+        fragment_stack: Vec::new(),
+        styles: Vec::new(),
+        current_section_elements: Vec::new(),
+        boxes: Vec::new(),
+    };
 
     for pair in pairs {
         if pair.as_rule() == Rule::diagram {
             for inner in pair.into_inner() {
-                process_rule(
-                    inner,
-                    &mut diagram,
-                    &mut fragment_stack,
-                    &mut current_section_elements,
-                    &mut current_box,
-                );
+                process_rule(inner, &mut diagram, &mut state);
             }
         }
     }
@@ -68,21 +84,26 @@ pub fn parse_sequence(source: &str) -> Result<SequenceDiagram> {
 fn process_rule(
     pair: pest::iterators::Pair<Rule>,
     diagram: &mut SequenceDiagram,
-    fragment_stack: &mut Vec<FragmentStackEntry>,
-    current_section_elements: &mut Vec<SequenceElement>,
-    current_box: &mut Option<BoxState>,
+    state: &mut ParseState,
 ) {
+    let ParseState {
+        fragment_stack,
+        styles,
+        current_section_elements,
+        boxes,
+    } = state;
     match pair.as_rule() {
         Rule::box_start => {
             let (title, color) = parse_box_start(pair);
-            *current_box = Some((title, color, Vec::new()));
+            boxes.push((title, color, Vec::new()));
         }
         Rule::box_end => {
-            if let Some((title, color, participants)) = current_box.take() {
+            if let Some((title, color, participants)) = boxes.pop() {
                 diagram.add_box(ParticipantBox {
                     title,
                     color,
                     participants,
+                    depth: boxes.len(),
                 });
             }
         }
@@ -97,43 +118,78 @@ fn process_rule(
 
             if let Some(name) = name {
                 let participant = Participant::actor(name);
-                if let Some((_, _, ref mut participants)) = current_box {
-                    let boxed_name = participant
-                        .id
-                        .alias
-                        .clone()
-                        .unwrap_or_else(|| participant.id.name.clone());
-                    participants.push(boxed_name);
+                let boxed_name = participant
+                    .id
+                    .alias
+                    .clone()
+                    .unwrap_or_else(|| participant.id.name.clone());
+                for (_, _, participants) in boxes.iter_mut() {
+                    participants.push(boxed_name.clone());
                 }
                 diagram.add_participant(participant);
             }
         }
         Rule::participant_decl => {
             if let Some(participant) = parse_participant(pair) {
-                // Если внутри box, запоминаем участника
-                if let Some((_, _, ref mut participants)) = current_box {
-                    let name = participant
-                        .id
-                        .alias
-                        .clone()
-                        .unwrap_or_else(|| participant.id.name.clone());
-                    participants.push(name);
+                // Участник принадлежит каждому открытому box: внешний
+                // охватывает и вложенные.
+                let name = participant
+                    .id
+                    .alias
+                    .clone()
+                    .unwrap_or_else(|| participant.id.name.clone());
+                for (_, _, participants) in boxes.iter_mut() {
+                    participants.push(name.clone());
                 }
                 diagram.add_participant(participant);
             }
         }
         Rule::message => {
+            let parallel = pair
+                .clone()
+                .into_inner()
+                .any(|inner| inner.as_rule() == Rule::parallel_prefix);
             if let Some(message) = parse_message(pair) {
-                let element = SequenceElement::Message(message);
-                if fragment_stack.is_empty() {
-                    diagram.add_element(element);
-                } else {
-                    current_section_elements.push(element);
+                if parallel {
+                    push_element(
+                        diagram,
+                        fragment_stack,
+                        current_section_elements,
+                        SequenceElement::Parallel,
+                    );
                 }
+                let element = SequenceElement::Message(message);
+                push_element(diagram, fragment_stack, current_section_elements, element);
+            }
+        }
+        Rule::duration_stmt => {
+            let mut anchors = Vec::new();
+            let mut label = String::new();
+            for inner in pair.into_inner() {
+                match inner.as_rule() {
+                    Rule::anchor_tag => {
+                        if let Some(name) = inner
+                            .into_inner()
+                            .find(|part| part.as_rule() == Rule::anchor_name)
+                        {
+                            anchors.push(name.as_str().to_string());
+                        }
+                    }
+                    Rule::message_text => label = inner.as_str().trim().to_string(),
+                    _ => {}
+                }
+            }
+            if let [from, to] = anchors.as_slice() {
+                let element = SequenceElement::Duration(Duration {
+                    from: from.clone(),
+                    to: to.clone(),
+                    label,
+                });
+                push_element(diagram, fragment_stack, current_section_elements, element);
             }
         }
         Rule::fragment_start => {
-            let (frag_type, condition) = parse_fragment_start(pair);
+            let (frag_type, condition, color, background) = parse_fragment_start(pair);
             // Условие из fragment_start становится условием первой секции.
             //
             // Элементы внешней секции ЗАБИРАЕМ в запись стека, а не очищаем
@@ -141,83 +197,87 @@ fn process_rule(
             // терялось безвозвратно.
             let saved = std::mem::take(current_section_elements);
             fragment_stack.push((frag_type, condition.clone(), condition, vec![], saved));
+            styles.push(FragmentStyle {
+                title: None,
+                color,
+                background,
+                section_background: None,
+            });
         }
         Rule::fragment_else => {
-            let new_condition = parse_fragment_else(pair);
+            let (new_condition, new_background) = parse_fragment_else(pair);
             if let Some((_, _, ref mut current_condition, ref mut sections, _)) =
                 fragment_stack.last_mut()
             {
+                let previous_background = styles
+                    .last_mut()
+                    .and_then(|style| style.section_background.take());
                 // Сохраняем текущую секцию с её условием
                 sections.push(FragmentSection {
                     condition: current_condition.take(),
                     elements: std::mem::take(current_section_elements),
+                    background: previous_background,
                 });
                 // Устанавливаем условие для следующей секции
                 *current_condition = new_condition;
+                if let Some(style) = styles.last_mut() {
+                    style.section_background = new_background;
+                }
             }
         }
-        Rule::fragment_end => {
+        Rule::fragment_end | Rule::group_end => {
             if let Some((frag_type, condition, current_condition, mut sections, saved)) =
                 fragment_stack.pop()
             {
+                let style = styles.pop().unwrap_or_default();
                 // Добавляем последнюю секцию с её условием
                 sections.push(FragmentSection {
                     condition: current_condition,
                     elements: std::mem::take(current_section_elements),
+                    background: style.section_background,
                 });
 
                 let fragment = Fragment {
                     fragment_type: frag_type,
                     condition,
                     sections,
+                    title: style.title,
+                    color: style.color,
+                    background: style.background,
                 };
 
                 // Возвращаем буферу элементы внешней секции и дописываем в
                 // них готовый фрагмент.
                 *current_section_elements = saved;
                 let element = SequenceElement::Fragment(fragment);
-                if fragment_stack.is_empty() {
-                    diagram.add_element(element);
-                } else {
-                    current_section_elements.push(element);
-                }
+                push_element(diagram, fragment_stack, current_section_elements, element);
             }
         }
         Rule::group_start => {
-            // `group Название` — та же вложенная структура, что и фрагменты
-            // (alt/opt/loop), поэтому используем общий стек. Ранее правило
-            // разбиралось грамматикой, но парсер его игнорировал, и группа
-            // молча исчезала из вывода.
-            let label = parse_group_label(pair);
+            // `group Название [подпись]`: название стоит на ярлыке вместо
+            // слова `group`, подпись в скобках — условие, как у `alt`.
+            let (title, label) = parse_group_label(pair);
             let saved = std::mem::take(current_section_elements);
             fragment_stack.push((FragmentType::Group, label.clone(), label, vec![], saved));
-        }
-        Rule::group_end => {
-            if let Some((frag_type, condition, current_condition, mut sections, saved)) =
-                fragment_stack.pop()
-            {
-                sections.push(FragmentSection {
-                    condition: current_condition,
-                    elements: std::mem::take(current_section_elements),
-                });
-
-                let fragment = Fragment {
-                    fragment_type: frag_type,
-                    condition,
-                    sections,
-                };
-
-                *current_section_elements = saved;
-                let element = SequenceElement::Fragment(fragment);
-                if fragment_stack.is_empty() {
-                    diagram.add_element(element);
-                } else {
-                    current_section_elements.push(element);
-                }
-            }
+            styles.push(FragmentStyle {
+                title,
+                ..FragmentStyle::default()
+            });
         }
         Rule::note_stmt => {
+            let parallel = pair
+                .clone()
+                .into_inner()
+                .any(|inner| inner.as_rule() == Rule::parallel_prefix);
             if let Some(note) = parse_note(pair) {
+                if parallel {
+                    push_element(
+                        diagram,
+                        fragment_stack,
+                        current_section_elements,
+                        SequenceElement::Parallel,
+                    );
+                }
                 let element = SequenceElement::Note(note);
                 if fragment_stack.is_empty() {
                     diagram.add_element(element);
@@ -276,7 +336,15 @@ fn process_rule(
             diagram.metadata.mainframe = parse_optional_text(pair);
         }
         Rule::newpage_stmt => {
-            diagram.metadata.newpage = parse_optional_text(pair);
+            // PlantUML рисует только первую страницу, но текст автора терять
+            // нельзя: следующие страницы идут в той же диаграмме, а разрыв
+            // отмечен разделителем с названием страницы.
+            let title = parse_optional_text(pair);
+            diagram.metadata.newpage = title.clone();
+            let element = SequenceElement::Divider(Divider {
+                text: title.unwrap_or_default(),
+            });
+            push_element(diagram, fragment_stack, current_section_elements, element);
         }
         Rule::hide_stmt => {
             // hide footbox — нижние блоки участников не рисуются
@@ -357,6 +425,20 @@ fn process_rule(
     }
 }
 
+/// Кладёт элемент в текущую секцию открытого фрагмента или в корень диаграммы.
+fn push_element(
+    diagram: &mut SequenceDiagram,
+    fragment_stack: &[FragmentStackEntry],
+    current_section_elements: &mut Vec<SequenceElement>,
+    element: SequenceElement,
+) {
+    if fragment_stack.is_empty() {
+        diagram.add_element(element);
+    } else {
+        current_section_elements.push(element);
+    }
+}
+
 /// Парсит объявление участника
 fn parse_participant(pair: pest::iterators::Pair<Rule>) -> Option<Participant> {
     let mut participant_type = ParticipantType::Participant;
@@ -394,8 +476,8 @@ fn parse_participant(pair: pest::iterators::Pair<Rule>) -> Option<Participant> {
             }
             Rule::stereotype => {
                 let s = inner.as_str();
-                let content = s.trim_start_matches("<<").trim_end_matches(">>");
-                stereotype = Some(Stereotype::new(content));
+                let content = s.trim_start_matches("<<").trim_end_matches(">>").trim();
+                stereotype = Some(parse_stereotype(content));
             }
             Rule::color => {
                 let s = inner.as_str();
@@ -425,6 +507,30 @@ fn parse_participant(pair: pest::iterators::Pair<Rule>) -> Option<Participant> {
     Some(participant)
 }
 
+/// Разбирает содержимое `<< ... >>`: необязательный кружок `(C,#ADD1B2)` и
+/// имя. Цвет кружка кладётся в `background_color`; буква кружка в модели не
+/// хранится.
+fn parse_stereotype(content: &str) -> Stereotype {
+    let (spot_color, name) = match content
+        .strip_prefix('(')
+        .and_then(|rest| rest.split_once(')'))
+    {
+        Some((spot, rest)) => (
+            spot.split_once(',')
+                .map(|(_, color)| Color::parse(color.trim())),
+            rest.trim(),
+        ),
+        None => (None, content),
+    };
+    let mut stereotype = if name.is_empty() {
+        Stereotype::multiple(Vec::new())
+    } else {
+        Stereotype::new(name)
+    };
+    stereotype.background_color = spot_color;
+    stereotype
+}
+
 /// Извлекает имя из quoted_string или identifier
 fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
     let fallback = pair.as_str().trim_matches('"').to_string();
@@ -448,12 +554,11 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
 
 /// Парсит сообщение
 fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
-    let mut first_participant = String::new();
-    let mut second_participant = String::new();
+    // Концы сообщения в порядке записи: имя участника либо край диаграммы.
+    let mut ends: Vec<(String, Option<BoundarySide>)> = Vec::new();
     let mut label = String::new();
-    let mut line_style = LineStyle::Solid;
-    let mut arrow_type = ArrowType::Normal;
-    let mut is_arrow_left = false; // Флаг для стрелки налево (<--, <-, etc.)
+    let mut arrow = ArrowSpec::default();
+    let mut anchor: Option<String> = None;
     let mut activate = false;
     let mut deactivate = false;
     let mut create = false;
@@ -462,20 +567,16 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::participant_ref => {
-                let name = inner.as_str().to_string();
-                if first_participant.is_empty() {
-                    first_participant = name;
-                } else {
-                    second_participant = name;
-                }
+            Rule::participant_ref => ends.push((inner.as_str().to_string(), None)),
+            Rule::boundary_left_mark => ends.push((String::new(), Some(BoundarySide::Left))),
+            Rule::boundary_right_mark => ends.push((String::new(), Some(BoundarySide::Right))),
+            Rule::anchor_tag => {
+                anchor = inner
+                    .into_inner()
+                    .find(|part| part.as_rule() == Rule::anchor_name)
+                    .map(|part| part.as_str().to_string());
             }
-            Rule::arrow => {
-                let (style, atype, is_left) = parse_arrow(inner);
-                line_style = style;
-                arrow_type = atype;
-                is_arrow_left = is_left;
-            }
+            Rule::arrow => arrow = parse_arrow(inner.as_str()),
             Rule::target_activation => {
                 let (act, deact, crt, dst, color) = parse_target_activation(inner);
                 activate = act;
@@ -491,31 +592,33 @@ fn parse_message(pair: pest::iterators::Pair<Rule>) -> Option<Message> {
         }
     }
 
-    if first_participant.is_empty() || second_participant.is_empty() {
-        return None;
-    }
+    let mut ends = ends.into_iter();
+    let (first, first_boundary) = ends.next()?;
+    let (second, second_boundary) = ends.next()?;
 
-    // Если стрелка налево (<--, <-, etc.), меняем направление:
-    // "Alice <-- Bob" означает стрелку от Bob к Alice
-    let (from, to) = if is_arrow_left {
-        (second_participant, first_participant)
+    // Стрелка налево (`<-`, `<--`): `Alice <-- Bob` означает стрелку от Bob
+    // к Alice, поэтому концы меняются вместе со своими краями диаграммы.
+    let ((from, from_boundary), (to, to_boundary)) = if arrow.points_left {
+        ((second, second_boundary), (first, first_boundary))
     } else {
-        (first_participant, second_participant)
+        ((first, first_boundary), (second, second_boundary))
     };
 
     let mut message = Message::new(from, to, label);
-    message.line_style = line_style;
-    message.arrow_type = arrow_type;
+    message.line_style = arrow.line_style;
+    message.arrow_type = arrow.arrow_type;
+    message.start_arrow = arrow.start_arrow;
+    message.color = arrow.color;
+    message.bold = arrow.bold;
+    message.shift = arrow.shift;
+    message.anchor = anchor;
+    message.from_boundary = from_boundary;
+    message.to_boundary = to_boundary;
     message.activate = activate;
     message.deactivate = deactivate;
     message.create = create;
     message.destroy = destroy;
-
-    // Если есть цвет активации, сохраняем его в сообщении
-    // (пока используем поле color, которое уже есть)
-    if activation_color.is_some() {
-        message.color = activation_color;
-    }
+    message.activation_color = activation_color;
 
     Some(message)
 }
@@ -556,51 +659,117 @@ fn parse_target_activation(
     (activate, deactivate, create, destroy, color)
 }
 
-/// Парсит стрелку
-/// Возвращает: (стиль линии, тип стрелки, is_arrow_left)
-fn parse_arrow(pair: pest::iterators::Pair<Rule>) -> (LineStyle, ArrowType, bool) {
-    let arrow_str = pair.as_str();
-
-    // Определяем направление стрелки
-    // Стрелка налево начинается с < (например: <-, <--, <<-)
-    let is_arrow_left = arrow_str.starts_with('<')
-        || arrow_str.starts_with("o-")
-        || arrow_str.starts_with("x-")
-        || arrow_str.starts_with("\\\\-")
-        || arrow_str.starts_with("//-");
-
-    // Определяем стиль линии
-    // В PlantUML:
-    // -> или ->> = solid (сплошная)
-    // --> или -->> = dashed (пунктирная, двойной дефис)
-    // .> или ..> = dotted (точечная, тоже считаем dashed)
-    let line_style =
-        if arrow_str.contains("..") || arrow_str.starts_with(".") || arrow_str.contains("--") {
-            LineStyle::Dashed
-        } else {
-            LineStyle::Solid
-        };
-
-    // Определяем тип стрелки
-    let arrow_type = if arrow_str.contains(">>") || arrow_str.contains("<<") {
-        ArrowType::Thin
-    } else if arrow_str.contains("\\\\") || arrow_str.contains("//") {
-        ArrowType::HalfTop
-    } else if arrow_str.ends_with("o") || arrow_str.contains(">o") || arrow_str.starts_with("o") {
-        ArrowType::Circle
-    } else if arrow_str.ends_with("x") || arrow_str.contains(">x") || arrow_str.starts_with("x") {
-        ArrowType::Cross
-    } else {
-        ArrowType::Normal
-    };
-
-    (line_style, arrow_type, is_arrow_left)
+/// Разобранная стрелка сообщения.
+#[derive(Default)]
+struct ArrowSpec {
+    line_style: LineStyle,
+    arrow_type: ArrowType,
+    /// Наконечник у источника (двусторонние стрелки)
+    start_arrow: Option<ArrowType>,
+    /// Стрелка смотрит на левый из записанных участников
+    points_left: bool,
+    color: Option<Color>,
+    bold: bool,
+    shift: Option<u32>,
 }
 
-/// Парсит начало фрагмента
-fn parse_fragment_start(pair: pest::iterators::Pair<Rule>) -> (FragmentType, Option<String>) {
+/// Наконечник из текста стрелки: `>`, `>>`, `\`, `/`, с крестом или кружком.
+fn head_type(head: &str, deco: Option<char>) -> ArrowType {
+    match deco {
+        Some('x') => ArrowType::Cross,
+        Some('o') => ArrowType::Circle,
+        _ => match head {
+            ">>" | "<<" => ArrowType::Thin,
+            "\\" | "\\\\" => ArrowType::HalfTop,
+            "/" | "//" => ArrowType::HalfBottom,
+            _ => ArrowType::Normal,
+        },
+    }
+}
+
+/// Разбирает текст стрелки по частям: смещение `(10)`, стиль в скобках
+/// `[#red,bold]`, тело из тире и точек, наконечники по краям.
+fn parse_arrow(text: &str) -> ArrowSpec {
+    let mut spec = ArrowSpec::default();
+    let mut rest = text.to_string();
+
+    // Смещение конца: `->(10)`
+    if let (Some(open), true) = (rest.rfind('('), rest.ends_with(')')) {
+        spec.shift = rest[open + 1..rest.len() - 1].parse().ok();
+        rest.truncate(open);
+    }
+
+    // Стиль в квадратных скобках: цвет, `bold`, `dashed`, `dotted`
+    let mut dashed_by_style = false;
+    if let (Some(open), Some(close)) = (rest.find('['), rest.find(']')) {
+        if close > open {
+            for part in rest[open + 1..close].split(',') {
+                let part = part.trim();
+                match part {
+                    "bold" => spec.bold = true,
+                    "dashed" | "dotted" => dashed_by_style = true,
+                    _ if part.starts_with('#') => spec.color = Some(Color::parse(part)),
+                    _ => {}
+                }
+            }
+            rest.replace_range(open..=close, "");
+        }
+    }
+
+    let is_body = |c: char| c == '-' || c == '.';
+    let body_start = rest.find(is_body).unwrap_or(0);
+    let body_end = rest.rfind(is_body).map_or(rest.len(), |i| i + 1);
+    let body = rest.get(body_start..body_end).unwrap_or("");
+    let left = rest.get(..body_start).unwrap_or("");
+    let right = rest.get(body_end..).unwrap_or("");
+
+    spec.line_style = if dashed_by_style || body.len() >= 2 || body.contains('.') {
+        LineStyle::Dashed
+    } else {
+        LineStyle::Solid
+    };
+
+    // Левая часть: необязательные `o`/`x`, затем наконечник
+    let left_deco = left.chars().next().filter(|c| matches!(c, 'o' | 'x'));
+    let left_head = left.trim_start_matches(['o', 'x']);
+    let start = if left_head.is_empty() && left_deco.is_none() {
+        None
+    } else {
+        Some(head_type(left_head, left_deco))
+    };
+
+    // Правая часть: наконечник и необязательные `x`/`o`
+    let right_deco = right.chars().last().filter(|c| matches!(c, 'o' | 'x'));
+    let right_head = right.trim_end_matches(['o', 'x']);
+    let end = if right_head.is_empty() && right_deco.is_none() {
+        None
+    } else {
+        Some(head_type(right_head, right_deco))
+    };
+
+    match (start, end) {
+        (Some(start), None) => {
+            spec.points_left = true;
+            spec.arrow_type = start;
+        }
+        (Some(start), Some(end)) => {
+            spec.arrow_type = end;
+            spec.start_arrow = Some(start);
+        }
+        (None, Some(end)) => spec.arrow_type = end,
+        (None, None) => {}
+    }
+
+    spec
+}
+
+/// Парсит начало фрагмента: тип, условие, цвет рамки и фона
+fn parse_fragment_start(
+    pair: pest::iterators::Pair<Rule>,
+) -> (FragmentType, Option<String>, Option<Color>, Option<Color>) {
     let mut frag_type = FragmentType::Group;
     let mut condition: Option<String> = None;
+    let mut colors: Vec<Color> = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -616,6 +785,7 @@ fn parse_fragment_start(pair: pest::iterators::Pair<Rule>) -> (FragmentType, Opt
                     _ => FragmentType::Group,
                 };
             }
+            Rule::color => colors.push(Color::parse(inner.as_str())),
             Rule::fragment_condition => {
                 condition = Some(inner.as_str().trim().to_string());
             }
@@ -623,17 +793,25 @@ fn parse_fragment_start(pair: pest::iterators::Pair<Rule>) -> (FragmentType, Opt
         }
     }
 
-    (frag_type, condition)
+    // Первый цвет — рамка, второй — фон
+    let mut colors = colors.into_iter();
+    let border = colors.next();
+    let background = colors.next();
+    (frag_type, condition, border, background)
 }
 
-/// Парсит else фрагмента
-fn parse_fragment_else(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+/// Парсит else фрагмента: условие и цвет фона ветки
+fn parse_fragment_else(pair: pest::iterators::Pair<Rule>) -> (Option<String>, Option<Color>) {
+    let mut condition = None;
+    let mut background = None;
     for inner in pair.into_inner() {
-        if inner.as_rule() == Rule::fragment_condition {
-            return Some(inner.as_str().trim().to_string());
+        match inner.as_rule() {
+            Rule::fragment_condition => condition = Some(inner.as_str().trim().to_string()),
+            Rule::color => background = Some(Color::parse(inner.as_str())),
+            _ => {}
         }
     }
-    None
+    (condition, background)
 }
 
 /// Парсит заметку
@@ -944,17 +1122,29 @@ fn parse_autonumber_params_from_inner(
     }
 }
 
-/// Извлекает метку группы (`group Название`).
-fn parse_group_label(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+/// Разбирает метку группы `Название [подпись]`: название стоит на ярлыке,
+/// подпись в скобках — условие. Возвращает (название, подпись).
+fn parse_group_label(pair: pest::iterators::Pair<Rule>) -> (Option<String>, Option<String>) {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::group_label {
             let text = inner.as_str().trim();
-            if !text.is_empty() {
-                return Some(text.to_string());
+            if text.is_empty() {
+                return (None, None);
             }
+            return match text.find('[') {
+                Some(open) if text.ends_with(']') => {
+                    let title = text[..open].trim();
+                    let note = text[open + 1..text.len() - 1].trim();
+                    (
+                        (!title.is_empty()).then(|| title.to_string()),
+                        (!note.is_empty()).then(|| note.to_string()),
+                    )
+                }
+                _ => (Some(text.to_string()), None),
+            };
         }
     }
-    None
+    (None, None)
 }
 
 /// Парсит return statement
@@ -1545,7 +1735,10 @@ Alice -> Bob++ #FFBBBB: hello
         match &diagram.elements[0] {
             SequenceElement::Message(msg) => {
                 assert!(msg.activate, "Expected activate=true");
-                assert!(msg.color.is_some(), "Expected color for activation");
+                assert!(
+                    msg.activation_color.is_some(),
+                    "Expected color for activation"
+                );
             }
             _ => panic!("Expected Message"),
         }
@@ -1728,7 +1921,133 @@ Alice -> Bob: second
             })
             .expect("группа не найдена");
         assert_eq!(fragment.fragment_type, FragmentType::Group);
-        assert_eq!(fragment.condition.as_deref(), Some("Группа"));
+        assert_eq!(fragment.title.as_deref(), Some("Группа"));
+    }
+
+    /// `group Название [подпись]`: название на ярлыке, подпись — условие.
+    #[test]
+    fn test_parse_group_title_and_note() {
+        let source = "@startuml
+group Заголовок [подпись]
+A -> B
+end
+@enduml";
+        let diagram = parse_sequence(source).expect("разбор группы");
+        let Some(SequenceElement::Fragment(fragment)) = diagram.elements.first() else {
+            panic!("группа не найдена");
+        };
+        assert_eq!(fragment.title.as_deref(), Some("Заголовок"));
+        assert_eq!(fragment.condition.as_deref(), Some("подпись"));
+    }
+
+    fn first_message(source: &str) -> Message {
+        let diagram = parse_sequence(source).unwrap_or_else(|e| panic!("{source}\n{e}"));
+        diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                SequenceElement::Message(m) => Some(m.clone()),
+                _ => None,
+            })
+            .expect("сообщение не найдено")
+    }
+
+    /// Все формы стрелок из справочника: наконечники, цвет, смещение.
+    #[test]
+    fn test_parse_arrow_forms() {
+        let wrap = |arrow: &str| format!("@startuml\nA {arrow} B : t\n@enduml");
+        for (arrow, head, dashed, left) in [
+            ("->", ArrowType::Normal, false, false),
+            ("-->", ArrowType::Normal, true, false),
+            ("->>", ArrowType::Thin, false, false),
+            ("->x", ArrowType::Cross, false, false),
+            ("->o", ArrowType::Circle, false, false),
+            ("-\\", ArrowType::HalfTop, false, false),
+            ("-/", ArrowType::HalfBottom, false, false),
+            ("//--", ArrowType::HalfBottom, true, true),
+            ("<-", ArrowType::Normal, false, true),
+        ] {
+            let message = first_message(&wrap(arrow));
+            assert_eq!(message.arrow_type, head, "{arrow}");
+            assert_eq!(message.line_style == LineStyle::Dashed, dashed, "{arrow}");
+            // Стрелка налево меняет концы местами
+            assert_eq!(message.from == "B", left, "{arrow}");
+        }
+
+        let both = first_message(&wrap("<->"));
+        assert_eq!(both.start_arrow, Some(ArrowType::Normal));
+        assert_eq!((both.from.as_str(), both.to.as_str()), ("A", "B"));
+
+        let colored = first_message(&wrap("-[#red]>"));
+        assert!(colored.color.is_some());
+        assert_eq!(colored.line_style, LineStyle::Solid);
+
+        let shifted = first_message(&wrap("->(10)"));
+        assert_eq!(shifted.shift, Some(10));
+    }
+
+    /// Сообщения за краем диаграммы: `[->`, `->]`, `?->`.
+    #[test]
+    fn test_parse_boundary_messages() {
+        let incoming = first_message("@startuml\n[-> A : x\n@enduml");
+        assert_eq!(incoming.from_boundary, Some(BoundarySide::Left));
+        assert_eq!(incoming.to, "A");
+
+        let outgoing = first_message("@startuml\nA ->] : x\n@enduml");
+        assert_eq!(outgoing.to_boundary, Some(BoundarySide::Right));
+        assert_eq!(outgoing.from, "A");
+
+        let short = first_message("@startuml\n?-> A : x\n@enduml");
+        assert_eq!(short.from_boundary, Some(BoundarySide::Left));
+    }
+
+    /// Фрагмент с цветами и пустым `else`.
+    #[test]
+    fn test_parse_fragment_colors() {
+        let source =
+            "@startuml\nalt#Gold #LightBlue успех\nA -> B\nelse #Pink ошибка\nA -> B\nend\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор");
+        let Some(SequenceElement::Fragment(fragment)) = diagram.elements.first() else {
+            panic!("фрагмент не найден");
+        };
+        assert!(fragment.color.is_some() && fragment.background.is_some());
+        assert_eq!(fragment.condition.as_deref(), Some("успех"));
+        assert_eq!(fragment.sections[1].condition.as_deref(), Some("ошибка"));
+        assert!(fragment.sections[1].background.is_some());
+    }
+
+    /// Якоря, длительность, параллельные `&` и `/`, вложенные box.
+    #[test]
+    fn test_parse_anchors_parallel_and_nested_box() {
+        let source = "@startuml\n{start} A -> B : a\n& B -> C : b\n{end} C -> A : c\n{start} <-> {end} : t\nnote over A : n1\n/ note over B : n2\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор");
+        let kinds: Vec<&str> = diagram
+            .elements
+            .iter()
+            .map(|e| match e {
+                SequenceElement::Message(_) => "m",
+                SequenceElement::Parallel => "p",
+                SequenceElement::Duration(_) => "d",
+                SequenceElement::Note(_) => "n",
+                _ => "?",
+            })
+            .collect();
+        assert_eq!(kinds, ["m", "p", "m", "m", "d", "n", "p", "n"]);
+
+        let source = "@startuml\nbox \"Outer\"\nparticipant A\nbox \"Inner\"\nparticipant B\nend box\nend box\n@enduml";
+        let diagram = parse_sequence(source).expect("разбор");
+        let outer = diagram
+            .boxes
+            .iter()
+            .find(|b| b.depth == 0)
+            .expect("внешний");
+        let inner = diagram
+            .boxes
+            .iter()
+            .find(|b| b.depth == 1)
+            .expect("вложенный");
+        assert_eq!(outer.participants, ["A", "B"]);
+        assert_eq!(inner.participants, ["B"]);
     }
 
     /// `end group` и группа без метки.

@@ -43,6 +43,7 @@ statement = _{
     | fragment_start     // Фрагменты - раньше message
     | fragment_else
     | fragment_end
+    | duration_stmt      // `{start} <-> {end} : текст` — раньше message
     | message            // Message - последним, так как ловит identifier -> arrow -> identifier
 }
 
@@ -162,10 +163,27 @@ return_stmt = { "return" ~ (ws+ ~ message_text)? }
 // где ++ идёт ПОСЛЕ имени получателя (не после стрелки!)
 
 message = {
-    participant_ref ~ ws* ~ arrow ~ ws* ~ participant_ref ~ 
+    parallel_prefix? ~ anchor_tag? ~
+    (boundary_left_mark | participant_ref) ~ ws* ~ arrow ~ ws* ~
+    (boundary_right_mark | participant_ref) ~
     ws* ~ target_activation? ~
     (ws* ~ ":" ~ ws* ~ message_text)?
 }
+
+// `& A -> B` кладёт сообщение на строку предыдущего, устаревшее `/ note ...`
+// делает то же для заметки.
+parallel_prefix = { ("&" | "/") ~ ws+ }
+
+// Якорь сообщения: `{start} A -> B`. Пара якорей задаёт стрелку длительности.
+anchor_tag = { "{" ~ anchor_name ~ "}" ~ ws* }
+anchor_name = @{ (LETTER | NUMBER | "_")+ }
+
+// `{start} <-> {end} : время выполнения`
+duration_stmt = { anchor_tag ~ "<->" ~ ws* ~ anchor_tag ~ (":" ~ ws* ~ message_text)? }
+
+// Конец сообщения за краем диаграммы: `[-> A`, `? -> A`, `A ->]`, `A ->?`.
+boundary_left_mark = @{ ("[" | "?") ~ &(ws | "-" | "." | "<" | "o" | "x" | "\\" | "/") }
+boundary_right_mark = @{ ("]" | "?") ~ &(ws | NEWLINE | EOI) }
 
 // Активация/деактивация получателя после имени участника
 // Поддерживает: ++, --, **, !!, --++, --** и т.д.
@@ -209,76 +227,34 @@ reserved_word = {
 
 // === Стрелки ===
 
-arrow = {
-    arrow_right | arrow_left
+// Стрелка целиком одним атомарным токеном: разбор по частям (наконечники,
+// цвет в скобках, смещение) делает парсер, потому что форм много:
+// `->`, `-->`, `->>`, `->x`, `->o`, `-\\`, `//--`, `<->`, `o<->o`, `-[#red]>`,
+// `->(10)`.
+arrow = @{
+    left_part ~ arrow_body ~ right_part? ~ arrow_shift?
+    | arrow_body ~ right_part ~ arrow_shift?
 }
 
-// Стрелки направо: ->, -->, ->>, .>, ..>, etc.
-arrow_right = {
-    line_style_left? ~ 
-    arrow_line_right
-}
+left_part = _{ left_deco? ~ left_head | left_deco ~ &arrow_body }
+left_head = _{ "<<" | "<" | "\\\\" | "\\" | "//" | "/" }
+left_deco = _{ "o" | "x" }
 
-// Стрелки налево: <-, <--, <<-, <., <.., etc.
-arrow_left = {
-    arrow_line_left ~
-    line_style_right?
-}
+right_part = _{ right_head ~ right_deco? | right_deco }
+right_head = _{ ">>" | ">" | "\\\\" | "\\" | "//" | "/" }
+// Крест и кружок — наконечники, только если за ними пробел или конец
+// стрелки: иначе `A ->xavier` читалось бы как стрелка с крестом.
+right_deco = _{ ("o" | "x") ~ &(ws | "]" | "?" | "(" | NEWLINE) }
 
-// Линия стрелки направо - порядок важен: длинные варианты первыми
-arrow_line_right = @{
-    // Двойная сплошная с двойной головкой
-    "--" ~ ">>"
-    // Двойная пунктирная с двойной головкой
-    | ".." ~ ">>"
-    // Двойная сплошная с одинарной головкой
-    | "--" ~ ">"
-    // Двойная пунктирная с одинарной головкой
-    | ".." ~ ">"
-    // Одинарная сплошная с двойной головкой
-    | "-" ~ ">>"
-    // Одинарная пунктирная с двойной головкой
-    | "." ~ ">>"
-    // Одинарная сплошная с одинарной головкой
-    | "-" ~ ">"
-    // Одинарная пунктирная с одинарной головкой
-    | "." ~ ">"
-    // Специальные стрелки
-    | "-" ~ "-"* ~ ("\\\\" | "\\" | "//" | "/" | "o" | "x")
-    | "." ~ "."* ~ ("\\\\" | "\\" | "//" | "/" | "o" | "x")
-}
-
-// Линия стрелки налево
-arrow_line_left = @{
-    // Двойная головка с двойной сплошной
-    "<<" ~ "--"
-    // Двойная головка с двойной пунктирной
-    | "<<" ~ ".."
-    // Двойная головка с одинарной сплошной
-    | "<<" ~ "-"
-    // Двойная головка с одинарной пунктирной
-    | "<<" ~ "."
-    // Одинарная головка с двойной сплошной
-    | "<" ~ "--"
-    // Одинарная головка с двойной пунктирной
-    | "<" ~ ".."
-    // Одинарная головка с одинарной сплошной
-    | "<" ~ "-"
-    // Одинарная головка с одинарной пунктирной
-    | "<" ~ "."
-    // Специальные стрелки
-    | ("\\\\" | "\\" | "//" | "/" | "o" | "x") ~ "-" ~ "-"*
-    | ("\\\\" | "\\" | "//" | "/" | "o" | "x") ~ "." ~ "."*
-}
-
-line_style_left = { "[" ~ line_color? ~ "]" }
-line_style_right = { "[" ~ line_color? ~ "]" }
+// Тело: тире и точки, внутри которых может стоять `[#red]` или `[bold]`.
+arrow_body = _{ line_char+ ~ (arrow_style ~ line_char*)? }
+line_char = _{ "-" | "." }
+arrow_style = _{ "[" ~ (!("]" | NEWLINE) ~ ANY)* ~ "]" }
+arrow_shift = _{ "(" ~ ASCII_DIGIT+ ~ ")" }
 
 // DEPRECATED: activation_mark перенесён в target_activation
 // Оставлено для обратной совместимости со старыми тестами
 activation_mark = { "++" | "--" | "**" | "!!" }
-
-line_color = { "#" ~ hex_color }
 
 message_text = { (!NEWLINE ~ ANY)+ }
 
@@ -289,11 +265,11 @@ message_text = { (!NEWLINE ~ ANY)+ }
 // порядке перехватывалась однострочным правилом, из-за чего многострочная
 // заметка давала ошибку парсинга.
 note_stmt = {
-    note_multi
+    parallel_prefix? ~ (note_multi
     | note_over
     | note_left_right
     | hnote
-    | rnote
+    | rnote)
 }
 
 // "note over Alice, Bob: text" или "note over Alice: text"
@@ -374,31 +350,30 @@ box_end = { "end" ~ ws+ ~ "box" }
 // Разбирается как два маркера (начало и конец), как и фрагменты: так
 // парсер использует для вложенности общий стек. Метка необязательна —
 // `group` без названия допустим в PlantUML.
-group_start = { "group" ~ (ws+ ~ group_label)? }
-group_end = { "end" ~ (ws+ ~ "group")? }
+group_start = { "group" ~ !(LETTER | NUMBER | "_") ~ (ws+ ~ group_label)? }
+group_end = { "end" ~ !(LETTER | NUMBER | "_") ~ (ws+ ~ "group")? }
 
 group_label = { (!NEWLINE ~ ANY)+ }
 
 // === Фрагменты (alt, opt, loop, etc.) ===
 
+// Цвета: `alt#Gold #LightBlue условие` — рамка, затем фон.
 fragment_start = {
-    fragment_type ~ (ws+ ~ fragment_condition)?
+    fragment_type ~ color? ~ (ws+ ~ fragment_background)? ~ (ws+ ~ fragment_condition)?
 }
 
 fragment_type = @{
-    "alt"
-    | "opt"
-    | "loop"
-    | "par"
-    | "break"
-    | "critical"
+    ("alt" | "opt" | "loop" | "par" | "break" | "critical") ~ !(LETTER | NUMBER | "_")
 }
+
+// Фон — цвет, за которым пробел или конец строки; иначе это начало условия.
+fragment_background = _{ &(color ~ (ws | NEWLINE)) ~ color }
 
 fragment_condition = { (!NEWLINE ~ ANY)+ }
 
-fragment_else = { "else" ~ (ws+ ~ fragment_condition)? }
+fragment_else = { "else" ~ !(LETTER | NUMBER | "_") ~ (ws* ~ color ~ &(ws | NEWLINE))? ~ (ws+ ~ fragment_condition)? }
 
-fragment_end = { "end" ~ !(ws* ~ ("note" | "ref" | "box")) }
+fragment_end = { "end" ~ !(LETTER | NUMBER | "_") ~ !(ws* ~ ("note" | "ref" | "box")) }
 
 // === Skinparam ===
 

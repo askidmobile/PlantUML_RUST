@@ -136,6 +136,22 @@ pub enum SequenceElement {
     Autonumber(AutonumberCommand),
     /// Return (возврат к вызывающему)
     Return(Return),
+    /// Следующий элемент стоит на той же строке, что предыдущий:
+    /// `& A -> B` и устаревшее `/ note over B`
+    Parallel,
+    /// Стрелка длительности между якорями: `{start} <-> {end} : время`
+    Duration(Duration),
+}
+
+/// Стрелка длительности между двумя якорями сообщений
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Duration {
+    /// Якорь начала
+    pub from: String,
+    /// Якорь конца
+    pub to: String,
+    /// Подпись
+    pub label: String,
 }
 
 /// Тип стрелки сообщения
@@ -156,6 +172,13 @@ pub enum ArrowType {
     HalfBottom,
 }
 
+/// С какого края диаграммы приходит или куда уходит сообщение без участника
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BoundarySide {
+    Left,
+    Right,
+}
+
 /// Сообщение между участниками
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -171,8 +194,24 @@ pub struct Message {
     pub arrow_type: ArrowType,
     /// Направление стрелки (true = влево)
     pub arrow_left: bool,
-    /// Цвет стрелки
+    /// Наконечник у ИСТОЧНИКА: есть у двусторонних стрелок (`<->`, `o<->o`)
+    pub start_arrow: Option<ArrowType>,
+    /// Цвет линии и наконечника: `-[#red]>`
     pub color: Option<Color>,
+    /// Цвет активации получателя: `A -> B ++ #red`
+    pub activation_color: Option<Color>,
+    /// Линия вдвое толще обычной: `-[bold]>`
+    pub bold: bool,
+    /// Отправитель стоит за краем диаграммы: `[-> B`, `[<- B`, `? -> B`.
+    /// Поле `from` у такого сообщения пустое.
+    pub from_boundary: Option<BoundarySide>,
+    /// Получатель стоит за краем диаграммы: `A ->]`, `A ->?`.
+    /// Поле `to` у такого сообщения пустое.
+    pub to_boundary: Option<BoundarySide>,
+    /// Смещение конца стрелки вниз в пикселях: `A ->(10) B`
+    pub shift: Option<u32>,
+    /// Якорь начала сообщения: `{start} A -> B`
+    pub anchor: Option<String>,
     /// Активировать получателя
     pub activate: bool,
     /// Деактивировать отправителя
@@ -193,7 +232,14 @@ impl Message {
             line_style: LineStyle::Solid,
             arrow_type: ArrowType::Normal,
             arrow_left: false,
+            start_arrow: None,
             color: None,
+            activation_color: None,
+            bold: false,
+            from_boundary: None,
+            to_boundary: None,
+            shift: None,
+            anchor: None,
             activate: false,
             deactivate: false,
             create: false,
@@ -261,6 +307,13 @@ pub struct Fragment {
     pub condition: Option<String>,
     /// Секции фрагмента (для alt/par)
     pub sections: Vec<FragmentSection>,
+    /// Название группы (`group Название [подпись]`): им подписан ярлык
+    /// вместо слова `group`, а `condition` хранит подпись в скобках
+    pub title: Option<String>,
+    /// Цвет рамки: `alt#Gold`
+    pub color: Option<Color>,
+    /// Цвет фона: `alt#Gold #LightBlue`
+    pub background: Option<Color>,
 }
 
 impl Fragment {
@@ -270,6 +323,9 @@ impl Fragment {
             fragment_type,
             condition: None,
             sections: vec![FragmentSection::default()],
+            title: None,
+            color: None,
+            background: None,
         }
     }
 
@@ -287,6 +343,8 @@ pub struct FragmentSection {
     pub condition: Option<String>,
     /// Элементы секции
     pub elements: Vec<SequenceElement>,
+    /// Цвет фона ветки: `else #Pink`
+    pub background: Option<Color>,
 }
 
 /// Активация участника
@@ -338,8 +396,10 @@ pub struct ParticipantBox {
     pub title: Option<String>,
     /// Цвет фона
     pub color: Option<Color>,
-    /// Участники внутри box
+    /// Участники внутри box (в том числе во вложенных)
     pub participants: Vec<String>,
+    /// Глубина вложенности: 0 у внешнего box
+    pub depth: usize,
 }
 
 /// Команда autonumber в диаграмме
