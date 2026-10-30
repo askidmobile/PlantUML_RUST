@@ -27,6 +27,18 @@ fn golden_dir() -> PathBuf {
 
 /// Текст элементов `<text>` с раскрытыми сущностями.
 fn svg_text(svg: &str) -> String {
+    text_of(svg, false)
+}
+
+/// Текст эталона без предупреждений сервера об устаревшем синтаксисе.
+///
+/// Сервер печатает их кеглем 10 над диаграммой. Содержимым схемы они не являются.
+fn reference_text(svg: &str) -> String {
+    let has_warning = svg.contains("is deprecated") || svg.contains("is ignored");
+    text_of(svg, has_warning)
+}
+
+fn text_of(svg: &str, skip_small: bool) -> String {
     let mut out = String::new();
     let mut rest = svg;
     while let Some(start) = rest.find("<text") {
@@ -36,6 +48,10 @@ fn svg_text(svg: &str) -> String {
         let Some(end) = content.find("</text>") else {
             break;
         };
+        if skip_small && tail[..gt].contains("font-size=\"10\"") {
+            rest = &content[end..];
+            continue;
+        }
         out.push_str(&content[..end]);
         out.push(' ');
         rest = &content[end..];
@@ -121,15 +137,22 @@ fn reference_is_error(svg: &str) -> bool {
 
 /// Нарушение одного кейса в виде строки храповика; `None` — кейс чистый.
 fn check(name: &str, source: &str, reference: &str) -> Option<String> {
+    // Сервер не разобрал пример и показал страницу приветствия: сверять не с чем.
+    if reference.contains("Welcome to PlantUML") {
+        return None;
+    }
     let ours = render(source, &RenderOptions::default());
     if reference_is_error(reference) {
         return ours.is_ok().then(|| format!("{name} ACCEPTED"));
     }
+    let want = words(&reference_text(reference));
+    // Схема без содержимого: сервер рисует пустоту, у нас это ошибка «нет элементов».
+    let has_nothing = want.is_empty();
     let svg = match ours {
         Ok(svg) => svg,
+        Err(_) if has_nothing => return None,
         Err(_) => return Some(format!("{name} ERR")),
     };
-    let want = words(&svg_text(reference));
     let have = words(&svg_text(&svg));
     let lost: Vec<&str> = want.difference(&have).map(String::as_str).collect();
     let raw: Vec<&str> = have.difference(&want).map(String::as_str).collect();
@@ -215,6 +238,24 @@ fn corpus_gate() {
         count("RAW"),
         count("ACCEPTED"),
     );
+
+    // Подробности для разбора: текст ошибки по каждому кейсу.
+    if let Ok(path) = std::env::var("GATE_REPORT") {
+        let lines: Vec<String> = violations
+            .iter()
+            .map(|v| {
+                let name = case_of(v);
+                let source =
+                    std::fs::read_to_string(dir.join("corpus").join(format!("{name}.puml")))
+                        .unwrap_or_default();
+                match render(&source, &RenderOptions::default()) {
+                    Err(e) => format!("{v} :: {e}"),
+                    Ok(_) => v.clone(),
+                }
+            })
+            .collect();
+        std::fs::write(path, lines.join("\n") + "\n").expect("пишется отчёт");
+    }
 
     let baseline_path = dir.join("gate_baseline.txt");
     if std::env::var("UPDATE_GATE").is_ok_and(|v| v == "1") {

@@ -36,7 +36,10 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
     // 4. Рендеринг с темой из исходника
     let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
 
-    Ok(svg)
+    Ok(plantuml_renderer::decorations::decorate(
+        svg,
+        diagram.metadata(),
+    ))
 }
 
 /// Выполняет полный pipeline с поддержкой !include
@@ -63,7 +66,10 @@ pub fn render_pipeline_with_includes(
     // 4. Рендеринг с темой из исходника
     let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
 
-    Ok(svg)
+    Ok(plantuml_renderer::decorations::decorate(
+        svg,
+        diagram.metadata(),
+    ))
 }
 
 /// Имя типа диаграммы для атрибута `data-diagram-type`.

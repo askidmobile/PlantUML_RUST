@@ -23,6 +23,7 @@
 //! }
 //! ```
 
+pub mod decorations;
 pub mod shapes;
 pub mod svg_renderer;
 

@@ -6,6 +6,7 @@
 //! 1. Лексер (logos) — быстрая токенизация
 //! 2. Парсер (pest) — PEG грамматики для структуры
 
+pub mod common;
 pub mod error;
 pub mod limits;
 pub mod parsers;
@@ -42,10 +43,115 @@ pub type Result<T> = std::result::Result<T, ParseError>;
 pub fn parse(source: &str) -> Result<Diagram> {
     limits::check_nesting(source)?;
 
-    // Определяем тип диаграммы
-    let diagram_type = detect_diagram_type(source)?;
+    let wrapped;
+    let source = if has_start_tag(source) {
+        source
+    } else {
+        // Как и PlantUML, считаем текст без тегов обычной схемой.
+        wrapped = format!("@startuml\n{source}\n@enduml\n");
+        wrapped.as_str()
+    };
 
-    match diagram_type {
+    if let Some(kind) = unsupported_kind(source) {
+        return Err(ParseError::Unsupported { kind });
+    }
+
+    let (cleaned, common) = common::extract(source);
+    if !has_body(&cleaned) {
+        return Err(ParseError::EmptyDiagram);
+    }
+    let mut diagram = parse_body(&cleaned)?;
+    apply_common(&mut diagram, common);
+    Ok(diagram)
+}
+
+/// Есть ли в схеме что-то кроме тегов, комментариев и настроек оформления.
+fn has_body(source: &str) -> bool {
+    let mut in_block_comment = false;
+    source.lines().map(str::trim).any(|line| {
+        if in_block_comment {
+            in_block_comment = !line.contains("'/");
+            return false;
+        }
+        if line.starts_with("/'") {
+            in_block_comment = !line.contains("'/");
+            return false;
+        }
+        !(line.is_empty()
+            || line.starts_with('\'')
+            || line.starts_with("@start")
+            || line.starts_with("@end")
+            || line.starts_with('!')
+            || line.to_lowercase().starts_with("skinparam"))
+    })
+}
+
+/// Порядок повторных попыток для `@startuml`.
+const RETRY_ORDER: &[DiagramKind] = &[
+    DiagramKind::Sequence,
+    DiagramKind::Class,
+    DiagramKind::Activity,
+    DiagramKind::State,
+    DiagramKind::UseCase,
+    DiagramKind::Component,
+    DiagramKind::Object,
+    DiagramKind::Er,
+    DiagramKind::Timing,
+    DiagramKind::Archimate,
+];
+
+/// Разбирает тело: сначала наиболее вероятный тип, затем остальные.
+///
+/// PlantUML определяет тип именно так: пробует разбор каждым типом по очереди.
+/// Подстрочная эвристика здесь задаёт только первую попытку, поэтому её
+/// ошибка больше не означает ошибку всей схемы.
+fn parse_body(source: &str) -> Result<Diagram> {
+    let first = detect_diagram_type(source).unwrap_or(DiagramKind::Unknown);
+    if !source.trim_start().to_lowercase().starts_with("@startuml") {
+        return parse_kind(first, source);
+    }
+
+    let mut best: Option<ParseError> = None;
+    let candidates =
+        std::iter::once(first).chain(RETRY_ORDER.iter().copied().filter(|k| *k != first));
+    for kind in candidates {
+        match parse_kind(kind, source) {
+            Ok(diagram) if !is_empty_diagram(&diagram) => return Ok(diagram),
+            Ok(_) => {}
+            Err(error) => {
+                if progress_of(&error) > best.as_ref().map_or(0, progress_of) {
+                    best = Some(error);
+                }
+            }
+        }
+    }
+    Err(best.unwrap_or(ParseError::EmptyDiagram))
+}
+
+/// Насколько далеко продвинулся разбор: показываем ошибку самой удачной попытки.
+fn progress_of(error: &ParseError) -> usize {
+    match error {
+        ParseError::SyntaxError { line, .. } => *line,
+        _ => 1,
+    }
+}
+
+/// Разобрано успешно, но нарисовать нечего.
+fn is_empty_diagram(diagram: &Diagram) -> bool {
+    match diagram {
+        Diagram::Sequence(d) => d.participants.is_empty() && d.elements.is_empty(),
+        Diagram::Class(d) => {
+            d.classifiers.is_empty()
+                && d.relationships.is_empty()
+                && d.packages.is_empty()
+                && d.notes.is_empty()
+        }
+        _ => false,
+    }
+}
+
+fn parse_kind(kind: DiagramKind, source: &str) -> Result<Diagram> {
+    match kind {
         DiagramKind::Sequence => parse_sequence_diagram(source),
         DiagramKind::Class => parse_class_diagram(source),
         DiagramKind::Activity => parse_activity_diagram(source),
@@ -65,6 +171,47 @@ pub fn parse(source: &str) -> Result<Diagram> {
         DiagramKind::Salt => parse_salt_diagram(source),
         DiagramKind::Archimate => parse_archimate_diagram(source),
         DiagramKind::Unknown => Err(ParseError::UnknownDiagramType),
+    }
+}
+
+/// В тексте есть открывающий тег схемы.
+fn has_start_tag(source: &str) -> bool {
+    source.lines().any(|l| l.trim_start().starts_with("@start"))
+}
+
+/// Теги типов, которых движок не поддерживает: они дают понятную ошибку.
+fn unsupported_kind(source: &str) -> Option<String> {
+    const KNOWN: &[&str] = &[
+        "uml", "gantt", "mindmap", "wbs", "json", "yaml", "salt", "nwdiag",
+    ];
+    let line = source
+        .lines()
+        .find(|l| l.trim_start().starts_with("@start"))?;
+    let tag = line.trim_start().strip_prefix("@start")?;
+    let kind: String = tag
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_lowercase();
+    (!KNOWN.contains(&kind.as_str())).then_some(kind)
+}
+
+/// Переносит общие команды в метаданные диаграммы.
+fn apply_common(diagram: &mut Diagram, common: plantuml_ast::common::DiagramMetadata) {
+    if let (Diagram::UseCase(d), Some(direction)) = (&mut *diagram, common.direction) {
+        d.direction = direction;
+    }
+    let meta = diagram.metadata_mut();
+    meta.title = common.title.or(meta.title.take());
+    meta.header = common.header.or(meta.header.take());
+    meta.footer = common.footer.or(meta.footer.take());
+    meta.caption = common.caption.or(meta.caption.take());
+    meta.mainframe = common.mainframe.or(meta.mainframe.take());
+    meta.scale = common.scale.or(meta.scale.take());
+    meta.direction = common.direction.or(meta.direction.take());
+    if common.legend.is_some() {
+        meta.legend = common.legend;
+        meta.legend_align = common.legend_align;
     }
 }
 

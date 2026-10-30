@@ -9,6 +9,7 @@ description = "SVG/PNG рендеринг диаграмм"
 keywords = ["plantuml", "svg", "render"]
 
 [dependencies]
+plantuml-ast = { workspace = true }
 plantuml-layout = { workspace = true }
 plantuml-themes = { workspace = true }
 svg = { workspace = true }

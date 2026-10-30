@@ -463,22 +463,6 @@ impl TimingLayoutEngine {
             timeline_width,
         );
 
-        // 6. Title
-        if let Some(ref title) = diagram.metadata.title {
-            elements.push(LayoutElement {
-                id: "title".to_string(),
-                bounds: Rect::new(self.config.padding, 5.0, 500.0, 20.0),
-                text: None,
-                properties: [("text-fill".to_string(), TIMING_TEXT_COLOR.to_string())]
-                    .into_iter()
-                    .collect(),
-                element_type: ElementType::Text {
-                    text: title.clone(),
-                    font_size: 14.0,
-                },
-            });
-        }
-
         // 7. Возвращаем результат
         let total_width = timeline_start_x + timeline_width + self.config.padding;
         let total_height = axis_y + 30.0 + self.config.padding;

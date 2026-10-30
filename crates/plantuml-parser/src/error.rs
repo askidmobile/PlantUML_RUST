@@ -35,13 +35,21 @@ pub fn syntax_error_from_pest(
 
     ParseError::SyntaxError {
         line,
-        message: error.to_string(),
+        message: format!("непонятная строка «{}»", error.line().trim()),
     }
 }
 
 /// Ошибки парсинга PlantUML
 #[derive(Error, Debug)]
 pub enum ParseError {
+    /// Тип схемы вне поддержки движка
+    #[error("тип диаграммы не поддерживается: @start{kind}")]
+    Unsupported { kind: String },
+
+    /// В схеме нет элементов
+    #[error("в диаграмме нет элементов")]
+    EmptyDiagram,
+
     /// Вложенность превышает предел: дальше разбор мог бы переполнить стек
     #[error("слишком глубокая вложенность в строке {line}: допустимо не более {limit} уровней")]
     TooDeep { limit: usize, line: usize },

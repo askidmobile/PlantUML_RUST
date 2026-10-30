@@ -231,6 +231,15 @@ pub enum LineStyle {
     Bold,
 }
 
+/// Выравнивание легенды относительно диаграммы
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LegendAlign {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
+
 /// Метаданные диаграммы
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct DiagramMetadata {
@@ -252,6 +261,8 @@ pub struct DiagramMetadata {
     /// раньше, но НИ ОДИН парсер её не обрабатывал — данные молча
     /// терялись, и тип `Direction` в AST не использовался вовсе.
     pub direction: Option<Direction>,
+    /// Выравнивание легенды (`legend right`)
+    pub legend_align: LegendAlign,
     /// Рамка вокруг диаграммы (`mainframe Заголовок`)
     pub mainframe: Option<String>,
     /// Заголовок новой страницы (`newpage Заголовок`)

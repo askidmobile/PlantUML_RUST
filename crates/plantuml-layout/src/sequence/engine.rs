@@ -101,17 +101,6 @@ fn figure_extra_below(participant_type: ParticipantType) -> f64 {
     }
 }
 
-/// Цвет подложки легенды в PlantUML.
-const SEQUENCE_LEGEND_BACKGROUND: &str = "#DDDDDD";
-
-/// Внутренний отступ легенды.
-const SEQUENCE_LEGEND_PADDING: f64 = 10.0;
-
-/// Отступ рамки `mainframe` от содержимого.
-const SEQUENCE_FRAME_PADDING: f64 = 10.0;
-
-/// Зазор между диаграммой и легендой.
-const SEQUENCE_LEGEND_GAP: f64 = 20.0;
 use plantuml_ast::sequence::{
     Activation, ActivationType, AutonumberCommand, Delay, Divider, Fragment, FragmentType, Message,
     ParticipantType, Reference, Return, SequenceDiagram, SequenceElement,
@@ -151,25 +140,6 @@ const FRAGMENT_CONDITION_FONT_SIZE: f64 = 11.0;
 ///
 /// Проверено на сервере: 66.96 + 95.44 = 162.40 и 194.89 + 95.44 = 290.33.
 const FRAGMENT_CONDITION_EXTRA: f64 = 95.44;
-
-/// Насколько рамка фрагмента уже левого края участника.
-///
-/// Эталон `sequence_fragments`: рамка начинается на 16.955 при левом крае
-/// блока участника 10, то есть на 6.955 правее (прежние −10 давали 0).
-/// Отступ левого края рамки фрагмента от крайней левой задействованной линии.
-///
-/// Измерено: `sequence_fragments` — линия 32.95, рамка 16.95; большая
-/// диаграмма — линия 465.5, рамка 449.5. Оба раза ровно 16.
-/// Сколько вертикального места занимает заголовок `title`.
-///
-/// Измерено на сервере: две диаграммы, отличающиеся только наличием
-/// заголовка, дают верх коробки участника 10 и 47.297 — прибавка 37.297.
-const TITLE_BLOCK_HEIGHT: f64 = 37.297;
-
-/// Базовая линия заголовка от верха диаграммы.
-///
-/// Измерено там же: `y="27.995"` при кегле 14.
-const TITLE_BASELINE_Y: f64 = 27.995;
 
 const FRAGMENT_FRAME_LEFT_HALF: f64 = 16.0;
 
@@ -259,169 +229,9 @@ impl SequenceLayoutEngine {
             })
             .collect();
 
-        // 9.5. Заголовок, подписи и легенда — как в PlantUML.
-        //      Раньше `title` разбирался парсером, но в вывод не попадал:
-        //      метаданные не читались layout-движком.
-        let mut header_elements = Vec::new();
-
-        // `header` рисуется над диаграммой
-        if let Some(header) = &diagram.metadata.header {
-            header_elements.push(LayoutElement {
-                id: "header".to_string(),
-                bounds: Rect::new(self.config.margin, 0.0, 0.0, self.config.line_height),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: header.clone(),
-                    font_size: self.config.font_size,
-                },
-            });
-        }
-
-        // `title` — по центру над диаграммой.
-        //
-        // Кегль 14, а не общий 13: в эталоне `sequence_complex` заголовок
-        // идёт с `font-size="14"`, как и подписи участников. Из-за 13 он
-        // был на 14.5% уже эталонного (392.63 против 459.46).
-        if let Some(title) = &diagram.metadata.title {
-            header_elements.push(LayoutElement {
-                id: "title".to_string(),
-                // Базис текста рендерер считает как `bounds.y + font_size`,
-                // поэтому верх задаём так, чтобы базис попал на 27.995.
-                bounds: Rect::new(
-                    self.config.margin,
-                    TITLE_BASELINE_Y - self.config.title_font_size
-                        + if diagram.metadata.header.is_some() {
-                            self.config.line_height
-                        } else {
-                            0.0
-                        },
-                    0.0,
-                    self.config.title_line_height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: title.clone(),
-                    font_size: self.config.title_font_size,
-                },
-            });
-        }
-
-        // `footer` и `caption` — под диаграммой
-        let mut trailing_elements = Vec::new();
-        if let Some(caption) = &diagram.metadata.caption {
-            trailing_elements.push(LayoutElement {
-                id: "caption".to_string(),
-                bounds: Rect::new(
-                    self.config.margin,
-                    total_height,
-                    0.0,
-                    self.config.line_height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: caption.clone(),
-                    font_size: self.config.font_size,
-                },
-            });
-        }
-        if let Some(footer) = &diagram.metadata.footer {
-            trailing_elements.push(LayoutElement {
-                id: "footer_text".to_string(),
-                bounds: Rect::new(
-                    self.config.margin,
-                    total_height
-                        + if diagram.metadata.caption.is_some() {
-                            self.config.line_height
-                        } else {
-                            0.0
-                        },
-                    0.0,
-                    self.config.line_height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: footer.clone(),
-                    font_size: self.config.font_size,
-                },
-            });
-        }
-
-        // `mainframe Заголовок` — рамка вокруг всей диаграммы с подписью
-        // в левом верхнем углу. Раньше поле не читалось вовсе.
-        if let Some(frame) = &diagram.metadata.mainframe {
-            trailing_elements.push(LayoutElement {
-                id: "mainframe".to_string(),
-                bounds: Rect::new(
-                    self.config.margin,
-                    -self.config.line_height - SEQUENCE_FRAME_PADDING,
-                    metrics.max_x + SEQUENCE_FRAME_PADDING,
-                    total_height + self.config.line_height + SEQUENCE_FRAME_PADDING * 2.0,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::System {
-                    title: frame.clone(),
-                },
-            });
-        }
-
-        // Легенда — справа от диаграммы, на светло-жёлтой подложке.
-        // Раньше поле `legend` не читалось layout-движком: парсер её
-        // разбирал, а в вывод она не попадала.
-        if let Some(legend) = &diagram.metadata.legend {
-            let width = self.config.text.width(legend, self.config.font_size)
-                + SEQUENCE_LEGEND_PADDING * 2.0;
-            let height = legend.lines().count() as f64 * self.config.line_height
-                + SEQUENCE_LEGEND_PADDING * 2.0;
-
-            let mut properties = std::collections::HashMap::new();
-            properties.insert("fill".to_string(), SEQUENCE_LEGEND_BACKGROUND.to_string());
-
-            trailing_elements.push(LayoutElement {
-                id: "legend_bg".to_string(),
-                bounds: Rect::new(
-                    self.config.margin + metrics.max_x + SEQUENCE_LEGEND_GAP,
-                    self.config.margin,
-                    width,
-                    height,
-                ),
-                text: None,
-                properties,
-                element_type: ElementType::Rectangle {
-                    label: String::new(),
-                    corner_radius: 0.0,
-                },
-            });
-            trailing_elements.push(LayoutElement {
-                id: "legend".to_string(),
-                bounds: Rect::new(
-                    self.config.margin
-                        + metrics.max_x
-                        + SEQUENCE_LEGEND_GAP
-                        + SEQUENCE_LEGEND_PADDING,
-                    self.config.margin + SEQUENCE_LEGEND_PADDING,
-                    width,
-                    height,
-                ),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: legend.clone(),
-                    font_size: self.config.font_size,
-                },
-            });
-        }
-
-        // 10. Вставляем box элементы в начало (чтобы рендерились под остальным),
-        //     а заголовки — в конец
+        // 10. Вставляем box элементы в начало (чтобы рендерились под остальным)
         let mut final_elements = box_elements;
         final_elements.extend(elements);
-        final_elements.extend(header_elements);
-        final_elements.extend(trailing_elements);
 
         // 11. Вычисляем bounds
         let mut result = LayoutResult {
@@ -656,21 +466,7 @@ impl SequenceLayoutEngine {
             .values()
             .any(|t| matches!(t, ParticipantType::Actor));
 
-        // Заголовок `title` сдвигает участников вниз.
-        //
-        // Измерено на сервере двумя диаграммами, отличающимися ТОЛЬКО
-        // наличием заголовка: без него верх коробки участника равен 10
-        // (то есть margin), с ним — 47.297. Прибавка ровно 37.297.
-        // Раньше высота заголовка в отступ не входила, и всё содержимое
-        // диаграммы с заголовком уезжало вверх на 37.3 px.
-        let title_offset = if diagram.metadata.title.is_some() {
-            TITLE_BLOCK_HEIGHT
-        } else {
-            0.0
-        };
-
         let participant_y = self.config.margin
-            + title_offset
             + if has_box_titles {
                 self.config.box_title_height
             } else {

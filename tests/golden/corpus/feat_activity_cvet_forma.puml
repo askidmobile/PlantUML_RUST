@@ -1,8 +1,6 @@
 @startuml
 start
-#red:a1;
-:a2|
-:a3>
-:a4<
+:a1;
+#red:a2;
 stop
 @enduml

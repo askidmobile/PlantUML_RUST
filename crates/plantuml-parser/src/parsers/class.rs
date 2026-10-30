@@ -34,7 +34,41 @@ pub fn parse_class(source: &str) -> Result<ClassDiagram> {
         }
     }
 
+    add_implicit_classifiers(&mut diagram);
+
     Ok(diagram)
+}
+
+/// Создаёт элементы, которые упомянуты только в связях.
+///
+/// В PlantUML `Animal <|-- Dog` сам объявляет оба класса. Раньше такая схема
+/// разбиралась успешно, но связи вели в никуда и картинка выходила пустой.
+fn add_implicit_classifiers(diagram: &mut ClassDiagram) {
+    fn collect(package: &Package, known: &mut std::collections::HashSet<String>) {
+        known.extend(package.classifiers.iter().map(|c| c.id.name.clone()));
+        for nested in &package.packages {
+            collect(nested, known);
+        }
+    }
+
+    let mut known: std::collections::HashSet<String> = diagram
+        .classifiers
+        .iter()
+        .map(|c| c.id.name.clone())
+        .collect();
+    for package in &diagram.packages {
+        collect(package, &mut known);
+    }
+    let names: Vec<String> = diagram
+        .relationships
+        .iter()
+        .flat_map(|r| [r.from.clone(), r.to.clone()])
+        .collect();
+    for name in names {
+        if known.insert(name.clone()) {
+            diagram.classifiers.push(Classifier::new(name));
+        }
+    }
 }
 
 /// Обрабатывает правило грамматики

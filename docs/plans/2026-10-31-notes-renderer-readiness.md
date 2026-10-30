@@ -74,11 +74,11 @@ Error::EmptyDiagram                       // текст есть, элемент
 - **Проверка:** `cargo test -p plantuml-core --test robustness_tests`; сборка без возможности не содержит `global_allocator`.
 
 ### Фаза 2: Диспетчер и общие команды (6 ч)
-- [ ] Порядок типов и повторная попытка, отказ с лучшей ошибкой → `crates/plantuml-parser/src/lib.rs`
-- [ ] Общие команды вынесены из грамматик → `crates/plantuml-parser/src/common.rs`, `crates/plantuml-ast/src/`
-- [ ] Титул, шапка, подвал, легенда, подпись выводятся для всех типов → `crates/plantuml-layout/`, `crates/plantuml-renderer/`
-- [ ] Неявное создание элементов из связей, ошибка пустой диаграммы → `crates/plantuml-parser/src/parsers/class.rs`, `crates/plantuml-core/src/pipeline.rs`
-- [ ] `Unsupported` для типов вне объёма; `@start*` без `@startuml` и схема без тегов → `crates/plantuml-parser/src/lib.rs`
+- [x] Порядок типов и повторная попытка, отказ с лучшей ошибкой → `crates/plantuml-parser/src/lib.rs`
+- [x] Общие команды вынесены из грамматик → `crates/plantuml-parser/src/common.rs`; значения кладутся в существующий `DiagramMetadata`
+- [x] Титул, шапка, подвал, легенда, подпись выводятся для всех типов → `crates/plantuml-renderer/src/decorations.rs`; свой код заголовков в движках sequence, gantt, timing удалён
+- [x] Неявное создание элементов из связей, ошибка пустой диаграммы → `crates/plantuml-parser/src/parsers/class.rs`, `crates/plantuml-core/src/pipeline.rs`
+- [x] `Unsupported` для типов вне объёма; `@start*` без `@startuml` и схема без тегов → `crates/plantuml-parser/src/lib.rs`
 - **Проверка:** гейт: падает число ошибок разбора, `Animal <|-- Dog` рисуется.
 
 ### Фаза 3: Синтаксис по типам (16 ч)

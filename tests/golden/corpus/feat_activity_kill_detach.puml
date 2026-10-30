@@ -1,9 +1,10 @@
 @startuml
 start
+if (c1) then (y1)
 :a1;
-if (c1) then
 kill
-endif
+else (n1)
 :a2;
 detach
+endif
 @enduml

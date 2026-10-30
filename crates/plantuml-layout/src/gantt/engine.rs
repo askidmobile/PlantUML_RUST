@@ -570,20 +570,6 @@ impl GanttLayoutEngine {
             });
         }
 
-        // 5. Title
-        if let Some(ref title) = diagram.metadata.title {
-            elements.push(LayoutElement {
-                id: "title".to_string(),
-                bounds: Rect::new(self.config.padding, 5.0, 500.0, 20.0),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: title.clone(),
-                    font_size: 14.0,
-                },
-            });
-        }
-
         // Вычисляем общие размеры
         let total_width = timeline_start_x + timeline_width + self.config.padding;
         let total_height = self.config.padding

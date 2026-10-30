@@ -133,4 +133,28 @@ impl Diagram {
             Diagram::Archimate(d) => &d.metadata,
         }
     }
+
+    /// Возвращает изменяемые метаданные диаграммы
+    pub fn metadata_mut(&mut self) -> &mut DiagramMetadata {
+        match self {
+            Diagram::Sequence(d) => &mut d.metadata,
+            Diagram::Class(d) => &mut d.metadata,
+            Diagram::Activity(d) => &mut d.metadata,
+            Diagram::State(d) => &mut d.metadata,
+            Diagram::Component(d) => &mut d.metadata,
+            Diagram::Deployment(d) => &mut d.metadata,
+            Diagram::UseCase(d) => &mut d.metadata,
+            Diagram::Object(d) => &mut d.metadata,
+            Diagram::Timing(d) => &mut d.metadata,
+            Diagram::Gantt(d) => &mut d.metadata,
+            Diagram::MindMap(d) => &mut d.metadata,
+            Diagram::Wbs(d) => &mut d.metadata,
+            Diagram::Json(d) => &mut d.metadata,
+            Diagram::Yaml(d) => &mut d.metadata,
+            Diagram::Er(d) => &mut d.metadata,
+            Diagram::Network(d) => &mut d.metadata,
+            Diagram::Salt(d) => &mut d.metadata,
+            Diagram::Archimate(d) => &mut d.metadata,
+        }
+    }
 }
