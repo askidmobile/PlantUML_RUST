@@ -23,22 +23,59 @@ pub fn parse_usecase(source: &str) -> Result<UseCaseDiagram> {
         .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = UseCaseDiagram::new();
+    let mut mentioned = Vec::new();
 
     for pair in pairs {
         if pair.as_rule() == Rule::diagram {
             for inner in pair.into_inner() {
                 if inner.as_rule() == Rule::body {
-                    parse_body(inner, &mut diagram);
+                    parse_body(inner, &mut diagram, &mut mentioned);
                 }
             }
         }
     }
 
+    declare_implicit_endpoints(&mut diagram, mentioned);
     Ok(diagram)
 }
 
+/// Создаёт элементы, которые упомянуты только в связях.
+///
+/// PlantUML рисует `User --> (Start)` без объявлений: имя в `(..)` — вариант
+/// использования, остальное — актёр. Без этого связь и обе подписи молча
+/// пропадали, потому что раскладка ищет концы связи среди элементов.
+fn declare_implicit_endpoints(diagram: &mut UseCaseDiagram, mentioned: Vec<(String, bool)>) {
+    let mut known: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for a in &diagram.actors {
+        known.insert(a.name.clone());
+        known.extend(a.alias.clone());
+    }
+    for uc in diagram
+        .use_cases
+        .iter()
+        .chain(diagram.packages.iter().flat_map(|p| p.use_cases.iter()))
+    {
+        known.insert(uc.name.clone());
+        known.extend(uc.alias.clone());
+    }
+    known.extend(diagram.packages.iter().map(|p| p.name.clone()));
+    for (name, is_use_case) in mentioned {
+        if known.insert(name.clone()) {
+            if is_use_case {
+                diagram.use_cases.push(UseCase::new(name));
+            } else {
+                diagram.actors.push(UseCaseActor::new(name));
+            }
+        }
+    }
+}
+
 /// Парсит тело диаграммы
-fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut UseCaseDiagram) {
+fn parse_body(
+    pair: pest::iterators::Pair<Rule>,
+    diagram: &mut UseCaseDiagram,
+    mentioned: &mut Vec<(String, bool)>,
+) {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::actor_def => {
@@ -52,12 +89,13 @@ fn parse_body(pair: pest::iterators::Pair<Rule>, diagram: &mut UseCaseDiagram) {
                 }
             }
             Rule::package_def | Rule::rectangle_def => {
-                if let Some(pkg) = parse_package_def(inner) {
+                if let Some(pkg) = parse_package_def(inner, diagram, mentioned) {
                     diagram.packages.push(pkg);
                 }
             }
             Rule::relationship => {
-                if let Some(rel) = parse_relationship(inner) {
+                if let Some((rel, ends)) = parse_relationship(inner) {
+                    mentioned.extend(ends);
                     diagram.relationships.push(rel);
                 }
             }
@@ -178,7 +216,11 @@ fn parse_usecase_def(pair: pest::iterators::Pair<Rule>) -> Option<UseCase> {
 }
 
 /// Парсит пакет/прямоугольник
-fn parse_package_def(pair: pest::iterators::Pair<Rule>) -> Option<UseCasePackage> {
+fn parse_package_def(
+    pair: pest::iterators::Pair<Rule>,
+    diagram: &mut UseCaseDiagram,
+    mentioned: &mut Vec<(String, bool)>,
+) -> Option<UseCasePackage> {
     let mut name = String::new();
     let mut use_cases = Vec::new();
 
@@ -189,9 +231,19 @@ fn parse_package_def(pair: pest::iterators::Pair<Rule>) -> Option<UseCasePackage
             }
             Rule::body => {
                 // Парсим вложенные элементы
+                //
+                // Акторы, связи и заметки тела принадлежат всей диаграмме,
+                // вложенные пакеты вливаются в этот: раскладка рисует одну
+                // рамку, а варианты ищет по именам среди всех.
                 let mut sub_diagram = UseCaseDiagram::new();
-                parse_body(inner, &mut sub_diagram);
+                parse_body(inner, &mut sub_diagram, mentioned);
                 use_cases = sub_diagram.use_cases;
+                for nested in sub_diagram.packages {
+                    use_cases.extend(nested.use_cases);
+                }
+                diagram.actors.extend(sub_diagram.actors);
+                diagram.relationships.extend(sub_diagram.relationships);
+                diagram.notes.extend(sub_diagram.notes);
             }
             _ => {}
         }
@@ -209,20 +261,25 @@ fn parse_package_def(pair: pest::iterators::Pair<Rule>) -> Option<UseCasePackage
 }
 
 /// Парсит связь
-fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<UseCaseRelationship> {
+fn parse_relationship(
+    pair: pest::iterators::Pair<Rule>,
+) -> Option<(UseCaseRelationship, Vec<(String, bool)>)> {
     let mut from = String::new();
     let mut to = String::new();
     let mut relation_type = UseCaseRelationType::Association;
     let mut label: Option<String> = None;
     let mut is_dashed = false;
+    let mut ends = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::relationship_from => {
-                from = extract_relationship_endpoint(inner);
+                from = extract_relationship_endpoint(inner.clone());
+                ends.push((from.clone(), is_paren_endpoint(&inner)));
             }
             Rule::relationship_to => {
-                to = extract_relationship_endpoint(inner);
+                to = extract_relationship_endpoint(inner.clone());
+                ends.push((to.clone(), is_paren_endpoint(&inner)));
             }
             Rule::arrow => {
                 // Определяем тип связи по стрелке
@@ -261,12 +318,22 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<UseCaseRelati
         return None;
     }
 
-    Some(UseCaseRelationship {
-        from,
-        to,
-        relation_type,
-        label,
-    })
+    Some((
+        UseCaseRelationship {
+            from,
+            to,
+            relation_type,
+            label,
+        },
+        ends,
+    ))
+}
+
+/// Конец связи записан как `(Вариант)`.
+fn is_paren_endpoint(pair: &pest::iterators::Pair<Rule>) -> bool {
+    pair.clone()
+        .into_inner()
+        .any(|p| p.as_rule() == Rule::paren_usecase_ref)
 }
 
 /// Извлекает endpoint связи
@@ -366,6 +433,10 @@ fn extract_name(pair: pest::iterators::Pair<Rule>) -> String {
             Rule::simple_identifier => {
                 return inner.as_str().to_string();
             }
+            // `actor :Имя:` и `usecase (Имя)`: имя лежит внутри скобок.
+            Rule::actor_inner_name | Rule::usecase_inner_name => {
+                return inner.as_str().trim().to_string();
+            }
             _ => {}
         }
     }
@@ -439,6 +510,48 @@ fn extract_note_target(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Элементы, упомянутые только в связях, создаются: `(..)` — вариант, остальное — актёр.
+    #[test]
+    fn test_implicit_endpoints_and_arrows() {
+        let source = "@startuml\nUser -> (Start)\n:Admin: ---> (Use)\n(U1) .> (U2) : <<include>>\nUser <|-- Admin\n@enduml";
+        let d = parse_usecase(source).expect("разбирается");
+        assert_eq!(d.relationships.len(), 4);
+        let actors: Vec<_> = d.actors.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(actors, ["User", "Admin"]);
+        assert_eq!(d.use_cases.len(), 4);
+        assert_eq!(
+            d.relationships[2].relation_type,
+            UseCaseRelationType::Include
+        );
+        assert_eq!(
+            d.relationships[3].relation_type,
+            UseCaseRelationType::Generalization
+        );
+    }
+
+    /// Формы объявлений: `(Имя) as (UC)`, `actor :Имя: as A`, хвостовой `/`.
+    #[test]
+    fn test_declaration_forms() {
+        let source = "@startuml\n(Another) as (UC2)\nusecase (Last) as UC4\nactor :Админ: as A\n(Business)/\nactor/ BA\n@enduml";
+        let d = parse_usecase(source).expect("разбирается");
+        assert_eq!(d.use_cases[0].alias.as_deref(), Some("UC2"));
+        assert_eq!(d.use_cases[1].name, "Last");
+        assert_eq!(d.actors[0].name, "Админ");
+        assert_eq!(d.actors[0].alias.as_deref(), Some("A"));
+        assert_eq!(d.use_cases[2].name, "Business");
+        assert_eq!(d.actors[1].name, "BA");
+    }
+
+    /// Связи и актёры внутри `rectangle` не теряются.
+    #[test]
+    fn test_body_of_rectangle_keeps_relationships() {
+        let source = "@startuml\nrectangle S {\n usecase \"A\" as UC1\n usecase \"B\" as UC2\n UC1 .> UC2 : <<include>>\n}\n@enduml";
+        let d = parse_usecase(source).expect("разбирается");
+        assert_eq!(d.relationships.len(), 1);
+        assert_eq!(d.packages[0].use_cases.len(), 2);
+        assert!(d.use_cases.is_empty() && d.actors.is_empty());
+    }
 
     /// `rectangle` без тела — обычный элемент, а не контейнер.
     ///

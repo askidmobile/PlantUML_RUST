@@ -450,6 +450,20 @@ impl UseCaseLayoutEngine {
                 )
             };
 
+            // В LTR актёры стоят одним столбцом: соседей, чьи варианты рядом,
+            // раздвигаем вниз, чтобы подписи не ложились друг на друга.
+            let y = if is_left_to_right {
+                occupied.iter().fold(y, |acc, (oy, _)| {
+                    if (oy - acc).abs() < self.config.actor_height + 12.0 {
+                        acc.max(oy + self.config.actor_height + 12.0)
+                    } else {
+                        acc
+                    }
+                })
+            } else {
+                y
+            };
+
             // Ищем свободную позицию по X среди актёров с такой же Y.
             let mut actor_x = default_x;
             let tolerance = self.config.actor_height / 2.0;
@@ -475,6 +489,15 @@ impl UseCaseLayoutEngine {
                 elements.push(edge);
             }
         }
+
+        crate::component::engine::layout_side_notes(
+            &diagram.notes,
+            &element_positions,
+            &mut elements,
+            &self.config.text,
+            self.config.font_size,
+            self.config.margin,
+        );
 
         // Вычисляем bounds
         let mut result = LayoutResult {

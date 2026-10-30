@@ -57,8 +57,10 @@ top_to_bottom = { "top" ~ ws+ ~ "to" ~ ws+ ~ "bottom" ~ ws+ ~ "direction" }
 
 // === Определение актёра ===
 
+// Хвостовой `/` (`actor/`, `:Имя:/`, `(Имя)/`) в PlantUML делает элемент
+// «бизнес»-вариантом; здесь он принимается и рисуется как обычный.
 actor_def = {
-    actor_keyword ~ ws+ ~ actor_name ~ alias_part? ~ stereotype_part? ~ color_part?
+    actor_keyword ~ "/"? ~ ws+ ~ actor_name ~ alias_part? ~ stereotype_part? ~ color_part?
     | colon_actor
 }
 
@@ -66,15 +68,15 @@ actor_keyword = { "actor" }
 
 // :Actor: синтаксис - только как объявление, не как часть relationship
 // Если за :Name: идёт стрелка, это relationship, а не actor_def
-colon_actor = { ":" ~ actor_inner_name ~ ":" ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
+colon_actor = { ":" ~ actor_inner_name ~ ":" ~ "/"? ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
 actor_inner_name = { (!(":" | NEWLINE) ~ ANY)+ }
 
-actor_name = { quoted_string | simple_identifier }
+actor_name = { quoted_string | ":" ~ actor_inner_name ~ ":" | simple_identifier }
 
 // === Определение варианта использования ===
 
 usecase_def = {
-    usecase_keyword ~ ws+ ~ usecase_name ~ alias_part? ~ stereotype_part? ~ color_part?
+    usecase_keyword ~ "/"? ~ ws+ ~ usecase_name ~ alias_part? ~ stereotype_part? ~ color_part?
     | paren_usecase
 }
 
@@ -82,10 +84,10 @@ usecase_keyword = { "usecase" }
 
 // (Use Case) синтаксис - только как объявление, не как часть relationship
 // Если за (Name) идёт стрелка, это relationship, а не usecase_def  
-paren_usecase = { "(" ~ usecase_inner_name ~ ")" ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
+paren_usecase = { "(" ~ usecase_inner_name ~ ")" ~ "/"? ~ !(ws* ~ arrow) ~ alias_part? ~ stereotype_part? }
 usecase_inner_name = { (!(")" | NEWLINE) ~ ANY)+ }
 
-usecase_name = { quoted_string | simple_identifier }
+usecase_name = { quoted_string | "(" ~ usecase_inner_name ~ ")" | simple_identifier }
 
 // === Пакеты и прямоугольники (системы) ===
 
@@ -138,7 +140,8 @@ relationship_to = {
 colon_actor_ref = { ":" ~ actor_inner_name ~ ":" }
 paren_usecase_ref = { "(" ~ usecase_inner_name ~ ")" }
 
-// Стрелки
+// Стрелки: любая длина линии, направление внутри (`-up->`), стиль (`-[#red]->`).
+// Наконечник необязателен: без него это ассоциация без стрелки.
 arrow = {
     arrow_generalization
     | arrow_dashed
@@ -146,32 +149,22 @@ arrow = {
 }
 
 // Наследование
-arrow_generalization = { 
-    "<|--" 
-    | "--|>" 
-    | "-|>" 
-    | "<|-" 
+arrow_generalization = {
+    "<|" ~ ("-" | ".")+
+    | ("-" | ".")+ ~ "|>"
 }
 
 // Пунктирные стрелки (для include/extend)
-arrow_dashed = { 
-    "..>" 
-    | ".>" 
-    | "." ~ arrow_direction? ~ ".>"
-    | "<.."
-    | "<."
+arrow_dashed = {
+    "<"? ~ "."+ ~ arrow_style? ~ (arrow_direction ~ "."+)? ~ "."* ~ ">"?
 }
 
 // Сплошные стрелки
-arrow_solid = { 
-    "-->" 
-    | "->" 
-    | "<--" 
-    | "<-"
-    | "--"
-    | "-" ~ arrow_direction? ~ "->"
-    | "-" ~ arrow_direction? ~ "-"
+arrow_solid = {
+    "<"? ~ "-"+ ~ arrow_style? ~ (arrow_direction ~ "-"+)? ~ "-"* ~ ">"?
 }
+
+arrow_style = @{ "[" ~ (!("]" | NEWLINE) ~ ANY)+ ~ "]" }
 
 arrow_direction = { "up" | "down" | "left" | "right" | "u" | "d" | "l" | "r" }
 
@@ -181,7 +174,8 @@ label_text = { (!NEWLINE ~ ANY)* }
 
 // === Общие части ===
 
-alias_part = { ws+ ~ "as" ~ ws+ ~ simple_identifier }
+// Псевдоним допустим и в скобках: `(Имя) as (UC2)`.
+alias_part = { ws+ ~ "as" ~ ws+ ~ ("(" ~ ws* ~ simple_identifier ~ ws* ~ ")" | simple_identifier) }
 stereotype_part = { ws* ~ "<<" ~ stereotype_name ~ ">>" }
 stereotype_name = { (LETTER | NUMBER | "_" | " ")+ }
 color_part = { ws* ~ color }
