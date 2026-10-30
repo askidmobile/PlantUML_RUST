@@ -28,7 +28,7 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
     let (processed, theme) = preprocess(source)?;
 
     // 2. Парсинг
-    let diagram = parse(&processed)?;
+    let diagram = parse_with_settings(source, &processed)?;
 
     // 3. Layout
     let layout = layout(&diagram, options)?;
@@ -58,7 +58,7 @@ pub fn render_pipeline_with_includes(
     let (processed, theme) = preprocess_with_includes(source, base_path)?;
 
     // 2. Парсинг
-    let diagram = parse(&processed)?;
+    let diagram = parse_with_settings(source, &processed)?;
 
     // 3. Layout
     let layout = layout(&diagram, options)?;
@@ -113,10 +113,22 @@ fn preprocess_with_includes(source: &str, base_path: &Path) -> Result<(String, T
         .map_err(|e: plantuml_preprocessor::PreprocessError| Error::Preprocess(e.to_string()))
 }
 
-/// Этап парсинга
-fn parse(source: &str) -> Result<Diagram> {
-    plantuml_parser::parse(source)
-        .map_err(|e: plantuml_parser::ParseError| Error::Parse(e.to_string()))
+/// Парсинг с учётом настроек оформления.
+///
+/// Препроцессор убирает `skinparam` из текста и переносит в тему, поэтому схема
+/// только из настроек выглядит пустой. PlantUML рисует её как пустую картинку,
+/// а не как ошибку.
+fn parse_with_settings(original: &str, processed: &str) -> Result<Diagram> {
+    match plantuml_parser::parse(processed) {
+        Err(plantuml_parser::ParseError::EmptyDiagram)
+            if original
+                .lines()
+                .any(|l| l.trim().to_lowercase().starts_with("skinparam")) =>
+        {
+            Ok(Diagram::Class(plantuml_ast::class::ClassDiagram::new()))
+        }
+        other => other.map_err(|e| Error::Parse(e.to_string())),
+    }
 }
 
 /// Этап layout

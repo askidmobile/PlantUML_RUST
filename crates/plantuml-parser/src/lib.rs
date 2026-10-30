@@ -58,11 +58,34 @@ pub fn parse(source: &str) -> Result<Diagram> {
 
     let (cleaned, common) = common::extract(source);
     if !has_body(&cleaned) {
+        // Схема с одним заголовком, колонтитулом или настройками оформления
+        // не пуста: PlantUML рисует эти подписи без элементов.
+        if has_decoration(&common) || has_skinparam(&cleaned) {
+            let mut diagram = Diagram::Class(plantuml_ast::class::ClassDiagram::new());
+            apply_common(&mut diagram, common);
+            return Ok(diagram);
+        }
         return Err(ParseError::EmptyDiagram);
     }
     let mut diagram = parse_body(&cleaned)?;
     apply_common(&mut diagram, common);
     Ok(diagram)
+}
+
+/// Есть ли у схемы подпись: заголовок, колонтитул, легенда.
+fn has_decoration(common: &plantuml_ast::common::DiagramMetadata) -> bool {
+    common.title.is_some()
+        || common.header.is_some()
+        || common.footer.is_some()
+        || common.caption.is_some()
+        || common.legend.is_some()
+}
+
+/// Есть ли в схеме строки `skinparam`.
+fn has_skinparam(source: &str) -> bool {
+    source
+        .lines()
+        .any(|l| l.trim().to_lowercase().starts_with("skinparam"))
 }
 
 /// Есть ли в схеме что-то кроме тегов, комментариев и настроек оформления.
@@ -146,6 +169,10 @@ fn is_empty_diagram(diagram: &Diagram) -> bool {
                 && d.packages.is_empty()
                 && d.notes.is_empty()
         }
+        // Связи без единого объявленного элемента рисовать не из чего: PlantUML
+        // в таком случае считает схему диаграммой классов, где элементы
+        // создаются самими связями.
+        Diagram::Component(d) => d.components.is_empty() && d.packages.is_empty(),
         _ => false,
     }
 }
