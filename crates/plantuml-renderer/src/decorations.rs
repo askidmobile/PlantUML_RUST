@@ -363,9 +363,9 @@ mod tests {
     #[test]
     fn test_title_grows_canvas_and_shifts_content() {
         let mut m = meta();
-        m.title = Some("Тема <b>".to_string());
+        m.title = Some("Тема <x>".to_string());
         let out = decorate(SVG.to_string(), &m);
-        assert!(out.contains("Тема &lt;b&gt;"));
+        assert!(out.contains("Тема &lt;x&gt;"));
         assert!(
             out.contains(r#"<g transform="translate(0.000 37.297)"><rect/></g>"#),
             "{out}"

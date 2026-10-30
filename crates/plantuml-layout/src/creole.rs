@@ -183,7 +183,8 @@ pub fn parse(line: &str) -> Vec<Span> {
 
         // `~` экранирует разметку; `~~текст~~` — волнистое подчёркивание.
         if rest[0] == '~' {
-            if rest.len() > 1 && rest[1] == '~' && closes(&chars, i + 2, ['~', '~']) {
+            let opens = closes(&chars, i + 3, ['~', '~']);
+            if rest.get(1) == Some(&'~') && (state.span.underline || opens) {
                 state.span.underline = !state.span.underline;
                 i += 2;
                 continue;
@@ -209,7 +210,8 @@ pub fn parse(line: &str) -> Vec<Span> {
             if let Some(flag) = toggled {
                 // Парный маркер действует только при наличии пары: `http://`
                 // и стрелка `-->` в подписи остаются текстом.
-                if *flag || closes(&chars, i + 2, [*a, *b]) {
+                // Между маркерами должен быть текст: `****` — это поле пароля в salt.
+                if *flag || closes(&chars, i + 3, [*a, *b]) {
                     *flag = !*flag;
                     i += 2;
                     continue;
@@ -370,6 +372,7 @@ mod tests {
         assert_eq!(plain("a --> b"), "a --> b");
         assert_eq!(plain("2*3 и 4**5"), "2*3 и 4**5");
         assert_eq!(plain("snake_case__x"), "snake_case__x");
+        assert_eq!(plain("****"), "****");
     }
 
     #[test]
