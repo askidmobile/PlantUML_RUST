@@ -228,7 +228,8 @@ fn parse_map_def(pair: pest::iterators::Pair<Rule>) -> Option<Object> {
     Some(Object {
         name,
         display,
-        class_name: Some("Map".to_string()),
+        // PlantUML подписывает map только именем: «M1 : Map» в эталоне нет.
+        class_name: None,
         fields,
         stereotype: None,
         background_color: None,
@@ -572,7 +573,7 @@ map config {
         let diagram = parse_object(source).unwrap();
         assert_eq!(diagram.objects.len(), 1);
         assert_eq!(diagram.objects[0].name, "config");
-        assert_eq!(diagram.objects[0].class_name, Some("Map".to_string()));
+        assert_eq!(diagram.objects[0].class_name, None);
         assert_eq!(diagram.objects[0].fields.len(), 2);
     }
 }

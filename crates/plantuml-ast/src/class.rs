@@ -23,6 +23,35 @@ pub struct ClassDiagram {
     /// не попадали — то есть содержимое библиотек иконок (logos, office,
     /// tupadr3) разбиралось и молча терялось.
     pub sprites: Vec<Sprite>,
+    /// Имена плавающих заметок (`note "текст" as N`): имя и индекс в `notes`.
+    ///
+    /// Связь `A .. N` ведёт к заметке, а не к классу, поэтому парсер
+    /// превращает её в [`NoteLink`] и не заводит класс с именем `N`.
+    #[serde(default)]
+    pub note_aliases: Vec<(String, usize)>,
+    /// Связи заметок с элементами и линиями.
+    #[serde(default)]
+    pub note_links: Vec<NoteLink>,
+}
+
+/// К чему привязана заметка линией.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NoteTarget {
+    /// Элемент по имени (класс, пакет).
+    Element(String),
+    /// Связь между двумя элементами (`note on link`).
+    Link { from: String, to: String },
+}
+
+/// Линия от заметки к элементу или связи.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NoteLink {
+    /// Индекс заметки в `ClassDiagram::notes`.
+    pub note: usize,
+    /// Куда ведёт линия.
+    pub target: NoteTarget,
+    /// Стиль линии.
+    pub line_style: LineStyle,
 }
 
 /// Растровый спрайт из стандартной библиотеки.
@@ -86,6 +115,11 @@ pub enum ClassifierType {
     Entity,
     Circle,
     Diamond,
+    Struct,
+    Protocol,
+    Exception,
+    Metaclass,
+    Stereotype,
 }
 
 impl ClassifierType {
@@ -100,6 +134,11 @@ impl ClassifierType {
             "entity" => Some(Self::Entity),
             "circle" => Some(Self::Circle),
             "diamond" => Some(Self::Diamond),
+            "struct" => Some(Self::Struct),
+            "protocol" => Some(Self::Protocol),
+            "exception" => Some(Self::Exception),
+            "metaclass" => Some(Self::Metaclass),
+            "stereotype" => Some(Self::Stereotype),
             _ => None,
         }
     }
@@ -228,9 +267,45 @@ pub struct Member {
     pub is_abstract: bool,
     /// Параметры (для методов)
     pub parameters: Vec<Parameter>,
+    /// Разделитель тела класса (`--`, `..`, `__`, `==`): символ линии.
+    ///
+    /// У разделителя `name` — подпись между линиями (может быть пустой).
+    #[serde(default)]
+    pub separator: Option<char>,
+    /// Член объявлен как метод (есть скобки), а не как поле.
+    #[serde(default)]
+    pub is_method: bool,
 }
 
 impl Member {
+    /// Текст строки члена в том виде, как его рисуют в теле класса.
+    ///
+    /// Параметр с типом выводится как `имя: тип`, без типа — как записан.
+    pub fn display_text(&self) -> String {
+        if self.separator.is_some() || !self.is_method {
+            return match &self.member_type {
+                Some(typ) if self.separator.is_none() => format!("{}: {}", self.name, typ),
+                _ => self.name.clone(),
+            };
+        }
+        let params: Vec<String> = self
+            .parameters
+            .iter()
+            .map(|p| {
+                if p.param_type.is_empty() {
+                    p.name.clone()
+                } else {
+                    format!("{}: {}", p.name, p.param_type)
+                }
+            })
+            .collect();
+        let head = format!("{}({})", self.name, params.join(", "));
+        match &self.member_type {
+            Some(ret) => format!("{head}: {ret}"),
+            None => head,
+        }
+    }
+
     /// Создаёт новое поле
     pub fn field(name: impl Into<String>, member_type: impl Into<String>) -> Self {
         Self {
@@ -240,6 +315,8 @@ impl Member {
             is_static: false,
             is_abstract: false,
             parameters: Vec::new(),
+            separator: None,
+            is_method: false,
         }
     }
 
@@ -252,6 +329,8 @@ impl Member {
             is_static: false,
             is_abstract: false,
             parameters: Vec::new(),
+            separator: None,
+            is_method: true,
         }
     }
 

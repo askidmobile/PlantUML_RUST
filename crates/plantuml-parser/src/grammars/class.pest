@@ -12,18 +12,18 @@ statement = _{
     comment
     | skinparam
     | title_stmt
-    | hide_stmt
-    | show_stmt
+    | vis_stmt
+    | set_stmt
     | package_start
-    | package_end
-    | namespace_start
-    | namespace_end
     | together_start
-    | together_end
+    | block_end
     | class_decl
     | interface_decl
     | abstract_decl
     | enum_decl
+    | kind_decl
+    | plain_kind_decl
+    | shortform_decl
     | direction_stmt
     | scale_stmt
     | annotation_decl
@@ -50,7 +50,10 @@ description_text = { (!NEWLINE ~ ANY)+ }
 // и следующая строка с текстом оказывается неожиданной.
 note_stmt = {
     note_multiline
+    | note_block_alias
+    | note_on_link
     | note_on_element
+    | note_unanchored
     | note_floating
 }
 
@@ -61,7 +64,27 @@ note_on_element = {
 
 // note "text" as alias
 note_floating = {
-    "note" ~ ws+ ~ quoted_string ~ ws+ ~ "as" ~ ws+ ~ identifier
+    "note" ~ ws+ ~ quoted_string ~ ws+ ~ "as" ~ ws+ ~ identifier ~ (ws+ ~ note_paint)?
+}
+
+// note as N
+//   многострочный текст
+// end note
+note_block_alias = {
+    "note" ~ ws+ ~ "as" ~ ws+ ~ identifier ~ (ws+ ~ note_paint)? ~ ws* ~ NEWLINE ~
+    note_body ~
+    "end" ~ ws+ ~ "note"
+}
+
+// note left: текст — заметка на последнем объявленном элементе, без `of`
+note_unanchored = {
+    "note" ~ ws+ ~ note_position ~ (ws+ ~ note_paint)? ~ ws* ~ ":" ~ ws* ~ note_text
+}
+
+// note on link #red: текст  (и многострочная форма с `end note`)
+note_on_link = {
+    "note" ~ ws+ ~ (note_position ~ ws+)? ~ "on" ~ ws+ ~ "link" ~ (ws+ ~ note_paint)? ~ ws* ~
+    ( ":" ~ ws* ~ note_text | NEWLINE ~ note_body ~ "end" ~ ws+ ~ "note" )
 }
 
 // note right of A
@@ -73,7 +96,11 @@ note_multiline = {
     "end" ~ ws+ ~ "note"
 }
 
-note_target = { quoted_string | qualified_name }
+// Цель заметки: элемент, поле или метод (`A::counter`, `A.start()`).
+// Цвет заметки не включает двоеточие, иначе `#red: текст` съест разделитель.
+note_paint = @{ "#"+ ~ (ASCII_ALPHANUMERIC | "-" | "_")+ }
+note_target = { quoted_string | note_member_ref }
+note_member_ref = @{ identifier ~ (("." | "::") ~ identifier)* ~ ("(" ~ (!(")" | NEWLINE) ~ ANY)* ~ ")")? }
 note_position = { "left" | "right" | "top" | "bottom" }
 note_text = { (!NEWLINE ~ ANY)* }
 note_body = { (!("end" ~ ws+ ~ "note") ~ ANY)* }
@@ -98,28 +125,33 @@ title_stmt = { "title" ~ ws+ ~ rest_of_line }
 
 // === Hide/Show ===
 
-hide_stmt = { "hide" ~ ws+ ~ hide_show_target }
-show_stmt = { "show" ~ ws+ ~ hide_show_target }
-hide_show_target = { 
-    ("empty" ~ ws+)? ~ ("members" | "fields" | "methods" | "attributes" | "circle" | "stereotype")
-    | identifier
-}
+// `hide`, `show`, `remove`, `restore` с фильтрами любой формы:
+// `hide empty members`, `hide Foo`, `hide <<s>> circle`, `remove @unlinked`.
+// Слова фильтра разбирает парсер, а грамматика только отделяет команду от связи
+// вида `hide --> x`.
+vis_stmt = { vis_kw ~ ws+ ~ !("-" | "." | "<" ~ !"<" | ":" | "=") ~ vis_filter }
+vis_kw = { ("hide" | "show" | "remove" | "restore") ~ &ws }
+vis_filter = { (!NEWLINE ~ ANY)+ }
+
+// `set separator ::`, `set namespaceSeparator none`
+set_stmt = { "set" ~ ws+ ~ ("separator" | "namespaceSeparator") ~ ws* ~ rest_of_line }
 
 // === Пакеты и Namespaces ===
 
-package_start = { "package" ~ ws+ ~ package_name ~ (ws+ ~ package_style)? ~ (ws+ ~ color)? ~ ws* ~ "{" }
-package_end = { "}" }
+// Все контейнеры рисуются одинаково: рамка с именем. Закрывает любой из них
+// одна и та же `}`, поэтому конец у блоков общий.
+package_start = {
+    package_keyword ~ ws+ ~ package_name ~ (ws* ~ package_style)? ~ (ws+ ~ class_paint)* ~ ws* ~ "{"
+}
+package_keyword = { ("package" | "namespace" | "folder" | "frame" | "rectangle" | "node" | "cloud" | "database") ~ &ws }
+block_end = { "}" }
 
-package_name = { quoted_string | identifier }
-package_style = { "<<" ~ identifier ~ ">>" }
-
-namespace_start = { "namespace" ~ ws+ ~ identifier ~ (ws+ ~ color)? ~ ws* ~ "{" }
-namespace_end = { "}" }
+package_name = { quoted_string | qualified_name }
+package_style = { "<<" ~ (!(">>") ~ ANY)* ~ ">>" }
 
 // === Together ===
 
 together_start = { "together" ~ ws* ~ "{" }
-together_end = { "}" }
 
 // === Классы ===
 
@@ -130,10 +162,42 @@ class_decl = {
     (ws* ~ stereotype)? ~
     (ws* ~ extends_clause)? ~
     (ws* ~ implements_clause)? ~
-    (ws+ ~ color)? ~
+    (ws+ ~ class_paint)* ~
     (ws* ~ link_part)? ~
     (ws* ~ class_body)?
 }
+
+// Остальные виды классификаторов. Рисуются так же, как класс, и различаются значком.
+kind_decl = {
+    kind_keyword ~ ws+ ~ class_name ~
+    alias_part? ~
+    (ws* ~ generic_params)? ~
+    (ws* ~ stereotype)? ~
+    (ws* ~ extends_clause)? ~
+    (ws+ ~ class_paint)* ~
+    (ws* ~ link_part)? ~
+    (ws* ~ class_body)?
+}
+// `entity` с телом — это ER-диаграмма, а круг и ромб тела не имеют, поэтому
+// им `{ ... }` не принимается: иначе чужой синтаксис разбирался бы как класс.
+kind_keyword = { ("struct" | "protocol" | "exception" | "metaclass" | "stereotype") ~ &ws }
+plain_kind_decl = {
+    plain_kind_keyword ~ ws+ ~ class_name ~
+    alias_part? ~
+    (ws* ~ stereotype)? ~
+    (ws+ ~ class_paint)* ~
+    (ws* ~ link_part)?
+}
+plain_kind_keyword = { ("entity" | "circle" | "diamond") ~ &ws }
+
+// Краткие формы `() Имя` (круг) и `<> Имя` (ромб).
+shortform_decl = {
+    shortform_kw ~ ws+ ~ class_name ~ alias_part? ~ (ws* ~ stereotype)? ~ (ws+ ~ class_paint)*
+}
+shortform_kw = { "()" | "<>" }
+
+// Краска элемента: `#red`, `#red-green`, `##[bold]blue`, `#line:green;line.dashed`.
+class_paint = @{ "#"+ ~ (!(" " | "\t" | NEWLINE | "{") ~ ANY)+ }
 
 class_keyword = { "abstract"? ~ ws* ~ "class" }
 
@@ -146,7 +210,7 @@ interface_decl = {
     alias_part? ~
     (ws* ~ generic_params)? ~
     (ws* ~ stereotype)? ~
-    (ws+ ~ color)? ~
+    (ws+ ~ class_paint)* ~
     (ws* ~ class_body)?
 }
 
@@ -154,7 +218,7 @@ abstract_decl = {
     "abstract" ~ ws+ ~ class_name ~
     (ws* ~ generic_params)? ~
     (ws* ~ stereotype)? ~
-    (ws+ ~ color)? ~
+    (ws+ ~ class_paint)* ~
     (ws* ~ class_body)?
 }
 
@@ -162,7 +226,7 @@ enum_decl = {
     "enum" ~ ws+ ~ class_name ~
     alias_part? ~
     (ws* ~ stereotype)? ~
-    (ws+ ~ color)? ~
+    (ws+ ~ class_paint)* ~
     (ws* ~ enum_body)?
 }
 
@@ -170,7 +234,7 @@ annotation_decl = {
     "annotation" ~ ws+ ~ class_name ~
     alias_part? ~
     (ws* ~ stereotype)? ~
-    (ws+ ~ color)? ~
+    (ws+ ~ class_paint)* ~
     (ws* ~ class_body)?
 }
 
@@ -192,7 +256,7 @@ implements_clause = { "implements" ~ ws+ ~ class_name ~ ("," ~ ws* ~ class_name)
 
 // === Тело класса ===
 
-class_body = { "{" ~ ws* ~ NEWLINE* ~ (ws* ~ member ~ NEWLINE*)* ~ ws* ~ "}" }
+class_body = { "{" ~ (ws* ~ NEWLINE)* ~ (ws* ~ member ~ (ws* ~ NEWLINE)*)* ~ ws* ~ "}" }
 
 member = {
     separator
@@ -231,10 +295,15 @@ method = {
     (modifier ~ ws*)* ~
     visibility? ~ ws* ~
     (modifier ~ ws+)* ~
+    (method_prefix ~ ws+)? ~
     method_name ~ ws* ~
     "(" ~ ws* ~ method_params? ~ ws* ~ ")" ~
-    (ws* ~ ":" ~ ws* ~ return_type)?
+    (ws* ~ ":" ~ ws* ~ return_type)? ~
+    &(ws* ~ (NEWLINE | "}"))
 }
+
+// Тип перед именем в стиле Java: `+void start(int timeout)`.
+method_prefix = @{ (!(" " | "\t" | "(" | NEWLINE | "}") ~ ANY)+ }
 
 // Поле - всё что НЕ является методом (нет скобок)
 // Модификаторы ({abstract}, {static}) могут идти ДО или ПОСЛЕ visibility
@@ -244,13 +313,16 @@ field = {
     (modifier ~ ws+)* ~
     field_name ~ 
     !("(") ~    // Убедиться что это не метод
-    (ws* ~ ":" ~ ws* ~ field_type)?
+    (ws* ~ ":" ~ ws* ~ field_type)? ~
+    &(ws* ~ (NEWLINE | "}"))
 }
 
 visibility = { "+" | "-" | "#" | "~" | "{method}" | "{field}" }
-modifier = { "{static}" | "{abstract}" | "static" | "abstract" }
+modifier = { "{static}" | "{abstract}" | (("static" | "abstract") ~ &ws) }
 
-field_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
+// Имя поля может состоять из нескольких слов: `int age`, `String password`.
+field_name = @{ field_word ~ (" "+ ~ field_word)* }
+field_word = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 field_type = { sprite_inline | (!NEWLINE ~ !("}" | ",") ~ ANY)+ }
 
 // Вставка спрайта в подписи: `<$имя>`. PlantUML рисует её растром
@@ -259,14 +331,16 @@ sprite_inline = { "<$" ~ (!(">") ~ ANY)+ ~ ">" }
 
 method_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 method_params = { method_param ~ ("," ~ ws* ~ method_param)* }
-method_param = { param_name ~ (ws* ~ ":" ~ ws* ~ param_type)? }
+method_param = { param_name ~ (ws* ~ ":" ~ ws* ~ param_type)? ~ &(ws* ~ ("," | ")")) | param_text }
+// Параметр в произвольной записи (`int timeout`) хранится как есть.
+param_text = @{ (!("," | ")" | NEWLINE) ~ ANY)+ }
 param_name = @{ (LETTER | "_") ~ (LETTER | NUMBER | "_")* }
 param_type = { (!("," | ")" | NEWLINE) ~ ANY)+ }
 return_type = { (!NEWLINE ~ !"}" ~ ANY)+ }
 
 // === Enum body ===
 
-enum_body = { "{" ~ ws* ~ NEWLINE* ~ (ws* ~ enum_value ~ NEWLINE*)* ~ ws* ~ "}" }
+enum_body = { "{" ~ (ws* ~ NEWLINE)* ~ (ws* ~ enum_value ~ (ws* ~ NEWLINE)*)* ~ ws* ~ "}" }
 enum_value = { identifier }
 
 // === Отношения ===
@@ -300,8 +374,12 @@ cardinality_value = @{ (!"\"" ~ ANY)+ }
 // линии). Поэтому после стиля допускается остаток линии до наконечника.
 relationship_arrow = {
     arrow_left_side ~ arrow_line ~ arrow_style ~ arrow_rest? ~ arrow_right_side
+    | arrow_left_side ~ arrow_line ~ arrow_dir ~ arrow_rest? ~ arrow_right_side
     | arrow_left_side ~ arrow_line ~ arrow_right_side
 }
+
+// Направление стрелки внутри линии: `-up->`, `-u->`, `-left->`, `-d->`.
+arrow_dir = @{ ("up" | "down" | "left" | "right" | "u" | "d" | "l" | "r") ~ &("-" | "." | ">") }
 
 // Остаток линии после вставленного стиля (`-[#red]->`).
 arrow_rest = @{ ("-" | ".")+ }

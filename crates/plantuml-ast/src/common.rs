@@ -168,6 +168,9 @@ pub struct Stereotype {
     pub names: Vec<String>,
     /// Цвет фона (опционально)
     pub background_color: Option<Color>,
+    /// Буква значка из `<<(X,#цвет) имя>>`; цвет значка лежит в `background_color`.
+    #[serde(default)]
+    pub spot: Option<char>,
 }
 
 impl Stereotype {
@@ -176,6 +179,7 @@ impl Stereotype {
         Self {
             names: vec![name.into()],
             background_color: None,
+            spot: None,
         }
     }
 
@@ -184,6 +188,7 @@ impl Stereotype {
         Self {
             names,
             background_color: None,
+            spot: None,
         }
     }
 }
