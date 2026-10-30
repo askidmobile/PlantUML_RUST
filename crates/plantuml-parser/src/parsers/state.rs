@@ -411,6 +411,7 @@ fn parse_state_stereotype(pair: pest::iterators::Pair<Rule>) -> Option<State> {
     state.stereotype = Some(plantuml_ast::common::Stereotype {
         names,
         background_color: None,
+        spot: None,
     });
     Some(state)
 }

@@ -70,7 +70,7 @@ impl ComponentLayoutEngine {
             self.config.horizontal_spacing,
             COMPONENT_IN_PACKAGE_SPACING,
             self.config.package_padding,
-            self.config.text.clone(),
+            self.config.text,
         );
         if diagram.metadata.direction == Some(Direction::LeftToRight) {
             scene.set_direction(GraphDirection::LeftToRight);

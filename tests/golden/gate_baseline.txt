@@ -1,64 +1,9 @@
-feat_activity_elseif LOST y2
-feat_activity_note LOST n2
-feat_activity_repeat_is_not ERR
-feat_activity_split RAW 1 2 ветка
-feat_activity_switch LOST c1
-feat_class_note RAW N
-feat_class_package LOST N1 П1
-feat_class_stereotip LOST s1 s2
-feat_class_strelka_up ERR
-feat_class_vidy ERR
+feat_other_archimate RAW device technology
 feat_other_chart ERR
 feat_other_ebnf ERR
-feat_other_list_creole ERR
-feat_other_map RAW Map
+feat_other_list_creole LOST 1
 feat_other_math ERR
 feat_other_regex ERR
-feat_seq_ ERR
-feat_seq_group RAW group
-feat_seq_newpage RAW x2
-feat_state_history ERR
-feat_state_opisanie LOST d1 d2
-real_activity_real ERR
-real_c4 LOST container person
-real_class_real LOST T Заметки
-real_state_real LOST Видно всем
-ref_lang_002 ERR
-ref_lang_003 RAW 2 3
-ref_lang_008 ERR
-ref_lang_011 ERR
-ref_lang_013 LOST 001 002
-ref_lang_018 LOST bye
-ref_lang_019 RAW else group
-ref_lang_020 ERR
-ref_lang_022 ERR
-ref_lang_028 LOST Outer
-ref_lang_031 LOST Generated Testable
-ref_lang_032 ERR
-ref_lang_033 ERR
-ref_lang_034 ERR
-ref_lang_037 ERR
-ref_lang_038 LOST Encrypted Getters Private Setters
-ref_lang_039 LOST T extends
-ref_lang_042 ERR
-ref_lang_047 ERR
-ref_lang_052 LOST test
-ref_lang_053 ERR
-ref_lang_056 RAW 1 2 3 ветка
-ref_lang_057 LOST плавающая
-ref_lang_059 ERR
+feat_seq_newpage RAW p2 x2
+ref_lang_003 RAW 2 3 Заголовок страницы
 ref_lang_060 RAW A
-ref_lang_063 ERR
-ref_lang_065 LOST ещё описание
-ref_lang_067 LOST описание
-ref_lang_073 LOST Многострочная заметка слева
-ref_lang_090 LOST Debug mode
-ref_lang_095 ERR
-ref_lang_096 ERR
-ref_lang_097 ERR
-ref_syn_003 ERR
-ref_syn_007 RAW else group
-ref_syn_010 LOST T other
-ref_syn_014 LOST Domain Infrastructure
-ref_syn_023 ERR
-ref_syn_027 LOST Debug mode

@@ -63,7 +63,7 @@ impl UseCaseLayoutEngine {
             self.config.horizontal_spacing.min(RANK_NODE_SEP),
             self.config.vertical_spacing,
             self.config.package_padding,
-            self.config.text.clone(),
+            self.config.text,
         );
         if diagram.direction == Direction::LeftToRight
             || diagram.metadata.direction == Some(Direction::LeftToRight)
@@ -366,15 +366,14 @@ mod tests {
         assert_eq!(ellipses.len(), 3, "не все варианты размещены");
 
         // Несвязанные варианты встают на верхний ранг, как в dot; главное, что не перекрываются.
-        let mut sorted = ellipses.clone();
-        sorted.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
-        for pair in sorted.windows(2) {
-            assert!(
-                pair[0].x + pair[0].width <= pair[1].x + 0.01,
-                "эллипсы ряда перекрываются: {:?} и {:?}",
-                pair[0],
-                pair[1]
-            );
+        for (index, a) in ellipses.iter().enumerate() {
+            for b in ellipses.iter().skip(index + 1) {
+                let apart = a.x + a.width <= b.x + 0.01
+                    || b.x + b.width <= a.x + 0.01
+                    || a.y + a.height <= b.y + 0.01
+                    || b.y + b.height <= a.y + 0.01;
+                assert!(apart, "эллипсы перекрываются: {a:?} и {b:?}");
+            }
         }
     }
 
