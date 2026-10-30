@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use plantuml_ast::mindmap::{MindMapDiagram, MindMapNode, NodeStyle};
+use plantuml_ast::mindmap::{MindMapDiagram, MindMapNode, NodeDirection, NodeStyle};
 use plantuml_model::{Point, Rect};
 
 use super::MindMapLayoutConfig;
@@ -26,6 +26,8 @@ struct NodeLayoutContext<'a> {
     subtree_heights: &'a HashMap<Vec<usize>, f64>,
     /// Накопленные элементы layout
     elements: &'a mut Vec<LayoutElement>,
+    /// Ветка растёт влево от корня (`left side`)
+    mirror: bool,
 }
 
 impl MindMapLayoutEngine {
@@ -45,7 +47,14 @@ impl MindMapLayoutEngine {
     pub fn layout(&self, diagram: &MindMapDiagram) -> LayoutResult {
         let mut elements = Vec::new();
 
-        if let Some(root) = &diagram.root {
+        let has_left = diagram.root.as_ref().is_some_and(|r| {
+            r.children
+                .iter()
+                .any(|c| c.direction == NodeDirection::Left)
+        });
+        if let (true, Some(root)) = (has_left, &diagram.root) {
+            self.layout_two_sided(root, &mut elements);
+        } else if let Some(root) = &diagram.root {
             // Первый проход: вычисляем высоту каждого поддерева.
             // Ключ — путь от корня (индексы детей), а не сырой указатель:
             // путь устойчив к перевыделению памяти и клонированию узлов.
@@ -66,6 +75,7 @@ impl MindMapLayoutEngine {
             let mut ctx = NodeLayoutContext {
                 subtree_heights: &subtree_heights,
                 elements: &mut elements,
+                mirror: false,
             };
             self.layout_node(
                 root,
@@ -82,6 +92,78 @@ impl MindMapLayoutEngine {
         let bounds = self.calculate_bounds(&elements);
 
         LayoutResult { elements, bounds }
+    }
+
+    /// Раскладка с ветками по обе стороны корня (`left side`).
+    ///
+    /// Правые и левые ветки раскладываются тем же алгоритмом, что и обычное
+    /// дерево, левые зеркально; корень стоит между ними, а меньшая сторона
+    /// центрируется по высоте большей. Диаграммы без левых веток сюда не
+    /// попадают, чтобы не менять выверенную по эталону геометрию.
+    fn layout_two_sided(&self, root: &MindMapNode, elements: &mut Vec<LayoutElement>) {
+        let side_root = |left: bool| {
+            let mut r = root.clone();
+            r.children
+                .retain(|c| (c.direction == NodeDirection::Left) == left);
+            r
+        };
+        let (right_root, left_root) = (side_root(false), side_root(true));
+
+        let row_step = self.config.node_height + self.config.sibling_spacing;
+        let side_heights = |r: &MindMapNode| {
+            let mut heights = HashMap::new();
+            self.calculate_subtree_height_recursive(r, &mut Vec::new(), &mut heights);
+            let rows = self.get_subtree_height(&[], &heights);
+            (heights, (rows - 1.0) * row_step + self.config.node_height)
+        };
+        let (right_heights, right_h) = side_heights(&right_root);
+        let (left_heights, left_h) = side_heights(&left_root);
+        let total_height = right_h.max(left_h);
+
+        // Левая сторона занимает место слева от корня: считаем её вынос.
+        let left_extent = left_root
+            .children
+            .iter()
+            .map(|c| self.config.level_spacing + self.branch_extent(c))
+            .fold(0.0_f64, f64::max);
+        let root_x = self.config.padding + left_extent;
+        let root_y = self.config.padding + total_height / 2.0 - self.config.node_height / 2.0;
+
+        for (side, heights, height, mirror) in [
+            (&right_root, &right_heights, right_h, false),
+            (&left_root, &left_heights, left_h, true),
+        ] {
+            let start = elements.len();
+            let mut ctx = NodeLayoutContext {
+                subtree_heights: heights,
+                elements,
+                mirror,
+            };
+            self.layout_node(
+                side,
+                &mut Vec::new(),
+                root_x,
+                root_y,
+                self.config.padding + (total_height - height) / 2.0,
+                None,
+                &mut ctx,
+            );
+            // Корень уже нарисован правой стороной.
+            if mirror {
+                elements.remove(start);
+            }
+        }
+    }
+
+    /// Горизонтальный вынос ветки: ширина узла и самой длинной цепочки потомков.
+    fn branch_extent(&self, node: &MindMapNode) -> f64 {
+        let own = self.calculate_node_width(&node.text);
+        let deeper = node
+            .children
+            .iter()
+            .map(|c| self.config.level_spacing + self.branch_extent(c))
+            .fold(0.0_f64, f64::max);
+        own + deeper
     }
 
     /// Рекурсивно вычисляет высоту поддерева для узла по пути `path`
@@ -145,14 +227,27 @@ impl MindMapLayoutEngine {
         // Создаём соединение с родителем (если есть)
         if let Some(parent) = parent_rect {
             // Линия от правого края родителя к левому краю текущего узла
-            let from = Point::new(parent.x + parent.width, parent.y + parent.height / 2.0);
-            let to = Point::new(node_rect.x, node_rect.y + node_rect.height / 2.0);
+            // (у левых веток наоборот).
+            let (from_x, to_x) = if ctx.mirror {
+                (parent.x, node_rect.x + node_rect.width)
+            } else {
+                (parent.x + parent.width, node_rect.x)
+            };
+            let from = Point::new(from_x, parent.y + parent.height / 2.0);
+            let to = Point::new(to_x, node_rect.y + node_rect.height / 2.0);
             ctx.elements.push(self.create_connection(from, to, node_id));
         }
 
         // Размещаем детей
         if !node.children.is_empty() {
-            let child_x = x + node_width + self.config.level_spacing;
+            let mirror = ctx.mirror;
+            let child_x_for = |child: &MindMapNode| {
+                if mirror {
+                    x - self.config.level_spacing - self.calculate_node_width(&child.text)
+                } else {
+                    x + node_width + self.config.level_spacing
+                }
+            };
             let row_step = self.config.node_height + self.config.sibling_spacing;
             let n = node.children.len();
             let my_rows = self.get_subtree_height(path, ctx.subtree_heights);
@@ -182,7 +277,7 @@ impl MindMapLayoutEngine {
                     self.layout_node(
                         child,
                         path,
-                        child_x,
+                        child_x_for(child),
                         child_y,
                         child_y,
                         Some(&node_rect),
@@ -196,7 +291,15 @@ impl MindMapLayoutEngine {
                     path.push(idx);
                     let rows = self.get_subtree_height(path, ctx.subtree_heights);
                     let child_y = cursor + (rows - 1.0) / 2.0 * row_step;
-                    self.layout_node(child, path, child_x, child_y, cursor, Some(&node_rect), ctx);
+                    self.layout_node(
+                        child,
+                        path,
+                        child_x_for(child),
+                        child_y,
+                        cursor,
+                        Some(&node_rect),
+                        ctx,
+                    );
                     path.pop();
                     cursor += rows * row_step;
                 }
@@ -323,6 +426,32 @@ impl Default for MindMapLayoutEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Левая ветка уходит левее корня, правая правее; корень рисуется один раз.
+    #[test]
+    fn test_left_side_branches_mirror() {
+        let mut root = MindMapNode::new(1, "Root");
+        root.add_child(MindMapNode::new(2, "Right"));
+        let mut left = MindMapNode::new(2, "Left");
+        left.direction = NodeDirection::Left;
+        root.add_child(left);
+        let result = MindMapLayoutEngine::new().layout(&MindMapDiagram::with_root(root));
+        let x_of = |text: &str| {
+            result
+                .elements
+                .iter()
+                .find(|e| e.text.as_deref() == Some(text))
+                .map(|e| e.bounds.x)
+        };
+        let (root_x, left_x, right_x) = (x_of("Root"), x_of("Left"), x_of("Right"));
+        assert!(left_x < root_x && root_x < right_x);
+        let roots = result
+            .elements
+            .iter()
+            .filter(|e| e.text.as_deref() == Some("Root"))
+            .count();
+        assert_eq!(roots, 1);
+    }
 
     #[test]
     fn test_layout_simple_mindmap() {

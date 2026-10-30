@@ -24,6 +24,8 @@ pub fn parse_mindmap(source: &str) -> crate::Result<MindMapDiagram> {
 
     let mut diagram = MindMapDiagram::new();
     let mut node_stack: Vec<MindMapNode> = Vec::new();
+    // Сторона, заданная командой `left side` / `right side`.
+    let mut side = NodeDirection::Right;
 
     for pair in pairs {
         if pair.as_rule() == Rule::mindmap {
@@ -37,8 +39,20 @@ pub fn parse_mindmap(source: &str) -> crate::Result<MindMapDiagram> {
                         let caption = extract_text_value(inner);
                         diagram.metadata.caption = Some(caption);
                     }
+                    Rule::side_stmt => {
+                        side = if inner.as_str().trim_start().starts_with("left") {
+                            NodeDirection::Left
+                        } else {
+                            NodeDirection::Right
+                        };
+                    }
                     Rule::node_line => {
-                        if let Some(node) = parse_node_line(inner) {
+                        if let Some(mut node) = parse_node_line(inner) {
+                            // Сторону задают только ветки первого уровня: глубже
+                            // узлы идут за своим предком.
+                            if node.level == 2 && node.direction == NodeDirection::Right {
+                                node.direction = side;
+                            }
                             add_node_to_stack(&mut node_stack, node);
                         }
                     }
@@ -255,6 +269,27 @@ fn extract_text_value(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `left side` отправляет ветки первого уровня налево до `right side`.
+    #[test]
+    fn test_left_side_sets_direction() {
+        let source =
+            "@startmindmap\n* r\n** a\nleft side\n** b\n*** b1\nright side\n** c\n@endmindmap";
+        let root = parse_mindmap(source)
+            .expect("разбирается")
+            .root
+            .expect("корень");
+        let dirs: Vec<_> = root.children.iter().map(|c| c.direction).collect();
+        assert_eq!(
+            dirs,
+            [
+                NodeDirection::Right,
+                NodeDirection::Left,
+                NodeDirection::Right
+            ]
+        );
+        assert_eq!(root.children[1].children.len(), 1);
+    }
 
     #[test]
     fn test_parse_simple_mindmap() {

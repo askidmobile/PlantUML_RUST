@@ -34,6 +34,7 @@ statement = _{
     footer_stmt |
     legend_stmt |
     skinparam_stmt |
+    side_stmt |
     node_line |
     empty_line
 }
@@ -45,6 +46,10 @@ header_stmt = { "header" ~ WS+ ~ text_to_eol }
 footer_stmt = { "footer" ~ WS+ ~ text_to_eol }
 legend_stmt = { "legend" ~ WS* ~ NEWLINE ~ (!"endlegend" ~ ANY)* ~ "endlegend" }
 skinparam_stmt = { "skinparam" ~ WS+ ~ text_to_eol }
+
+// `left side` / `right side`: сторона, на которую встают ветки первого уровня
+side_stmt = { side_name ~ WS+ ~ "side" ~ WS* }
+side_name = { "left" | "right" }
 
 // Узлы MindMap
 node_line = { 
