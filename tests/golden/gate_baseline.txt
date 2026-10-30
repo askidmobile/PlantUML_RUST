@@ -15,37 +15,29 @@ feat_component_note LOST n1
 feat_component_porty ERR
 feat_other_archimate ERR
 feat_other_chart ERR
-feat_other_define LOST Y1
 feat_other_ebnf ERR
-feat_other_emoji RAW smile
 feat_other_gantt LOST Day day m1
 feat_other_gantt_project LOST Su
-feat_other_link RAW e example https
 feat_other_list_creole ERR
 feat_other_map RAW Map
 feat_other_math ERR
 feat_other_mindmap_left_side ERR
-feat_other_openiconic RAW heart
 feat_other_regex ERR
-feat_other_sprite RAW s1
 feat_other_yaml ERR
 feat_seq_ ERR
 feat_seq_group RAW group
 feat_seq_newpage RAW x2
-feat_seq_perenos_n LOST нота2
 feat_state_history ERR
 feat_state_opisanie LOST d1 d2
 feat_usecase_akter LOST U1
 feat_usecase_include_extend LOST U1 U2 U3 extend include
 feat_usecase_napravlenie LOST U1
 real_activity_real ERR
-real_c4 LOST container Данные Пишет Приложение
-real_class_real LOST T Заметки в
+real_c4 LOST container person
+real_class_real LOST T Заметки
 real_gantt_real LOST day Релиз
 real_mindmap_real ERR
-real_seq_real LOST по
 real_state_real LOST Видно всем
-real_styling RAW b blue color com example https
 real_usecase_real ERR
 ref_lang_002 ERR
 ref_lang_003 RAW 2 3

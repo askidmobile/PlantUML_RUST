@@ -295,7 +295,11 @@ impl TextMeasurer {
             return 0.0;
         }
 
-        let em_sum: f64 = line.chars().map(|c| self.char_em(c)).sum();
+        // Читатель видит подпись без разметки: её и измеряем.
+        let em_sum: f64 = crate::creole::plain(line)
+            .chars()
+            .map(|c| self.char_em(c))
+            .sum();
         em_sum * font_size
     }
 

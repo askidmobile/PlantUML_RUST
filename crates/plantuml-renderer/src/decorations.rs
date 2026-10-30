@@ -333,6 +333,7 @@ pub fn decorate(svg: String, meta: &DiagramMetadata) -> String {
         &format!("width:{width_s};height:{height_s};background:#FFFFFF;"),
     );
 
+    let body = crate::rich_text::expand_markup(&body);
     format!(
         "{}{new_root}<g transform=\"translate({} {})\">{}</g>{body}</svg>{}",
         &svg[..root_start],

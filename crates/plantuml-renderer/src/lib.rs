@@ -24,6 +24,7 @@
 //! ```
 
 pub mod decorations;
+pub mod rich_text;
 pub mod shapes;
 pub mod svg_renderer;
 

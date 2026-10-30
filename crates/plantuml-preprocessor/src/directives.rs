@@ -51,6 +51,7 @@ pub fn handle_define(rest: &str, ctx: &mut PreprocessContext) -> Result<()> {
     // Простой define: !define NAME или !define NAME value
     if let Some((name, value)) = rest.split_once(' ') {
         ctx.set_variable(name.trim().to_string(), value.trim().to_string());
+        ctx.define_simple(name.trim().to_string(), value.trim().to_string());
     } else {
         // Просто определяем как пустую строку
         ctx.set_variable(rest.to_string(), String::new());

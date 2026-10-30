@@ -250,6 +250,8 @@ pub struct PreprocessContext {
     /// а подстановка выполняется с заменой аргументов.
     /// Реестр макросов `!define`. См. пояснение у `callables`.
     pub macros: Arc<IndexMap<String, MacroDefinition>>,
+    /// Подстановки `!define ИМЯ значение`.
+    pub simple_defines: Arc<IndexMap<String, String>>,
     /// Стек включаемых файлов для обнаружения циклов `!include`.
     ///
     /// Без него взаимные включения (a.puml → b.puml → a.puml) уходят в
@@ -322,6 +324,7 @@ impl Default for PreprocessContext {
             theme: Theme::default(),
             skin_params: SkinParams::new(),
             macros: Arc::new(IndexMap::new()),
+            simple_defines: Arc::new(IndexMap::new()),
             include_stack: Vec::new(),
             max_include_depth: MAX_INCLUDE_DEPTH,
             return_value: None,
@@ -350,6 +353,11 @@ impl PreprocessContext {
         self.variables.insert(name.into(), value.into());
     }
 
+    /// Объявляет подстановку `!define ИМЯ значение`.
+    pub fn define_simple(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        Arc::make_mut(&mut self.simple_defines).insert(name.into(), value.into());
+    }
+
     /// Объявляет макрос `!define NAME(params) тело`.
     pub fn define_macro(
         &mut self,
@@ -373,11 +381,12 @@ impl PreprocessContext {
     /// Раскрытие повторяется, пока в строке есть вызовы (но не более
     /// [`MAX_MACRO_EXPANSIONS`] раз — на случай взаимной рекурсии макросов).
     pub fn expand_macros(&self, line: &str) -> String {
+        let line = self.expand_simple_defines(line);
         if self.macros.is_empty() || !line.contains('(') {
-            return line.to_string();
+            return line;
         }
 
-        let mut current = line.to_string();
+        let mut current = line;
         for _ in 0..MAX_MACRO_EXPANSIONS {
             match self.expand_once(&current) {
                 Some(next) => current = next,
@@ -385,6 +394,31 @@ impl PreprocessContext {
             }
         }
         current
+    }
+
+    /// Заменяет имена из `!define ИМЯ значение` целыми словами.
+    fn expand_simple_defines(&self, line: &str) -> String {
+        if self.simple_defines.is_empty() {
+            return line.to_string();
+        }
+        let is_word = |c: char| c.is_alphanumeric() || c == '_';
+        let mut out = String::with_capacity(line.len());
+        let mut word = String::new();
+        for c in line.chars().chain(std::iter::once('\n')) {
+            if is_word(c) {
+                word.push(c);
+                continue;
+            }
+            match self.simple_defines.get(&word) {
+                Some(value) => out.push_str(value),
+                None => out.push_str(&word),
+            }
+            word.clear();
+            if c != '\n' {
+                out.push(c);
+            }
+        }
+        out
     }
 
     /// Одно прохождение раскрытия: `None`, если вызовов не найдено.
@@ -1337,6 +1371,7 @@ impl<R: FileResolver> Preprocessor<R> {
             theme: ctx.theme.clone(),
             skin_params: ctx.skin_params.clone(),
             macros,
+            simple_defines: Arc::clone(&ctx.simple_defines),
             include_stack,
             max_include_depth: ctx.max_include_depth,
             return_value: None,

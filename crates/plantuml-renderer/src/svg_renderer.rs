@@ -3247,7 +3247,7 @@ impl Renderer for SvgRenderer {
         // ширина строки в метриках шрифта. Атрибут добавляется одной
         // постобработкой, а не в каждом из методов отрисовки текста:
         // так его невозможно забыть при добавлении нового метода.
-        annotate_text_length(&svg)
+        annotate_text_length(&crate::rich_text::expand_markup(&svg))
     }
 }
 

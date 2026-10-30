@@ -513,6 +513,7 @@ dependencies = [
 name = "plantuml-renderer"
 version = "0.2.0"
 dependencies = [
+ "plantuml-ast",
  "plantuml-layout",
  "plantuml-themes",
  "resvg",
