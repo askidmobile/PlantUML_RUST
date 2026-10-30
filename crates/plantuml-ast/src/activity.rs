@@ -13,6 +13,9 @@ pub struct ActivityDiagram {
     pub elements: Vec<ActivityElement>,
     /// Swim lanes
     pub swimlanes: Vec<Swimlane>,
+    /// Предупреждения об устаревшем синтаксисе: PlantUML печатает их
+    /// рамками над схемой, и пользователь должен их видеть.
+    pub warnings: Vec<String>,
 }
 
 impl ActivityDiagram {
@@ -57,6 +60,19 @@ pub enum ActivityElement {
     Detach,
     /// Kill
     Kill,
+    /// Подпись и стиль следующей стрелки: `-> текст;`, `-[#blue]->`
+    Arrow(ArrowSpec),
+}
+
+/// Подпись и оформление стрелки потока.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ArrowSpec {
+    /// Текст на стрелке
+    pub label: Option<String>,
+    /// Цвет линии
+    pub color: Option<Color>,
+    /// Штриховая линия (`dashed`, `dotted`)
+    pub dashed: bool,
 }
 
 /// Действие
@@ -96,6 +112,14 @@ pub enum ActionStyle {
     SendSignal,
     /// Получение сигнала `<signal>`
     ReceiveSignal,
+    /// `<<input>>`: пятиугольник с вырезом справа
+    Input,
+    /// `<<output>>`: пятиугольник с острием справа
+    Output,
+    /// `<<procedure>>`: прямоугольник с прямыми углами
+    Procedure,
+    /// `<<task>>`: прямоугольник с прямыми углами
+    Task,
 }
 
 /// Условие (if/elseif/else)
@@ -174,6 +198,10 @@ pub struct RepeatLoop {
     pub condition: String,
     /// Backward label
     pub backward_label: Option<String>,
+    /// Подпись возврата в начало: `repeat while (c) is (да)`
+    pub end_label: Option<String>,
+    /// Подпись выхода из цикла: `repeat while (c) is (да) not (нет)`
+    pub not_label: Option<String>,
 }
 
 impl RepeatLoop {
@@ -183,6 +211,8 @@ impl RepeatLoop {
             body: Vec::new(),
             condition: condition.into(),
             backward_label: None,
+            end_label: None,
+            not_label: None,
         }
     }
 }

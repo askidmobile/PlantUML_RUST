@@ -108,8 +108,12 @@ action_colored = {
 
 // Многострочное действие
 action_multiline = {
-    ":" ~ action_multiline_text ~ action_end
+    ":" ~ action_multiline_text ~ action_end ~ action_stereotype?
 }
+
+// Стереотип действия после закрытия: `:текст; <<input>>`, `:текст; <<#red>>`.
+action_stereotype = { ws* ~ "<<" ~ stereotype_text ~ ">>" }
+stereotype_text = { (!">>" ~ !NEWLINE ~ ANY)* }
 
 action_multiline_text = {
     (!(action_end | NEWLINE ~ ws* ~ action_end) ~ ANY)*
@@ -117,7 +121,7 @@ action_multiline_text = {
 
 // Простое действие: :text;
 action_simple = {
-    action_start ~ action_text ~ action_end
+    action_start ~ action_text ~ action_end ~ action_stereotype?
 }
 
 // Начало действия с разными стилями
@@ -179,9 +183,11 @@ backward_label = { ws* ~ "(" ~ label_text ~ ")" }
 repeat_stmt = {
     "repeat" ~ repeat_label? ~ NEWLINE ~
     body ~
-    (ws* ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")" ~ is_clause? ~ backward_stmt?)
-    | (ws* ~ "backward" ~ backward_body ~ ws* ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")")
+    ws* ~ "repeat" ~ ws+ ~ "while" ~ ws* ~ "(" ~ condition_text ~ ")" ~ is_clause? ~ not_clause?
 }
+
+// Подпись выхода из цикла: `repeat while (c) is (да) not (нет)`.
+not_clause = { ws* ~ "not" ~ ws* ~ "(" ~ label_text ~ ")" }
 
 repeat_label = { ws* ~ ":" ~ action_text ~ ";" }
 
@@ -275,11 +281,12 @@ connector_name = { (!")" ~ ANY)+ }
 
 goto_stmt = { "goto" ~ ws+ ~ simple_identifier }
 
-// Безусловный переход: `-> метка;`
-//
-// Отличается от `action` (`:текст;`) отсутствием ведущего двоеточия.
-// Раньше такая строка не разбиралась вовсе.
-arrow_label_stmt = { "->" ~ ws* ~ simple_identifier ~ ws* ~ ";" }
+// Подпись и оформление следующей стрелки: `-> текст;`, `-[#blue]->`,
+// `-[#green,dashed]-> текст;`. Точка с запятой необязательна, если текста нет.
+arrow_label_stmt = { (("-" ~ arrow_style ~ "->") | "->") ~ ws* ~ arrow_text? ~ ";"? }
+arrow_style = { "[" ~ arrow_style_content ~ "]" }
+arrow_style_content = { (!"]" ~ ANY)* }
+arrow_text = { (!(";" | NEWLINE) ~ ANY)+ }
 label_stmt = { "label" ~ ws+ ~ simple_identifier }
 
 break_stmt = { "break" ~ !ASCII_ALPHANUMERIC }

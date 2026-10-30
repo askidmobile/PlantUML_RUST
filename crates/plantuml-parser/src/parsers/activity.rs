@@ -6,8 +6,8 @@ use pest::Parser;
 use pest_derive::Parser;
 
 use plantuml_ast::activity::{
-    Action, ActionStyle, ActivityDiagram, ActivityElement, Branch, Condition, ElseIfBranch, Fork,
-    JoinType, Partition, RepeatLoop, Split, Swimlane, Switch, WhileLoop,
+    Action, ActionStyle, ActivityDiagram, ActivityElement, ArrowSpec, Branch, Condition,
+    ElseIfBranch, Fork, JoinType, Partition, RepeatLoop, Split, Swimlane, Switch, WhileLoop,
 };
 use plantuml_ast::common::{Color, Note, NotePosition};
 
@@ -24,26 +24,29 @@ pub fn parse_activity(source: &str) -> Result<ActivityDiagram> {
         .map_err(|e| syntax_error_from_pest(&e, source))?;
 
     let mut diagram = ActivityDiagram::new();
+    let mut warnings = Vec::new();
+    let w = &mut warnings;
 
     for pair in pairs {
         if pair.as_rule() == Rule::diagram {
             for inner in pair.into_inner() {
                 if inner.as_rule() == Rule::body {
-                    diagram.elements = parse_body(inner);
+                    diagram.elements = parse_body(inner, w);
                 }
             }
         }
     }
+    diagram.warnings = warnings;
 
     Ok(diagram)
 }
 
 /// Парсит тело диаграммы (последовательность элементов)
-fn parse_body(pair: pest::iterators::Pair<Rule>) -> Vec<ActivityElement> {
+fn parse_body(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Vec<ActivityElement> {
     let mut elements = Vec::new();
 
     for inner in pair.into_inner() {
-        if let Some(element) = parse_statement(inner) {
+        if let Some(element) = parse_statement(inner, w) {
             elements.push(element);
         }
     }
@@ -52,7 +55,10 @@ fn parse_body(pair: pest::iterators::Pair<Rule>) -> Vec<ActivityElement> {
 }
 
 /// Парсит отдельный statement
-fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Option<ActivityElement> {
+fn parse_statement(
+    pair: pest::iterators::Pair<Rule>,
+    w: &mut Vec<String>,
+) -> Option<ActivityElement> {
     match pair.as_rule() {
         Rule::start_node => Some(ActivityElement::Start),
         Rule::stop_node => Some(ActivityElement::Stop),
@@ -60,45 +66,98 @@ fn parse_statement(pair: pest::iterators::Pair<Rule>) -> Option<ActivityElement>
         Rule::detach_stmt => Some(ActivityElement::Detach),
         Rule::kill_stmt => Some(ActivityElement::Kill),
         Rule::action | Rule::action_simple | Rule::action_colored | Rule::action_multiline => {
-            parse_action(pair).map(ActivityElement::Action)
+            parse_action(pair, w).map(ActivityElement::Action)
         }
-        Rule::if_stmt => parse_if_stmt(pair).map(ActivityElement::Condition),
-        Rule::while_stmt => parse_while_stmt(pair).map(ActivityElement::While),
-        Rule::repeat_stmt => parse_repeat_stmt(pair).map(ActivityElement::Repeat),
-        Rule::fork_stmt => parse_fork_stmt(pair).map(ActivityElement::Fork),
+        Rule::if_stmt => parse_if_stmt(pair, w).map(ActivityElement::Condition),
+        Rule::while_stmt => parse_while_stmt(pair, w).map(ActivityElement::While),
+        Rule::repeat_stmt => parse_repeat_stmt(pair, w).map(ActivityElement::Repeat),
+        Rule::fork_stmt => parse_fork_stmt(pair, w).map(ActivityElement::Fork),
         Rule::swimlane_stmt => parse_swimlane(pair).map(ActivityElement::SwimlaneChange),
         // Раздел, множественный выбор и разделение потока. Правила
         // грамматики были, но ни AST, ни парсер их не знали — терялось
         // ВСЁ содержимое, а не только заголовок.
-        Rule::partition_stmt => parse_partition(pair).map(ActivityElement::Partition),
-        Rule::switch_stmt => parse_switch(pair).map(ActivityElement::Switch),
-        Rule::split_stmt => parse_split(pair).map(ActivityElement::Split),
+        Rule::partition_stmt => parse_partition(pair, w).map(ActivityElement::Partition),
+        Rule::switch_stmt => parse_switch(pair, w).map(ActivityElement::Switch),
+        Rule::split_stmt => parse_split(pair, w).map(ActivityElement::Split),
         Rule::connector_stmt => parse_connector(pair).map(ActivityElement::Connector),
-        Rule::note_stmt | Rule::note_inline | Rule::note_multiline => {
-            parse_note(pair).map(ActivityElement::Note)
-        }
+        Rule::note_stmt
+        | Rule::note_inline
+        | Rule::note_multiline
+        | Rule::note_floating
+        | Rule::floating_note => parse_note(pair).map(ActivityElement::Note),
         Rule::break_stmt => Some(ActivityElement::Detach), // break как detach
-        // `-> метка;` — безусловный переход. В AST нет отдельного варианта
-        // для переходов (goto/label), а визуально такой переход — обычное
-        // действие с текстом метки, поэтому представляем его Action'ом.
-        // Раньше строка не разбиралась вовсе.
-        Rule::arrow_label_stmt => Some(ActivityElement::Action(Action::new(
-            pair.as_str()
-                .trim()
-                .trim_start_matches("->")
-                .trim()
-                .trim_end_matches(';')
-                .trim(),
-        ))),
+        Rule::arrow_label_stmt => Some(ActivityElement::Arrow(parse_arrow(pair))),
+        // `backward :текст;` вне цикла `repeat` (например, в теле `while`)
+        // не имеет особого места на схеме, но текст терять нельзя.
+        Rule::backward_stmt => backward_text(pair).map(|t| ActivityElement::Action(Action::new(t))),
+        // Метка (`label x`) и переход (`goto x`) без видимого элемента;
+        // комментарии, `skinparam`, `<style>` и заголовок не потоки.
+        Rule::goto_stmt
+        | Rule::label_stmt
+        | Rule::comment
+        | Rule::skinparam
+        | Rule::style_stmt
+        | Rule::title_stmt => None,
+        // Разделитель `-- текст --` рисуется обычной подписью-действием.
+        Rule::divider => {
+            let text = pair.as_str().trim().trim_matches('-').trim();
+            if text.is_empty() {
+                None
+            } else {
+                Some(ActivityElement::Action(Action::new(text)))
+            }
+        }
         _ => None,
     }
 }
 
+/// Разбирает `-> текст;` и `-[#цвет,dashed]-> текст;`.
+fn parse_arrow(pair: pest::iterators::Pair<Rule>) -> ArrowSpec {
+    let mut spec = ArrowSpec::default();
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::arrow_style => {
+                for part in inner.as_str().trim_matches(['[', ']']).split(',') {
+                    let part = part.trim();
+                    if part.starts_with('#') {
+                        spec.color = Some(Color::parse(part));
+                    } else if matches!(part, "dashed" | "dotted") {
+                        spec.dashed = true;
+                    }
+                }
+            }
+            Rule::arrow_text => {
+                let text = inner.as_str().trim();
+                if !text.is_empty() {
+                    spec.label = Some(text.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    spec
+}
+
+/// Текст из `backward :текст;`.
+fn backward_text(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+    for inner in pair.into_inner() {
+        for text in inner.into_inner() {
+            if text.as_rule() == Rule::action_text {
+                return Some(text.as_str().trim().to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Парсит действие (action)
-fn parse_action(pair: pest::iterators::Pair<Rule>) -> Option<Action> {
+fn parse_action(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Action> {
     let mut label = String::new();
     let mut background_color: Option<Color> = None;
     let mut style = ActionStyle::Normal;
+    let source = pair.as_str().trim().to_string();
+    let mut legacy_color: Option<String> = None;
+    let mut inner_action: Option<Action> = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -106,7 +165,7 @@ fn parse_action(pair: pest::iterators::Pair<Rule>) -> Option<Action> {
                 label = inner.as_str().trim().to_string();
             }
             Rule::color => {
-                background_color = parse_color(inner);
+                legacy_color = Some(inner.as_str().to_string());
             }
             Rule::action_end => {
                 style = match inner.as_str() {
@@ -116,12 +175,41 @@ fn parse_action(pair: pest::iterators::Pair<Rule>) -> Option<Action> {
                     _ => ActionStyle::Normal,
                 };
             }
+            Rule::action_stereotype => {
+                let text = inner
+                    .into_inner()
+                    .find(|p| p.as_rule() == Rule::stereotype_text)
+                    .map(|p| p.as_str().trim().to_string())
+                    .unwrap_or_default();
+                if text.starts_with('#') {
+                    background_color = Some(Color::parse(&text));
+                } else {
+                    style = match text.to_lowercase().as_str() {
+                        "input" => ActionStyle::Input,
+                        "output" => ActionStyle::Output,
+                        "procedure" => ActionStyle::Procedure,
+                        "task" => ActionStyle::Task,
+                        _ => style,
+                    };
+                }
+            }
             Rule::action_simple | Rule::action_colored | Rule::action_multiline => {
-                // Рекурсивно обрабатываем вложенные action
-                return parse_action(inner);
+                // Вложенное действие. Цвет `#цвет:` перед ним в современном
+                // PlantUML игнорируется с предупреждением — так же делаем мы.
+                inner_action = parse_action(inner, w);
             }
             _ => {}
         }
+    }
+
+    if let Some(action) = inner_action {
+        if let Some(color) = legacy_color {
+            w.push(format!(
+                "This syntax is deprecated and the color is ignored: write ':{}; <<{}>>' instead of '{}'",
+                action.label, color, source
+            ));
+        }
+        return Some(action);
     }
 
     if label.is_empty() {
@@ -137,7 +225,7 @@ fn parse_action(pair: pest::iterators::Pair<Rule>) -> Option<Action> {
 }
 
 /// Парсит условие if/elseif/else
-fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Condition> {
+fn parse_if_stmt(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Condition> {
     let mut condition_text = String::new();
     let mut then_branch = Vec::new();
     let mut then_label: Option<String> = None;
@@ -164,7 +252,7 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Condition> {
                 }
             }
             Rule::body => {
-                let elements = parse_body(inner);
+                let elements = parse_body(inner, w);
                 if !in_else && elseif_branches.is_empty() && else_branch.is_none() {
                     then_branch = elements;
                 } else if in_else && else_branch.is_none() {
@@ -172,7 +260,7 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Condition> {
                 }
             }
             Rule::elseif_clause => {
-                if let Some(branch) = parse_elseif_clause(inner) {
+                if let Some(branch) = parse_elseif_clause(inner, w) {
                     elseif_branches.push(branch);
                 }
             }
@@ -184,7 +272,7 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Condition> {
                             else_label = Some(extract_label(clause_inner));
                         }
                         Rule::body => {
-                            else_branch = Some(parse_body(clause_inner));
+                            else_branch = Some(parse_body(clause_inner, w));
                         }
                         _ => {}
                     }
@@ -205,7 +293,10 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Condition> {
 }
 
 /// Парсит elseif clause
-fn parse_elseif_clause(pair: pest::iterators::Pair<Rule>) -> Option<ElseIfBranch> {
+fn parse_elseif_clause(
+    pair: pest::iterators::Pair<Rule>,
+    w: &mut Vec<String>,
+) -> Option<ElseIfBranch> {
     let mut condition = String::new();
     let mut elements = Vec::new();
     let mut label: Option<String> = None;
@@ -219,7 +310,7 @@ fn parse_elseif_clause(pair: pest::iterators::Pair<Rule>) -> Option<ElseIfBranch
                 label = Some(extract_label(inner));
             }
             Rule::body => {
-                elements = parse_body(inner);
+                elements = parse_body(inner, w);
             }
             _ => {}
         }
@@ -233,7 +324,7 @@ fn parse_elseif_clause(pair: pest::iterators::Pair<Rule>) -> Option<ElseIfBranch
 }
 
 /// Парсит цикл while
-fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Option<WhileLoop> {
+fn parse_while_stmt(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<WhileLoop> {
     let mut condition = String::new();
     let mut body = Vec::new();
     let mut end_label: Option<String> = None;
@@ -245,7 +336,7 @@ fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Option<WhileLoop> {
                 condition = inner.as_str().trim().to_string();
             }
             Rule::body => {
-                body = parse_body(inner);
+                body = parse_body(inner, w);
             }
             Rule::is_clause => {
                 // is (label) после while
@@ -271,41 +362,57 @@ fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Option<WhileLoop> {
 }
 
 /// Парсит цикл repeat
-fn parse_repeat_stmt(pair: pest::iterators::Pair<Rule>) -> Option<RepeatLoop> {
-    let mut body = Vec::new();
-    let mut condition = String::new();
-    let mut backward_label: Option<String> = None;
+fn parse_repeat_stmt(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<RepeatLoop> {
+    let mut repeat = RepeatLoop::new("");
+    let mut first_action: Option<Action> = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::body => {
-                body = parse_body(inner);
-            }
-            Rule::condition_text => {
-                condition = inner.as_str().trim().to_string();
-            }
-            Rule::backward_label | Rule::backward_stmt => {
-                // Обрабатываем backward
-                for back_inner in inner.into_inner() {
-                    if back_inner.as_rule() == Rule::action_text {
-                        backward_label = Some(back_inner.as_str().trim().to_string());
+            Rule::repeat_label => {
+                // `repeat :действие;` — первое действие тела цикла
+                for text in inner.into_inner() {
+                    if text.as_rule() == Rule::action_text {
+                        first_action = Some(Action::new(text.as_str().trim()));
                     }
                 }
             }
+            Rule::body => {
+                for statement in inner.into_inner() {
+                    // `backward :текст;` внутри тела — действие обратной ветки
+                    if statement.as_rule() == Rule::backward_stmt {
+                        repeat.backward_label = backward_text(statement);
+                    } else if let Some(element) = parse_statement(statement, w) {
+                        repeat.body.push(element);
+                    }
+                }
+            }
+            Rule::condition_text => {
+                repeat.condition = inner.as_str().trim().to_string();
+            }
+            Rule::is_clause => repeat.end_label = clause_label(inner),
+            Rule::not_clause => repeat.not_label = clause_label(inner),
             _ => {}
         }
     }
 
-    Some(RepeatLoop {
-        body,
-        condition,
-        backward_label,
-    })
+    if let Some(action) = first_action {
+        repeat.body.insert(0, ActivityElement::Action(action));
+    }
+
+    Some(repeat)
+}
+
+/// Текст в скобках из `is (..)` / `not (..)`.
+fn clause_label(pair: pest::iterators::Pair<Rule>) -> Option<String> {
+    pair.into_inner()
+        .find(|p| p.as_rule() == Rule::label_text)
+        .map(|p| p.as_str().trim().to_string())
+        .filter(|t| !t.is_empty())
 }
 
 /// Парсит fork/join
 /// Разбирает раздел `partition Имя { ... }`.
-fn parse_partition(pair: pest::iterators::Pair<Rule>) -> Option<Partition> {
+fn parse_partition(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Partition> {
     let mut name = String::new();
     let mut color = None;
     let mut elements = Vec::new();
@@ -314,7 +421,7 @@ fn parse_partition(pair: pest::iterators::Pair<Rule>) -> Option<Partition> {
         match inner.as_rule() {
             Rule::partition_name => name = extract_partition_name(inner),
             Rule::color => color = Some(Color::parse(inner.as_str().trim())),
-            Rule::body => elements = parse_body(inner),
+            Rule::body => elements = parse_body(inner, w),
             _ => {}
         }
     }
@@ -331,7 +438,7 @@ fn parse_partition(pair: pest::iterators::Pair<Rule>) -> Option<Partition> {
 }
 
 /// Разбирает множественный выбор `switch (выражение) ... endswitch`.
-fn parse_switch(pair: pest::iterators::Pair<Rule>) -> Option<Switch> {
+fn parse_switch(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Switch> {
     let mut expression = None;
     let mut branches = Vec::new();
 
@@ -354,7 +461,7 @@ fn parse_switch(pair: pest::iterators::Pair<Rule>) -> Option<Switch> {
                                 label = Some(text.to_string());
                             }
                         }
-                        Rule::body => elements = parse_body(case_inner),
+                        Rule::body => elements = parse_body(case_inner, w),
                         _ => {}
                     }
                 }
@@ -371,13 +478,13 @@ fn parse_switch(pair: pest::iterators::Pair<Rule>) -> Option<Switch> {
 }
 
 /// Разбирает разделение потока `split ... split again ... end split`.
-fn parse_split(pair: pest::iterators::Pair<Rule>) -> Option<Split> {
+fn parse_split(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Split> {
     let mut branches: Vec<Branch> = Vec::new();
     let mut current = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::body => current = parse_body(inner),
+            Rule::body => current = parse_body(inner, w),
             Rule::split_again_clause => {
                 branches.push(Branch {
                     label: None,
@@ -385,7 +492,7 @@ fn parse_split(pair: pest::iterators::Pair<Rule>) -> Option<Split> {
                 });
                 for again_inner in inner.into_inner() {
                     if again_inner.as_rule() == Rule::body {
-                        current = parse_body(again_inner);
+                        current = parse_body(again_inner, w);
                     }
                 }
             }
@@ -406,7 +513,7 @@ fn extract_partition_name(pair: pest::iterators::Pair<Rule>) -> String {
     pair.as_str().trim().trim_matches('"').to_string()
 }
 
-fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Fork> {
+fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>, w: &mut Vec<String>) -> Option<Fork> {
     let mut branches: Vec<Vec<ActivityElement>> = Vec::new();
     let mut current_branch: Vec<ActivityElement> = Vec::new();
     let mut join_type = JoinType::And;
@@ -414,7 +521,7 @@ fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Fork> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::body => {
-                current_branch = parse_body(inner);
+                current_branch = parse_body(inner, w);
             }
             Rule::fork_again_clause => {
                 // Сохраняем предыдущую ветку и начинаем новую
@@ -423,7 +530,7 @@ fn parse_fork_stmt(pair: pest::iterators::Pair<Rule>) -> Option<Fork> {
                 }
                 for fork_inner in inner.into_inner() {
                     if fork_inner.as_rule() == Rule::body {
-                        current_branch = parse_body(fork_inner);
+                        current_branch = parse_body(fork_inner, w);
                     }
                 }
             }
@@ -513,9 +620,16 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
             Rule::note_text | Rule::note_body => {
                 text = inner.as_str().trim().to_string();
             }
-            Rule::note_inline | Rule::note_multiline => {
+            Rule::note_inline
+            | Rule::note_multiline
+            | Rule::note_floating
+            | Rule::floating_note => {
                 // Рекурсивно обрабатываем
                 return parse_note(inner);
+            }
+            // `note "текст" as N`
+            Rule::quoted_string => {
+                text = inner.as_str().trim_matches('"').trim().to_string();
             }
             _ => {}
         }
@@ -831,5 +945,44 @@ stop
             .iter()
             .find(|e| matches!(e, ActivityElement::Repeat(_)));
         assert!(repeat.is_some());
+    }
+    /// `repeat while (c) is (да) not (нет)` сохраняет обе подписи.
+    #[test]
+    fn test_repeat_is_not_labels() {
+        let source =
+            "@startuml\nstart\nrepeat\n:a;\nrepeat while (c?) is (да) not (нет)\nstop\n@enduml";
+        let diagram = parse_activity(source).expect("разбирается");
+        let repeat = diagram
+            .elements
+            .iter()
+            .find_map(|e| match e {
+                ActivityElement::Repeat(r) => Some(r),
+                _ => None,
+            })
+            .expect("repeat");
+        assert_eq!(repeat.end_label.as_deref(), Some("да"));
+        assert_eq!(repeat.not_label.as_deref(), Some("нет"));
+    }
+
+    /// Старая форма цвета даёт предупреждение, стереотип меняет форму, а
+    /// `-> текст;` превращается в подпись стрелки, а не в действие.
+    #[test]
+    fn test_legacy_color_stereotype_and_arrow() {
+        let source = "@startuml\n#red:a2;\n:in; <<input>>\n-> на стрелке;\n:b;\nfloating note left: n2\n@enduml";
+        let diagram = parse_activity(source).expect("разбирается");
+        assert_eq!(diagram.warnings.len(), 1);
+        assert!(diagram.warnings[0].contains("':a2; <<#red>>'"));
+        assert!(matches!(
+            &diagram.elements[1],
+            ActivityElement::Action(a) if a.style == ActionStyle::Input
+        ));
+        assert!(matches!(
+            &diagram.elements[2],
+            ActivityElement::Arrow(spec) if spec.label.as_deref() == Some("на стрелке")
+        ));
+        assert!(diagram
+            .elements
+            .iter()
+            .any(|e| matches!(e, ActivityElement::Note(n) if n.text == "n2")));
     }
 }
