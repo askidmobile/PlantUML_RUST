@@ -1279,6 +1279,7 @@ impl SvgRenderer {
                     fields,
                     methods,
                     &sprite_table,
+                    &element.properties,
                     theme,
                     group,
                 );
@@ -3179,9 +3180,24 @@ impl SvgRenderer {
         fields: &[ClassMember],
         methods: &[ClassMember],
         sprites: &std::collections::HashMap<String, SpriteData>,
+        properties: &std::collections::HashMap<String, String>,
         theme: &Theme,
         mut group: Group,
     ) -> Group {
+        // Круг и ромб — фигуры без тела: имя стоит под ними.
+        if matches!(
+            classifier_type,
+            ClassifierKind::Circle | ClassifierKind::Diamond
+        ) {
+            return self.render_shape_classifier(
+                bounds,
+                classifier_type,
+                name,
+                properties,
+                theme,
+                group,
+            );
+        }
         let padding = 5.0;
         let line_height = 16.0;
         let icon_size = 11.0; // радиус иконки класса
@@ -3199,7 +3215,19 @@ impl SvgRenderer {
             ClassifierKind::Enum => ("#EB937F", ""),
             ClassifierKind::Annotation => ("#FFDD8C", ""),
             ClassifierKind::Entity => ("#CCCCCC", ""),
+            ClassifierKind::Struct => ("#ADD1B2", ""),
+            ClassifierKind::Protocol => ("#E1D5A0", ""),
+            ClassifierKind::Exception => ("#F0B2B2", ""),
+            ClassifierKind::Metaclass => ("#D0C1E8", ""),
+            ClassifierKind::Stereotype => ("#FFE0A0", ""),
+            ClassifierKind::Circle | ClassifierKind::Diamond => ("#ADD1B2", ""),
         };
+        // Значок из стереотипа `<<(X,#цвет) имя>>` перекрашивает кружок. Саму букву
+        // PlantUML рисует контуром, а не текстом, поэтому здесь передаётся только цвет.
+        let icon_fill = properties
+            .get("spot-fill")
+            .map(String::as_str)
+            .unwrap_or(icon_fill);
 
         // Тело класса: в эталоне PlantUML — #F1F1F1, а не цвет фона темы
         // (#E2E2F0) и не цвет иконки
@@ -3210,10 +3238,48 @@ impl SvgRenderer {
             .set("height", bounds.height)
             .set("rx", 2.5)
             .set("ry", 2.5)
-            .set("fill", CLASS_BODY_FILL)
-            .set("stroke", theme.node_border.to_css())
+            .set(
+                "fill",
+                properties
+                    .get("fill")
+                    .map(String::as_str)
+                    .unwrap_or(CLASS_BODY_FILL),
+            )
+            .set(
+                "stroke",
+                properties
+                    .get("stroke")
+                    .cloned()
+                    .unwrap_or_else(|| theme.node_border.to_css()),
+            )
             .set("stroke-width", 0.5);
         group = group.add(rect);
+
+        // Обобщённые параметры: пунктирная рамка в правом верхнем углу.
+        if let Some(generics) = properties.get("generics") {
+            let width = self.measure_text(generics, 11.0) + 8.0;
+            let x = bounds.x + bounds.width - width - 2.0;
+            let y = bounds.y + 2.0;
+            group = group.add(
+                Rectangle::new()
+                    .set("x", x)
+                    .set("y", y)
+                    .set("width", width)
+                    .set("height", 16.0)
+                    .set("fill", "#FFFFFF")
+                    .set("stroke", theme.node_border.to_css())
+                    .set("stroke-dasharray", "2,2")
+                    .set("stroke-width", 0.5),
+            );
+            group = group.add(
+                svg::node::element::Text::new(generics.as_str())
+                    .set("x", x + 4.0)
+                    .set("y", y + 12.0)
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", 11)
+                    .set("fill", theme.text_color.to_css()),
+            );
+        }
 
         let mut current_y = bounds.y + padding;
 
@@ -3321,6 +3387,11 @@ impl SvgRenderer {
 
         // 6. Поля
         for field in fields {
+            if field.separator.is_some() {
+                group = self.render_class_separator(bounds, current_y, field, theme, group);
+                current_y += line_height;
+                continue;
+            }
             group = self.render_class_member(
                 bounds.x + padding,
                 current_y,
@@ -3345,6 +3416,11 @@ impl SvgRenderer {
 
         // 8. Методы
         for method in methods {
+            if method.separator.is_some() {
+                group = self.render_class_separator(bounds, current_y, method, theme, group);
+                current_y += line_height;
+                continue;
+            }
             group = self.render_class_member(
                 bounds.x + padding,
                 current_y,
@@ -3356,6 +3432,127 @@ impl SvgRenderer {
             current_y += line_height;
         }
 
+        group
+    }
+
+    /// Круг или ромб классификатора с именем под фигурой.
+    fn render_shape_classifier(
+        &self,
+        bounds: &Rect,
+        kind: ClassifierKind,
+        name: &str,
+        properties: &std::collections::HashMap<String, String>,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let fill = properties
+            .get("fill")
+            .map(String::as_str)
+            .unwrap_or("#F1F1F1");
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+        let cx = bounds.x + bounds.width / 2.0;
+        let radius = 12.0;
+        let cy = bounds.y + radius;
+        if kind == ClassifierKind::Circle {
+            group = group.add(
+                svg::node::element::Ellipse::new()
+                    .set("cx", cx)
+                    .set("cy", cy)
+                    .set("rx", radius)
+                    .set("ry", radius)
+                    .set("fill", fill)
+                    .set("stroke", stroke)
+                    .set("stroke-width", 0.5),
+            );
+        } else {
+            group = group.add(
+                svg::node::element::Polygon::new()
+                    .set(
+                        "points",
+                        format!(
+                            "{cx},{} {},{cy} {cx},{} {},{cy}",
+                            cy - radius,
+                            cx + radius,
+                            cy + radius,
+                            cx - radius
+                        ),
+                    )
+                    .set("fill", fill)
+                    .set("stroke", stroke)
+                    .set("stroke-width", 0.5),
+            );
+        }
+        // У ромба PlantUML имя не рисует (эталон `diamond Diamond` без текста).
+        if kind == ClassifierKind::Diamond {
+            return group;
+        }
+        group.add(
+            svg::node::element::Text::new(name)
+                .set("x", cx)
+                .set("y", bounds.y + radius * 2.0 + 16.0)
+                .set("text-anchor", "middle")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", theme.font_size)
+                .set("fill", theme.text_color.to_css()),
+        )
+    }
+
+    /// Разделитель тела класса: линия на всю ширину и подпись по центру.
+    fn render_class_separator(
+        &self,
+        bounds: &Rect,
+        y: f64,
+        member: &ClassMember,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let line_y = y + 8.0;
+        let (dash, width) = match member.separator {
+            Some('.') => (Some("1,2"), 0.5),
+            Some('=') | Some('_') => (None, 1.0),
+            _ => (None, 0.5),
+        };
+        let left = bounds.x + 1.0;
+        let right = bounds.x + bounds.width - 1.0;
+        let title = member.text.trim();
+        // Линия разрывается под подписью, чтобы текст не лежал на ней.
+        let gap = if title.is_empty() {
+            0.0
+        } else {
+            self.measure_text(title, theme.font_size) / 2.0 + 4.0
+        };
+        let center = (left + right) / 2.0;
+        let mut segments = vec![(left, if gap > 0.0 { center - gap } else { right })];
+        if gap > 0.0 {
+            segments.push((center + gap, right));
+        }
+        for (x1, x2) in segments {
+            let mut line = svg::node::element::Line::new()
+                .set("x1", x1)
+                .set("y1", line_y)
+                .set("x2", x2)
+                .set("y2", line_y)
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", width);
+            if let Some(dash) = dash {
+                line = line.set("stroke-dasharray", dash);
+            }
+            group = group.add(line);
+        }
+        if !title.is_empty() {
+            group = group.add(
+                svg::node::element::Text::new(title)
+                    .set("x", center)
+                    .set("y", y + 12.0)
+                    .set("text-anchor", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", theme.font_size)
+                    .set("fill", theme.text_color.to_css()),
+            );
+        }
         group
     }
 

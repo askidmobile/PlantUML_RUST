@@ -323,6 +323,15 @@ pub enum ClassifierKind {
     Enum,
     Annotation,
     Entity,
+    Struct,
+    Protocol,
+    Exception,
+    Metaclass,
+    Stereotype,
+    /// Круг `circle X` / `() X`: без тела, имя под фигурой.
+    Circle,
+    /// Ромб `diamond X` / `<> X`: без тела, имя под фигурой.
+    Diamond,
 }
 
 /// Член класса (поле или метод) с видимостью
@@ -336,6 +345,8 @@ pub struct ClassMember {
     pub is_static: bool,
     /// Абстрактный член (курсив)
     pub is_abstract: bool,
+    /// Разделитель тела (`--`, `..`, `__`, `==`): символ линии; в `text` его подпись.
+    pub separator: Option<char>,
 }
 
 impl ClassMember {
@@ -345,6 +356,7 @@ impl ClassMember {
             text: text.into(),
             is_static: false,
             is_abstract: false,
+            separator: None,
         }
     }
 }

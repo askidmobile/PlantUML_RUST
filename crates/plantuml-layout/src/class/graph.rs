@@ -88,6 +88,28 @@ fn sprite_scale_of(modifiers: &str) -> f64 {
     1.0
 }
 
+/// Подпись стереотипа `«имя»`; пустой стереотип (`<<(X,#red)>>`) подписи не даёт.
+pub(crate) fn stereotype_label(classifier: &Classifier) -> Option<String> {
+    let names: Vec<&str> = classifier
+        .stereotype
+        .as_ref()?
+        .names
+        .iter()
+        .map(|n| n.trim())
+        .filter(|n| !n.is_empty())
+        .collect();
+    (!names.is_empty()).then(|| names.join(", "))
+}
+
+/// Запас под рамку обобщённых параметров: поля и отступ от имени.
+const GENERICS_EXTRA: f64 = 14.0;
+
+/// Сторона круга и ромба.
+const SHAPE_SIZE: f64 = 24.0;
+
+/// Высота строки имени под кругом или ромбом.
+const SHAPE_LABEL_HEIGHT: f64 = 22.0;
+
 /// Добавка к ширине строки содержимого (поля и методы).
 ///
 /// Измерено по эталону: «bark()» 42.253 → 68.25, «meow()» 53.19 → 79.19.
@@ -149,26 +171,44 @@ impl Node {
         // Ширина строки имени: измерено по эталону — ширина имени плюс 32
         // («Dog» 28.232 → 68.3; «Animal» 48.446 → 80.446). Добавка вмещает
         // иконку класса слева и отступ справа.
+        // Обобщённые параметры (`Foo<T>`) рисуются рамкой в правом углу шапки
+        // и занимают место рядом с именем.
+        let generics_width = classifier
+            .generics
+            .as_deref()
+            .filter(|g| !g.is_empty())
+            .map_or(0.0, |g| config.text.width(g, 11.0) + GENERICS_EXTRA);
+        let stereotype_text = stereotype_label(classifier);
+        let stereotype_width = stereotype_text.as_deref().map_or(0.0, |t| {
+            config.text.width(&format!("«{t}»"), 12.0) + CLASS_NAME_EXTRA
+        });
         let name_width =
             // Имя класса рисуется ЖИРНЫМ — шире обычного примерно на 8.3%.
-            name_width_with_sprites(&classifier.id.name, sprites, config) + CLASS_NAME_EXTRA;
+            name_width_with_sprites(&classifier.id.name, sprites, config)
+                + CLASS_NAME_EXTRA
+                + generics_width;
+        let name_width = name_width.max(stereotype_width);
+
+        // Круг и ромб — фигуры без тела: имя стоит под ними.
+        if matches!(
+            classifier.classifier_type,
+            plantuml_ast::class::ClassifierType::Circle
+                | plantuml_ast::class::ClassifierType::Diamond
+        ) {
+            let label = config.text.width(&classifier.id.name, config.font_size);
+            return Size::new(label.max(SHAPE_SIZE), SHAPE_SIZE + SHAPE_LABEL_HEIGHT);
+        }
 
         let field_max_width = classifier
             .fields
             .iter()
             .map(|f| {
-                // Учитываем тип поля: "+name: type"
                 // Маркер видимости НЕ входит в измеряемый текст: PlantUML
                 // рисует его отдельной иконкой, а место под неё уже учтено
                 // в CLASS_CONTENT_EXTRA. Проверено по эталону:
                 // «bark()» 42.253 + 26 = 68.253 — ровно ширина бокса Dog.
                 // С «+» в тексте ширина выходила на 7.4px больше.
-                let text = if let Some(ref typ) = f.member_type {
-                    format!("{}: {}", f.name, typ)
-                } else {
-                    f.name.clone()
-                };
-                config.text.width(&text, config.font_size)
+                config.text.width(&f.display_text(), config.font_size)
             })
             .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
@@ -177,14 +217,8 @@ impl Node {
             .methods
             .iter()
             .map(|m| {
-                // Учитываем return type (member_type в AST): "+method(): type"
                 // См. комментарий выше: маркер видимости — иконка, а не текст.
-                let text = if let Some(ref ret_type) = m.member_type {
-                    format!("{}(): {}", m.name, ret_type)
-                } else {
-                    format!("{}()", m.name)
-                };
-                config.text.width(&text, config.font_size)
+                config.text.width(&m.display_text(), config.font_size)
             })
             .max_by(|a, b| a.total_cmp(b))
             .unwrap_or(0.0);
@@ -204,15 +238,7 @@ impl Node {
         // резервировать нельзя: иначе текст пропадает, а +12.0 к высоте
         // остаётся. Именно это давало `Class: Наследование` две рамки ровно
         // на 12.3 выше эталонных (пункт 43.0).
-        let has_stereotype = !matches!(
-            classifier.classifier_type,
-            plantuml_ast::class::ClassifierType::Class
-                | plantuml_ast::class::ClassifierType::Interface
-                | plantuml_ast::class::ClassifierType::AbstractClass
-                | plantuml_ast::class::ClassifierType::Enum
-                | plantuml_ast::class::ClassifierType::Annotation
-                | plantuml_ast::class::ClassifierType::Entity
-        );
+        let has_stereotype = stereotype_text.is_some();
         let header_height = if has_stereotype {
             // Стереотип + имя = больше высоты
             config.class_header_height + 12.0

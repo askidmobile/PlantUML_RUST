@@ -1,6 +1,6 @@
 //! ClassLayoutEngine - layout engine для диаграмм классов.
 
-use plantuml_ast::class::{ClassDiagram, ClassifierType, RelationshipType};
+use plantuml_ast::class::{ClassDiagram, ClassifierType, NoteTarget, Package, RelationshipType};
 use plantuml_ast::common::Direction;
 use plantuml_model::{Point, Rect};
 
@@ -15,11 +15,18 @@ use super::config::ClassLayoutConfig;
 /// Цвет заметки в PlantUML — светло-жёлтый.
 const CLASS_NOTE_BACKGROUND: &str = "#FEFFDD";
 
-/// Ширина заметки.
-const CLASS_NOTE_WIDTH: f64 = 100.0;
+/// Поля текста внутри заметки.
+const CLASS_NOTE_PADDING: f64 = 6.0;
 
-/// Высота заметки.
-const CLASS_NOTE_HEIGHT: f64 = 30.0;
+/// Размер среза угла заметки.
+const CLASS_NOTE_FOLD: f64 = 10.0;
+
+/// Кегль текста заметки.
+const CLASS_NOTE_FONT: f64 = 13.0;
+
+/// Запас вокруг содержимого пакета и высота его заголовка.
+const PACKAGE_PADDING: f64 = 10.0;
+const PACKAGE_HEADER: f64 = 24.0;
 
 /// Зазор между заметкой и элементом, к которому она привязана.
 const CLASS_NOTE_GAP: f64 = 10.0;
@@ -52,6 +59,7 @@ impl ClassLayoutEngine {
         if diagram.classifiers.is_empty()
             && diagram.packages.is_empty()
             && diagram.sprites.is_empty()
+            && diagram.notes.is_empty()
         {
             return LayoutResult::empty();
         }
@@ -101,11 +109,6 @@ impl ClassLayoutEngine {
             elements.push(edge_element);
         }
 
-        // Заметки. Раньше поле `ClassDiagram::notes` не читалось нигде:
-        // грамматика заметки принимала, парсер их разбирал, а в раскладку
-        // они не попадали, и в выводе не было ни текста, ни рамки.
-        self.layout_notes(diagram, &mut elements);
-
         // `left to right direction` МЕНЯЕТ ОСИ раскладки.
         //
         // Проверено на сервере: для `class A; class B; A --> B` эталон
@@ -115,6 +118,15 @@ impl ClassLayoutEngine {
         if diagram.metadata.direction == Some(Direction::LeftToRight) {
             transpose_elements(&mut elements);
         }
+
+        // Пакеты и заметки строятся по готовым положениям классов: так им не
+        // мешает транспонирование и они видят итоговые координаты.
+        let packages = self.layout_packages(diagram, &elements);
+        elements.splice(0..0, packages);
+        // Заметки. Раньше поле `ClassDiagram::notes` не читалось нигде:
+        // грамматика заметки принимала, парсер их разбирал, а в раскладку
+        // они не попадали, и в выводе не было ни текста, ни рамки.
+        self.layout_notes(diagram, &mut elements);
 
         let mut result = LayoutResult {
             elements,
@@ -138,77 +150,267 @@ impl ClassLayoutEngine {
         result
     }
 
-    /// Размещает заметки диаграммы.
+    /// Рамки пакетов: охватывают свои классы и вложенные пакеты.
     ///
-    /// Заметка привязывается к элементу через `anchors`: если якорь указан,
-    /// заметка ставится рядом с ним, иначе — под диаграммой. Цвет в PlantUML
-    /// светло-жёлтый (#FEFFDD).
+    /// Рамка строится по уже разложенным классам, поэтому пакет без классов
+    /// получает минимальный размер и встаёт под диаграммой.
+    fn layout_packages(
+        &self,
+        diagram: &ClassDiagram,
+        elements: &[LayoutElement],
+    ) -> Vec<LayoutElement> {
+        let mut out = Vec::new();
+        let mut spare_y = elements
+            .iter()
+            .map(|e| e.bounds.y + e.bounds.height)
+            .fold(0.0_f64, f64::max)
+            + PACKAGE_PADDING * 2.0;
+        for package in &diagram.packages {
+            self.layout_package(package, "", elements, &mut spare_y, &mut out);
+        }
+        out
+    }
+
+    /// Рамка одного пакета; возвращает занятый ею прямоугольник.
+    fn layout_package(
+        &self,
+        package: &Package,
+        parent_path: &str,
+        elements: &[LayoutElement],
+        spare_y: &mut f64,
+        out: &mut Vec<LayoutElement>,
+    ) -> Rect {
+        let path = format!("{parent_path}/{}", package.name);
+        // Дочерние пакеты кладутся в `out` раньше родителя; порядок рисования
+        // выправляется ниже: родитель идёт первым и не закрывает потомков.
+        let mut inner: Vec<LayoutElement> = Vec::new();
+        let mut parts: Vec<Rect> = package
+            .classifiers
+            .iter()
+            .filter_map(|c| elements.iter().find(|e| e.id == c.id.name))
+            .map(|e| e.bounds)
+            .collect();
+        for child in &package.packages {
+            parts.push(self.layout_package(child, &path, elements, spare_y, &mut inner));
+        }
+
+        let title = package_title(package);
+        let title_width = self.config.text.width(&title, self.config.font_size + 1.0);
+        let mut bounds = match union_of(&parts) {
+            Some(content) => Rect::new(
+                content.x - PACKAGE_PADDING,
+                content.y - PACKAGE_PADDING - PACKAGE_HEADER,
+                content.width + PACKAGE_PADDING * 2.0,
+                content.height + PACKAGE_PADDING * 2.0 + PACKAGE_HEADER,
+            ),
+            None => {
+                let rect = Rect::new(
+                    0.0,
+                    *spare_y,
+                    title_width + PACKAGE_PADDING * 2.0,
+                    PACKAGE_HEADER + PACKAGE_PADDING * 2.0,
+                );
+                *spare_y += rect.height + PACKAGE_PADDING;
+                rect
+            }
+        };
+        // Заголовок должен помещаться в рамку.
+        if bounds.width < title_width + PACKAGE_PADDING * 2.0 {
+            let extra = title_width + PACKAGE_PADDING * 2.0 - bounds.width;
+            bounds.x -= extra / 2.0;
+            bounds.width += extra;
+        }
+
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("fill".to_string(), "none".to_string());
+        properties.insert("rx".to_string(), "2.5".to_string());
+        if let Some(color) = &package.background_color {
+            properties.insert("fill".to_string(), color.to_css());
+        }
+        out.push(LayoutElement {
+            id: format!("package_{}", package.name),
+            bounds,
+            text: None,
+            properties,
+            element_type: ElementType::System { title },
+        });
+        out.append(&mut inner);
+        bounds
+    }
+
+    /// Размещает заметки диаграммы и проводит к ним линии.
+    ///
+    /// Заметка привязывается к элементу через `anchors`; плавающая (без
+    /// якоря) встаёт под диаграммой. Размер даёт текст, а не константа, чтобы
+    /// ни одна строка не терялась. Если место у якоря занято, заметка
+    /// отодвигается от него. Цвет в PlantUML светло-жёлтый (#FEFFDD).
     fn layout_notes(&self, diagram: &ClassDiagram, elements: &mut Vec<LayoutElement>) {
         if diagram.notes.is_empty() {
             return;
         }
 
-        // Находим нижнюю границу уже разложенных элементов: заметки без
-        // якоря ставятся под ними.
-        let mut bottom = 0.0_f64;
-        let mut right = 0.0_f64;
-        for element in elements.iter() {
-            bottom = bottom.max(element.bounds.y + element.bounds.height);
-            right = right.max(element.bounds.x + element.bounds.width);
-        }
+        let mut bottom = elements
+            .iter()
+            .map(|e| e.bounds.y + e.bounds.height)
+            .fold(0.0_f64, f64::max);
+        let mut placed: Vec<Rect> = Vec::new();
+        let mut extra: Vec<LayoutElement> = Vec::new();
+        let mut note_bounds: Vec<Option<Rect>> = vec![None; diagram.notes.len()];
+        // Пакеты и рёбра не мешают размещению, а классы и заметки — мешают.
+        let blockers = |elements: &[LayoutElement]| -> Vec<Rect> {
+            elements
+                .iter()
+                .filter(|e| matches!(e.element_type, ElementType::ClassBox { .. }))
+                .map(|e| e.bounds)
+                .collect()
+        };
+        placed.extend(blockers(elements));
 
         for (index, note) in diagram.notes.iter().enumerate() {
-            // Ищем элемент, к которому привязана заметка
-            let anchor = note.anchors.first().and_then(|name| {
-                elements
-                    .iter()
-                    .find(|e| e.id == format!("class_{name}") || e.id == format!("package_{name}"))
+            let lines: Vec<&str> = note.text.split('\n').collect();
+            let text_width = lines
+                .iter()
+                .map(|line| self.config.text.width(line, CLASS_NOTE_FONT))
+                .fold(0.0_f64, f64::max);
+            let line_height = CLASS_NOTE_FONT + 4.0;
+            let width = text_width + CLASS_NOTE_PADDING * 2.0 + CLASS_NOTE_FOLD / 2.0;
+            let height = lines.len() as f64 * line_height + CLASS_NOTE_PADDING;
+
+            // Заметка стоит у якоря, у линка `note on link` либо под схемой.
+            let anchor = note
+                .anchors
+                .first()
+                .and_then(|name| find_bounds(elements, name));
+            let link_point = diagram.note_links.iter().find_map(|link| {
+                if link.note != index {
+                    return None;
+                }
+                match &link.target {
+                    NoteTarget::Link { from, to } => edge_midpoint(elements, from, to),
+                    NoteTarget::Element(_) => None,
+                }
             });
 
-            let (x, y) = match anchor {
-                Some(anchor) => {
-                    let b = &anchor.bounds;
-                    match note.position {
-                        plantuml_ast::common::NotePosition::Left => {
-                            (b.x - CLASS_NOTE_WIDTH - CLASS_NOTE_GAP, b.y)
-                        }
-                        plantuml_ast::common::NotePosition::Right => {
-                            (b.x + b.width + CLASS_NOTE_GAP, b.y)
-                        }
-                        plantuml_ast::common::NotePosition::Top => {
-                            (b.x, b.y - CLASS_NOTE_HEIGHT - CLASS_NOTE_GAP)
-                        }
-                        plantuml_ast::common::NotePosition::Bottom => {
-                            (b.x, b.y + b.height + CLASS_NOTE_GAP)
-                        }
-                        // `note over A` — заметка поверх элемента
-                        plantuml_ast::common::NotePosition::Over => (b.x, b.y),
+            let (mut x, mut y, dx, dy) = match (anchor, link_point) {
+                (Some(b), _) => match note.position {
+                    plantuml_ast::common::NotePosition::Left => {
+                        (b.x - width - CLASS_NOTE_GAP, b.y, -1.0, 0.0)
                     }
-                }
-                // Без якоря — под диаграммой, с отступом
-                None => (
-                    0.0,
-                    bottom + CLASS_NOTE_GAP + index as f64 * (CLASS_NOTE_HEIGHT + CLASS_NOTE_GAP),
-                ),
+                    plantuml_ast::common::NotePosition::Right
+                    | plantuml_ast::common::NotePosition::Over => {
+                        (b.x + b.width + CLASS_NOTE_GAP, b.y, 1.0, 0.0)
+                    }
+                    plantuml_ast::common::NotePosition::Top => {
+                        (b.x, b.y - height - CLASS_NOTE_GAP, 0.0, -1.0)
+                    }
+                    plantuml_ast::common::NotePosition::Bottom => {
+                        (b.x, b.y + b.height + CLASS_NOTE_GAP, 0.0, 1.0)
+                    }
+                },
+                (None, Some(p)) => (p.x + CLASS_NOTE_GAP, p.y - height / 2.0, 1.0, 0.0),
+                (None, None) => (0.0, bottom + CLASS_NOTE_GAP, 0.0, 1.0),
             };
 
-            let mut properties = std::collections::HashMap::new();
-            properties.insert("fill".to_string(), CLASS_NOTE_BACKGROUND.to_string());
+            // Сдвигаем, пока не освободится место.
+            for _ in 0..60 {
+                let candidate = Rect::new(x, y, width, height);
+                if !placed.iter().any(|r| overlaps(r, &candidate)) {
+                    break;
+                }
+                x += dx * 10.0;
+                y += dy * 10.0;
+                if dx == 0.0 && dy == 0.0 {
+                    break;
+                }
+            }
 
-            elements.push(LayoutElement {
+            let rect = Rect::new(x, y, width, height);
+            placed.push(rect);
+            note_bounds[index] = Some(rect);
+            if anchor.is_none() {
+                bottom = bottom.max(y + height);
+            }
+
+            let mut properties = std::collections::HashMap::new();
+            let fill = note
+                .background_color
+                .as_ref()
+                .map(|c| c.to_css())
+                .unwrap_or_else(|| CLASS_NOTE_BACKGROUND.to_string());
+            properties.insert("fill".to_string(), fill);
+            extra.push(LayoutElement {
                 id: format!("note_{index}"),
-                bounds: Rect::new(x, y, CLASS_NOTE_WIDTH, CLASS_NOTE_HEIGHT),
+                bounds: rect,
                 text: None,
                 properties,
-                element_type: ElementType::Rectangle {
-                    label: note.text.clone(),
-                    corner_radius: 0.0,
+                element_type: ElementType::Note {
+                    label: String::new(),
+                    fold: CLASS_NOTE_FOLD,
                 },
             });
+            for (row, line) in lines.iter().enumerate() {
+                let mut text_properties = std::collections::HashMap::new();
+                text_properties.insert("baseline".to_string(), {
+                    let top = y + CLASS_NOTE_PADDING / 2.0 + row as f64 * line_height;
+                    format!("{}", top + CLASS_NOTE_FONT)
+                });
+                extra.push(LayoutElement {
+                    id: format!("note_{index}_line_{row}"),
+                    bounds: Rect::new(
+                        x + CLASS_NOTE_PADDING,
+                        y + CLASS_NOTE_PADDING / 2.0 + row as f64 * line_height,
+                        self.config.text.width(line, CLASS_NOTE_FONT),
+                        line_height,
+                    ),
+                    text: None,
+                    properties: text_properties,
+                    element_type: ElementType::Text {
+                        text: (*line).to_string(),
+                        font_size: CLASS_NOTE_FONT,
+                    },
+                });
+            }
 
-            // Заметка не должна вылезать за правый край диаграммы
-            let _ = right;
+            // Линия к якорю (если заметка привязана к элементу).
+            if let Some(b) = anchor {
+                extra.push(note_connector(
+                    format!("note_link_{index}"),
+                    rect,
+                    b,
+                    index,
+                    LineStyleHint::Dashed,
+                ));
+            }
         }
+
+        // Линии `A .. N` и `note on link`: от заметки к элементу или к середине связи.
+        for (number, link) in diagram.note_links.iter().enumerate() {
+            let Some(Some(note_rect)) = note_bounds.get(link.note) else {
+                continue;
+            };
+            let target = match &link.target {
+                NoteTarget::Element(name) => find_bounds(elements, name),
+                NoteTarget::Link { from, to } => {
+                    edge_midpoint(elements, from, to).map(|p| Rect::new(p.x, p.y, 0.0, 0.0))
+                }
+            };
+            if let Some(target) = target {
+                let dashed = !matches!(link.line_style, plantuml_ast::common::LineStyle::Solid);
+                extra.push(note_connector(
+                    format!("note_edge_{number}"),
+                    *note_rect,
+                    target,
+                    link.note,
+                    if dashed {
+                        LineStyleHint::Dashed
+                    } else {
+                        LineStyleHint::Solid
+                    },
+                ));
+            }
+        }
+
+        elements.extend(extra);
     }
 
     /// Ищет classifier в пакетах рекурсивно
@@ -243,74 +445,35 @@ impl ClassLayoutEngine {
                     ClassifierType::Enum => ClassifierKind::Enum,
                     ClassifierType::Annotation => ClassifierKind::Annotation,
                     ClassifierType::Entity => ClassifierKind::Entity,
-                    _ => ClassifierKind::Class,
+                    ClassifierType::Struct => ClassifierKind::Struct,
+                    ClassifierType::Protocol => ClassifierKind::Protocol,
+                    ClassifierType::Exception => ClassifierKind::Exception,
+                    ClassifierType::Metaclass => ClassifierKind::Metaclass,
+                    ClassifierType::Stereotype => ClassifierKind::Stereotype,
+                    ClassifierType::Circle => ClassifierKind::Circle,
+                    ClassifierType::Diamond => ClassifierKind::Diamond,
+                    ClassifierType::Class => ClassifierKind::Class,
                 };
-                // Для `interface` и `abstract class` стереотип НЕ рисуется:
-                // эталон `Class: Наследование` содержит 15 текстов, а мы
-                // рисовали 17 — лишними были ровно «interface» и «abstract».
-                // Лишняя строка-стереотип давала +12 по высоте.
-                // PlantUML НЕ рисует авто-стереотип ни для одного из этих
-                // типов. Проверено на сервере (пункт 38.8 и 43.5):
-                // `interface I` -> ['I']; `abstract class` -> ['Base',...];
-                // `enum Color` -> ['Color','RED']; `annotation Marker` ->
-                // ['Marker']; `entity User` -> ['User','id : int'].
-                let stereo = match c.classifier_type {
-                    ClassifierType::Interface
-                    | ClassifierType::AbstractClass
-                    | ClassifierType::Enum
-                    | ClassifierType::Annotation
-                    | ClassifierType::Entity => None,
-                    _ => None,
-                };
+                // Авто-стереотипа у видов элементов нет: PlantUML рисует только
+                // значок (проверено на сервере: `interface I` -> ['I'],
+                // `struct S` -> ['S']). Рисуется лишь заданный в `<<...>>`.
+                let stereo = super::graph::stereotype_label(c);
                 (kind, stereo)
             })
             .unwrap_or((ClassifierKind::Class, None));
 
-        // Конвертируем поля
+        let convert = |m: &plantuml_ast::class::Member| ClassMember {
+            visibility: Self::convert_visibility(&m.visibility),
+            text: m.display_text(),
+            is_static: m.is_static,
+            is_abstract: m.is_abstract,
+            separator: m.separator,
+        };
         let fields: Vec<ClassMember> = classifier
-            .map(|c| {
-                c.fields
-                    .iter()
-                    .map(|f| {
-                        let visibility = Self::convert_visibility(&f.visibility);
-                        let text = if let Some(ref typ) = f.member_type {
-                            format!("{}: {}", f.name, typ)
-                        } else {
-                            f.name.clone()
-                        };
-                        ClassMember {
-                            visibility,
-                            text,
-                            is_static: f.is_static,
-                            is_abstract: false,
-                        }
-                    })
-                    .collect()
-            })
+            .map(|c| c.fields.iter().map(convert).collect())
             .unwrap_or_default();
-
-        // Конвертируем методы
         let methods: Vec<ClassMember> = classifier
-            .map(|c| {
-                c.methods
-                    .iter()
-                    .map(|m| {
-                        let visibility = Self::convert_visibility(&m.visibility);
-                        // Формируем текст метода с return type (member_type в AST)
-                        let text = if let Some(ref ret_type) = m.member_type {
-                            format!("{}(): {}", m.name, ret_type)
-                        } else {
-                            format!("{}()", m.name)
-                        };
-                        ClassMember {
-                            visibility,
-                            text,
-                            is_static: m.is_static,
-                            is_abstract: m.is_abstract,
-                        }
-                    })
-                    .collect()
-            })
+            .map(|c| c.methods.iter().map(convert).collect())
             .unwrap_or_default();
 
         // Спрайты, на которые ссылается подпись через `<$имя>`.
@@ -319,6 +482,25 @@ impl ClassLayoutEngine {
         // PlantUML рисует спрайт прямо внутри строки текста, разбивая её
         // на часть до и часть после.
         let mut properties = std::collections::HashMap::new();
+        if let Some(c) = classifier {
+            if let Some(generics) = c.generics.as_deref().filter(|g| !g.is_empty()) {
+                properties.insert("generics".to_string(), generics.to_string());
+            }
+            if let Some(stereotype) = &c.stereotype {
+                if let Some(letter) = stereotype.spot {
+                    properties.insert("spot".to_string(), letter.to_string());
+                }
+                if let Some(color) = &stereotype.background_color {
+                    properties.insert("spot-fill".to_string(), color.to_css());
+                }
+            }
+            if let Some(color) = &c.background_color {
+                properties.insert("fill".to_string(), color.to_css());
+            }
+            if let Some(color) = &c.border_color {
+                properties.insert("stroke".to_string(), color.to_css());
+            }
+        }
         if !diagram.sprites.is_empty() && node.classifier_name.contains("<$") {
             let encoded: Vec<String> = diagram
                 .sprites
@@ -557,6 +739,134 @@ impl ClassLayoutEngine {
         let max_y = points.iter().map(|p| p.y).fold(f64::MIN, f64::max);
 
         Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+    }
+}
+
+#[derive(Clone, Copy)]
+enum LineStyleHint {
+    Solid,
+    Dashed,
+}
+
+/// Подпись рамки пакета: имя и, если есть, стереотип.
+fn package_title(package: &Package) -> String {
+    let stereotype: Vec<&str> = package
+        .stereotype
+        .iter()
+        .flat_map(|s| s.names.iter())
+        .map(|n| n.trim())
+        .filter(|n| !n.is_empty())
+        .collect();
+    if stereotype.is_empty() {
+        package.name.clone()
+    } else {
+        format!("{} «{}»", package.name, stereotype.join(", "))
+    }
+}
+
+/// Прямоугольник, охватывающий все данные.
+fn union_of(parts: &[Rect]) -> Option<Rect> {
+    let first = parts.first()?;
+    let (mut x0, mut y0) = (first.x, first.y);
+    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
+    for r in parts {
+        x0 = x0.min(r.x);
+        y0 = y0.min(r.y);
+        x1 = x1.max(r.x + r.width);
+        y1 = y1.max(r.y + r.height);
+    }
+    Some(Rect::new(x0, y0, x1 - x0, y1 - y0))
+}
+
+/// Пересекаются ли прямоугольники (касание не считается).
+fn overlaps(a: &Rect, b: &Rect) -> bool {
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/// Рамка класса или пакета по имени.
+fn find_bounds(elements: &[LayoutElement], name: &str) -> Option<Rect> {
+    elements
+        .iter()
+        .find(|e| e.id == name || e.id == format!("package_{name}"))
+        .map(|e| e.bounds)
+}
+
+/// Середина связи между двумя элементами (в любом направлении записи).
+fn edge_midpoint(elements: &[LayoutElement], from: &str, to: &str) -> Option<Point> {
+    let direct = format!("edge_{from}_{to}");
+    let reverse = format!("edge_{to}_{from}");
+    elements.iter().find_map(|e| {
+        if e.id != direct && e.id != reverse {
+            return None;
+        }
+        match &e.element_type {
+            ElementType::Edge { points, .. } if !points.is_empty() => {
+                let a = points.first()?;
+                let b = points.last()?;
+                Some(Point::new((a.x + b.x) / 2.0, (a.y + b.y) / 2.0))
+            }
+            _ => None,
+        }
+    })
+}
+
+/// Точка границы прямоугольника на луче из его центра к `target`.
+fn boundary_point(rect: &Rect, target: Point) -> Point {
+    let center = Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    let (dx, dy) = (target.x - center.x, target.y - center.y);
+    if dx == 0.0 && dy == 0.0 {
+        return center;
+    }
+    let tx = if dx != 0.0 {
+        rect.width / 2.0 / dx.abs()
+    } else {
+        f64::MAX
+    };
+    let ty = if dy != 0.0 {
+        rect.height / 2.0 / dy.abs()
+    } else {
+        f64::MAX
+    };
+    let t = tx.min(ty).min(1.0);
+    Point::new(center.x + dx * t, center.y + dy * t)
+}
+
+/// Линия между заметкой и целью без стрелок.
+fn note_connector(
+    id: String,
+    note: Rect,
+    target: Rect,
+    _note_index: usize,
+    style: LineStyleHint,
+) -> LayoutElement {
+    let target_center = Point::new(
+        target.x + target.width / 2.0,
+        target.y + target.height / 2.0,
+    );
+    let note_center = Point::new(note.x + note.width / 2.0, note.y + note.height / 2.0);
+    let start = boundary_point(&note, target_center);
+    let end = boundary_point(&target, note_center);
+    let bounds = Rect::new(
+        start.x.min(end.x),
+        start.y.min(end.y),
+        (start.x - end.x).abs(),
+        (start.y - end.y).abs(),
+    );
+    LayoutElement {
+        id,
+        bounds,
+        text: None,
+        properties: std::collections::HashMap::new(),
+        element_type: ElementType::Edge {
+            points: vec![start, end],
+            label: None,
+            arrow_start: false,
+            arrow_end: false,
+            dashed: matches!(style, LineStyleHint::Dashed),
+            edge_type: EdgeType::Link,
+            from_cardinality: None,
+            to_cardinality: None,
+        },
     }
 }
 
