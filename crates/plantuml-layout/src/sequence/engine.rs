@@ -633,6 +633,27 @@ impl SequenceLayoutEngine {
             }
         }
 
+        // `order N` переставляет объявленных участников: меньший номер левее.
+        // Участник без номера держит свою позицию объявления; сортировка
+        // устойчивая, поэтому равные ключи сохраняют порядок объявления.
+        let declared_order: std::collections::HashMap<String, i32> = diagram
+            .participants
+            .iter()
+            .filter_map(|p| {
+                let name = p.id.alias.as_ref().unwrap_or(&p.id.name);
+                Some((name.clone(), p.order?))
+            })
+            .collect();
+        if !declared_order.is_empty() {
+            let mut keyed: Vec<(i32, String)> = participant_order
+                .drain(..)
+                .enumerate()
+                .map(|(i, name)| (declared_order.get(&name).copied().unwrap_or(i as i32), name))
+                .collect();
+            keyed.sort_by_key(|(key, _)| *key);
+            participant_order.extend(keyed.into_iter().map(|(_, name)| name));
+        }
+
         // Также собираем участников из сообщений
         self.collect_participants_order(diagram, &mut participant_order);
 
@@ -2624,6 +2645,31 @@ mod tests {
         let result = engine.layout(&diagram);
 
         assert!(result.elements.is_empty() || result.elements.len() <= 2);
+    }
+
+    #[test]
+    fn test_participant_order_attribute() {
+        let engine = SequenceLayoutEngine::new();
+        let mut diagram = SequenceDiagram::new();
+        for (name, order) in [("Last", 30), ("First", 10)] {
+            let mut p = Participant::as_participant(name);
+            p.order = Some(order);
+            diagram.add_participant(p);
+        }
+
+        let result = engine.layout(&diagram);
+
+        let x_of = |name: &str| {
+            result
+                .elements
+                .iter()
+                .find_map(|e| match &e.element_type {
+                    ElementType::Rectangle { label, .. } if label == name => Some(e.bounds.x),
+                    _ => None,
+                })
+                .unwrap_or(f64::NAN)
+        };
+        assert!(x_of("First") < x_of("Last"));
     }
 
     #[test]
