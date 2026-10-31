@@ -75,6 +75,9 @@ pub struct Entity {
     pub background_color: Option<Color>,
     /// Является ли сущность слабой (weak entity)
     pub is_weak: bool,
+    /// Перед какими атрибутами стоит разделитель `--` (индексы в `attributes`)
+    #[serde(default)]
+    pub separators: Vec<usize>,
 }
 
 impl Entity {
@@ -86,6 +89,7 @@ impl Entity {
             stereotype: None,
             background_color: None,
             is_weak: false,
+            separators: Vec::new(),
         }
     }
 

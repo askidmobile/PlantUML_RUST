@@ -77,6 +77,7 @@ fn parse_entity(pair: pest::iterators::Pair<Rule>) -> crate::Result<Entity> {
                     )));
                 }
             }
+            Rule::separator => entity.separators.push(entity.attributes.len()),
             Rule::entity_member => {
                 let attr = parse_attribute(inner)?;
                 entity.add_attribute(attr);

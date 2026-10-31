@@ -31,17 +31,8 @@ const ER_ENTITY_CORNER_RADIUS: f64 = 2.5;
 /// содержимом 63.91 — то есть кружок 22, зазор 3 и поле 7.
 const ER_HEADER_WIDTH_EXTRA: f64 = 32.0;
 
-/// Добавка к ширине самого длинного атрибута.
-///
-/// Эталон: «name : string» 93.51 при рамке 105.51 и «id : int» 44.65 при
-/// рамке 56.65 — по 6 с каждой стороны.
-const ER_ATTR_WIDTH_EXTRA: f64 = 12.0;
-
 /// Радиус кружка-иконки сущности (эталон: `rx="11"`).
 const ER_SPOT_RADIUS: f64 = 11.0;
-
-/// Смещение центра кружка от левого края рамки (эталон: 40.719 − 7).
-const ER_SPOT_OFFSET_X: f64 = 33.719;
 
 /// Смещение центра кружка от верха рамки (эталон: 23 − 7).
 const ER_SPOT_OFFSET_Y: f64 = 16.0;
@@ -49,11 +40,17 @@ const ER_SPOT_OFFSET_Y: f64 = 16.0;
 /// Заливка кружка-иконки (эталон: `#ADD1B2`).
 const ER_SPOT_FILL: &str = "#ADD1B2";
 
-/// Кегль буквы в кружке.
-const ER_SPOT_LETTER_FONT_SIZE: f64 = 12.0;
+/// Зазор между кружком и подписью (эталон: 58.88 − 40.719 − 11).
+const ER_SPOT_NAME_GAP: f64 = 7.161;
 
-/// Смещение подписи от центра кружка (эталон: 58.88 − 40.719).
-const ER_NAME_OFFSET_X: f64 = 18.161;
+/// Опускание буквы в кружке от его центра до базиса (как у классов).
+const ER_SPOT_GLYPH_DROP: f64 = 5.6;
+
+/// Толщина разделителя `--` между секциями тела (эталон `real_er_real`).
+const ER_SECTION_LINE_WIDTH: f64 = 1.0;
+
+/// Низ секции атрибутов до следующей черты.
+const ER_SECTION_TAIL: f64 = 8.0;
 
 /// Базис подписи от верха рамки (эталон: 27.85 − 7).
 const ER_NAME_BASELINE: f64 = 20.85;
@@ -146,20 +143,29 @@ impl ErLayoutEngine {
                 // (9.0 для имени и 7.5 для атрибутов)
                 // Без добавочных 3: эталон даёт ровно «текст + 12»
                 // (105.51 при «name : string» 93.51).
-                self.config.text.width(
+                let text_width = self.config.text.width(
                     &format!("{}{}{}", a.name, type_str, stereo_str),
                     self.config.font_size,
-                )
+                );
+                // Отступ слева у обязательного атрибута больше: перед ним кружок.
+                let left = if a.is_required {
+                    ER_REQUIRED_TEXT_OFFSET
+                } else {
+                    ER_PLAIN_TEXT_OFFSET
+                };
+                text_width + left + ER_PLAIN_TEXT_OFFSET
             })
             .fold(0.0, f64::max);
 
         // Атрибут занимает «текст + 12»: эталон даёт 105.51 при «name :
         // string» 93.51 и 56.65 при «id : int» 44.65.
-        let final_width = width.max(max_attr_width + ER_ATTR_WIDTH_EXTRA);
+        let final_width = width.max(max_attr_width);
 
+        // Лишние секции (`--` больше одного раза) добавляют по такому же хвосту.
         let height = self.config.entity_header_height
             + entity.attributes.len() as f64 * self.config.attribute_height
-            + self.config.entity_padding;
+            + self.config.entity_padding
+            + ER_SECTION_TAIL * entity.separators.len().saturating_sub(1) as f64;
 
         Size::new(final_width, height)
     }
@@ -191,66 +197,53 @@ impl ErLayoutEngine {
         };
         elements.push(bg);
 
-        // Кружок-иконка сущности: эталон даёт эллипс r=11 с заливкой
-        // `#ADD1B2` в точке (40.719, 23) при рамке от (7, 7).
-        // Пятно-буква рисуется только если его включает конфиг.
-        //
-        // Раньше кружок с буквой «E» выводился для КАЖДОЙ сущности
-        // безусловно. Ни в одном из эталонных файлов (22 штуки) пятна
-        // нет ни разу, поэтому безусловное рисование заведомо неверно.
-        // Условие, при котором PlantUML пятно всё-таки рисует, не
-        // установлено: пробы на сервере (одна связь и одна сущность в
-        // двух связях) пятна тоже не дали. Поэтому пятно убрано в
-        // конфиг по умолчанию, а не выдумано правило включения.
-        let spot_x = bounds.x + ER_SPOT_OFFSET_X;
+        // Кружок-иконка с буквой «E», как у классов: пара «кружок + подпись»
+        // стоит по центру шапки. Буква — `<text data-glyph="1">`: PlantUML
+        // рисует её контуром, и сверка подписей её словом не считает.
+        let name_width = self
+            .config
+            .text
+            .width(&entity.id.name, self.config.font_size);
+        let pair_width = ER_SPOT_RADIUS * 2.0 + ER_SPOT_NAME_GAP + name_width;
+        let pair_left = bounds.x + ((bounds.width - pair_width) / 2.0).max(2.0);
+        let spot_x = pair_left + ER_SPOT_RADIUS;
         let spot_y = bounds.y + ER_SPOT_OFFSET_Y;
-        if self.config.show_entity_spot {
-            elements.push(LayoutElement {
-                id: format!("entity_{}_spot", entity_id),
-                element_type: ElementType::Ellipse { label: None },
-                bounds: Rect::new(
-                    spot_x - ER_SPOT_RADIUS,
-                    spot_y - ER_SPOT_RADIUS,
-                    ER_SPOT_RADIUS * 2.0,
-                    ER_SPOT_RADIUS * 2.0,
-                ),
-                text: None,
-                properties: [
-                    ("fill".to_string(), ER_SPOT_FILL.to_string()),
-                    ("stroke".to_string(), "#181818".to_string()),
-                ]
+        elements.push(LayoutElement {
+            id: format!("entity_{}_spot", entity_id),
+            element_type: ElementType::Ellipse { label: None },
+            bounds: Rect::new(
+                spot_x - ER_SPOT_RADIUS,
+                spot_y - ER_SPOT_RADIUS,
+                ER_SPOT_RADIUS * 2.0,
+                ER_SPOT_RADIUS * 2.0,
+            ),
+            text: None,
+            properties: [
+                ("fill".to_string(), ER_SPOT_FILL.to_string()),
+                ("stroke".to_string(), "#181818".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        });
+        elements.push(LayoutElement {
+            id: format!("entity_{}_spot_letter", entity_id),
+            element_type: ElementType::Text {
+                text: "E".to_string(),
+                font_size: 17.0,
+            },
+            // Базис буквы — низ `bounds`: так он едет вместе с узлом при переносе.
+            bounds: Rect::new(spot_x, spot_y + ER_SPOT_GLYPH_DROP - 17.0, 0.0, 17.0),
+            text: None,
+            properties: [("data-glyph".to_string(), "1".to_string())]
                 .into_iter()
                 .collect(),
-            });
-
-            let letter_width = self.config.text.width_bold("E", ER_SPOT_LETTER_FONT_SIZE);
-            elements.push(LayoutElement {
-                id: format!("entity_{}_spot_letter", entity_id),
-                element_type: ElementType::Text {
-                    text: "E".to_string(),
-                    font_size: ER_SPOT_LETTER_FONT_SIZE,
-                },
-                bounds: Rect::new(
-                    spot_x - letter_width / 2.0,
-                    spot_y - ER_SPOT_LETTER_FONT_SIZE / 2.0,
-                    letter_width,
-                    ER_SPOT_LETTER_FONT_SIZE,
-                ),
-                text: None,
-                properties: [
-                    ("fill".to_string(), "#000000".to_string()),
-                    ("font-weight".to_string(), "700".to_string()),
-                ]
-                .into_iter()
-                .collect(),
-            });
-        }
+        });
 
         // Название — ОБЫЧНЫМ начертанием справа от кружка.
         //
         // Эталон: «User» кеглем 14 на x = 58.88 при кружке на 40.719,
         // базис — на 20.85 ниже верха рамки.
-        let name_x = spot_x + ER_NAME_OFFSET_X;
+        let name_x = pair_left + ER_SPOT_RADIUS * 2.0 + ER_SPOT_NAME_GAP;
         elements.push(LayoutElement {
             id: format!("entity_{}_name", entity_id),
             element_type: ElementType::Text {
@@ -300,6 +293,35 @@ impl ErLayoutEngine {
         // Атрибуты
         let mut attr_y = bounds.y + self.config.entity_header_height;
         for (i, attr) in entity.attributes.iter().enumerate() {
+            // `--` делит тело на секции: жирная черта через всю ширину.
+            if entity.separators.contains(&i) {
+                let line_y = attr_y + ER_SECTION_TAIL;
+                elements.push(LayoutElement {
+                    id: format!("entity_{}_section_{}", entity_id, i),
+                    element_type: ElementType::Edge {
+                        points: vec![
+                            Point::new(bounds.x + 1.0, line_y),
+                            Point::new(bounds.x + bounds.width - 1.0, line_y),
+                        ],
+                        label: None,
+                        arrow_start: false,
+                        arrow_end: false,
+                        dashed: false,
+                        edge_type: EdgeType::Link,
+                        from_cardinality: None,
+                        to_cardinality: None,
+                    },
+                    bounds: Rect::new(bounds.x + 1.0, line_y, bounds.width - 2.0, 0.0),
+                    text: None,
+                    properties: [(
+                        "stroke-width".to_string(),
+                        ER_SECTION_LINE_WIDTH.to_string(),
+                    )]
+                    .into_iter()
+                    .collect(),
+                });
+                attr_y = line_y;
+            }
             let type_str = attr
                 .data_type
                 .as_ref()

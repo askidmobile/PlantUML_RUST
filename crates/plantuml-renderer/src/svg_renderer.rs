@@ -1317,6 +1317,22 @@ impl SvgRenderer {
                         .set("fill", theme.text_color.to_css()),
                 );
             }
+            ElementType::Text { text, font_size }
+                if element.properties.contains_key("data-glyph") =>
+            {
+                // Буква значка: у PlantUML контур, у нас помеченный `<text>`.
+                group = group.add(
+                    svg::node::element::Text::new(text.as_str())
+                        .set("x", element.bounds.x)
+                        .set("y", element.bounds.y + *font_size)
+                        .set("text-anchor", "middle")
+                        .set("data-glyph", "1")
+                        .set("font-family", "monospace")
+                        .set("font-size", *font_size)
+                        .set("font-weight", "bold")
+                        .set("fill", Color::new("#000000").to_css()),
+                );
+            }
             ElementType::Text { text, font_size } => {
                 let bold = element.properties.contains_key("font-weight");
                 let fill = element
