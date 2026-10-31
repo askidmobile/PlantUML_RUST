@@ -2188,7 +2188,9 @@ impl SvgRenderer {
         let label_y = if footer {
             top + PARTICIPANT_FOOTER_LABEL_BASELINE
         } else {
-            bottom - PARTICIPANT_LABEL_BASELINE_GAP
+            // Многострочная подпись растёт вниз: фигура уже удлинена на эти строки.
+            let extra_lines = label.replace("\\n", "\n").lines().count().saturating_sub(1) as f64;
+            bottom - PARTICIPANT_LABEL_BASELINE_GAP - extra_lines * CLUSTER_LINE_HEIGHT
         };
         // Подпись фигурных участников PlantUML смещает на 3 влево от оси:
         // эталон `sequence_participants` даёт центр «Database» на 553.089
