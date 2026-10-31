@@ -35,6 +35,10 @@ const PACKAGE_TITLE_EXTRA: f64 = 76.0;
 /// Диаметр кружка интерфейса (эталон: радиус 8).
 const INTERFACE_DIAMETER: f64 = 16.0;
 
+/// Сторона квадрата порта и зазор до подписи (эталон `feat_component_porty`).
+const PORT_SIDE: f64 = 12.0;
+const PORT_LABEL_GAP: f64 = 4.0;
+
 /// Ширина значка boundary (скобка и кружок) и высота значка с подписью (эталон).
 const ICON_MIN_WIDTH: f64 = 44.0;
 const ICON_HEIGHT: f64 = 43.3;
@@ -296,6 +300,7 @@ impl ComponentLayoutEngine {
                 text_width * 1.15 + 14.8,
                 (block + 12.1).max(28.4),
             ),
+            ComponentType::Port => return self.create_port_element(name, text_width),
             ComponentType::Interface => return self.create_interface_element(name),
             ComponentType::Actor => return self.create_actor_element(name, text_width),
             ComponentType::Boundary | ComponentType::Control | ComponentType::Entity => {
@@ -329,6 +334,34 @@ impl ComponentLayoutEngine {
             text: None,
             properties,
             element_type,
+        }
+    }
+
+    /// Порт (`port`, `portin`, `portout`): квадрат 12 на 12 с подписью справа.
+    ///
+    /// Положение на рамке компонента не вычисляется: порт живёт узлом внутри неё.
+    fn create_port_element(&self, name: &str, text_width: f64) -> LayoutElement {
+        let properties: HashMap<String, String> = [
+            ("shape".to_string(), "port".to_string()),
+            ("fill".to_string(), "#F1F1F1".to_string()),
+            ("stroke-width".to_string(), "1.5".to_string()),
+        ]
+        .into_iter()
+        .collect();
+        LayoutElement {
+            id: format!("port_{}", name.replace(' ', "_")),
+            bounds: Rect::new(
+                0.0,
+                0.0,
+                PORT_SIDE + PORT_LABEL_GAP + text_width,
+                LINE_HEIGHT,
+            ),
+            text: None,
+            properties,
+            element_type: ElementType::Rectangle {
+                label: name.to_string(),
+                corner_radius: 0.0,
+            },
         }
     }
 

@@ -293,12 +293,30 @@ pub fn cluster_frame(
 }
 
 /// Фигура элемента по виду: контур и центр подписи. `None` — вид не знаком.
+/// Сторона квадрата порта и зазор до подписи (эталон `feat_component_porty`).
+pub const PORT_SIDE: f64 = 12.0;
+pub const PORT_LABEL_GAP: f64 = 4.0;
+
 pub fn symbol(kind: &str, b: &Rect, ink: &Ink) -> Option<(Vec<Shape>, TextSpot)> {
     let (x, y, w, h) = (b.x, b.y, b.width, b.height);
     let (cx, cy) = (x + w / 2.0, y + h / 2.0);
     let (r, bottom) = (x + w, y + h);
     let plain = TextSpot { cx, cy };
     Some(match kind {
+        // Порт: квадрат 12 на 12 у левого края, подпись правее в оставшейся ширине.
+        "port" => (
+            vec![rect_plain(
+                x,
+                cy - PORT_SIDE / 2.0,
+                PORT_SIDE,
+                PORT_SIDE,
+                ink,
+            )],
+            TextSpot {
+                cx: x + PORT_SIDE + PORT_LABEL_GAP + (w - PORT_SIDE - PORT_LABEL_GAP) / 2.0,
+                cy,
+            },
+        ),
         "component" => {
             // Значок компонента: прямоугольник с двумя «штырьками».
             let shapes: Vec<Shape> = vec![
