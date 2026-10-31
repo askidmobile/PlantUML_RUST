@@ -2,7 +2,7 @@
 //!
 //! Реализация алгоритма размещения элементов sequence diagram.
 
-use plantuml_ast::common::{LineStyle, Note, NotePosition};
+use plantuml_ast::common::{LineStyle, Note, NotePosition, NoteShape};
 
 /// Ширина петли self-message в пикселях.
 ///
@@ -249,6 +249,15 @@ const NOTE_WIDTH_EXTRA: f64 = 20.17;
 
 /// Зазор между заметками на одной строке.
 const NOTE_PARALLEL_GAP: f64 = 4.0;
+/// Запас ширины рамки сверх текста у `hnote`: 40 при тексте 16.51 (эталон).
+const NOTE_HEX_EXTRA: f64 = 23.49;
+/// То же у `rnote`: 24 при тексте 16.51.
+const NOTE_BOX_EXTRA: f64 = 7.49;
+/// Высота `hnote`/`rnote` ниже обычной заметки на 2: 23 против 25.
+const NOTE_PLAIN_TRIM: f64 = 2.0;
+/// Отступ текста от левого края `hnote` и `rnote`.
+const NOTE_HEX_INSET: f64 = 12.0;
+const NOTE_BOX_INSET: f64 = 4.0;
 
 /// Layout engine для sequence diagrams
 pub struct SequenceLayoutEngine {
@@ -1979,8 +1988,16 @@ impl SequenceLayoutEngine {
         });
         // Нижней границы нет: в эталоне `feat_seq_note_varianty` рамка «n1» 37 шириной,
         // а не базовые 94.
-        let width = widest + NOTE_WIDTH_EXTRA;
-        let height = self.config.note_height + count.saturating_sub(1) as f64 * NOTE_LINE_HEIGHT;
+        // Поля и высота шестиугольника и прямоугольника без сгиба — из эталона
+        // `feat_seq_note_varianty` (hnote 40x23, rnote 24x23 при тексте 16.51).
+        let (extra, height_trim) = match note.shape {
+            NoteShape::Folded => (NOTE_WIDTH_EXTRA, 0.0),
+            NoteShape::Hexagon => (NOTE_HEX_EXTRA, NOTE_PLAIN_TRIM),
+            NoteShape::Box => (NOTE_BOX_EXTRA, NOTE_PLAIN_TRIM),
+        };
+        let width = widest + extra;
+        let height = self.config.note_height - height_trim
+            + count.saturating_sub(1) as f64 * NOTE_LINE_HEIGHT;
         (width, height)
     }
 
@@ -2096,7 +2113,15 @@ impl SequenceLayoutEngine {
         // 110.987, а текст — на 116.987, то есть отступ 6. Прежде текст
         // центрировался и при длинной подписи выходил за рамку.
         properties.insert("text-align".to_string(), "left".to_string());
-        properties.insert("text-inset".to_string(), NOTE_TEXT_INSET.to_string());
+        let (inset, shape_name) = match note.shape {
+            NoteShape::Folded => (NOTE_TEXT_INSET, None),
+            NoteShape::Hexagon => (NOTE_HEX_INSET, Some("hexagon")),
+            NoteShape::Box => (NOTE_BOX_INSET, Some("box")),
+        };
+        properties.insert("text-inset".to_string(), inset.to_string());
+        if let Some(name) = shape_name {
+            properties.insert("note-shape".to_string(), name.to_string());
+        }
         // Текст примечания PlantUML пишет кеглем 13, а не темой (14):
         // эталон `sequence_notes` даёт `font-size="13"` и textLength 73.830
         // против наших 79.509.

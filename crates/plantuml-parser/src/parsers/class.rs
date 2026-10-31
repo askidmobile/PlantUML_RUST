@@ -1025,6 +1025,7 @@ fn parse_note_statement(
         position,
         anchors,
         background_color: background,
+        shape: Default::default(),
     });
     if let Some(alias) = alias {
         diagram.note_aliases.push((alias, index));

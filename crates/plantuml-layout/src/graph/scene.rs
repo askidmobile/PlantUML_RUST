@@ -490,6 +490,7 @@ mod tests {
             text: "текст".to_string(),
             anchors: vec!["A".to_string()],
             background_color: None,
+            shape: Default::default(),
         });
         let out = s.build();
         let a = out.elements.iter().find(|e| e.id == "A").map(|e| e.bounds);

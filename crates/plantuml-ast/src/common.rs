@@ -204,6 +204,21 @@ pub struct Note {
     pub anchors: Vec<String>,
     /// Цвет фона
     pub background_color: Option<Color>,
+    /// Форма рамки (`note`, `hnote`, `rnote`)
+    #[serde(default)]
+    pub shape: NoteShape,
+}
+
+/// Форма рамки заметки
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum NoteShape {
+    /// Прямоугольник с загнутым углом (`note`)
+    #[default]
+    Folded,
+    /// Шестиугольник (`hnote`)
+    Hexagon,
+    /// Прямоугольник без сгиба (`rnote`)
+    Box,
 }
 
 /// Позиция заметки

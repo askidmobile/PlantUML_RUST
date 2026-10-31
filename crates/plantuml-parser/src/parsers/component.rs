@@ -479,6 +479,7 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
         position,
         anchors,
         background_color: None,
+        shape: Default::default(),
     })
 }
 

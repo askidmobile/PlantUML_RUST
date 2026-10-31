@@ -5,7 +5,7 @@
 use pest::Parser;
 use pest_derive::Parser;
 
-use plantuml_ast::common::{Color, LineStyle, Note, NotePosition, Stereotype};
+use plantuml_ast::common::{Color, LineStyle, Note, NotePosition, NoteShape, Stereotype};
 use plantuml_ast::sequence::{
     Activation, ActivationType, ArrowType, AutonumberCommand, AutonumberStart, BoundarySide, Delay,
     Divider, Duration, Fragment, FragmentSection, FragmentType, Message, Participant,
@@ -819,6 +819,7 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
     let mut position = NotePosition::Right;
     let mut anchors: Vec<String> = Vec::new();
     let mut text = String::new();
+    let mut shape = NoteShape::Folded;
 
     fn parse_note_inner(
         pair: pest::iterators::Pair<Rule>,
@@ -832,7 +833,12 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
                     *position = NotePosition::Over;
                     parse_note_inner(inner, position, anchors, text);
                 }
-                Rule::note_left_right | Rule::note_multi | Rule::hnote | Rule::rnote => {
+                Rule::note_left_right | Rule::note_multi => {
+                    parse_note_inner(inner, position, anchors, text);
+                }
+                // hnote/rnote бывают только `over`, форма рамки — их отличие
+                Rule::hnote | Rule::rnote => {
+                    *position = NotePosition::Over;
                     parse_note_inner(inner, position, anchors, text);
                 }
                 Rule::note_position => {
@@ -865,6 +871,13 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
         }
     }
 
+    for inner in pair.clone().into_inner() {
+        match inner.as_rule() {
+            Rule::hnote => shape = NoteShape::Hexagon,
+            Rule::rnote => shape = NoteShape::Box,
+            _ => {}
+        }
+    }
     parse_note_inner(pair, &mut position, &mut anchors, &mut text);
 
     Some(Note {
@@ -872,6 +885,7 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
         anchors,
         text,
         background_color: None,
+        shape,
     })
 }
 

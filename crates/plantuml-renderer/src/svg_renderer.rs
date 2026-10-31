@@ -1752,25 +1752,54 @@ impl SvgRenderer {
         let fold_x = right - fold;
         let fold_y = y + fold;
 
-        let body = format!(
-            "M{x},{y} L{x},{bottom} L{right},{bottom} L{right},{fold_y} L{fold_x},{y} L{x},{y}"
-        );
-        let corner = format!("M{fold_x},{y} L{fold_x},{fold_y} L{right},{fold_y}");
-
-        group = group.add(
-            svg::node::element::Path::new()
-                .set("d", body)
-                .set("fill", fill)
-                .set("stroke", stroke.clone())
-                .set("stroke-width", theme.line_width * 0.5),
-        );
-        group = group.add(
-            svg::node::element::Path::new()
-                .set("d", corner)
-                .set("fill", "none")
-                .set("stroke", stroke)
-                .set("stroke-width", theme.line_width * 0.5),
-        );
+        match properties.get("note-shape").map(String::as_str) {
+            Some("hexagon") => {
+                // Скос по бокам 10, как у `hnote` в эталоне.
+                let mid = y + bounds.height / 2.0;
+                let (l, r) = (x + 10.0, right - 10.0);
+                let points =
+                    format!("{l},{y} {r},{y} {right},{mid} {r},{bottom} {l},{bottom} {x},{mid}");
+                group = group.add(
+                    svg::node::element::Polygon::new()
+                        .set("points", points)
+                        .set("fill", fill)
+                        .set("stroke", stroke)
+                        .set("stroke-width", theme.line_width * 0.5),
+                );
+            }
+            Some("box") => {
+                group = group.add(
+                    svg::node::element::Rectangle::new()
+                        .set("x", x)
+                        .set("y", y)
+                        .set("width", bounds.width)
+                        .set("height", bounds.height)
+                        .set("fill", fill)
+                        .set("stroke", stroke)
+                        .set("stroke-width", theme.line_width * 0.5),
+                );
+            }
+            _ => {
+                let body = format!(
+                    "M{x},{y} L{x},{bottom} L{right},{bottom} L{right},{fold_y} L{fold_x},{y} L{x},{y}"
+                );
+                let corner = format!("M{fold_x},{y} L{fold_x},{fold_y} L{right},{fold_y}");
+                group = group.add(
+                    svg::node::element::Path::new()
+                        .set("d", body)
+                        .set("fill", fill)
+                        .set("stroke", stroke.clone())
+                        .set("stroke-width", theme.line_width * 0.5),
+                );
+                group = group.add(
+                    svg::node::element::Path::new()
+                        .set("d", corner)
+                        .set("fill", "none")
+                        .set("stroke", stroke)
+                        .set("stroke-width", theme.line_width * 0.5),
+                );
+            }
+        }
 
         let label_font_size = properties
             .get("font-size")

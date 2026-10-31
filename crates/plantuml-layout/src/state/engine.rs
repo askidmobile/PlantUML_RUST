@@ -630,6 +630,7 @@ mod tests {
             text: "строка 1\nстрока 2".to_string(),
             anchors: vec!["A".to_string()],
             background_color: None,
+            shape: Default::default(),
         });
 
         let result = StateLayoutEngine::new().layout(&diagram);

@@ -644,6 +644,7 @@ fn parse_note(pair: pest::iterators::Pair<Rule>) -> Option<Note> {
         position,
         anchors: vec![],
         background_color: None,
+        shape: Default::default(),
     })
 }
 
