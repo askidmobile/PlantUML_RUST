@@ -163,6 +163,15 @@ pub fn render_png(
         .map_err(|e| Error::Render(e.to_string()))
 }
 
+/// Раскладка схемы без отрисовки; только для проверок проекта.
+#[doc(hidden)]
+pub fn layout_for_checks(
+    source: &str,
+    options: &RenderOptions,
+) -> Result<(Diagram, plantuml_layout::LayoutResult)> {
+    pipeline::layout_only(source, options)
+}
+
 /// Парсит PlantUML и возвращает AST без рендеринга.
 ///
 /// Полезно для анализа структуры диаграммы или для собственного рендеринга.

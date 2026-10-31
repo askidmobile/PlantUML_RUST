@@ -141,6 +141,14 @@ fn parse_with_settings(original: &str, processed: &str) -> Result<Diagram> {
 }
 
 /// Этап layout
+/// Раскладка без отрисовки: нужна проверкам читаемости по корпусу.
+pub fn layout_only(source: &str, options: &RenderOptions) -> Result<(Diagram, LayoutResult)> {
+    let (processed, _) = preprocess(source)?;
+    let diagram = parse_with_settings(source, &processed)?;
+    let result = layout(&diagram, options)?;
+    Ok((diagram, result))
+}
+
 fn layout(diagram: &Diagram, _options: &RenderOptions) -> Result<LayoutResult> {
     let _config = LayoutConfig::default();
 

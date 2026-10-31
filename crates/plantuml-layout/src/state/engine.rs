@@ -190,7 +190,13 @@ impl StateLayoutEngine {
                 }
                 let base = endpoint_base(raw);
                 if !declared_elsewhere(base, scene) {
-                    let (mut element, _) = self.create_simple_state(base, 0.0, 0.0, None);
+                    // `S --> [H]`: круг истории, а не состояние с таким именем.
+                    let kind = match base {
+                        "[H]" => StateType::History,
+                        "[H*]" => StateType::DeepHistory,
+                        _ => StateType::Simple,
+                    };
+                    let (mut element, _) = self.create_state_element(base, kind, 0.0, 0.0, None);
                     element.bounds.x = 0.0;
                     scene.add_node(cluster, &[base], vec![element]);
                 }
@@ -547,7 +553,8 @@ impl StateLayoutEngine {
         y: f64,
         deep: bool,
     ) -> (LayoutElement, Rect) {
-        let r = self.config.node_radius * 0.8;
+        // Эталон `ref_lang_068`: круг радиусом 11, заливка #F1F1F1, линия 0.5.
+        let r = 11.0;
         let cx = x + self.config.state_width / 2.0;
         let cy = y + r;
 
@@ -560,7 +567,13 @@ impl StateLayoutEngine {
                 id: format!("history_{}", name.replace(['[', ']', '*'], "")),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: [
+                    ("fill".to_string(), "#F1F1F1".to_string()),
+                    ("stroke".to_string(), "#181818".to_string()),
+                    ("stroke-width".to_string(), "0.5".to_string()),
+                ]
+                .into_iter()
+                .collect(),
                 element_type: ElementType::Ellipse {
                     label: Some(label.to_string()),
                 },

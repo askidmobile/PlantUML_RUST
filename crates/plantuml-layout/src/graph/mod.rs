@@ -155,6 +155,30 @@ impl Vertex {
     }
 }
 
+/// Узел рамки без связей встаёт на верхний ранг её связанных узлов, а не на самый верх
+/// схемы: иначе рамка растягивается через чужие ранги (как `compound` в dot).
+fn align_isolated_members(input: &GraphInput, ranks: &mut [i64]) {
+    let n = input.nodes.len();
+    let mut connected = vec![false; n];
+    for edge in input
+        .edges
+        .iter()
+        .filter(|e| e.from < n && e.to < n && e.from != e.to)
+    {
+        connected[edge.from] = true;
+        connected[edge.to] = true;
+    }
+    for cluster in 0..input.clusters.len() {
+        let members = || (0..n).filter(|v| input.nodes[*v].cluster == Some(cluster));
+        let top = members().filter(|v| connected[*v]).map(|v| ranks[v]).min();
+        if let Some(top) = top {
+            for v in members().filter(|v| !connected[*v]) {
+                ranks[v] = top;
+            }
+        }
+    }
+}
+
 /// Участок ребра между соседними рангами.
 #[derive(Debug, Clone, Copy)]
 struct Segment {
@@ -171,7 +195,8 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
     let swap = |w: f64, h: f64| if horizontal { (h, w) } else { (w, h) };
 
     let flipped = find_back_edges(input);
-    let ranks = assign_ranks(input, &flipped);
+    let mut ranks = assign_ranks(input, &flipped);
+    align_isolated_members(input, &mut ranks);
 
     // Подписи занимают отдельный ранг, поэтому настоящие ранги удваиваются.
     let mut vertices: Vec<Vertex> = input
@@ -245,6 +270,31 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
             upper: previous,
             lower,
         });
+    }
+
+    // Рамка занимает все ранги между своими узлами. Без вершины на промежуточном ранге
+    // ни порядок в ряду, ни ограничения по рамке не знают о ней, и чужой узел встаёт внутрь.
+    let member_paths = cluster_paths(input, &vertices);
+    for cluster in 0..input.clusters.len() {
+        let covered: std::collections::BTreeSet<i64> = (0..vertices.len())
+            .filter(|v| member_paths[*v].contains(&cluster))
+            .map(|v| vertex_rank[v])
+            .collect();
+        let (Some(&first), Some(&last)) = (covered.first(), covered.last()) else {
+            continue;
+        };
+        for rank in first..=last {
+            if !covered.contains(&rank) {
+                vertices.push(Vertex {
+                    width: 0.0,
+                    height: 0.0,
+                    cluster: Some(cluster),
+                    is_real: false,
+                    label_side: 0.0,
+                });
+                vertex_rank.push(rank);
+            }
+        }
     }
 
     let rank_count = vertex_rank.iter().copied().max().unwrap_or(0) as usize + 1;
@@ -1000,6 +1050,35 @@ fn finish(
             };
             labels[index] = Some(((ax + bx) / 2.0, (ay + by) / 2.0 - lift));
         }
+        // Связь одного ранга идёт поверх узла между концами, а не сквозь него.
+        if edge.same_rank && points.len() == 2 {
+            let (a, b) = (points[0], points[1]);
+            let blockers: Vec<Boxed> = (0..n_real)
+                .filter(|v| *v != upper && *v != lower)
+                .map(|v| nodes[v])
+                .filter(|box_| {
+                    a.1 > box_.y
+                        && a.1 < box_.y + box_.height
+                        && a.0.min(b.0) < box_.x + box_.width
+                        && a.0.max(b.0) > box_.x
+                })
+                .collect();
+            if !blockers.is_empty() {
+                let top = blockers.iter().map(|b| b.y).fold(f64::MAX, f64::min) - 12.0;
+                let start = blockers.iter().map(|b| b.x).fold(f64::MAX, f64::min) - 8.0;
+                let end = blockers
+                    .iter()
+                    .map(|b| b.x + b.width)
+                    .fold(f64::MIN, f64::max)
+                    + 8.0;
+                let (first, second) = if a.0 < b.0 {
+                    (start, end)
+                } else {
+                    (end, start)
+                };
+                points = vec![a, (first, top), (second, top), b];
+            }
+        }
         clip_ends(&mut points, nodes[upper], nodes[lower]);
         let (upper_cluster, lower_cluster) = if flipped[index] {
             (edge.to_cluster, edge.from_cluster)
@@ -1124,20 +1203,20 @@ fn cut_at_box(points: &mut Vec<Point>, b: Boxed) {
         return;
     }
     let (a, c) = (points[first_inside - 1], points[first_inside]);
-    // Ищем пересечение с рамкой по параметру отрезка.
-    let mut t: f64 = 1.0;
-    let mut try_edge = |value: f64, from: f64, to: f64| {
-        if (to - from).abs() > f64::EPSILON {
-            let candidate = (value - from) / (to - from);
-            if candidate > 0.0 && candidate < t {
-                t = candidate;
-            }
+    // Вход в прямоугольник: позднейшее из пересечений со стороной по каждой оси. Самое раннее
+    // могло бы лежать на продолжении стороны, вне рамки, и линия не дошла бы до неё.
+    let enter = |low: f64, high: f64, from: f64, to: f64| {
+        if (to - from).abs() <= f64::EPSILON {
+            0.0
+        } else if to > from {
+            (low - from) / (to - from)
+        } else {
+            (high - from) / (to - from)
         }
     };
-    try_edge(b.x, a.0, c.0);
-    try_edge(b.x + b.width, a.0, c.0);
-    try_edge(b.y, a.1, c.1);
-    try_edge(b.y + b.height, a.1, c.1);
+    let t = enter(b.x, b.x + b.width, a.0, c.0)
+        .max(enter(b.y, b.y + b.height, a.1, c.1))
+        .clamp(0.0, 1.0);
     let hit = (a.0 + (c.0 - a.0) * t, a.1 + (c.1 - a.1) * t);
     points.truncate(first_inside);
     points.push(hit);
@@ -1302,6 +1381,54 @@ mod tests {
         let middle = (center(r.nodes[2]) + center(r.nodes[3])) / 2.0;
         assert!((center(r.nodes[1]) - middle).abs() < 1.0, "{:?}", r.nodes);
         assert!((center(r.nodes[0]) - middle).abs() < 1.0, "{:?}", r.nodes);
+    }
+
+    #[test]
+    fn test_outside_node_stays_out_of_tall_cluster() {
+        // Рамка {1, 2, 3} со связью 1 -> 3; узел 4 стоит между ними по рангу.
+        let mut long = edge(1, 2);
+        long.min_rank = 2;
+        let mut data = input(
+            vec![node(Some(0)), node(Some(0)), node(Some(0)), node(None)],
+            vec![edge(0, 3), edge(3, 2), edge(0, 1), long],
+        );
+        data.clusters = vec![GraphCluster {
+            parent: None,
+            title_height: 20.0,
+            min_width: 0.0,
+        }];
+        let r = layout(&data);
+        no_overlaps(&r);
+        let frame = r.clusters[0];
+        let outside = r.nodes[3];
+        assert!(
+            outside.x + outside.width <= frame.x + 0.5 || outside.x >= frame.x + frame.width - 0.5,
+            "{outside:?} внутри {frame:?}"
+        );
+    }
+
+    #[test]
+    fn test_same_rank_edge_goes_around_node_between() {
+        let mut flat_a = edge(0, 1);
+        flat_a.same_rank = true;
+        let mut flat_b = edge(1, 2);
+        flat_b.same_rank = true;
+        let mut over = edge(0, 2);
+        over.same_rank = true;
+        let r = layout(&input(
+            vec![node(None), node(None), node(None)],
+            vec![flat_a, flat_b, over],
+        ));
+        let middle = r.nodes[1];
+        let hits = r.edges[2].windows(2).any(|pair| {
+            let (a, b) = (pair[0], pair[1]);
+            (a.1 - b.1).abs() < 0.5
+                && a.1 > middle.y
+                && a.1 < middle.y + middle.height
+                && a.0.min(b.0) < middle.x + middle.width
+                && a.0.max(b.0) > middle.x
+        });
+        assert!(!hits, "линия прошла сквозь узел: {:?}", r.edges[2]);
     }
 
     #[test]

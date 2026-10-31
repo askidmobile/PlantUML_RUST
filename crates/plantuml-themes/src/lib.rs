@@ -386,7 +386,7 @@ impl SkinParams {
                     .any(|element| lower.starts_with(element))
             })
             .collect();
-        keys.sort_by_key(|key| (key.to_lowercase().starts_with("rectangle"), key.as_str()));
+        keys.sort_by_cached_key(|key| (key.to_lowercase().starts_with("rectangle"), key.as_str()));
         for key in keys {
             let Some(value) = self.params.get(key) else {
                 continue;
