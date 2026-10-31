@@ -1,6 +1,6 @@
 # plantuml-rs
 
-**Pure Rust библиотека для рендеринга UML диаграмм, полностью совместимая с PlantUML**
+**Pure Rust движок PlantUML: схема либо нарисована со всем содержимым, либо вы получаете понятную ошибку с номером строки.**
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
 [![CI](https://github.com/askidmobile/PlantUML_RUST/workflows/CI/badge.svg)](https://github.com/askidmobile/PlantUML_RUST/actions)
@@ -13,8 +13,17 @@
 
 ## Особенности
 
-- **Совместимость с PlantUML** — 16 типов диаграмм, сверка с эталоном
-  по 20 контрольным кейсам; полный синтаксис PlantUML не покрыт
+- **Сверено с настоящим PlantUML** — 278 схем корпуса `tests/golden/corpus/` с эталонами
+  plantuml.com: нет ошибок разбора и потерянных слов. Пиксельной идентичности нет:
+  метрики шрифтов зависят от среды
+- **Без молчаливых потерь** — нераспознанная строка и неподдержанный тип дают ошибку,
+  а не неполную картинку
+- **Встраивается в приложение** — не навязывает глобальный аллокатор, глубина вложенности
+  ограничена, враждебный ввод проходит на стеке 2 МБ за 5 с; `render()` не обращается
+  к сети и файлам
+- **Послойная раскладка** — этапы Graphviz dot на чистом Rust: class, object, ER, state,
+  component, deployment, use case
+- **Тёмная тема** — `RenderOptions::default().with_dark(true)`
 - **Pure Rust** — без зависимостей от C/C++ библиотек
 - **WASM поддержка** — работает в браузере через WebAssembly
 - **SVG вывод** — векторная графика высокого качества
@@ -46,6 +55,11 @@
 - Salt (Wireframe)
 - ER Diagram
 - Archimate
+- Railroad (`@startregex`, `@startebnf`)
+- Chart (`@startchart`)
+
+Вне объёма и дают ошибку с названием типа: `@startditaa`, `@startlatex`, `@startmath`.
+Цветовые темы `!theme`, кроме встроенных, рисуются цветами по умолчанию.
 
 ---
 

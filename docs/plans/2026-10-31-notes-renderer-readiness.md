@@ -82,32 +82,33 @@ Error::EmptyDiagram                       // текст есть, элемент
 - **Проверка:** гейт: падает число ошибок разбора, `Animal <|-- Dog` рисуется.
 
 ### Фаза 3: Синтаксис по типам (16 ч)
-- [ ] [P] Sequence → `grammars/sequence.pest`, `parsers/sequence.rs`, `plantuml-layout/src/sequence/`
-- [ ] [P] Class, object, ER → `grammars/{class,object,er}.pest`, `parsers/{class,object,er}.rs`
-- [ ] [P] Activity → `grammars/activity.pest`, `parsers/activity.rs`, `plantuml-layout/src/activity/`
-- [ ] [P] State → `grammars/state.pest`, `parsers/state.rs`, `plantuml-layout/src/state/`
-- [ ] [P] Component, deployment, usecase → `grammars/{component,usecase}.pest`, `parsers/{component,usecase}.rs`
-- [ ] [P] Gantt, mindmap, WBS, YAML, JSON, salt, network, archimate, timing → соответствующие грамматики
-- [ ] Просмотр всех веток `_ => {}` в `parsers/*.rs`: разобранное попадает в AST и в вывод
+- [x] [P] Sequence → `grammars/sequence.pest`, `parsers/sequence.rs`, `plantuml-layout/src/sequence/`
+- [x] [P] Class, object, ER → `grammars/{class,object,er}.pest`, `parsers/{class,object,er}.rs`
+- [x] [P] Activity → `grammars/activity.pest`, `parsers/activity.rs`, `plantuml-layout/src/activity/`
+- [x] [P] State → `grammars/state.pest`, `parsers/state.rs`, `plantuml-layout/src/state/`
+- [x] [P] Component, deployment, usecase → `grammars/{component,usecase}.pest`, `parsers/{component,usecase}.rs`
+- [x] [P] Gantt, mindmap, WBS, YAML, JSON, salt, network, archimate, timing → соответствующие грамматики
+- [x] Просмотр всех веток `_ => {}` в `parsers/*.rs`: разобранное попадает в AST и в вывод
+- deviated: добавлен набор `hold_*` из 31 схемы, не использованной при правках; он нашёл дефекты, которых не было в остальном корпусе
 - **Проверка:** гейт зелёный по ошибкам разбора для всех `ref_*`, `feat_*`, `real_*`.
 
 ### Фаза 4: Подписи (6 ч)
-- [ ] Единый разбор подписи: `\n`, creole, цвет, размер, таблицы, списки, спрайты → `crates/plantuml-renderer/src/`, `crates/plantuml-layout/src/text.rs`
-- [ ] Ссылки `[[…]]` разбираются, в вывод только http, https, mailto → `crates/plantuml-renderer/src/svg_renderer.rs`
-- [ ] `!define` с заменой в теле, `<$sprite>`, `<&icon>`, `<:emoji:>` → `crates/plantuml-preprocessor/src/`, `crates/plantuml-stdlib/`
-- [ ] C4 рисуется с заливкой и подписями → `crates/plantuml-stdlib/`, `crates/plantuml-layout/src/component/`
+- [x] Единый разбор подписи: `\n`, creole, цвет, размер, таблицы, списки, спрайты → `crates/plantuml-renderer/src/`, `crates/plantuml-layout/src/text.rs`
+- [x] Ссылки `[[…]]` разбираются, в вывод только http, https, mailto → `crates/plantuml-renderer/src/svg_renderer.rs`
+- [x] `!define` с заменой в теле, `<$sprite>`, `<&icon>`, `<:emoji:>` → `crates/plantuml-preprocessor/src/`, `crates/plantuml-stdlib/`
+- [x] C4 рисуется с заливкой и подписями → `crates/plantuml-stdlib/`, `crates/plantuml-layout/src/component/`
 - **Проверка:** гейт: 0 потерянных слов; сверка `real_*` глазами с эталоном.
 
 ### Фаза 5: Послойная раскладка (16 ч)
-- [ ] Ядро: ранги network simplex, порядок median+transpose, координаты, маршрут рёбер → `crates/plantuml-layout/src/graph/`
-- [ ] Перевод class, object, ER, state, component, usecase на ядро → соответствующие `engine.rs`
-- [ ] Кластеры: пакеты, вложенные состояния → `crates/plantuml-layout/src/graph/`
-- [ ] Проверка читаемости по корпусу → `crates/plantuml-core/tests/readability_tests.rs`
+- [x] Ядро: ранги network simplex, порядок median+transpose, координаты, маршрут рёбер → `crates/plantuml-layout/src/graph/`
+- [x] Перевод class, object, ER, state, component, usecase на ядро → соответствующие `engine.rs`
+- [x] Кластеры: пакеты, вложенные состояния → `crates/plantuml-layout/src/graph/`
+- [x] Проверка читаемости по корпусу → `crates/plantuml-core/tests/readability_tests.rs`
 - **Проверка:** тест читаемости; `golden_report` показывает снижение суммарного расхождения.
 
 ### Фаза 6: Тема и дополнительные типы (5 ч)
-- [ ] Тёмная тема → `crates/plantuml-themes/`, `crates/plantuml-core/src/options.rs`
-- [ ] `@startregex`, `@startebnf`, `@startchart` → новые грамматики и раскладки
+- [x] Тёмная тема → `crates/plantuml-themes/`, `crates/plantuml-core/src/options.rs`
+- [x] `@startregex`, `@startebnf`, `@startchart` → новые грамматики и раскладки
 - **Проверка:** тест тёмной темы на контраст; гейт по этим кейсам зелёный.
 
 ### Фаза 7: Встраивание в Yttri (5 ч)
@@ -118,21 +119,21 @@ Error::EmptyDiagram                       // текст есть, элемент
 - **Проверка:** сборка Yttri, живой прогон без сети, скриншоты в обеих темах.
 
 ### Фаза 8: Завершение (2 ч)
-- [ ] README, CHANGELOG, `docs/AUDIT.md`, гейты CI: fmt, clippy, no-panic, MSRV, WASM
+- [x] README, CHANGELOG, `docs/AUDIT.md`, гейты CI: fmt, clippy, no-panic, MSRV, WASM
 - **Проверка:** полный прогон локально.
 
 ## Трассировка
 
 | Требование | Фаза |
 |------------|------|
-| FR-001, FR-002 | 0 ✅ механизм, зелёный гейт после фаз 2–4 |
-| FR-003, FR-004 | 2 |
-| FR-005 | 2, 3 |
-| FR-006 | 4 |
+| FR-001, FR-002 | 0, 2–4 ✅ |
+| FR-003, FR-004 | 2 ✅ |
+| FR-005 | 2, 3 ✅ |
+| FR-006 | 4 ✅ |
 | FR-007, FR-008 | 1 ✅ |
 | FR-009 | 7 |
-| FR-010, FR-011 | 5 |
-| FR-012, FR-020 | 6 |
+| FR-010, FR-011 | 5 ✅ |
+| FR-012, FR-020 | 6 ✅ |
 
 ## Риски
 
@@ -152,6 +153,7 @@ Error::EmptyDiagram                       // текст есть, элемент
 | PD-003 | Отдельный крейт для раскладки или `crates/plantuml-layout/src/graph/` | Модуль в существующем крейте | 2026-10-31 |
 | PD-004 | Зависимость для графа | Своя реализация: нужны этапы dot и поддержка кластеров, готовые крейты их не дают; остаёмся Pure Rust | 2026-10-31 |
 | PD-005 | Эталоны на сервере | Только тестовые схемы, ничего из заметок | 2026-10-31 |
+| PD-007 | Проверка читаемости | Отдельный тест по всем графовым схемам корпуса через `layout_for_checks`: раскладка доступна без разбора SVG. Функция скрыта из документации, это не публичный API | 2026-10-31 |
 | PD-006 | Отправка на GitHub | Коммиты локально; `3b0f189` с постом не отправлен владельцем, его судьбу решает владелец | 2026-10-31 |
 
 ## Технический долг
