@@ -149,6 +149,16 @@ impl Scene {
         self.names.contains_key(name)
     }
 
+    /// Кластер с таким именем уже есть.
+    pub fn knows_cluster(&self, name: &str) -> bool {
+        self.cluster_names.contains_key(name)
+    }
+
+    /// Индекс кластера по имени.
+    pub fn cluster_named(&self, name: &str) -> Option<usize> {
+        self.cluster_names.get(name).copied()
+    }
+
     /// Добавляет связь.
     pub fn add_edge(&mut self, edge: SceneEdge) {
         self.edges.push(edge);
@@ -302,6 +312,13 @@ impl Scene {
                 let mut element = element.clone();
                 element.bounds.x += boxed.x;
                 element.bounds.y += boxed.y;
+                // Составная фигура: у её линий координаты абсолютные.
+                if let ElementType::Edge { points, .. } = &mut element.element_type {
+                    for point in points.iter_mut() {
+                        point.x += boxed.x;
+                        point.y += boxed.y;
+                    }
+                }
                 elements.push(element);
             }
         }

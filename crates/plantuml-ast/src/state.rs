@@ -161,6 +161,8 @@ pub struct Transition {
     pub action: Option<String>,
     /// Цвет
     pub color: Option<Color>,
+    /// Форма стрелки
+    pub arrow: crate::common::ArrowShape,
 }
 
 impl Transition {
@@ -173,6 +175,7 @@ impl Transition {
             guard: None,
             action: None,
             color: None,
+            arrow: crate::common::ArrowShape::default(),
         }
     }
 

@@ -3,8 +3,15 @@
 //! Конвертирует ObjectDiagram в структуру для рендеринга.
 //! PlantUML размещает объекты вертикально.
 
+use plantuml_ast::common::Direction;
 use plantuml_ast::object::{ObjectDiagram, ObjectLinkType};
 use plantuml_model::{Point, Rect};
+
+use crate::graph::scene::{Scene, SceneEdge};
+use crate::graph::Direction as GraphDirection;
+
+/// Шаг рангов с подписью 77, без неё 60: подпись резервирует сцена.
+const OBJECT_LABEL_RESERVE: f64 = 17.0;
 
 /// Базовая ширина объекта, измеренная по эталону PlantUML.
 const OBJECT_BASE_WIDTH: f64 = 12.41;
@@ -80,27 +87,16 @@ impl ObjectLayoutEngine {
 
     /// Выполняет layout диаграммы объектов
     pub fn layout(&self, diagram: &ObjectDiagram) -> LayoutResult {
-        let mut elements = Vec::new();
-        let mut object_positions: std::collections::HashMap<String, Rect> =
-            std::collections::HashMap::new();
+        let mut scene = Scene::new(
+            self.config.horizontal_spacing,
+            self.config.vertical_spacing - OBJECT_LABEL_RESERVE,
+            self.config.padding,
+            crate::text::TextMeasurer::default(),
+        );
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            scene.set_direction(GraphDirection::LeftToRight);
+        }
 
-        // 1. Размещаем объекты в сетке
-        // PlantUML размещает объекты вертикально: в эталоне object_basic
-        // (138x170) оба объекта стоят на разных y (7 и 120.29), а не в ряд.
-        // Раньше использовалась сетка по 4 в ряд, из-за чего диаграмма
-        // получалась широкой и низкой (350x70 против 138x170).
-        //
-        // Ширина объекта зависит от длины имени: измерено по эталону
-        // («Пользователь», 12 символов — 117.1; «Заказ», 5 — 56.034),
-        // отсюда ширина ≈ 12.41 + 8.724 * n.
-        // Ширина объекта определяется САМЫМ ШИРОКИМ содержимым: именем или
-        // полем. Прежняя формула учитывала только длину имени, поэтому блок
-        // `john : User` выходил 108 при эталонных 223.
-        //
-        // Измерено по эталону `Object: Диаграмма`: поле
-        // `email = "john@example.com"` имеет textLength 211.2, рамка 223 —
-        // то есть текст плюс 11.8. Поле `date = "2024-01-15"` даёт 146.4 и
-        // рамку 158 — та же прибавка 11.6.
         let widths: Vec<f64> = diagram
             .objects
             .iter()
@@ -124,103 +120,6 @@ impl ObjectLayoutEngine {
                 )
             })
             .collect();
-        let max_width = widths.iter().cloned().fold(0.0_f64, f64::max);
-
-        // PlantUML выравнивает объекты по ОБЩЕЙ вертикальной оси: в эталоне
-        // `object_basic` центры «Пользователь» и «Заказ» совпадают
-        // (65.55), хотя ширины рамок разные (117.1 и 56.03). Без этого
-        // связь между ними шла по диагонали вместо вертикали.
-        let diagram_width = max_width + self.config.padding * 2.0;
-
-        // Раскладка по УРОВНЯМ СВЯЗЕЙ, а не списком в столбец.
-        //
-        // Комментарий выше обосновывал столбец эталоном `object_basic`, где
-        // объектов ДВА и они действительно стоят друг под другом. Но при
-        // общем родителе PlantUML разводит детей ПО ГОРИЗОНТАЛИ: эталон
-        // `Object: Диаграмма` ставит `john` сверху (x 71, ширина 223), а
-        // `order1` и `order2` — рядом под ним (x 7 и 200, ширина 158 у обоих).
-        // Столбец давал 169x412 против эталонных 373x253.
-        //
-        // Уровень: корни (без входящих связей) — 0, остальные — на единицу
-        // ниже самого глубокого родителя.
-        let heights: Vec<f64> = diagram
-            .objects
-            .iter()
-            .map(|object| {
-                let fields_height = object.fields.len() as f64 * self.config.field_height;
-                (30.0 + fields_height).max(self.config.object_min_height)
-            })
-            .collect();
-
-        let index_of: std::collections::HashMap<&str, usize> = diagram
-            .objects
-            .iter()
-            .enumerate()
-            .map(|(i, object)| (object.name.as_str(), i))
-            .collect();
-
-        let mut level = vec![0usize; diagram.objects.len()];
-        // Релаксация: уровень цели не меньше уровня источника плюс один.
-        // Числа объектов мало, поэтому простого прохода до стабилизации
-        // достаточно и не нужна топологическая сортировка.
-        for _ in 0..diagram.objects.len() {
-            let mut changed = false;
-            for link in &diagram.links {
-                if let (Some(&from), Some(&to)) = (
-                    index_of.get(link.from.as_str()),
-                    index_of.get(link.to.as_str()),
-                ) {
-                    if level[to] < level[from] + 1 {
-                        level[to] = level[from] + 1;
-                        changed = true;
-                    }
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-
-        // Ширина каждого уровня и его x-начало.
-        let level_count = level.iter().copied().max().unwrap_or(0) + 1;
-        let mut level_width = vec![0.0_f64; level_count];
-        for (i, &l) in level.iter().enumerate() {
-            level_width[l] += widths[i];
-        }
-        // Плюс промежутки между объектами уровня.
-        for (l, width) in level_width.iter_mut().enumerate() {
-            let count = level.iter().filter(|&&x| x == l).count();
-            if count > 1 {
-                *width += (count - 1) as f64 * self.config.horizontal_spacing;
-            }
-        }
-        let widest_level = level_width.iter().cloned().fold(0.0_f64, f64::max);
-
-        let mut level_x = vec![0.0_f64; level_count];
-        let mut level_y = vec![0.0_f64; level_count];
-        let mut cursor_y = self.config.padding;
-        for l in 0..level_count {
-            level_x[l] = self.config.padding + (widest_level - level_width[l]) / 2.0;
-            level_y[l] = cursor_y;
-            let row_height = level
-                .iter()
-                .enumerate()
-                .filter(|(_, &lv)| lv == l)
-                .map(|(i, _)| heights[i])
-                .fold(0.0_f64, f64::max);
-            cursor_y += row_height + self.config.vertical_spacing;
-        }
-
-        let mut cursor_x = level_x.clone();
-        let mut positions: Vec<(f64, f64)> = vec![(0.0, 0.0); diagram.objects.len()];
-        for (i, &l) in level.iter().enumerate() {
-            positions[i] = (cursor_x[l], level_y[l]);
-            cursor_x[l] += widths[i] + self.config.horizontal_spacing;
-        }
-
-        let mut max_x = 0.0f64;
-        let mut max_y = 0.0f64;
-
         for (i, object) in diagram.objects.iter().enumerate() {
             // Рассчитываем высоту объекта
             let header_height = 30.0;
@@ -232,11 +131,9 @@ impl ObjectLayoutEngine {
             let obj_width = widths[i];
 
             // Координаты берутся из раскладки по уровням.
-            let _ = diagram_width;
-            let (x, y) = positions[i];
-            let _ = y;
+            let (x, y) = (0.0, 0.0);
             let bounds = Rect::new(x, y, obj_width, object_height);
-            object_positions.insert(object.name.clone(), bounds);
+            let mut elements = Vec::new();
 
             // Создаём element для объекта.
             //
@@ -326,140 +223,27 @@ impl ObjectLayoutEngine {
             // Габарит считается по ФАКТИЧЕСКОЙ рамке: `config.object_width`
             // — это лишь значение по умолчанию, а ширина каждого объекта
             // выводится из длины имени.
-            max_x = max_x.max(x + obj_width);
-            max_y = max_y.max(y + object_height);
-
-            // Объекты идут по одному в строке: PlantUML расставляет их
-            // вертикально (эталон `object_basic` — 138x170).
-            // Позиции заданы раскладкой по уровням; курсор больше не нужен.
-            let _ = object_height;
+            scene.add_node(None, &[object.name.as_str()], elements);
         }
 
         // 2. Добавляем связи
         for link in &diagram.links {
-            if let (Some(from_bounds), Some(to_bounds)) = (
-                object_positions.get(&link.from),
-                object_positions.get(&link.to),
-            ) {
-                let from_center = from_bounds.center();
-                let to_center = to_bounds.center();
-
-                // Находим точки соединения на границах прямоугольников
-                let (start, end) =
-                    self.find_connection_points(from_bounds, to_bounds, from_center, to_center);
-
-                let dashed = link.link_type.is_dashed();
-
-                elements.push(LayoutElement {
-                    id: format!("link_{}_{}", link.from, link.to),
-                    bounds: Rect::new(
-                        start.x.min(end.x),
-                        start.y.min(end.y),
-                        (end.x - start.x).abs(),
-                        (end.y - start.y).abs(),
-                    ),
-                    text: None,
-                    properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Edge {
-                        points: vec![start, end],
-                        label: link.label.clone(),
-                        arrow_start: matches!(
-                            link.link_type,
-                            ObjectLinkType::Composition | ObjectLinkType::Aggregation
-                        ),
-                        arrow_end: !matches!(link.link_type, ObjectLinkType::Link),
-                        dashed,
-                        edge_type: match link.link_type {
-                            ObjectLinkType::Composition => EdgeType::Composition,
-                            ObjectLinkType::Aggregation => EdgeType::Aggregation,
-                            ObjectLinkType::Dependency => EdgeType::Dependency,
-                            ObjectLinkType::Association => EdgeType::Association,
-                            ObjectLinkType::Link => EdgeType::Link,
-                        },
-                        from_cardinality: None,
-                        to_cardinality: None,
-                    },
-                });
-            }
+            let mut edge = SceneEdge::new(link.from.clone(), link.to.clone(), link.arrow);
+            edge.label = link.label.clone();
+            edge.dashed = link.link_type.is_dashed();
+            edge.edge_type = match link.link_type {
+                ObjectLinkType::Composition => EdgeType::Composition,
+                ObjectLinkType::Aggregation => EdgeType::Aggregation,
+                ObjectLinkType::Dependency => EdgeType::Dependency,
+                ObjectLinkType::Association => EdgeType::Association,
+                ObjectLinkType::Link => EdgeType::Link,
+            };
+            scene.add_edge(edge);
         }
-
-        // 3. Возвращаем результат
-        let mut result = LayoutResult {
-            elements,
-            bounds: Rect::new(
-                0.0,
-                0.0,
-                max_x + self.config.padding,
-                max_y + self.config.padding,
-            ),
-        };
-        result.calculate_bounds();
-        result
-    }
-
-    /// Находит точки соединения на границах прямоугольников
-    fn find_connection_points(
-        &self,
-        from_bounds: &Rect,
-        to_bounds: &Rect,
-        from_center: Point,
-        to_center: Point,
-    ) -> (Point, Point) {
-        let start = self.find_intersection_point(from_bounds, from_center, to_center);
-        let end = self.find_intersection_point(to_bounds, to_center, from_center);
-        (start, end)
-    }
-
-    /// Находит точку пересечения линии с прямоугольником
-    fn find_intersection_point(&self, rect: &Rect, from: Point, to: Point) -> Point {
-        let dx = to.x - from.x;
-        let dy = to.y - from.y;
-
-        // Находим пересечение с каждой стороной прямоугольника
-        let mut best_t = f64::INFINITY;
-
-        // Правая сторона
-        if dx.abs() > 0.001 {
-            let t = (rect.x + rect.width - from.x) / dx;
-            let y = from.y + t * dy;
-            if t > 0.0 && t < best_t && y >= rect.y && y <= rect.y + rect.height {
-                best_t = t;
-            }
+        for note in &diagram.notes {
+            scene.add_note(note.clone());
         }
-
-        // Левая сторона
-        if dx.abs() > 0.001 {
-            let t = (rect.x - from.x) / dx;
-            let y = from.y + t * dy;
-            if t > 0.0 && t < best_t && y >= rect.y && y <= rect.y + rect.height {
-                best_t = t;
-            }
-        }
-
-        // Нижняя сторона
-        if dy.abs() > 0.001 {
-            let t = (rect.y + rect.height - from.y) / dy;
-            let x = from.x + t * dx;
-            if t > 0.0 && t < best_t && x >= rect.x && x <= rect.x + rect.width {
-                best_t = t;
-            }
-        }
-
-        // Верхняя сторона
-        if dy.abs() > 0.001 {
-            let t = (rect.y - from.y) / dy;
-            let x = from.x + t * dx;
-            if t > 0.0 && t < best_t && x >= rect.x && x <= rect.x + rect.width {
-                best_t = t;
-            }
-        }
-
-        if best_t == f64::INFINITY {
-            // Fallback: центр
-            from
-        } else {
-            Point::new(from.x + best_t * dx, from.y + best_t * dy)
-        }
+        scene.build()
     }
 }
 

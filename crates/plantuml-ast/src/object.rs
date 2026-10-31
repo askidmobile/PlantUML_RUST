@@ -132,6 +132,8 @@ pub struct ObjectLink {
     pub label: Option<String>,
     /// Тип связи
     pub link_type: ObjectLinkType,
+    /// Форма стрелки
+    pub arrow: crate::common::ArrowShape,
 }
 
 impl ObjectLink {
@@ -142,6 +144,7 @@ impl ObjectLink {
             to: to.into(),
             label: None,
             link_type: ObjectLinkType::Association,
+            arrow: crate::common::ArrowShape::default(),
         }
     }
 

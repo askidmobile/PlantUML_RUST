@@ -1,61 +1,64 @@
 ---
 source: crates/plantuml-core/tests/state_tests.rs
-assertion_line: 70
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="360px" preserveAspectRatio="none" style="width:179px;height:360px;background:#FFFFFF;" version="1.1" viewBox="7 7 178.73200000000003 359.997" width="179px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="331px" preserveAspectRatio="none" style="width:168px;height:331px;background:#FFFFFF;" version="1.1" viewBox="0 0 167.73200000000003 330.7" width="168px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
-<g id="initial_initial">
-<ellipse cx="85.36600000000001" cy="17" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
+<g id="initial_top#initial">
+<ellipse cx="27.397100000000002" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
 </g>
 <g id="state_Valid">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="54.794200000000004" x="7" y="215.297"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="34.3971" y="233.4455" textLength="34.794">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="54.794200000000004" x="0" y="179"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="27.397100000000002" y="197.1485" textLength="34.794">
 Valid
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="7" x2="61.794200000000004" y1="241.594" y2="241.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="0" x2="54.794200000000004" y1="205.297" y2="205.297"/>
 </g>
 <g id="state_Invalid">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="66.93780000000001" x="96.7942" y="215.297"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="130.2631" y="233.4455" textLength="46.938">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="66.93780000000001" x="89.79420000000002" y="179"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="123.26310000000002" y="197.1485" textLength="46.938">
 Invalid
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="96.7942" x2="163.73200000000003" y1="241.594" y2="241.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="89.79420000000002" x2="156.73200000000003" y1="205.297" y2="205.297"/>
 </g>
-<g id="final_final">
-<ellipse cx="85.36600000000001" cy="336.297" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="85.36600000000001" cy="336.297" fill="#222" rx="6" ry="6" stroke="none"/>
+<g id="final_top#final">
+<ellipse cx="74.28329042968751" cy="300" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="74.28329042968751" cy="300" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
-<g id="trans_initial_check">
-<path d="M85.36600000000001,27 L115.12410000000001,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="115.124,88 114.773,78.157 112.932,83.506 107.583,81.665" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="edge_0">
+<path d="M27.397100000000002,20 L27.397100000000002,50.5 L27.397100000000002,81" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="27.397,81 31.397,72 27.397,76 23.397,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
-<g id="trans_check_Valid">
-<path d="M115.12410000000001,108 L34.3971,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="34.397,215.297 43.004,210.51 37.403,211.302 36.612,205.7" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="74.83330000000001" y="150.9188" textLength="47.369">
+<g id="edge_1">
+<path d="M27.397100000000002,101 L27.397100000000002,140 L27.397100000000002,179" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="27.397,179 31.397,170 27.397,174 23.397,170" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_2">
+<path d="M37.3971,96.32934248965128 L119.3409,140 L121.730990625,179" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="121.731,179 125.173,169.772 121.425,174.009 117.188,170.262" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_3">
+<path d="M38.171735328688065,229 L51.3167904296875,259.5 L68.93072416462726,290" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="68.931,290 67.894,280.206 66.43,285.67 60.966,284.207" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_4">
+<path d="M112.44629388724664,229 L99.24979042968752,259.5 L81.63585669474776,290" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="81.636,290 89.601,284.207 84.136,285.67 82.673,280.206" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="choice_check">
+<text fill="#000" font-family="sans-serif" font-size="16" x="17.397100000000002" y="97" textLength="7.696">
+◇
+</text>
+</g>
+<g id="edge_label_1">
+<text fill="#000" font-family="sans-serif" font-size="13" x="3.7124000000000024" y="144.5" textLength="47.369">
 [valid]
 </text>
 </g>
-<g id="trans_check_Invalid">
-<path d="M115.12410000000001,108 L130.2631,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="130.263,215.297 132.966,205.826 129.565,210.346 125.045,206.944" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="120.12410000000001" y="161.6485" textLength="58.518">
+<g id="edge_label_2">
+<text fill="#000" font-family="sans-serif" font-size="13" x="90.08180000000002" y="144.5" textLength="58.518">
 [invalid]
-</text>
-</g>
-<g id="trans_Valid_final">
-<path d="M34.3971,265.297 L85.36600000000001,325.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="85.366,325.297 82.588,315.848 82.129,321.486 76.491,321.027" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-</g>
-<g id="trans_Invalid_final">
-<path d="M130.2631,265.297 L85.36600000000001,325.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="85.366,325.297 93.961,320.488 88.362,321.294 87.555,315.695" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-</g>
-<g id="choice_check">
-<text fill="#000" font-family="sans-serif" font-size="16" x="105.12410000000001" y="104" textLength="7.696">
-◇
 </text>
 </g>
 </g>

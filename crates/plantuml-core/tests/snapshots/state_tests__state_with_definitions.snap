@@ -1,54 +1,53 @@
 ---
 source: crates/plantuml-core/tests/state_tests.rs
-assertion_line: 50
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="367px" preserveAspectRatio="none" style="width:201px;height:367px;background:#FFFFFF;" version="1.1" viewBox="7 7 201 366.7" width="201px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="306px" preserveAspectRatio="none" style="width:177px;height:306px;background:#FFFFFF;" version="1.1" viewBox="0 0 177 305.7" width="177px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
-<g id="initial_initial">
-<ellipse cx="96.5" cy="17" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
-</g>
 <g id="composite_Active">
-<rect fill="#E2E2F0" height="184" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="179" x="7" y="88"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="96.5" y="105" textLength="52.701">
+<rect fill="#E2E2F0" height="205" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="110" x="0" y="81"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="55" y="98" textLength="52.701">
 Active
 </text>
-<line stroke="#181818" stroke-width="1" x1="7" x2="186" y1="118" y2="118"/>
+<line stroke="#181818" stroke-width="1" x1="0" x2="110" y1="111" y2="111"/>
 </g>
-<g id="Active_inner_state_Processing">
-<rect fill="#F1F1F1" height="35" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="90" x="51.5" y="140"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="96.5" y="158.1485" textLength="74.5">
+<g id="initial_top#initial">
+<ellipse cx="55" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
+</g>
+<g id="state_Processing">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="94.4996" x="7.7501999999999995" y="118"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="55" y="136.1485" textLength="74.5">
 Processing
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="51.5" x2="141.5" y1="166.297" y2="166.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="7.7501999999999995" x2="102.2498" y1="144.297" y2="144.297"/>
 </g>
-<g id="Active_inner_state_Waiting">
-<rect fill="#F1F1F1" height="35" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="90" x="51.5" y="215"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="96.5" y="233.1485" textLength="52.371">
+<g id="state_Waiting">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="72.3712" x="7.814399999999999" y="229"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="44" y="247.1485" textLength="52.371">
 Waiting
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="51.5" x2="141.5" y1="241.297" y2="241.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="7.814399999999999" x2="80.1856" y1="255.297" y2="255.297"/>
 </g>
-<g id="Active_inner_trans_Processing_Waiting">
-<path d="M96.5,175 L96.5,215" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="96.5,215 100.5,206 96.5,210 92.5,206" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="final_top#final">
+<ellipse cx="155" cy="253" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="155" cy="253" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
-<g id="Active_inner_trans_Waiting_Processing">
-<path d="M141.5,225.5 L156.5,225.5 L156.5,164.5 L141.5,164.5" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="141.5,164.5 150.5,168.5 146.5,164.5 150.5,160.5" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="edge_0">
+<path d="M39.234234234234236,168 L20,198.5 L33.18918918918919,229" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="33.189,229 33.288,219.152 31.205,224.411 25.946,222.327" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
-<g id="final_final">
-<ellipse cx="96.5" cy="343" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="96.5" cy="343" fill="#222" rx="6" ry="6" stroke="none"/>
+<g id="edge_1">
+<path d="M48.95495495495496,229 L55,198.5 L55,168" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="55,168 51,177 55,173 59,177" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
-<g id="trans_initial_Active">
-<path d="M96.5,27 L96.5,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="96.5,88 100.5,79 96.5,83 92.5,79" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="edge_2">
+<path d="M55,20 L55,50.5 L55,118" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="55,118 59,109 55,113 51,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
-<g id="trans_Active_final">
-<path d="M96.5,272 L96.5,332" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="96.5,332 100.5,323 96.5,327 92.5,323" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="edge_3">
+<path d="M95.54054054054055,168 L145,198.5 L153.81981981981983,243" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="153.82,243 155.994,233.394 152.848,238.095 148.146,234.949" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

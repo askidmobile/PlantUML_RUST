@@ -3,8 +3,6 @@
 //! Алгоритм layout для диаграмм состояний.
 //! Поддерживает вложенные (composite) состояния.
 
-use indexmap::{IndexMap, IndexSet};
-
 /// Зазор между двумя НАСТОЯЩИМИ состояниями в одном уровне.
 ///
 /// Измерено на сервере: рамки на x=7 и x=92 по 50 шириной -> 35.
@@ -23,17 +21,15 @@ const STATE_MIN_WIDTH: f64 = 50.0;
 
 /// Кегль подписи состояния (в эталоне `font-size="14"`).
 const STATE_FONT_SIZE: f64 = 14.0;
+const STATE_RIGHT_EXTRA: f64 = 3.0;
+use plantuml_ast::common::Direction;
 use plantuml_ast::state::{State, StateDiagram, StateType};
-use plantuml_model::{Point, Rect};
-
-/// Высота строки подписи перехода в диаграмме состояний.
-///
-/// Измерено по эталону `state_simple`: разрыв между уровнями с подписью
-/// на 16.297 больше, чем без неё.
-const STATE_TRANSITION_LABEL_HEIGHT: f64 = 16.297;
+use plantuml_model::Rect;
 
 use super::config::StateLayoutConfig;
-use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
+use crate::graph::scene::{Scene, SceneEdge};
+use crate::graph::Direction as GraphDirection;
+use crate::{ElementType, LayoutElement, LayoutResult};
 
 /// Layout engine для state diagrams
 pub struct StateLayoutEngine {
@@ -45,24 +41,8 @@ pub struct StateLayoutEngine {
 /// Эталон `state_simple`: начальный `[*]` — `rx=10`, конечный — `rx=11`.
 const FINAL_NODE_RADIUS_EXTRA: f64 = 1.0;
 
-/// Внутренние идентификаторы для [*]
-const INITIAL_STATE_ID: &str = "[*]_initial";
-const FINAL_STATE_ID: &str = "[*]_final";
-
 /// Высота заголовка контейнера составного состояния.
 const COMPOSITE_HEADER_HEIGHT: f64 = 30.0;
-
-/// Ищет вложенное состояние по имени среди подсостояний и параллельных регионов.
-fn find_inner_state<'a>(composite: &'a State, name: &str) -> Option<&'a State> {
-    composite
-        .substates
-        .iter()
-        .chain(composite.regions.iter().flatten())
-        .find(|s| s.name == name)
-}
-
-/// Радиус круга истории `[H]` внутри составного состояния.
-const HISTORY_RADIUS: f64 = 8.0;
 
 /// Кегль и межстрочный интервал описания состояния (`S1 : текст`).
 const STATE_DESCRIPTION_FONT_SIZE: f64 = 12.0;
@@ -70,11 +50,6 @@ const STATE_DESCRIPTION_LINE: f64 = 16.3;
 /// Полоса имени над разделителем и нижний отступ описания.
 const STATE_HEADER_BAND: f64 = 26.3;
 const STATE_DESCRIPTION_PAD: f64 = 8.0;
-
-/// Заметки: отступ колонки от схемы, кегль и интервал строк.
-const NOTE_COLUMN_GAP: f64 = 30.0;
-const STATE_NOTE_FONT_SIZE: f64 = 13.0;
-const STATE_NOTE_LINE: f64 = 16.0;
 
 /// `S1[H]` / `S1[H*]` → (`S1`, глубокая ли история). Голый `[H]` не считается.
 fn history_ref(name: &str) -> Option<(&str, bool)> {
@@ -90,15 +65,6 @@ fn endpoint_base(name: &str) -> &str {
     history_ref(name).map_or(name, |(base, _)| base)
 }
 
-/// Описание состояния верхнего уровня (`S1 : текст`).
-fn description_of<'a>(diagram: &'a StateDiagram, name: &str) -> Option<&'a str> {
-    diagram
-        .states
-        .iter()
-        .find(|s| s.name == name)
-        .and_then(|s| s.description.as_deref())
-}
-
 /// Заметки из тела составного состояния, рекурсивно.
 fn collect_notes<'a>(state: &'a State, out: &mut Vec<&'a plantuml_ast::common::Note>) {
     out.extend(state.notes.iter());
@@ -110,12 +76,6 @@ fn collect_notes<'a>(state: &'a State, out: &mut Vec<&'a plantuml_ast::common::N
             collect_notes(sub, out);
         }
     }
-}
-
-/// Результат layout подсостояний
-struct SubLayoutResult {
-    elements: Vec<LayoutElement>,
-    bounds: Rect,
 }
 
 impl StateLayoutEngine {
@@ -133,1027 +93,219 @@ impl StateLayoutEngine {
 
     /// Выполняет layout диаграммы
     pub fn layout(&self, diagram: &StateDiagram) -> LayoutResult {
-        let mut elements = Vec::new();
-        let mut state_positions: IndexMap<String, Rect> = IndexMap::new();
-
-        // Определяем composite состояния и собираем их внутренние состояния
-        let composite_states: IndexMap<String, &State> = diagram
-            .states
-            .iter()
-            .filter(|s| s.state_type == StateType::Composite)
-            .map(|s| (s.name.clone(), s))
-            .collect();
-
-        // Собираем ВСЕ внутренние состояния из всех composite
-        let mut internal_states: IndexSet<String> = IndexSet::new();
-        for cs in composite_states.values() {
-            for trans in &cs.internal_transitions {
-                if trans.from != "[*]" {
-                    internal_states.insert(trans.from.clone());
-                }
-                if trans.to != "[*]" {
-                    internal_states.insert(trans.to.clone());
-                }
-            }
-            for sub in &cs.substates {
-                internal_states.insert(sub.name.clone());
-            }
+        let mut scene = Scene::new(
+            STATE_SIBLING_GAP,
+            self.config.vertical_spacing,
+            self.config.margin,
+            self.config_text(),
+        );
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            scene.set_direction(GraphDirection::LeftToRight);
         }
 
-        // Анализируем использование [*] на верхнем уровне
-        let has_initial = diagram.transitions.iter().any(|t| t.from == "[*]");
-        let has_final = diagram.transitions.iter().any(|t| t.to == "[*]");
-
-        // Собираем состояния ТОЛЬКО верхнего уровня
-        let mut top_level_states: IndexSet<String> = IndexSet::new();
-
-        if has_initial {
-            top_level_states.insert(INITIAL_STATE_ID.to_string());
-        }
-
-        // Добавляем явно определённые состояния верхнего уровня (НЕ внутренние)
-        for state in &diagram.states {
-            if state.name != "[*]" && !internal_states.contains(&state.name) {
-                top_level_states.insert(state.name.clone());
-            }
-        }
-
-        // Добавляем состояния из переходов ВЕРХНЕГО УРОВНЯ (НЕ внутренние).
-        // `S1[H]` — это история состояния `S1`, а не отдельное состояние.
-        for trans in &diagram.transitions {
-            let (from, to) = (endpoint_base(&trans.from), endpoint_base(&trans.to));
-            if from != "[*]" && !internal_states.contains(from) {
-                top_level_states.insert(from.to_string());
-            }
-            if to != "[*]" && !internal_states.contains(to) {
-                top_level_states.insert(to.to_string());
-            }
-        }
-
-        if has_final {
-            top_level_states.insert(FINAL_STATE_ID.to_string());
-        }
-
-        // Преобразуем переходы верхнего уровня
-        let kept_transitions: Vec<&plantuml_ast::state::Transition> = diagram
-            .transitions
-            .iter()
-            .filter(|t| {
-                // Оставляем только переходы между состояниями верхнего уровня
-                let from_ok = t.from == "[*]" || top_level_states.contains(endpoint_base(&t.from));
-                let to_ok = t.to == "[*]" || top_level_states.contains(endpoint_base(&t.to));
-                from_ok && to_ok
-            })
-            .collect();
-        let top_level_transitions: Vec<(String, String, Option<String>)> = kept_transitions
-            .iter()
-            .map(|t| {
-                let from = if t.from == "[*]" {
-                    INITIAL_STATE_ID.to_string()
-                } else {
-                    endpoint_base(&t.from).to_string()
-                };
-                let to = if t.to == "[*]" {
-                    FINAL_STATE_ID.to_string()
-                } else {
-                    endpoint_base(&t.to).to_string()
-                };
-                let label = t.label();
-                (from, to, if label.is_empty() { None } else { Some(label) })
-            })
-            .collect();
-        // Концы стрелок как они написаны: у истории это `S1[H]`.
-        let edge_endpoints: Vec<(String, String)> = kept_transitions
-            .iter()
-            .map(|t| {
-                let name = |raw: &str, pseudo: &str| {
-                    if raw == "[*]" {
-                        pseudo.to_string()
-                    } else {
-                        raw.to_string()
-                    }
-                };
-                (name(&t.from, INITIAL_STATE_ID), name(&t.to, FINAL_STATE_ID))
-            })
-            .collect();
-
-        // Определяем уровни состояний верхнего уровня
-        let levels = self.assign_levels(
-            &top_level_states,
-            &top_level_transitions,
-            has_initial,
-            has_final,
+        self.add_scope(
+            &mut scene,
+            None,
+            "top",
+            &diagram.states,
+            &diagram.transitions,
         );
 
-        // Группируем по уровням
-        let mut level_states: IndexMap<usize, Vec<String>> = IndexMap::new();
-        for (state, level) in &levels {
-            level_states.entry(*level).or_default().push(state.clone());
-        }
-
-        // Сначала делаем layout для composite состояний, чтобы узнать их размеры
-        let mut composite_layouts: IndexMap<String, SubLayoutResult> = IndexMap::new();
-
-        for (name, composite) in &composite_states {
-            let sub_result = self.layout_composite_content(composite);
-            composite_layouts.insert(name.clone(), sub_result);
-        }
-
-        // Располагаем состояния верхнего уровня
-        // Используем динамический расчёт Y с учётом реальной высоты composite контейнеров
-        let max_level = levels.values().max().copied().unwrap_or(0);
-
-        // Сначала вычисляем размеры для каждого уровня
-        let mut level_heights: IndexMap<usize, f64> = IndexMap::new();
-        let mut level_widths: IndexMap<usize, f64> = IndexMap::new();
-
-        for level in 0..=max_level {
-            if let Some(states) = level_states.get(&level) {
-                let max_height = states
-                    .iter()
-                    .map(|name| {
-                        if let Some(layout) = composite_layouts.get(name) {
-                            layout.bounds.height + self.config.margin * 2.0 + 30.0
-                        // header
-                        } else if name == INITIAL_STATE_ID || name == FINAL_STATE_ID {
-                            self.config.node_radius * 2.0
-                        } else {
-                            self.state_box_size(name, description_of(diagram, name)).1
-                        }
-                    })
-                    .fold(0.0f64, f64::max);
-                level_heights.insert(level, max_height);
-
-                // Вычисляем ширину для центрирования
-                let total_width: f64 = states
-                    .iter()
-                    .map(|name| {
-                        if let Some(layout) = composite_layouts.get(name) {
-                            layout.bounds.width + self.config.margin * 2.0
-                        } else if name == INITIAL_STATE_ID || name == FINAL_STATE_ID {
-                            self.config.node_radius * 2.0
-                        } else {
-                            self.state_box_size(name, description_of(diagram, name)).0
-                        }
-                    })
-                    .sum::<f64>()
-                    + states
-                        .windows(2)
-                        .map(|w| self.state_gap(&w[0], &w[1]))
-                        .sum::<f64>();
-                level_widths.insert(level, total_width);
-            }
-        }
-
-        // Находим максимальную ширину среди всех уровней для центрирования
-        let max_width = level_widths.values().copied().fold(0.0f64, f64::max);
-        let diagram_center_x = self.config.margin + max_width / 2.0;
-
-        // Вычисляем начальную Y позицию для каждого уровня на основе предыдущих
-        // Подпись перехода занимает ОТДЕЛЬНУЮ строку между уровнями.
-        //
-        // Измерено по эталону `state_simple`: разрыв Active→Inactive равен
-        // 127 = 50 (состояние) + 61 (отступ) + 16.297 (строка подписи),
-        // тогда как разрыв старт→Active без подписи — 61.
-        let mut level_has_label: IndexMap<usize, bool> = IndexMap::new();
-        for (from, _, label) in &top_level_transitions {
-            if label.is_none() {
-                continue;
-            }
-            for (level, states) in &level_states {
-                if states.iter().any(|name| name == from) {
-                    level_has_label.insert(*level, true);
-                }
-            }
-        }
-
-        let mut level_y_positions: IndexMap<usize, f64> = IndexMap::new();
-        let mut current_y = self.config.margin;
-        for level in 0..=max_level {
-            level_y_positions.insert(level, current_y);
-            let height = level_heights
-                .get(&level)
-                .copied()
-                .unwrap_or(self.config.state_min_height);
-            current_y += height + self.config.vertical_spacing;
-
-            if level_has_label.get(&level).copied().unwrap_or(false) {
-                current_y += STATE_TRANSITION_LABEL_HEIGHT;
-            }
-        }
-
-        for level in 0..=max_level {
-            if let Some(states) = level_states.get(&level) {
-                let level_width = level_widths.get(&level).copied().unwrap_or(0.0);
-
-                // Центрируем относительно общего центра диаграммы
-                let start_x = diagram_center_x - level_width / 2.0;
-                let mut x = start_x;
-
-                // Получаем Y позицию для данного уровня
-                let y = level_y_positions
-                    .get(&level)
-                    .copied()
-                    .unwrap_or(self.config.margin);
-
-                for (state_index, state_name) in states.iter().enumerate() {
-                    // Проверяем, это composite состояние?
-                    if let Some(composite) = composite_states.get(state_name) {
-                        // Раскладка вложенного состояния может отсутствовать,
-                        // если она не построена на предыдущем проходе.
-                        // Раньше здесь стоял unwrap — это паника на входе,
-                        // который парсер считает допустимым.
-                        let Some(sub_layout) = composite_layouts.get(state_name) else {
-                            continue;
-                        };
-
-                        // Создаём контейнер composite состояния
-                        let container_elements =
-                            self.create_composite_container(composite, x, y, sub_layout);
-
-                        // Сохраняем позицию контейнера
-                        let container_rect = Rect::new(
-                            x,
-                            y,
-                            sub_layout.bounds.width + self.config.margin * 2.0,
-                            sub_layout.bounds.height + self.config.margin * 2.0 + 30.0,
-                        );
-                        state_positions.insert(state_name.clone(), container_rect);
-
-                        // Добавляем все элементы
-                        elements.extend(container_elements);
-
-                        x += container_rect.width
-                            + states
-                                .get(state_index + 1)
-                                .map_or(0.0, |next| self.state_gap(state_name, next));
-                    } else {
-                        // Обычное состояние
-                        let state_type = self.get_state_type_internal(diagram, state_name);
-                        let (elem, bounds) = self.create_state_element(
-                            state_name,
-                            state_type,
-                            x,
-                            y,
-                            description_of(diagram, state_name),
-                        );
-                        state_positions.insert(state_name.clone(), bounds);
-                        elements.push(elem);
-
-                        x += bounds.width
-                            + states
-                                .get(state_index + 1)
-                                .map_or(0.0, |next| self.state_gap(state_name, next));
-                    }
-                }
-            }
-        }
-
-        // История составного состояния: маленький круг «H» в правой части
-        // заголовка контейнера, куда и ведёт стрелка. Для обычного состояния
-        // стрелка идёт в само состояние.
-        let mut history_slots: IndexMap<String, usize> = IndexMap::new();
-        for (_, raw_to) in &edge_endpoints {
-            let Some((base, deep)) = history_ref(raw_to) else {
-                continue;
-            };
-            if state_positions.contains_key(raw_to) {
-                continue;
-            }
-            let Some(base_rect) = state_positions.get(base).copied() else {
-                continue;
-            };
-            if !composite_states.contains_key(base) {
-                state_positions.insert(raw_to.clone(), base_rect);
-                continue;
-            }
-            let slot = history_slots.entry(base.to_string()).or_insert(0);
-            let r = HISTORY_RADIUS;
-            let cx = base_rect.x + base_rect.width - r - 12.0 - *slot as f64 * (r * 2.0 + 6.0);
-            let cy = base_rect.y + 15.0;
-            *slot += 1;
-            let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
-            state_positions.insert(raw_to.clone(), bounds);
-            elements.push(LayoutElement {
-                id: format!("history_{}_{}", base, if deep { "deep" } else { "shallow" }),
-                bounds,
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Ellipse {
-                    label: Some(if deep { "H*" } else { "H" }.to_string()),
-                },
-            });
-        }
-
-        // Создаём переходы верхнего уровня
-        for ((from, to, label), (raw_from, raw_to)) in
-            top_level_transitions.iter().zip(&edge_endpoints)
-        {
-            if let (Some(from_rect), Some(to_rect)) =
-                (state_positions.get(raw_from), state_positions.get(raw_to))
-            {
-                let edge =
-                    self.create_transition_element(from, to, label.as_deref(), from_rect, to_rect);
-                elements.push(edge);
-            }
-        }
-
-        // Заметки: колонка правее схемы, на высоте своего состояния.
-        let mut all_notes: Vec<&plantuml_ast::common::Note> = diagram.notes.iter().collect();
+        let mut notes: Vec<&plantuml_ast::common::Note> = diagram.notes.iter().collect();
         for state in &diagram.states {
-            collect_notes(state, &mut all_notes);
+            collect_notes(state, &mut notes);
         }
-        self.layout_notes(&all_notes, &state_positions, &mut elements);
+        for note in notes {
+            scene.add_note(note.clone());
+        }
 
-        // Вычисляем bounds
-        let mut result = LayoutResult {
-            elements,
-            bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
-        };
-        result.calculate_bounds();
-
-        // Добавляем отступы
-        result.bounds.width += self.config.margin * 2.0;
+        let mut result = scene.build();
+        // Поля сверх общих рендерера сняты с эталона `state_simple`.
+        result.bounds.width += STATE_RIGHT_EXTRA;
         result.bounds.height += self.config.margin * 2.0;
-
         result
     }
 
-    /// Выполняет layout содержимого composite состояния
-    fn layout_composite_content(&self, composite: &State) -> SubLayoutResult {
-        let mut elements = Vec::new();
-        let mut state_positions: IndexMap<String, Rect> = IndexMap::new();
+    fn config_text(&self) -> crate::text::TextMeasurer {
+        crate::text::TextMeasurer::default()
+    }
 
-        // Анализируем internal_transitions
-        let has_initial = composite
-            .internal_transitions
-            .iter()
-            .any(|t| t.from == "[*]");
-        let has_final = composite.internal_transitions.iter().any(|t| t.to == "[*]");
-
-        // Собираем все внутренние состояния
-        let mut inner_states: IndexSet<String> = IndexSet::new();
-
+    /// Раскладывает одну область: верхний уровень, тело составного состояния, регион.
+    fn add_scope(
+        &self,
+        scene: &mut Scene,
+        cluster: Option<usize>,
+        scope: &str,
+        states: &[State],
+        transitions: &[plantuml_ast::state::Transition],
+    ) {
+        let initial = format!("{scope}#initial");
+        let terminal = format!("{scope}#final");
+        let mut has_initial = false;
+        let mut has_final = false;
+        for t in transitions {
+            has_initial |= t.from == "[*]";
+            has_final |= t.to == "[*]";
+        }
         if has_initial {
-            inner_states.insert(INITIAL_STATE_ID.to_string());
+            let (element, _) = self.create_initial_state(&initial, 0.0, 0.0);
+            scene.add_node(cluster, &[initial.as_str()], vec![element]);
         }
-
-        for state in &composite.substates {
-            if state.name != "[*]" {
-                inner_states.insert(state.name.clone());
-            }
+        for state in states.iter().filter(|s| s.name != "[*]") {
+            self.add_state(scene, cluster, state);
         }
-
-        // Состояния параллельных регионов. Раньше поле `regions` не читалось
-        // нигде: парсер их разбирал, но в раскладку они не попадали, и такие
-        // состояния исчезали с диаграммы.
-        for region in &composite.regions {
-            for state in region {
-                if state.name != "[*]" {
-                    inner_states.insert(state.name.clone());
-                }
-            }
-        }
-
-        for trans in &composite.internal_transitions {
-            if trans.from != "[*]" {
-                inner_states.insert(trans.from.clone());
-            }
-            if trans.to != "[*]" {
-                inner_states.insert(trans.to.clone());
-            }
-        }
-
-        if has_final {
-            inner_states.insert(FINAL_STATE_ID.to_string());
-        }
-
-        // Преобразуем переходы
-        let internal_transitions: Vec<(String, String, Option<String>)> = composite
-            .internal_transitions
-            .iter()
-            .map(|t| {
-                let from = if t.from == "[*]" {
-                    INITIAL_STATE_ID.to_string()
-                } else {
-                    t.from.clone()
-                };
-                let to = if t.to == "[*]" {
-                    FINAL_STATE_ID.to_string()
-                } else {
-                    t.to.clone()
-                };
-                let label = t.label();
-                (from, to, if label.is_empty() { None } else { Some(label) })
-            })
-            .collect();
-
-        // Назначаем уровни
-        let levels =
-            self.assign_levels(&inner_states, &internal_transitions, has_initial, has_final);
-
-        // Группируем по уровням
-        let mut level_states: IndexMap<usize, Vec<String>> = IndexMap::new();
-        for (state, level) in &levels {
-            level_states.entry(*level).or_default().push(state.clone());
-        }
-
-        // Располагаем внутренние состояния
-        let max_level = levels.values().max().copied().unwrap_or(0);
-        let inner_margin = 15.0;
-        let inner_state_width: f64 = 90.0;
-        let inner_state_height: f64 = 35.0;
-        let inner_spacing_v = 40.0;
-        let inner_spacing_h = 30.0;
-
-        // Считаем количество обратных переходов для вычисления необходимого пространства справа
-        let backward_count = internal_transitions
-            .iter()
-            .filter(|(from, to, _)| {
-                let from_level = levels.get(from).copied().unwrap_or(0);
-                let to_level = levels.get(to).copied().unwrap_or(0);
-                to_level < from_level // переход на уровень выше = обратный
-            })
-            .count();
-
-        // Пространство справа для обратных стрелок
-        let backward_space = if backward_count > 0 {
-            20.0 + backward_count as f64 * 25.0
-        } else {
-            0.0
-        };
-
-        // Размер ячейки каждого состояния. Вложенное составное состояние
-        // раскладывается рекурсивно: раньше оно рисовалось пустым блоком,
-        // и его содержимое пропадало.
-        let mut nested: IndexMap<String, SubLayoutResult> = IndexMap::new();
-        let mut cell_sizes: IndexMap<String, (f64, f64)> = IndexMap::new();
-        for name in &inner_states {
-            let size = match find_inner_state(composite, name) {
-                Some(inner) if inner.state_type == StateType::Composite => {
-                    let sub = self.layout_composite_content(inner);
-                    let size = (
-                        sub.bounds.width + self.config.margin * 2.0,
-                        sub.bounds.height + self.config.margin * 2.0 + COMPOSITE_HEADER_HEIGHT,
-                    );
-                    nested.insert(name.clone(), sub);
-                    size
-                }
-                Some(inner) if inner.description.is_some() => {
-                    let measurer = crate::text::TextMeasurer::default();
-                    let text = inner.description.as_deref().unwrap_or("");
-                    let lines: Vec<&str> = text.lines().collect();
-                    let mut width = inner_state_width.max(self.state_natural_width(name));
-                    for line in &lines {
-                        width = width.max(
-                            measurer.width(line, STATE_DESCRIPTION_FONT_SIZE) + STATE_WIDTH_PADDING,
-                        );
-                    }
-                    let height = inner_state_height.max(
-                        STATE_HEADER_BAND
-                            + lines.len() as f64 * STATE_DESCRIPTION_LINE
-                            + STATE_DESCRIPTION_PAD,
-                    );
-                    (width, height)
-                }
-                _ => (inner_state_width, inner_state_height),
-            };
-            cell_sizes.insert(name.clone(), size);
-        }
-
-        // Ширина и высота каждого уровня
-        let mut level_widths: Vec<f64> = vec![0.0; max_level + 1];
-        let mut level_heights: Vec<f64> = vec![0.0; max_level + 1];
-        for level in 0..=max_level {
-            if let Some(states) = level_states.get(&level) {
-                let sizes: Vec<(f64, f64)> = states
-                    .iter()
-                    .map(|name| {
-                        cell_sizes
-                            .get(name)
-                            .copied()
-                            .unwrap_or((inner_state_width, inner_state_height))
-                    })
-                    .collect();
-                level_widths[level] = sizes.iter().map(|size| size.0).sum::<f64>()
-                    + states.len().saturating_sub(1) as f64 * inner_spacing_h;
-                level_heights[level] = sizes.iter().map(|size| size.1).fold(0.0, f64::max);
-            }
-        }
-        let max_level_width = level_widths.iter().copied().fold(0.0f64, f64::max);
-
-        let mut max_x = 0.0f64;
-        let mut max_y = 0.0f64;
-        let mut level_top = inner_margin;
-
-        for level in 0..=max_level {
-            if let Some(states) = level_states.get(&level) {
-                // Центрируем элементы относительно общей ширины контента (без backward_space)
-                // Это сместит элементы немного влево, оставляя место справа для стрелок
-                let mut x = inner_margin + (max_level_width - level_widths[level]) / 2.0;
-                let y = level_top;
-
-                for state_name in states {
-                    let (width, height) = cell_sizes
-                        .get(state_name)
-                        .copied()
-                        .unwrap_or((inner_state_width, inner_state_height));
-
-                    let bounds = if let (Some(sub), Some(inner)) = (
-                        nested.get(state_name),
-                        find_inner_state(composite, state_name),
-                    ) {
-                        elements.extend(self.create_composite_container(inner, x, y, sub));
-                        Rect::new(x, y, width, height)
-                    } else {
-                        let found = find_inner_state(composite, state_name);
-                        let state_type = if state_name == INITIAL_STATE_ID {
-                            StateType::Initial
-                        } else if state_name == FINAL_STATE_ID {
-                            StateType::Final
-                        } else {
-                            found.map(|s| s.state_type).unwrap_or(StateType::Simple)
-                        };
-                        let (elem, bounds) = self.create_inner_state_element(
-                            state_name,
-                            state_type,
-                            Rect::new(x, y, width, height),
-                            found.and_then(|s| s.description.as_deref()),
-                        );
-                        elements.push(elem);
-                        bounds
-                    };
-                    state_positions.insert(state_name.clone(), bounds);
-
-                    max_x = max_x.max(bounds.x + bounds.width);
-                    max_y = max_y.max(bounds.y + bounds.height);
-                    x += width + inner_spacing_h;
-                }
-                level_top += level_heights[level] + inner_spacing_v;
-            }
-        }
-
-        // Обновляем max_x с учётом пространства для обратных стрелок
-        max_x += backward_space;
-
-        // Создаём внутренние переходы
-        // Считаем обратные переходы для уникального offset
-        let mut backward_transition_index = 0;
-        for (from, to, label) in &internal_transitions {
-            if let (Some(from_rect), Some(to_rect)) =
-                (state_positions.get(from), state_positions.get(to))
-            {
-                let dy =
-                    (to_rect.y + to_rect.height / 2.0) - (from_rect.y + from_rect.height / 2.0);
-                let is_backward = dy < -20.0;
-
-                let edge = self.create_inner_transition_indexed(
-                    from,
-                    to,
-                    label.as_deref(),
-                    from_rect,
-                    to_rect,
-                    if is_backward {
-                        backward_transition_index
-                    } else {
-                        0
-                    },
-                );
-                elements.push(edge);
-
-                if is_backward {
-                    backward_transition_index += 1;
-                }
-            }
-        }
-
-        // Общая ширина контента для возврата
-        let total_content_width = max_x + inner_margin;
-
-        // Центрируем внутренние элементы относительно общей ширины
-        // Находим текущий центр элементов
-        let elements_center_x = inner_margin + max_level_width / 2.0;
-        // Целевой центр (середина общей ширины)
-        let target_center_x = total_content_width / 2.0;
-        // Смещение для центрирования
-        let center_offset = target_center_x - elements_center_x;
-
-        // Смещаем все элементы
-        for elem in &mut elements {
-            elem.bounds.x += center_offset;
-
-            // Смещаем точки в Edge
-            if let ElementType::Edge { ref mut points, .. } = elem.element_type {
-                for point in points.iter_mut() {
-                    point.x += center_offset;
-                }
-            }
-        }
-
-        // Обновляем state_positions для корректных переходов (уже созданы, не нужно)
-
-        SubLayoutResult {
-            elements,
-            bounds: Rect::new(0.0, 0.0, total_content_width, max_y + inner_margin),
-        }
-    }
-
-    /// Создаёт контейнер composite состояния со всем содержимым
-    fn create_composite_container(
-        &self,
-        composite: &State,
-        x: f64,
-        y: f64,
-        sub_layout: &SubLayoutResult,
-    ) -> Vec<LayoutElement> {
-        let mut elements = Vec::new();
-
-        let header_height = COMPOSITE_HEADER_HEIGHT;
-        let padding = self.config.margin;
-
-        let container_width = sub_layout.bounds.width + padding * 2.0;
-        let container_height = sub_layout.bounds.height + padding * 2.0 + header_height;
-
-        // Создаём внешний контейнер
-        let container_bounds = Rect::new(x, y, container_width, container_height);
-
-        elements.push(LayoutElement {
-            id: format!("composite_{}", composite.name),
-            bounds: container_bounds,
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::CompositeState {
-                name: composite.name.clone(),
-                header_height,
-            },
-        });
-
-        // Смещаем все внутренние элементы
-        let offset_x = x + padding;
-        let offset_y = y + header_height + padding;
-
-        for elem in &sub_layout.elements {
-            let mut shifted_elem = elem.clone();
-            shifted_elem.bounds.x += offset_x;
-            shifted_elem.bounds.y += offset_y;
-
-            // Обновляем id чтобы был уникальным
-            shifted_elem.id = format!("{}_{}", composite.name, shifted_elem.id);
-
-            // Смещаем точки в Edge
-            if let ElementType::Edge { ref mut points, .. } = shifted_elem.element_type {
-                for point in points.iter_mut() {
-                    point.x += offset_x;
-                    point.y += offset_y;
-                }
-            }
-
-            elements.push(shifted_elem);
-        }
-
-        elements
-    }
-
-    /// Создаёт элемент внутреннего состояния (меньший размер)
-    fn create_inner_state_element(
-        &self,
-        name: &str,
-        state_type: StateType,
-        cell: Rect,
-        description: Option<&str>,
-    ) -> (LayoutElement, Rect) {
-        let Rect {
-            x,
-            y,
-            width,
-            height,
-        } = cell;
-        match state_type {
-            StateType::Initial => {
-                let r = 8.0;
-                let cx = x + width / 2.0;
-                let cy = y + r;
-                let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
-
-                (
-                    LayoutElement {
-                        id: format!("inner_initial_{}", name.replace(['[', ']', '*', '_'], "")),
-                        bounds,
-                        text: None,
-                        properties: std::collections::HashMap::new(),
-                        element_type: ElementType::InitialState,
-                    },
-                    bounds,
-                )
-            }
-            StateType::Final => {
-                // Конечный узел на 1px больше начального — как в PlantUML
-                // (эталон `state_simple`: начальный `rx=10`, конечный `rx=11`).
-                let r = 8.0 + FINAL_NODE_RADIUS_EXTRA;
-                let cx = x + width / 2.0;
-                let cy = y + r;
-                let bounds = Rect::new(cx - r, cy - r, r * 2.0, r * 2.0);
-
-                (
-                    LayoutElement {
-                        id: format!("inner_final_{}", name.replace(['[', ']', '*', '_'], "")),
-                        bounds,
-                        text: None,
-                        properties: std::collections::HashMap::new(),
-                        element_type: ElementType::FinalState,
-                    },
-                    bounds,
-                )
-            }
-            _ => {
-                let bounds = Rect::new(x, y, width, height);
-
-                (
-                    LayoutElement {
-                        id: format!("inner_state_{}", name),
-                        bounds,
-                        text: None,
-                        properties: std::collections::HashMap::new(),
-                        element_type: ElementType::State {
-                            name: name.to_string(),
-                            description: description.map(str::to_string),
-                        },
-                    },
-                    bounds,
-                )
-            }
-        }
-    }
-
-    /// Создаёт внутренний переход с индексом для уникального offset
-    fn create_inner_transition_indexed(
-        &self,
-        from: &str,
-        to: &str,
-        label: Option<&str>,
-        from_rect: &Rect,
-        to_rect: &Rect,
-        backward_index: usize,
-    ) -> LayoutElement {
-        let from_center_x = from_rect.x + from_rect.width / 2.0;
-        let to_center_x = to_rect.x + to_rect.width / 2.0;
-        let from_center_y = from_rect.y + from_rect.height / 2.0;
-        let to_center_y = to_rect.y + to_rect.height / 2.0;
-
-        let dy = to_center_y - from_center_y;
-        let dx = to_center_x - from_center_x;
-
-        // Обратный переход (вверх)?
-        let is_backward = dy < -20.0;
-
-        let points = if is_backward {
-            // Обход справа с уникальным offset для каждого обратного перехода
-            // Стрелка выходит СПРАВА от исходного элемента, входит СПРАВА в целевой
-            // Но с вертикальным смещением чтобы не накладываться на другие стрелки
-            let base_offset = 15.0;
-            let offset = base_offset + backward_index as f64 * 20.0;
-            let right_x = from_rect.x.max(to_rect.x) + from_rect.width.max(to_rect.width) + offset;
-
-            // Смещаем точки выхода и входа по вертикали, чтобы они не накладывались
-            // Выход: верхняя часть элемента (для обратного перехода)
-            // Вход: нижняя часть элемента
-            let from_y = from_rect.y + from_rect.height * 0.3; // верхняя треть
-            let to_y = to_rect.y + to_rect.height * 0.7; // нижняя треть
-
-            vec![
-                Point::new(from_rect.x + from_rect.width, from_y),
-                Point::new(right_x, from_y),
-                Point::new(right_x, to_y),
-                Point::new(to_rect.x + to_rect.width, to_y),
-            ]
-        } else if dy > 10.0 {
-            // Переход вниз - прямой переход
-            // Выход снизу по центру, вход сверху по центру
-            vec![
-                Point::new(from_center_x, from_rect.y + from_rect.height),
-                Point::new(to_center_x, to_rect.y),
-            ]
-        } else {
-            // Горизонтальный или небольшой переход
-            if dx > 0.0 {
-                vec![
-                    Point::new(from_rect.x + from_rect.width, from_center_y),
-                    Point::new(to_rect.x, to_center_y),
-                ]
-            } else {
-                vec![
-                    Point::new(from_rect.x, from_center_y),
-                    Point::new(to_rect.x + to_rect.width, to_center_y),
-                ]
-            }
-        };
-
-        let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-        let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-        let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-        let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
-
-        let from_clean = from.replace(['[', ']', '*', '_'], "");
-        let to_clean = to.replace(['[', ']', '*', '_'], "");
-
-        LayoutElement {
-            id: format!("inner_trans_{}_{}", from_clean, to_clean),
-            bounds: Rect::new(
-                min_x,
-                min_y,
-                (max_x - min_x).max(1.0),
-                (max_y - min_y).max(1.0),
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Edge {
-                points,
-                label: label.map(|s| s.to_string()),
-                arrow_start: false,
-                arrow_end: true,
-                dashed: false,
-                edge_type: EdgeType::Association,
-                from_cardinality: None,
-                to_cardinality: None,
-            },
-        }
-    }
-
-    /// Назначает уровни состояниям
-    fn assign_levels(
-        &self,
-        all_states: &IndexSet<String>,
-        transitions: &[(String, String, Option<String>)],
-        has_initial: bool,
-        has_final: bool,
-    ) -> IndexMap<String, usize> {
-        let mut levels: IndexMap<String, usize> = IndexMap::new();
-
-        if has_initial {
-            levels.insert(INITIAL_STATE_ID.to_string(), 0);
-        } else {
-            let targets: IndexSet<&String> = transitions.iter().map(|(_, to, _)| to).collect();
-            for state in all_states {
-                if state != FINAL_STATE_ID && !targets.contains(state) {
-                    levels.insert(state.clone(), 0);
-                }
-            }
-        }
-
-        if levels.is_empty() {
-            if let Some(first) = all_states.iter().find(|s| *s != FINAL_STATE_ID) {
-                levels.insert(first.clone(), 0);
-            }
-        }
-
-        // ПЕРЕНОС НА ЦЕЛОЧИСЛЕННЫЕ ИНДЕКСЫ.
-        //
-        // Алгоритм итеративный: за один проход добавляется один «слой»
-        // уровней, поэтому для цепочки из N состояний нужно N проходов.
-        // Прежний код на КАЖДОМ проходе клонировал `IndexMap<String, usize>`
-        // вместе со всеми строками-ключами, что давало O(N²) на копировании
-        // строк. Здесь те же проходы, но над `Vec<Option<usize>>` — числа
-        // копировать на порядки дешевле. Порядок обхода и правило
-        // «первое достижение задаёт уровень» сохранены ПОЛНОСТЬЮ.
-        let mut names: Vec<&String> = levels.keys().collect();
-        let mut index: std::collections::HashMap<&str, usize> = names
-            .iter()
-            .enumerate()
-            .map(|(i, n)| (n.as_str(), i))
-            .collect();
-        let mut node_levels: Vec<Option<usize>> = levels.values().copied().map(Some).collect();
-        for state in all_states {
-            if !index.contains_key(state.as_str()) {
-                index.insert(state.as_str(), names.len());
-                names.push(state);
-                node_levels.push(None);
-            }
-        }
-
-        let edges: Vec<(usize, usize)> = transitions
-            .iter()
-            .map(|(from, to, _)| (index[from.as_str()], index[to.as_str()]))
-            .collect();
-        let final_id = index.get(FINAL_STATE_ID).copied();
-
-        let max_iterations = all_states.len() + 1;
-        for _ in 0..max_iterations {
-            let mut new_levels = node_levels.clone();
-            let mut added = false;
-
-            for &(from, to) in &edges {
-                if Some(to) == final_id {
+        // Состояния, названные только в переходах.
+        let declared_elsewhere =
+            |name: &str, scene: &Scene| scene.knows(name) || scene.knows_cluster(name);
+        for t in transitions {
+            for raw in [&t.from, &t.to] {
+                if raw == "[*]" {
                     continue;
                 }
-
-                if let Some(from_level) = node_levels[from] {
-                    let new_level = from_level + 1;
-
-                    if new_levels[to].is_none() {
-                        new_levels[to] = Some(new_level);
-                        added = true;
-                    }
+                let base = endpoint_base(raw);
+                if !declared_elsewhere(base, scene) {
+                    let (mut element, _) = self.create_simple_state(base, 0.0, 0.0, None);
+                    element.bounds.x = 0.0;
+                    scene.add_node(cluster, &[base], vec![element]);
                 }
             }
-
-            if !added {
-                break;
-            }
-            node_levels = new_levels;
         }
-
-        let resolved: Vec<(String, usize)> = names
-            .iter()
-            .enumerate()
-            .filter_map(|(position, name)| {
-                node_levels[position].map(|level| ((*name).clone(), level))
-            })
-            .collect();
-        for (name, level) in resolved {
-            levels.insert(name, level);
-        }
-
-        // Узлы, которых не было в исходной карте, добавляем с нулём —
-        // как и прежний код.
-        for state in all_states {
-            if !levels.contains_key(state) {
-                levels.insert(state.clone(), 0);
+        // История — кружок внутри составного состояния.
+        for t in transitions {
+            for raw in [&t.from, &t.to] {
+                let Some((base, deep)) = history_ref(raw) else {
+                    continue;
+                };
+                if scene.knows(raw) {
+                    continue;
+                }
+                let home = scene.cluster_named(base).or(cluster);
+                let (element, _) = self.create_history_state(raw, 0.0, 0.0, deep);
+                scene.add_node(home, &[raw.as_str()], vec![element]);
             }
         }
-
         if has_final {
-            // Конечное состояние ставится на уровень своего предшественника
-            // плюс один, а НЕ под всеми состояниями.
-            //
-            // Регрессия: раньше брался max_level + 1, поэтому при
-            //     Active --> Inactive
-            //     Active --> [*]
-            // конечный круг оказывался на отдельном уровне ниже «Inactive»,
-            // и диаграмма вырастала по высоте (380 против 278 в эталоне).
-            // В PlantUML он стоит рядом с «Inactive» (оба — на уровне 2).
-            let final_level = transitions
+            let (element, _) = self.create_final_state(&terminal, 0.0, 0.0);
+            scene.add_node(cluster, &[terminal.as_str()], vec![element]);
+        }
+
+        for t in transitions {
+            let end = |raw: &str, pseudo: &str| {
+                if raw == "[*]" {
+                    pseudo.to_string()
+                } else {
+                    raw.to_string()
+                }
+            };
+            let mut edge = SceneEdge::new(end(&t.from, &initial), end(&t.to, &terminal), t.arrow);
+            let label = t.label();
+            edge.label = (!label.is_empty()).then_some(label);
+            if let Some(color) = &t.color {
+                edge.properties.insert("stroke".to_string(), color.to_css());
+            }
+            scene.add_edge(edge);
+        }
+    }
+
+    /// Добавляет состояние: простое становится узлом, составное — кластером.
+    fn add_state(&self, scene: &mut Scene, cluster: Option<usize>, state: &State) {
+        let mut names = vec![state.name.as_str()];
+        if let Some(alias) = &state.alias {
+            names.push(alias);
+        }
+        // Составное состояние без содержимого рисуем обычным: рамке нечего охватывать.
+        let is_empty = state.substates.is_empty()
+            && state.regions.is_empty()
+            && state.internal_transitions.is_empty();
+        if state.state_type != StateType::Composite || is_empty {
+            let (mut element, _) = self.create_state_element(
+                &state.name,
+                state.state_type,
+                0.0,
+                0.0,
+                state.description.as_deref(),
+            );
+            element.bounds.x = 0.0;
+            element.bounds.y = 0.0;
+            scene.add_node(cluster, &names, vec![element]);
+            return;
+        }
+
+        let measurer = self.config_text();
+        let min_width =
+            measurer.width_bold(&state.name, STATE_FONT_SIZE) + STATE_WIDTH_PADDING * 2.0;
+        let inner = scene.add_cluster(
+            cluster,
+            &names,
+            COMPOSITE_HEADER_HEIGHT,
+            min_width,
+            LayoutElement {
+                id: format!("composite_{}", state.name),
+                bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
+                text: None,
+                properties: std::collections::HashMap::new(),
+                element_type: ElementType::CompositeState {
+                    name: state.name.clone(),
+                    header_height: COMPOSITE_HEADER_HEIGHT,
+                },
+            },
+        );
+
+        if state.regions.is_empty() {
+            self.add_scope(
+                scene,
+                Some(inner),
+                &state.name,
+                &state.substates,
+                &state.internal_transitions,
+            );
+            return;
+        }
+
+        // Первый регион разобран в `substates`, остальные лежат в `regions`.
+        let regions: Vec<&[State]> = std::iter::once(state.substates.as_slice())
+            .filter(|first| !first.is_empty())
+            .chain(state.regions.iter().map(Vec::as_slice))
+            .collect();
+        // Регионы идут рядом; переход относится к региону своих концов.
+        let region_of = |name: &str| {
+            regions
                 .iter()
-                .filter(|(_, to, _)| to == FINAL_STATE_ID)
-                .filter_map(|(from, _, _)| levels.get(from))
-                .map(|level| level + 1)
-                .max()
-                .unwrap_or_else(|| levels.values().max().copied().unwrap_or(0) + 1);
-
-            levels.insert(FINAL_STATE_ID.to_string(), final_level);
+                .position(|region| region.iter().any(|s| s.name == name))
+        };
+        for (index, region) in regions.iter().enumerate() {
+            let region_cluster = scene.add_cluster(
+                Some(inner),
+                &[],
+                0.0,
+                0.0,
+                LayoutElement {
+                    id: format!("region_{}_{index}", state.name),
+                    bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
+                    text: None,
+                    properties: [("cluster-shape".to_string(), "region".to_string())]
+                        .into_iter()
+                        .collect(),
+                    element_type: ElementType::Group {
+                        label: None,
+                        children: Vec::new(),
+                    },
+                },
+            );
+            let transitions: Vec<plantuml_ast::state::Transition> = state
+                .internal_transitions
+                .iter()
+                .filter(|t| {
+                    let home = region_of(&t.from).or_else(|| region_of(&t.to)).unwrap_or(0);
+                    home == index
+                })
+                .cloned()
+                .collect();
+            let scope = format!("{}#{index}", state.name);
+            self.add_scope(scene, Some(region_cluster), &scope, region, &transitions);
         }
-
-        for state in all_states {
-            if !levels.contains_key(state) {
-                levels.insert(state.clone(), 0);
-            }
-        }
-
-        levels
     }
 
-    /// Получает тип состояния для внутреннего идентификатора
-    fn get_state_type_internal(&self, diagram: &StateDiagram, name: &str) -> StateType {
-        if name == INITIAL_STATE_ID {
-            return StateType::Initial;
-        }
-        if name == FINAL_STATE_ID {
-            return StateType::Final;
-        }
-
-        self.get_state_type(diagram, name)
-    }
-
-    /// Получает тип состояния
-    fn get_state_type(&self, diagram: &StateDiagram, name: &str) -> StateType {
-        if name == "[*]" {
-            let is_source = diagram.transitions.iter().any(|t| t.from == name);
-            let is_target = diagram.transitions.iter().any(|t| t.to == name);
-
-            if is_source && !is_target {
-                return StateType::Initial;
-            } else if is_target && !is_source {
-                return StateType::Final;
-            }
-            return StateType::Initial;
-        }
-
-        if name == "[H]" {
-            return StateType::History;
-        }
-        if name == "[H*]" {
-            return StateType::DeepHistory;
-        }
-
-        for state in &diagram.states {
-            if state.name == name || state.alias.as_deref() == Some(name) {
-                return state.state_type;
-            }
-        }
-
-        StateType::Simple
-    }
-
-    /// Создаёт элемент состояния
     fn create_state_element(
         &self,
         name: &str,
@@ -1219,28 +371,6 @@ impl StateLayoutEngine {
             },
             bounds,
         )
-    }
-
-    /// Зазор между двумя соседними элементами уровня.
-    ///
-    /// Измерено на сервере:
-    ///   два НАСТОЯЩИХ состояния рядом -> 35.0
-    ///     (`@startuml\n[*] --> A\nA --> C\nB --> C\n@enduml`: рамки
-    ///      на x=7 и x=92 по 50 шириной, то есть 92 − 57 = 35)
-    ///   настоящее рядом с ПСЕВДОСОСТОЯНИЕМ -> 88.1
-    ///     (`state_simple`: `Inactive` правый край 102.2, круг `[*]`
-    ///      левый край 190.3)
-    ///
-    /// Прежний код использовал одну константу 88.214 везде, из-за чего
-    /// `State: Простой` расходился: два настоящих состояния стояли через
-    /// 88 вместо 35 (эталон Completed 7…103, Failed 138…200).
-    fn state_gap(&self, a: &str, b: &str) -> f64 {
-        let pseudo = |n: &str| n == INITIAL_STATE_ID || n == FINAL_STATE_ID;
-        if pseudo(a) || pseudo(b) {
-            self.config.horizontal_spacing
-        } else {
-            STATE_SIBLING_GAP
-        }
     }
 
     /// Ширина состояния по длине имени.
@@ -1321,90 +451,6 @@ impl StateLayoutEngine {
     /// Заметка привязана к состоянию по имени: колонка выравнивается по его
     /// высоте, пунктир соединяет её с состоянием. Заметки ниже друг друга не
     /// накладываются.
-    fn layout_notes(
-        &self,
-        notes: &[&plantuml_ast::common::Note],
-        positions: &IndexMap<String, Rect>,
-        elements: &mut Vec<LayoutElement>,
-    ) {
-        if notes.is_empty() {
-            return;
-        }
-        let measurer = crate::text::TextMeasurer::default();
-        let right = elements
-            .iter()
-            .map(|e| e.bounds.x + e.bounds.width)
-            .fold(self.config.margin, f64::max);
-        let x = right + NOTE_COLUMN_GAP;
-        let mut next_y = self.config.margin;
-
-        for note in notes {
-            let lines: Vec<&str> = note.text.lines().map(str::trim).collect();
-            let text_width = lines
-                .iter()
-                .map(|line| measurer.width(line, STATE_NOTE_FONT_SIZE))
-                .fold(0.0, f64::max);
-            let width = text_width + 20.0;
-            let height = lines.len().max(1) as f64 * STATE_NOTE_LINE + 12.0;
-
-            let anchor = note.anchors.first().and_then(|name| positions.get(name));
-            let y = anchor.map_or(next_y, |rect| rect.y.max(next_y));
-            next_y = y + height + 10.0;
-
-            let mut properties = std::collections::HashMap::new();
-            properties.insert("fill".to_string(), "#FEFFDD".to_string());
-            elements.push(LayoutElement {
-                id: format!("note_shape_{}", elements.len()),
-                bounds: Rect::new(x, y, width, height),
-                text: None,
-                properties,
-                element_type: ElementType::Note {
-                    label: String::new(),
-                    fold: 10.0,
-                },
-            });
-            for (index, line) in lines.iter().enumerate() {
-                let baseline = y + 6.0 + (index as f64 + 1.0) * STATE_NOTE_LINE - 3.0;
-                elements.push(LayoutElement {
-                    id: format!("note_text_{}", elements.len()),
-                    bounds: Rect::new(
-                        x + 10.0,
-                        baseline - STATE_NOTE_FONT_SIZE,
-                        measurer.width(line, STATE_NOTE_FONT_SIZE),
-                        STATE_NOTE_FONT_SIZE,
-                    ),
-                    text: None,
-                    properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Text {
-                        text: (*line).to_string(),
-                        font_size: STATE_NOTE_FONT_SIZE,
-                    },
-                });
-            }
-            if let Some(rect) = anchor {
-                let (sx, sy) = (rect.x + rect.width, rect.y + rect.height / 2.0);
-                let ey = y + height / 2.0;
-                elements.push(LayoutElement {
-                    id: format!("note_link_{}", elements.len()),
-                    bounds: Rect::new(sx, sy.min(ey), (x - sx).max(1.0), (ey - sy).abs().max(1.0)),
-                    text: None,
-                    properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Edge {
-                        points: vec![Point::new(sx, sy), Point::new(x, ey)],
-                        label: None,
-                        arrow_start: false,
-                        arrow_end: false,
-                        dashed: true,
-                        edge_type: EdgeType::Association,
-                        from_cardinality: None,
-                        to_cardinality: None,
-                    },
-                });
-            }
-        }
-    }
-
-    /// Создаёт choice state (ромб)
     fn create_choice_state(&self, name: &str, x: f64, y: f64) -> (LayoutElement, Rect) {
         let size = self.config.choice_size;
         let cx = x + self.config.state_width / 2.0;
@@ -1480,131 +526,6 @@ impl StateLayoutEngine {
             },
             bounds,
         )
-    }
-
-    /// Создаёт элемент перехода
-    fn create_transition_element(
-        &self,
-        from: &str,
-        to: &str,
-        label: Option<&str>,
-        from_rect: &Rect,
-        to_rect: &Rect,
-    ) -> LayoutElement {
-        let from_center_x = from_rect.x + from_rect.width / 2.0;
-        let to_center_x = to_rect.x + to_rect.width / 2.0;
-        let from_center_y = from_rect.y + from_rect.height / 2.0;
-        let to_center_y = to_rect.y + to_rect.height / 2.0;
-
-        let dy = to_center_y - from_center_y;
-
-        let is_backward_transition = dy < -self.config.vertical_spacing * 0.5;
-        let is_to_small = to_rect.width < 30.0 && to_rect.height < 30.0;
-        let is_from_small = from_rect.width < 30.0 && from_rect.height < 30.0;
-
-        let points = if is_backward_transition {
-            let offset = 68.0;
-            let right_x = from_rect.x.max(to_rect.x) + from_rect.width.max(to_rect.width) + offset;
-
-            let start = Point::new(from_rect.x + from_rect.width, from_center_y);
-            let corner1 = Point::new(right_x, from_center_y);
-            let corner2 = Point::new(right_x, to_center_y);
-            let end = if is_to_small {
-                Point::new(to_center_x + to_rect.width / 2.0, to_center_y)
-            } else {
-                Point::new(to_rect.x + to_rect.width, to_center_y)
-            };
-
-            vec![start, corner1, corner2, end]
-        } else if (is_from_small || is_to_small) && dy > 0.0 {
-            let start = Point::new(from_center_x, from_rect.y + from_rect.height);
-            let end = Point::new(to_center_x, to_rect.y);
-            vec![start, end]
-        } else {
-            let (start, end) = self.calculate_connection_points(from_rect, to_rect);
-            vec![start, end]
-        };
-
-        let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-        let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-        let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-        let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
-
-        let from_clean = from.replace(['[', ']', '*', '_'], "");
-        let to_clean = to.replace(['[', ']', '*', '_'], "");
-
-        LayoutElement {
-            id: format!("trans_{}_{}", from_clean, to_clean),
-            bounds: Rect::new(
-                min_x,
-                min_y,
-                (max_x - min_x).max(1.0),
-                (max_y - min_y).max(1.0),
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Edge {
-                points,
-                label: label.map(|s| s.to_string()),
-                arrow_start: false,
-                arrow_end: true,
-                dashed: false,
-                edge_type: EdgeType::Association,
-                from_cardinality: None,
-                to_cardinality: None,
-            },
-        }
-    }
-
-    /// Вычисляет точки соединения
-    fn calculate_connection_points(&self, from: &Rect, to: &Rect) -> (Point, Point) {
-        let from_center_x = from.x + from.width / 2.0;
-        let to_center_x = to.x + to.width / 2.0;
-
-        let dx = to_center_x - from_center_x;
-        let dy = (to.y + to.height / 2.0) - (from.y + from.height / 2.0);
-
-        if dy > 0.0 {
-            let is_to_small = to.width < 30.0 && to.height < 30.0;
-
-            if is_to_small {
-                let from_x = if dx.abs() < 10.0 {
-                    from_center_x
-                } else if dx > 0.0 {
-                    from_center_x + from.width * 0.2
-                } else {
-                    from_center_x - from.width * 0.2
-                };
-
-                let start = Point::new(from_x, from.y + from.height);
-                let end = Point::new(to_center_x, to.y);
-                (start, end)
-            } else {
-                let from_x = if dx.abs() < 10.0 {
-                    from_center_x
-                } else if dx > 0.0 {
-                    from_center_x + from.width * 0.2
-                } else {
-                    from_center_x - from.width * 0.2
-                };
-
-                let to_x = if dx.abs() < 10.0 {
-                    to_center_x
-                } else if dx > 0.0 {
-                    to_center_x - to.width * 0.2
-                } else {
-                    to_center_x + to.width * 0.2
-                };
-
-                let start = Point::new(from_x, from.y + from.height);
-                let end = Point::new(to_x, to.y);
-                (start, end)
-            }
-        } else {
-            let start = Point::new(from_center_x, from.y);
-            let end = Point::new(to_center_x, to.y + to.height);
-            (start, end)
-        }
     }
 }
 
@@ -1703,7 +624,7 @@ mod tests {
         let result = StateLayoutEngine::new().layout(&diagram);
         let has_text = |needle: &str| {
             result.elements.iter().any(|e| match &e.element_type {
-                ElementType::Text { text, .. } => text == needle,
+                ElementType::Note { label, .. } => label.contains(needle),
                 ElementType::State { description, .. } => {
                     description.as_deref().is_some_and(|d| d.contains(needle))
                 }

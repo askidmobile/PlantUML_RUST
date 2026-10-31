@@ -1,54 +1,59 @@
 ---
 source: crates/plantuml-core/tests/state_tests.rs
-assertion_line: 26
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="278px" preserveAspectRatio="none" style="width:225px;height:278px;background:#FFFFFF;" version="1.1" viewBox="7 7 225.15959999999998 277.997" width="225px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="279px" preserveAspectRatio="none" style="width:226px;height:279px;background:#FFFFFF;" version="1.1" viewBox="2 0 226.22400000000002 278.7" width="226px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
-<g id="initial_initial">
-<ellipse cx="98.75139999999999" cy="17" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
+<g id="initial_top#initial">
+<ellipse cx="116.05095000000001" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
 </g>
 <g id="state_Active">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="63.7612" x="66.87079999999999" y="88"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="98.75139999999999" y="106.1485" textLength="43.761">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="63.7612" x="84.17035000000001" y="81"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="116.05095000000001" y="99.1485" textLength="43.761">
 Active
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="66.87079999999999" x2="130.632" y1="114.297" y2="114.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="84.17035000000001" x2="147.93155000000002" y1="107.297" y2="107.297"/>
 </g>
 <g id="state_Inactive">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="75.2888" x="7" y="215.297"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="44.6444" y="233.4455" textLength="55.289">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="75.2888" x="34.01025000000001" y="209"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="71.65465" y="227.1485" textLength="55.289">
 Inactive
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="7" x2="82.2888" y1="241.594" y2="241.594"/>
+<line stroke="#181818" stroke-width="0.5" x1="34.01025000000001" x2="109.29905000000001" y1="235.297" y2="235.297"/>
 </g>
-<g id="final_final">
-<ellipse cx="180.50279999999998" cy="225.297" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="180.50279999999998" cy="225.297" fill="#222" rx="6" ry="6" stroke="none"/>
+<g id="final_top#final">
+<ellipse cx="196.05095" cy="233" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="196.05095" cy="233" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
-<g id="trans_initial_Active">
-<path d="M98.75139999999999,27 L98.75139999999999,88" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="98.751,88 102.751,79 98.751,83 94.751,79" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<g id="edge_0">
+<path d="M116.05095000000001,20 L116.05095000000001,50.5 L116.05095000000001,81" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="116.051,81 120.051,72 116.051,76 112.051,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
-<g id="trans_Active_Inactive">
-<path d="M85.99915999999999,138 L59.70216,215.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="59.702,215.297 66.388,208.065 61.313,210.563 58.814,205.488" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="end" x="67.48035999999999" y="168.9188" textLength="50.517">
+<g id="edge_1">
+<path d="M84.17035000000001,128.9789239193356 L27.258350000000004,170 L54.31234531250001,209" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="54.312,209 52.469,199.325 51.462,204.892 45.896,203.885" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_2">
+<path d="M88.99695468750001,209 L116.05095000000001,170 L116.05095000000001,131" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="116.051,131 112.051,140 116.051,136 120.051,140" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_3">
+<path d="M147.43909453125002,131 L196.40460000000002,170 L196.93985859375,223" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="196.94,223 200.849,213.96 196.889,218 192.849,214.041" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_label_1">
+<text fill="#000" font-family="sans-serif" font-size="13" x="2" y="174.5" textLength="50.517">
 timeout
 </text>
 </g>
-<g id="trans_Inactive_Active">
-<path d="M82.2888,240.297 L210.15959999999998,240.297 L210.15959999999998,113 L130.632,113" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="130.632,113 139.632,117 135.632,113 139.632,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="87.2888" y="235.297" textLength="49.069">
+<g id="edge_label_2">
+<text fill="#000" font-family="sans-serif" font-size="13" x="91.51670000000001" y="174.5" textLength="49.069">
 resume
 </text>
 </g>
-<g id="trans_Active_final">
-<path d="M98.75139999999999,138 L180.50279999999998,214.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="180.503,214.297 176.652,205.232 176.847,210.886 171.194,211.081" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="139.45195999999999" y="168.5188" textLength="33.639">
+<g id="edge_label_3">
+<text fill="#000" font-family="sans-serif" font-size="13" x="179.58520000000001" y="174.5" textLength="33.639">
 close
 </text>
 </g>

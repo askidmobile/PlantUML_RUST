@@ -5,12 +5,19 @@
 
 use std::collections::HashMap;
 
+use plantuml_ast::common::{ArrowShape, Direction};
 use plantuml_ast::er::{Entity, ErDiagram};
 use plantuml_model::{Point, Rect, Size};
 
 use crate::er::config::ErLayoutConfig;
+use crate::graph::scene::{Scene, SceneEdge};
+use crate::graph::Direction as GraphDirection;
+use crate::text::TextMeasurer;
 use crate::traits::{LayoutEngine, LayoutResult};
 use crate::{EdgeType, ElementType, LayoutConfig, LayoutElement};
+
+/// Зазор между сущностями одного ранга.
+const ER_NODE_SEP: f64 = 35.0;
 
 /// Заливка блока сущности ER (эталон `er_basic`: `#F1F1F1`).
 const ER_ENTITY_FILL: &str = "#F1F1F1";
@@ -155,62 +162,6 @@ impl ErLayoutEngine {
             + self.config.entity_padding;
 
         Size::new(final_width, height)
-    }
-
-    /// Размещает сущности в grid
-    fn layout_entities(
-        &self,
-        diagram: &ErDiagram,
-        elements: &mut Vec<LayoutElement>,
-    ) -> HashMap<String, Rect> {
-        let mut positions: HashMap<String, Rect> = HashMap::new();
-
-        // PlantUML размещает сущности ER вертикально: в эталоне обе сущности
-        // стоят на x=7 (er_basic: 54x208 при высоте 208). Раньше использовалась
-        // сетка по 3 в ряд, из-за чего диаграмма получалась широкой и низкой
-        // (410x114 против 54x208).
-        let mut y = self.config.padding;
-        let mut row_height = 0.0_f64;
-
-        // Общая ось: эталон `er_basic` держит центры обеих сущностей на
-        // 59.76 при ширинах 105.51 и 72.03. Без выравнивания связь шла по
-        // диагонали, а она в ER-нотации вертикальная.
-        let widths: Vec<f64> = diagram
-            .entities
-            .iter()
-            .map(|entity| self.calculate_entity_size(entity).width)
-            .collect();
-        let diagram_width =
-            widths.iter().cloned().fold(0.0_f64, f64::max) + self.config.padding * 2.0;
-
-        for (entity_index, entity) in diagram.entities.iter().enumerate() {
-            let size = self.calculate_entity_size(entity);
-
-            if entity_index > 0 {
-                // Сущности идут по ОДНОЙ в строке (эталон `er_basic`:
-                // 127x226 при двух сущностях).
-                y += row_height + self.config.vertical_spacing;
-                row_height = 0.0;
-            }
-
-            let x = (diagram_width - size.width) / 2.0;
-            let bounds = Rect::new(x, y, size.width, size.height);
-            positions.insert(entity.id.name.clone(), bounds);
-            // Связь ссылается на алиас (`user ||--o{ order`), а не на имя
-            // сущности, поэтому позиция сохраняется и под алиасом. Без этого
-            // render_relationships не находил концы и молча пропускал ВСЕ
-            // связи — на диаграмме не было ни линии, ни кардинальностей.
-            if let Some(alias) = &entity.id.alias {
-                positions.insert(alias.clone(), bounds);
-            }
-
-            // Рисуем сущность
-            self.render_entity(entity, &bounds, elements);
-
-            row_height = row_height.max(size.height);
-        }
-
-        positions
     }
 
     /// Рендерит одну сущность
@@ -415,114 +366,6 @@ impl ErLayoutEngine {
             attr_y += self.config.attribute_height;
         }
     }
-
-    /// Рендерит связи между сущностями
-    fn render_relationships(
-        &self,
-        diagram: &ErDiagram,
-        positions: &HashMap<String, Rect>,
-        elements: &mut Vec<LayoutElement>,
-    ) {
-        for (i, rel) in diagram.relationships.iter().enumerate() {
-            let from_bounds = match positions.get(&rel.from) {
-                Some(b) => b,
-                None => continue,
-            };
-            let to_bounds = match positions.get(&rel.to) {
-                Some(b) => b,
-                None => continue,
-            };
-
-            // Вычисляем точки соединения
-            let from_center = Point::new(
-                from_bounds.x + from_bounds.width / 2.0,
-                from_bounds.y + from_bounds.height / 2.0,
-            );
-            let to_center = Point::new(
-                to_bounds.x + to_bounds.width / 2.0,
-                to_bounds.y + to_bounds.height / 2.0,
-            );
-
-            // Определяем точки на границах
-            let (from_point, to_point) =
-                self.calculate_connection_points(from_bounds, to_bounds, from_center, to_center);
-
-            // Линия связи.
-            //
-            // Кардинальности передаются в типизированных полях
-            // ElementType::Edge, как во всех остальных движках. Раньше они
-            // шли строковыми ключами properties («from_card»/«to_card»),
-            // что расходилось с общим контрактом: рендерер читал эти ключи
-            // только в одном месте и не мог обработать их единообразно.
-            let edge = LayoutElement {
-                id: format!("rel_{}", i),
-                element_type: ElementType::Edge {
-                    points: vec![from_point, to_point],
-                    label: rel.label.clone(),
-                    arrow_start: false,
-                    arrow_end: false,
-                    // Пунктир задаёт САМ ИСХОДНИК: `..` — пунктир,
-                    // `--` — сплошная. Эталон `er_basic` (`||--o{`) даёт
-                    // сплошную линию.
-                    dashed: rel.dashed,
-                    edge_type: EdgeType::Link,
-                    from_cardinality: Some(rel.from_cardinality.symbol().to_string()),
-                    to_cardinality: Some(rel.to_cardinality.symbol().to_string()),
-                },
-                bounds: Rect::from_points(from_point, to_point),
-                text: rel.label.clone(),
-                properties: [("stroke".to_string(), "#181818".to_string())]
-                    .into_iter()
-                    .collect(),
-            };
-            elements.push(edge);
-        }
-    }
-
-    /// Вычисляет точки соединения на границах прямоугольников
-    fn calculate_connection_points(
-        &self,
-        from: &Rect,
-        to: &Rect,
-        from_center: Point,
-        to_center: Point,
-    ) -> (Point, Point) {
-        // Простой расчёт: соединяем ближайшие стороны
-        let dx = to_center.x - from_center.x;
-        let dy = to_center.y - from_center.y;
-
-        let from_point = if dx.abs() > dy.abs() {
-            // Горизонтальное соединение
-            if dx > 0.0 {
-                Point::new(from.x + from.width, from_center.y)
-            } else {
-                Point::new(from.x, from_center.y)
-            }
-        } else {
-            // Вертикальное соединение
-            if dy > 0.0 {
-                Point::new(from_center.x, from.y + from.height)
-            } else {
-                Point::new(from_center.x, from.y)
-            }
-        };
-
-        let to_point = if dx.abs() > dy.abs() {
-            if dx > 0.0 {
-                Point::new(to.x, to_center.y)
-            } else {
-                Point::new(to.x + to.width, to_center.y)
-            }
-        } else {
-            if dy > 0.0 {
-                Point::new(to_center.x, to.y)
-            } else {
-                Point::new(to_center.x, to.y + to.height)
-            }
-        };
-
-        (from_point, to_point)
-    }
 }
 
 impl Default for ErLayoutEngine {
@@ -535,25 +378,39 @@ impl LayoutEngine for ErLayoutEngine {
     type Input = ErDiagram;
 
     fn layout(&self, diagram: &Self::Input, _config: &LayoutConfig) -> LayoutResult {
-        let mut elements = Vec::new();
-
-        // Размещаем сущности
-        let positions = self.layout_entities(diagram, &mut elements);
-
-        // Рисуем связи
-        self.render_relationships(diagram, &positions, &mut elements);
-
-        let mut result = LayoutResult {
-            elements,
-            bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
-        };
-        result.calculate_bounds();
-
-        // Добавочный padding здесь НЕ нужен: `calculate_bounds` уже вернул
-        // объединение фигур, а левый отступ 7 входит в него как `bounds.x`.
-        // Лишние 7 давали холст 138 вместо эталонных 127.
-
-        result
+        let mut scene = Scene::new(
+            ER_NODE_SEP,
+            self.config.vertical_spacing,
+            self.config.padding,
+            TextMeasurer::default(),
+        );
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            scene.set_direction(GraphDirection::LeftToRight);
+        }
+        for entity in &diagram.entities {
+            let size = self.calculate_entity_size(entity);
+            let mut elements = Vec::new();
+            let bounds = Rect::new(0.0, 0.0, size.width, size.height);
+            self.render_entity(entity, &bounds, &mut elements);
+            let mut names = vec![entity.id.name.as_str()];
+            if let Some(alias) = &entity.id.alias {
+                names.push(alias);
+            }
+            scene.add_node(None, &names, elements);
+        }
+        for (index, rel) in diagram.relationships.iter().enumerate() {
+            let mut edge = SceneEdge::new(rel.from.clone(), rel.to.clone(), ArrowShape::default());
+            edge.id = Some(format!("rel_{index}"));
+            edge.label = rel.label.clone();
+            edge.dashed = rel.dashed;
+            edge.edge_type = EdgeType::Link;
+            edge.from_cardinality = Some(rel.from_cardinality.symbol().to_string());
+            edge.to_cardinality = Some(rel.to_cardinality.symbol().to_string());
+            edge.properties
+                .insert("stroke".to_string(), "#181818".to_string());
+            scene.add_edge(edge);
+        }
+        scene.build()
     }
 }
 

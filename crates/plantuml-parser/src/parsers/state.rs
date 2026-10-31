@@ -454,9 +454,11 @@ fn parse_transition(pair: pest::iterators::Pair<Rule>) -> Option<Transition> {
     let mut event: Option<String> = None;
     let mut guard: Option<String> = None;
     let mut action: Option<String> = None;
+    let mut arrow = plantuml_ast::common::ArrowShape::default();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::arrow => arrow = plantuml_ast::common::ArrowShape::parse(inner.as_str()),
             Rule::transition_from => {
                 from = extract_transition_endpoint(inner);
             }
@@ -484,6 +486,7 @@ fn parse_transition(pair: pest::iterators::Pair<Rule>) -> Option<Transition> {
         guard,
         action,
         color: None,
+        arrow,
     })
 }
 

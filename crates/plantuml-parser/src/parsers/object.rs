@@ -280,6 +280,7 @@ fn parse_link(pair: pest::iterators::Pair<Rule>) -> Option<ObjectLink> {
     let mut from = String::new();
     let mut to = String::new();
     let mut label: Option<String> = None;
+    let mut arrow = plantuml_ast::common::ArrowShape::default();
     let mut link_type = ObjectLinkType::Association;
 
     for inner in pair.into_inner() {
@@ -291,6 +292,7 @@ fn parse_link(pair: pest::iterators::Pair<Rule>) -> Option<ObjectLink> {
                 to = extract_name(inner);
             }
             Rule::arrow => {
+                arrow = plantuml_ast::common::ArrowShape::parse(inner.as_str());
                 link_type = parse_arrow_type(inner);
             }
             Rule::link_label => {
@@ -309,6 +311,7 @@ fn parse_link(pair: pest::iterators::Pair<Rule>) -> Option<ObjectLink> {
         to,
         label,
         link_type,
+        arrow,
     })
 }
 
