@@ -1097,6 +1097,18 @@ impl SvgRenderer {
                     &element.properties,
                 );
             }
+            ElementType::Rectangle { .. } if element.properties.contains_key("fork-bar") => {
+                // Перекладина fork/join: тёмная заливка без обводки (эталон #555).
+                group = group.add(
+                    Rectangle::new()
+                        .set("x", element.bounds.x)
+                        .set("y", element.bounds.y)
+                        .set("width", element.bounds.width)
+                        .set("height", element.bounds.height)
+                        .set("fill", "#555")
+                        .set("stroke", "none"),
+                );
+            }
             ElementType::Rectangle { label, .. } if element.properties.contains_key("shape") => {
                 group =
                     self.render_symbol(&element.bounds, label, theme, &element.properties, group);
@@ -2143,11 +2155,13 @@ impl SvgRenderer {
         // Каждая строка описания (`S1 : a`, `S1 : b`) — отдельный текст.
         if let Some(desc) = description {
             for (index, line) in desc.lines().enumerate() {
+                // Кегль общий с именем, базис 17.995 от черты, шаг 16.297 (эталон
+                // `feat_state_opisanie`).
                 let desc_text = svg::node::element::Text::new(line)
                     .set("x", bounds.x + 5.0)
-                    .set("y", separator_y + 15.0 + index as f64 * 16.3)
+                    .set("y", separator_y + 17.995 + index as f64 * 16.297)
                     .set("font-family", theme.font_family.as_str())
-                    .set("font-size", theme.font_size - 2.0)
+                    .set("font-size", theme.font_size)
                     .set("fill", theme.text_color.to_css());
 
                 group = group.add(desc_text);
@@ -2158,6 +2172,9 @@ impl SvgRenderer {
     }
 
     /// Рендерит UML Composite State (контейнер с заголовком и вложенными состояниями)
+    ///
+    /// Эталон `feat_state_konkurentnye`: тело не залито, полоса имени залита
+    /// #F1F1F1 по скруглённому верху, рамка 0.5, имя обычным начертанием.
     fn render_composite_state(
         &self,
         bounds: &Rect,
@@ -2166,49 +2183,60 @@ impl SvgRenderer {
         theme: &Theme,
         mut group: Group,
     ) -> Group {
-        let corner_radius = 10.0;
+        let corner_radius = 12.5;
+        let (x, y) = (bounds.x, bounds.y);
+        let (right, band_bottom) = (x + bounds.width, y + header_height);
 
-        // 1. Основной прямоугольник контейнера со скруглёнными углами
-        let rect = Rectangle::new()
-            .set("x", bounds.x)
-            .set("y", bounds.y)
-            .set("width", bounds.width)
-            .set("height", bounds.height)
-            .set("rx", corner_radius)
-            .set("ry", corner_radius)
-            .set("fill", theme.node_background.to_css())
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1.5);
+        // 1. Полоса имени: скруглён только верх.
+        let band = format!(
+            "M{a},{y} L{b},{y} A{r},{r} 0 0 1 {right},{c} L{right},{band_bottom} \
+             L{x},{band_bottom} L{x},{c} A{r},{r} 0 0 1 {a},{y}",
+            a = x + corner_radius,
+            b = right - corner_radius,
+            c = y + corner_radius,
+            r = corner_radius,
+        );
+        group = group.add(
+            svg::node::element::Path::new()
+                .set("d", band)
+                .set("fill", CLASS_BODY_FILL),
+        );
 
-        group = group.add(rect);
+        // 2. Рамка без заливки
+        group = group.add(
+            Rectangle::new()
+                .set("x", x)
+                .set("y", y)
+                .set("width", bounds.width)
+                .set("height", bounds.height)
+                .set("rx", corner_radius)
+                .set("ry", corner_radius)
+                .set("fill", "none")
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", 0.5),
+        );
 
-        // 2. Заголовок состояния (название сверху, жирным, центрировано)
-        let name_y = bounds.y + header_height / 2.0 + 2.0;
-        let name_text = svg::node::element::Text::new(name)
-            .set("x", bounds.x + bounds.width / 2.0)
-            .set("y", name_y)
-            .set("text-anchor", "middle")
-            .set("dominant-baseline", "middle")
-            .set("font-family", theme.font_family.as_str())
-            .set("font-size", theme.font_size + 1.0)
-            .set("font-weight", "bold")
-            .set("fill", theme.text_color.to_css());
+        // 3. Имя по центру полосы
+        group = group.add(
+            svg::node::element::Text::new(name)
+                .set("x", x + bounds.width / 2.0)
+                .set("y", y + 17.995)
+                .set("text-anchor", "middle")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", theme.font_size)
+                .set("fill", theme.text_color.to_css()),
+        );
 
-        group = group.add(name_text);
-
-        // 3. Горизонтальный разделитель под заголовком
-        let separator_y = bounds.y + header_height;
-        let separator = svg::node::element::Line::new()
-            .set("x1", bounds.x)
-            .set("y1", separator_y)
-            .set("x2", bounds.x + bounds.width)
-            .set("y2", separator_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1);
-
-        group = group.add(separator);
-
-        group
+        // 4. Черта под полосой
+        group.add(
+            svg::node::element::Line::new()
+                .set("x1", x)
+                .set("y1", band_bottom)
+                .set("x2", right)
+                .set("y2", band_bottom)
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", 0.5),
+        )
     }
 
     /// Рендерит актёра (stick figure) для UseCase диаграмм
@@ -3219,7 +3247,29 @@ impl SvgRenderer {
             .get("cluster-shape")
             .map(String::as_str)
             .unwrap_or("node");
-        group = self.render_cluster_frame(bounds, label, shape, theme, properties, group);
+        if shape == "region" {
+            // Регион составного состояния без рамки: PlantUML рисует только
+            // пунктир между регионами (эталон `feat_state_konkurentnye`).
+            let index = properties
+                .get("region-index")
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(0);
+            if index > 0 {
+                let line_y = bounds.y;
+                group = group.add(
+                    svg::node::element::Line::new()
+                        .set("x1", bounds.x + REGION_LINE_INSET)
+                        .set("y1", line_y)
+                        .set("x2", bounds.x + bounds.width - REGION_LINE_INSET)
+                        .set("y2", line_y)
+                        .set("stroke", theme.node_border.to_css())
+                        .set("stroke-width", 1.5)
+                        .set("stroke-dasharray", "8,10"),
+                );
+            }
+        } else {
+            group = self.render_cluster_frame(bounds, label, shape, theme, properties, group);
+        }
 
         // Дочерние элементы
         for child in children {
@@ -4542,6 +4592,8 @@ const CLASS_ICON_GAP: f64 = 4.0;
 
 /// Базис имени класса от верха строки шапки.
 const CLASS_NAME_BASELINE: f64 = 15.847;
+/// Отступ пунктира региона от краёв составного состояния.
+const REGION_LINE_INSET: f64 = 5.0;
 /// Высота шапки без значка вида и baseline имени в ней (эталон `feat_class_hide`).
 const CLASS_HEADER_HEIGHT_NO_CIRCLE: f64 = 26.297;
 const CLASS_NAME_BASELINE_NO_CIRCLE: f64 = 17.995;

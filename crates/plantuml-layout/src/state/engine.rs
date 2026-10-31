@@ -24,7 +24,7 @@ const STATE_FONT_SIZE: f64 = 14.0;
 const STATE_RIGHT_EXTRA: f64 = 3.0;
 use plantuml_ast::common::Direction;
 use plantuml_ast::state::{State, StateDiagram, StateType};
-use plantuml_model::Rect;
+use plantuml_model::{Point, Rect};
 
 use super::config::StateLayoutConfig;
 use crate::graph::scene::{Scene, SceneEdge};
@@ -42,7 +42,7 @@ pub struct StateLayoutEngine {
 const FINAL_NODE_RADIUS_EXTRA: f64 = 1.0;
 
 /// Высота заголовка контейнера составного состояния.
-const COMPOSITE_HEADER_HEIGHT: f64 = 30.0;
+const COMPOSITE_HEADER_HEIGHT: f64 = 26.297;
 
 /// Кегль и межстрочный интервал описания состояния (`S1 : текст`).
 const STATE_DESCRIPTION_FONT_SIZE: f64 = 12.0;
@@ -284,9 +284,12 @@ impl StateLayoutEngine {
                     id: format!("region_{}_{index}", state.name),
                     bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
                     text: None,
-                    properties: [("cluster-shape".to_string(), "region".to_string())]
-                        .into_iter()
-                        .collect(),
+                    properties: [
+                        ("cluster-shape".to_string(), "region".to_string()),
+                        ("region-index".to_string(), index.to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
                     element_type: ElementType::Group {
                         label: None,
                         children: Vec::new(),
@@ -474,10 +477,19 @@ impl StateLayoutEngine {
                 id: format!("choice_{}", name),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Text {
-                    text: "◇".to_string(),
-                    font_size: 16.0,
+                properties: [("fill".to_string(), "#F1F1F1".to_string())]
+                    .into_iter()
+                    .collect(),
+                // Ромб 24x24 с серой заливкой, как в эталоне `feat_state_fork_join_choice`.
+                element_type: ElementType::Polygon {
+                    points: vec![
+                        Point::new(size / 2.0, 0.0),
+                        Point::new(size, size / 2.0),
+                        Point::new(size / 2.0, size),
+                        Point::new(0.0, size / 2.0),
+                    ],
+                    label: None,
+                    font_size: 14.0,
                 },
             },
             bounds,
@@ -499,7 +511,9 @@ impl StateLayoutEngine {
                 id: format!("bar_{}", name),
                 bounds,
                 text: None,
-                properties: std::collections::HashMap::new(),
+                properties: [("fork-bar".to_string(), "1".to_string())]
+                    .into_iter()
+                    .collect(),
                 element_type: ElementType::Rectangle {
                     label: String::new(),
                     corner_radius: 0.0,

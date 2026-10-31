@@ -49,9 +49,9 @@ impl Default for StateLayoutConfig {
             horizontal_spacing: 88.214,
             node_radius: 10.0,
             state_corner_radius: 10.0,
-            choice_size: 20.0,
+            choice_size: 24.0,
             bar_width: 80.0,
-            bar_height: 6.0,
+            bar_height: 8.0,
             arrow_size: 8.0,
             text_padding: 10.0,
         }
