@@ -17,6 +17,8 @@ pub struct Span {
     pub size: Option<f64>,
     /// Ссылка; только разрешённые схемы
     pub href: Option<String>,
+    /// Спрайт `<$имя>` с масштабом; текста у такого куска нет
+    pub sprite: Option<(String, f64)>,
 }
 
 impl Span {
@@ -29,12 +31,17 @@ impl Span {
             && self.color == other.color
             && self.size == other.size
             && self.href == other.href
+            && self.sprite.is_none()
+            && other.sprite.is_none()
     }
 }
 
+/// Кегль заголовков `=`, `==`, `===`, `====`.
+const HEADING_SIZES: [f64; 4] = [20.0, 16.0, 15.0, 14.0];
+
 /// Есть ли в строке символы, с которых начинается разметка.
 pub fn has_markup(line: &str) -> bool {
-    line.contains(['*', '/', '_', '-', '"', '~', '<', '[', '|'])
+    line.contains(['*', '/', '_', '-', '"', '~', '<', '[', '|', '='])
 }
 
 /// Подпись без разметки: то, что видит читатель.
@@ -177,6 +184,17 @@ pub fn parse(line: &str) -> Vec<Span> {
     let mut state = State::default();
     let mut i = 0;
 
+    // `== Заголовок`: чем меньше знаков, тем крупнее. Строка из одних `=` — разделитель.
+    let marks = chars.iter().take_while(|c| **c == '=').count();
+    if (1..=4).contains(&marks) && chars.get(marks).is_some_and(|c| *c != '=') {
+        state.span.bold = true;
+        state.span.size = Some(HEADING_SIZES[marks - 1]);
+        i = marks;
+        while chars.get(i) == Some(&' ') {
+            i += 1;
+        }
+    }
+
     while i < chars.len() {
         let rest = &chars[i..];
         let rest_str = || rest.iter().collect::<String>();
@@ -307,8 +325,25 @@ fn apply_tag(tag: &str, state: &mut State, spans: &mut Vec<Span>) -> bool {
                 push_str(spans, &state.span, icon_char(name));
             } else if let Some(name) = tag.strip_prefix(':').and_then(|t| t.strip_suffix(':')) {
                 push_str(spans, &state.span, &emoji_text(name));
-            } else if tag.starts_with('$') {
-                // Спрайт в подписи рисуется не текстом: здесь он только не должен быть виден.
+            } else if let Some(body) = tag.strip_prefix('$') {
+                let name: String = body
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
+                let scale = body
+                    .split_once("scale=")
+                    .and_then(|(_, v)| {
+                        let digits: String = v
+                            .chars()
+                            .take_while(|c| c.is_ascii_digit() || *c == '.')
+                            .collect();
+                        digits.parse::<f64>().ok()
+                    })
+                    .unwrap_or(1.0);
+                let mut span = state.span.clone();
+                span.text.clear();
+                span.sprite = Some((name, scale));
+                spans.push(span);
             } else if let Some(value) = tag
                 .strip_prefix("color:")
                 .or_else(|| tag.strip_prefix("color "))
@@ -423,6 +458,22 @@ mod tests {
             parse("<color:#00FF00>т</color>")[0].color.as_deref(),
             Some("#00FF00")
         );
+    }
+
+    #[test]
+    fn test_heading_marks_are_not_text() {
+        let span = one("== Заголовок");
+        assert_eq!(span.text, "Заголовок");
+        assert!(span.bold);
+        assert_eq!(plain("===="), "====");
+        assert_eq!(plain("a = b"), "a = b");
+    }
+
+    #[test]
+    fn test_sprite_span_has_name_and_scale() {
+        let spans = parse("<$person{scale=2}>x");
+        assert_eq!(spans[0].sprite, Some(("person".to_string(), 2.0)));
+        assert_eq!(spans[1].text, "x");
     }
 
     #[test]

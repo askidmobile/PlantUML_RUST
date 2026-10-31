@@ -274,9 +274,10 @@ impl StateLayoutEngine {
                 .position(|region| region.iter().any(|s| s.name == name))
         };
         for (index, region) in regions.iter().enumerate() {
+            let region_name = format!("{}#region{index}", state.name);
             let region_cluster = scene.add_cluster(
                 Some(inner),
-                &[],
+                &[region_name.as_str()],
                 0.0,
                 0.0,
                 LayoutElement {
@@ -303,6 +304,16 @@ impl StateLayoutEngine {
                 .collect();
             let scope = format!("{}#{index}", state.name);
             self.add_scope(scene, Some(region_cluster), &scope, region, &transitions);
+            // Регионы `--` идут сверху вниз.
+            if index > 0 {
+                let mut order = SceneEdge::new(
+                    format!("{}#region{}", state.name, index - 1),
+                    format!("{}#region{index}", state.name),
+                    plantuml_ast::common::ArrowShape::default(),
+                );
+                order.hidden = true;
+                scene.add_edge(order);
+            }
         }
     }
 

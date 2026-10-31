@@ -1284,6 +1284,16 @@ pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Directio
     }
 }
 
+/// Разбирает объявление спрайта из текста: спрайты доступны во всех типах диаграмм.
+pub fn parse_sprite_text(text: &str) -> Option<plantuml_ast::class::Sprite> {
+    // Конец тела грамматика узнаёт по следующей строке, поэтому даём ей такую строку.
+    let source = format!("{}\n@", text.trim());
+    let pair = ClassParser::parse(Rule::sprite_stmt, &source)
+        .ok()?
+        .next()?;
+    parse_sprite(pair)
+}
+
 /// Разбирает `sprite_stmt` в `Sprite`.
 ///
 /// Формат заголовка: `[ШxВ/цветов]`, тело — строки шестнадцатеричных

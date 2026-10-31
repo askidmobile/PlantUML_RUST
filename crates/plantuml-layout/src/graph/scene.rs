@@ -36,6 +36,8 @@ pub struct SceneEdge {
     pub id: Option<String>,
     pub from_cardinality: Option<String>,
     pub to_cardinality: Option<String>,
+    /// Влияет на раскладку, но не рисуется: регионы состояний друг под другом
+    pub hidden: bool,
 }
 
 impl SceneEdge {
@@ -52,6 +54,7 @@ impl SceneEdge {
             id: None,
             from_cardinality: None,
             to_cardinality: None,
+            hidden: false,
         }
     }
 }
@@ -195,6 +198,31 @@ impl Scene {
             .position(|n| path_contains(n.cluster))
     }
 
+    /// Имя относится к рамке, а не к узлу.
+    fn frame_of(&self, name: &str) -> Option<usize> {
+        if self.names.contains_key(name) {
+            return None;
+        }
+        self.cluster_names.get(name).copied()
+    }
+
+    /// Узел лежит в кластере или во вложенном в него.
+    fn contains(&self, cluster: usize, node: usize) -> bool {
+        let mut current = self.input.nodes.get(node).and_then(|n| n.cluster);
+        let mut guard = 0;
+        while let Some(c) = current {
+            if c == cluster {
+                return true;
+            }
+            current = self.input.clusters.get(c).and_then(|cl| cl.parent);
+            guard += 1;
+            if guard > self.input.clusters.len() {
+                break;
+            }
+        }
+        false
+    }
+
     fn note_element(&self, note: &Note, font_size: f64) -> LayoutElement {
         let lines: Vec<String> = note
             .text
@@ -276,6 +304,16 @@ impl Scene {
             };
             let mut graph_edge = GraphEdge::from_arrow(from, to, edge.arrow);
             graph_edge.label = edge.label.as_deref().map(|l| self.label_size(l));
+            // Концы связи с рамкой. Связь рамки со своим содержимым остаётся обычной.
+            let source_frame = self.frame_of(&edge.from).filter(|c| !self.contains(*c, to));
+            let target_frame = self.frame_of(&edge.to).filter(|c| !self.contains(*c, from));
+            if graph_edge.reverse_path {
+                graph_edge.from_cluster = target_frame;
+                graph_edge.to_cluster = source_frame;
+            } else {
+                graph_edge.from_cluster = source_frame;
+                graph_edge.to_cluster = target_frame;
+            }
             self.input.edges.push(graph_edge);
             drawn.push(index);
         }
@@ -355,7 +393,7 @@ impl Scene {
         for (graph_index, &edge_index) in drawn.iter().enumerate() {
             let edge = &self.edges[edge_index];
             let path = &result.edges[graph_index];
-            if path.len() < 2 {
+            if path.len() < 2 || edge.hidden {
                 continue;
             }
             let id = edge

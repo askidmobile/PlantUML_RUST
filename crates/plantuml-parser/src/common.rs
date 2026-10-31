@@ -98,6 +98,7 @@ pub fn extract(source: &str) -> (String, DiagramMetadata) {
     if has_own_language(source) {
         return (source.to_string(), common);
     }
+    let mut sprites: Vec<String> = Vec::new();
 
     let lines: Vec<&str> = source.lines().collect();
     let mut out: Vec<&str> = Vec::with_capacity(lines.len());
@@ -133,6 +134,13 @@ pub fn extract(source: &str) -> (String, DiagramMetadata) {
                 continue;
             }
 
+            if let Some(consumed) = sprite_block_len(&lines[i..]) {
+                sprites.push(lines[i..i + consumed].join("\n"));
+                out.extend(std::iter::repeat_n("", consumed));
+                i += consumed;
+                continue;
+            }
+
             if let Some(consumed) = take_command(&lines[i..], &mut common) {
                 out.extend(std::iter::repeat_n("", consumed));
                 i += consumed;
@@ -154,7 +162,32 @@ pub fn extract(source: &str) -> (String, DiagramMetadata) {
     if source.ends_with('\n') {
         text.push('\n');
     }
+    common.sprites = sprites
+        .iter()
+        .filter_map(|raw| crate::parsers::class::parse_sprite_text(raw))
+        .collect();
     (text, common)
+}
+
+/// Длина объявления спрайта в начале `lines`.
+fn sprite_block_len(lines: &[&str]) -> Option<usize> {
+    let first = lines.first()?.trim();
+    if !first.starts_with("sprite ") {
+        return None;
+    }
+    let closes_at = |marker: &str| {
+        lines
+            .iter()
+            .position(|l| l.contains(marker))
+            .map(|index| index + 1)
+    };
+    if first.contains('{') && !first.contains('}') {
+        return closes_at("}");
+    }
+    if first.contains("<svg") && !first.contains("</svg>") {
+        return closes_at("</svg>");
+    }
+    Some(1)
 }
 
 /// Пробует снять команду с начала `lines`; возвращает число снятых строк.
@@ -293,6 +326,17 @@ mod tests {
         assert_eq!(common.direction, Some(Direction::LeftToRight));
         assert_eq!(common.scale, Some(2.0));
         assert!(text.contains("scale 200 width"));
+    }
+
+    #[test]
+    fn test_sprite_blocks_are_collected() {
+        let (text, common) = run("sprite $s1 [4x4/16] {\nFFFF\nF00F\nF00F\nFFFF\n}\nA -> B\n");
+        assert_eq!(text.lines().count(), 7);
+        assert!(text.contains("A -> B"));
+        assert!(!text.contains("FFFF"));
+        assert_eq!(common.sprites.len(), 1, "{:?}", common.sprites);
+        assert_eq!(common.sprites[0].name, "s1");
+        assert_eq!(common.sprites[0].rows.len(), 4);
     }
 
     #[test]

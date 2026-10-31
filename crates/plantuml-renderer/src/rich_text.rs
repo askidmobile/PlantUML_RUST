@@ -4,6 +4,7 @@
 //! точка: подпись из `<text>` разбирается и становится цепочкой элементов с
 //! явными координатами. Так же выводит подписи и сам PlantUML.
 
+use plantuml_ast::class::Sprite;
 use plantuml_layout::creole::{self, Span};
 use plantuml_layout::text::TextMeasurer;
 
@@ -57,6 +58,17 @@ fn structural(line: &str) -> String {
     line.to_string()
 }
 
+/// Размер спрайта подписи; неизвестный спрайт места не занимает.
+fn sprite_size(span: &Span, sprites: &[Sprite]) -> Option<(f64, f64, f64)> {
+    let (name, scale) = span.sprite.as_ref()?;
+    let sprite = sprites.iter().find(|s| &s.name == name)?;
+    Some((
+        sprite.width as f64 * scale,
+        sprite.height as f64 * scale,
+        *scale,
+    ))
+}
+
 fn span_width(measurer: &TextMeasurer, span: &Span, base_size: f64, base_bold: bool) -> f64 {
     let size = span.size.unwrap_or(base_size);
     if span.bold || base_bold {
@@ -67,7 +79,7 @@ fn span_width(measurer: &TextMeasurer, span: &Span, base_size: f64, base_bold: b
 }
 
 /// Выводит одну строку цепочкой элементов.
-fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64) {
+fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64, sprites: &[Sprite]) {
     let base_size: f64 = attr(tag, "font-size")
         .and_then(|v| v.parse().ok())
         .unwrap_or(13.0);
@@ -79,10 +91,12 @@ fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64) {
 
     let measurer = TextMeasurer::default();
     let spans = creole::parse(&structural(line));
-    let total: f64 = spans
-        .iter()
-        .map(|s| span_width(&measurer, s, base_size, base_bold))
-        .sum();
+    let width_of = |s: &Span| match sprite_size(s, sprites) {
+        Some((width, _, _)) => width,
+        None if s.sprite.is_some() => 0.0,
+        None => span_width(&measurer, s, base_size, base_bold),
+    };
+    let total: f64 = spans.iter().map(width_of).sum();
     let mut cursor = match anchor {
         "middle" => x - total / 2.0,
         "end" => x - total,
@@ -90,6 +104,26 @@ fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64) {
     };
 
     for span in &spans {
+        if let Some((width, height, scale)) = sprite_size(span, sprites) {
+            if let Some(sprite) = sprites
+                .iter()
+                .find(|s| span.sprite.as_ref().is_some_and(|(n, _)| &s.name == n))
+            {
+                draw_sprite(
+                    out,
+                    sprite,
+                    cursor,
+                    y - height + base_size * 0.2,
+                    scale,
+                    base_fill,
+                );
+            }
+            cursor += width;
+            continue;
+        }
+        if span.sprite.is_some() {
+            continue;
+        }
         let width = span_width(&measurer, span, base_size, base_bold);
         let size = span.size.unwrap_or(base_size);
         let mut attrs = format!(
@@ -132,6 +166,41 @@ fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64) {
     }
 }
 
+/// Рисует растровый спрайт цветом текста: цифра задаёт непрозрачность пикселя.
+fn draw_sprite(out: &mut String, sprite: &Sprite, x: f64, y: f64, scale: f64, fill: &str) {
+    for (row_index, row) in sprite.rows.iter().enumerate() {
+        let cells: Vec<u32> = row.chars().map(|c| c.to_digit(16).unwrap_or(0)).collect();
+        let mut col = 0;
+        while col < cells.len() {
+            let digit = cells[col];
+            let mut run = 1;
+            while col + run < cells.len() && cells[col + run] == digit {
+                run += 1;
+            }
+            if digit > 0 {
+                out.push_str(&format!(
+                    r#"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="{fill}" fill-opacity="{:.2}"/>"#,
+                    x + col as f64 * scale,
+                    y + row_index as f64 * scale,
+                    run as f64 * scale,
+                    scale,
+                    f64::from(digit) / 15.0,
+                ));
+            }
+            col += run;
+        }
+    }
+}
+
+/// Насколько спрайт выше обычной строки.
+fn line_extra(line: &str, line_height: f64, sprites: &[Sprite]) -> f64 {
+    creole::parse(line)
+        .iter()
+        .filter_map(|span| sprite_size(span, sprites))
+        .map(|(_, height, _)| (height - line_height).max(0.0))
+        .fold(0.0, f64::max)
+}
+
 /// Разметка, из-за которой элемент надо разбирать.
 fn needs_expansion(content: &str) -> bool {
     let text = unescape(content);
@@ -143,7 +212,7 @@ fn needs_expansion(content: &str) -> bool {
 }
 
 /// Строки элемента: `<tspan x y>` либо текст с `\n`.
-fn expand(out: &mut String, tag: &str, content: &str) {
+fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite]) {
     let x: f64 = attr(tag, "x").and_then(|v| v.parse().ok()).unwrap_or(0.0);
     let y: f64 = attr(tag, "y").and_then(|v| v.parse().ok()).unwrap_or(0.0);
     let size: f64 = attr(tag, "font-size")
@@ -151,9 +220,10 @@ fn expand(out: &mut String, tag: &str, content: &str) {
         .unwrap_or(13.0);
     let line_height = size * 1.1641;
 
+    // Строка, позиция по x и y.
+    let mut lines: Vec<(String, f64, f64)> = Vec::new();
     if content.contains("<tspan") {
         let mut rest = content;
-        let mut index = 0.0;
         while let Some(open) = rest.find("<tspan") {
             let tail = &rest[open..];
             let Some(gt) = tail.find('>') else { break };
@@ -166,22 +236,31 @@ fn expand(out: &mut String, tag: &str, content: &str) {
                 .unwrap_or(x);
             let span_y = attr(span_tag, "y")
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(y + index * line_height);
-            emit_line(out, tag, &unescape(&tail[gt + 1..close]), span_x, span_y);
+                .unwrap_or(y + lines.len() as f64 * line_height);
+            lines.push((unescape(&tail[gt + 1..close]), span_x, span_y));
             rest = &tail[close + "</tspan>".len()..];
-            index += 1.0;
         }
-        return;
+    } else {
+        let text = unescape(content).replace("\\n", "\n");
+        for (index, line) in text.lines().enumerate() {
+            lines.push((line.to_string(), x, y + index as f64 * line_height));
+        }
     }
 
-    let text = unescape(content).replace("\\n", "\n");
-    for (index, line) in text.lines().enumerate() {
-        emit_line(out, tag, line, x, y + index as f64 * line_height);
+    // Высокий спрайт раздвигает строки; блок остаётся по центру своей фигуры.
+    let extras: Vec<f64> = lines
+        .iter()
+        .map(|(line, _, _)| line_extra(line, line_height, sprites))
+        .collect();
+    let mut shift = -extras.iter().sum::<f64>() / 2.0;
+    for ((line, line_x, line_y), extra) in lines.iter().zip(&extras) {
+        shift += extra;
+        emit_line(out, tag, line, *line_x, line_y + shift, sprites);
     }
 }
 
 /// Разворачивает разметку всех подписей документа.
-pub fn expand_markup(svg: &str) -> String {
+pub fn expand_markup(svg: &str, sprites: &[Sprite]) -> String {
     let mut out = String::with_capacity(svg.len());
     let mut rest = svg;
     while let Some(open) = rest.find("<text") {
@@ -194,7 +273,7 @@ pub fn expand_markup(svg: &str) -> String {
         let tag = &tail[..gt];
         let content = &tail[gt + 1..close];
         if needs_expansion(content) || content.contains("<tspan") && has_tspan_markup(content) {
-            expand(&mut out, tag, content);
+            expand(&mut out, tag, content, sprites);
         } else {
             out.push_str(&tail[..close + "</text>".len()]);
         }
@@ -227,13 +306,13 @@ mod tests {
     const HEAD: &str = r##"<text x="10" y="20" fill="#000" font-size="13">"##;
 
     fn run(content: &str) -> String {
-        expand_markup(&format!("{HEAD}{content}</text>"))
+        expand_markup(&format!("{HEAD}{content}</text>"), &[])
     }
 
     #[test]
     fn test_plain_text_is_untouched() {
         let svg = format!("{HEAD}просто текст</text>");
-        assert_eq!(expand_markup(&svg), svg);
+        assert_eq!(expand_markup(&svg, &[]), svg);
     }
 
     #[test]
@@ -267,6 +346,22 @@ mod tests {
         let out = run("&lt;script&gt;alert(1)&lt;/script&gt; **x**");
         assert!(!out.contains("<script"), "{out}");
         assert!(out.contains("&lt;script&gt;"), "{out}");
+    }
+
+    #[test]
+    fn test_sprite_is_drawn_and_unknown_is_hidden() {
+        let sprite = Sprite {
+            name: "s".to_string(),
+            rows: vec!["0F".to_string()],
+            width: 2,
+            height: 1,
+            palette: Vec::new(),
+            svg: None,
+        };
+        let out = expand_markup(&format!("{HEAD}a&lt;$s&gt;</text>"), &[sprite]);
+        assert!(out.contains("<rect"), "{out}");
+        let hidden = run("a&lt;$нет&gt;");
+        assert!(!hidden.contains("$"), "{hidden}");
     }
 
     #[test]

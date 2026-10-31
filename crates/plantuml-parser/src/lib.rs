@@ -228,7 +228,11 @@ fn apply_common(diagram: &mut Diagram, common: plantuml_ast::common::DiagramMeta
     if let (Diagram::UseCase(d), Some(direction)) = (&mut *diagram, common.direction) {
         d.direction = direction;
     }
+    if let Diagram::Class(d) = &mut *diagram {
+        d.sprites.extend(common.sprites.iter().cloned());
+    }
     let meta = diagram.metadata_mut();
+    meta.sprites = common.sprites;
     meta.title = common.title.or(meta.title.take());
     meta.header = common.header.or(meta.header.take());
     meta.footer = common.footer.or(meta.footer.take());

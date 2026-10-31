@@ -64,10 +64,24 @@ impl From<&str> for Color {
 }
 
 /// Тема оформления
+/// Оформление элементов одного стереотипа: `skinparam rectangle<<person>> { ... }`
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StereotypeStyle {
+    pub background: Option<Color>,
+    pub border: Option<Color>,
+    pub font: Option<Color>,
+    /// Пунктирная рамка
+    pub dashed: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
     /// Название темы
     pub name: String,
+
+    /// Оформление по стереотипам; ключ — имя стереотипа
+    #[serde(default)]
+    pub stereotype_styles: std::collections::HashMap<String, StereotypeStyle>,
 
     /// Цвет фона диаграммы
     pub background_color: Color,
@@ -108,6 +122,7 @@ impl Default for Theme {
         // Стиль по умолчанию как в PlantUML (серо-голубые прямоугольники)
         Self {
             name: "default".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#FFFFFF"),
             node_background: Color::new("#E2E2F0"), // Серо-голубой фон как в PlantUML
             node_border: Color::new("#181818"),     // Тёмная граница
@@ -133,6 +148,7 @@ impl Theme {
     pub fn classic() -> Self {
         Self {
             name: "classic".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#FFFFFF"),
             node_background: Color::new("#FEFECE"),
             node_border: Color::new("#A80036"),
@@ -151,6 +167,7 @@ impl Theme {
     pub fn minimal() -> Self {
         Self {
             name: "minimal".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#FFFFFF"),
             node_background: Color::new("#FFFFFF"),
             node_border: Color::new("#333333"),
@@ -169,6 +186,7 @@ impl Theme {
     pub fn dark() -> Self {
         Self {
             name: "dark".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#1E1E1E"),
             node_background: Color::new("#2D2D2D"),
             node_border: Color::new("#569CD6"),
@@ -187,6 +205,7 @@ impl Theme {
     pub fn sketchy() -> Self {
         Self {
             name: "sketchy".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#FFFFF0"),
             node_background: Color::new("#FFFACD"),
             node_border: Color::new("#2F4F4F"),
@@ -205,6 +224,7 @@ impl Theme {
     pub fn cerulean() -> Self {
         Self {
             name: "cerulean".to_string(),
+            stereotype_styles: std::collections::HashMap::new(),
             background_color: Color::new("#FFFFFF"),
             node_background: Color::new("#E3F2FD"),
             node_border: Color::new("#1976D2"),
@@ -231,6 +251,32 @@ impl Theme {
             _ => None,
         }
     }
+}
+
+/// Разбирает ключ настройки стереотипа: `rectangle<<person>>.BackgroundColor`
+/// или `rectangleBackgroundColor<<person>>`. Вернёт имя стереотипа и свойство строчными.
+fn stereotype_key(key: &str) -> Option<(String, String)> {
+    let open = key.find("<<")?;
+    let close = open + key[open..].find(">>")?;
+    let stereotype = key[open + 2..close].trim().to_string();
+    let after = key[close + 2..].trim_start_matches('.');
+    let property = if after.is_empty() {
+        // Форма без блока: свойство стоит перед `<<`, элемент — перед свойством.
+        let before = key[..open].to_lowercase();
+        [
+            "backgroundcolor",
+            "bordercolor",
+            "fontcolor",
+            "borderstyle",
+            "linestyle",
+        ]
+        .iter()
+        .find(|p| before.ends_with(**p))?
+        .to_string()
+    } else {
+        after.to_lowercase()
+    };
+    (!stereotype.is_empty()).then_some((stereotype, property))
 }
 
 /// SkinParam параметры
@@ -280,6 +326,10 @@ impl SkinParams {
         if let Some(block) = self.current_block.clone() {
             self.params
                 .insert(format!("{block}.{key}"), value.to_string());
+            // Настройка одного стереотипа не должна менять всю диаграмму.
+            if block.contains("<<") {
+                return;
+            }
         }
         self.params.insert(key.to_string(), value.to_string());
     }
@@ -307,6 +357,19 @@ impl SkinParams {
     /// `fontColor`/`FontColor`, `linetype`, `roundCorner`/`roundcorner`,
     /// `nodesep`, `ranksep`.
     pub fn apply_to(&self, theme: &mut Theme) {
+        for (key, value) in &self.params {
+            let Some((stereotype, property)) = stereotype_key(key) else {
+                continue;
+            };
+            let style = theme.stereotype_styles.entry(stereotype).or_default();
+            match property.as_str() {
+                "backgroundcolor" => style.background = Some(Color::new(value)),
+                "bordercolor" => style.border = Some(Color::new(value)),
+                "fontcolor" => style.font = Some(Color::new(value)),
+                "borderstyle" | "linestyle" => style.dashed = value.eq_ignore_ascii_case("dashed"),
+                _ => {}
+            }
+        }
         if let Some(v) = self.get("backgroundColor") {
             theme.background_color = Color::new(v);
         }
@@ -374,6 +437,28 @@ impl SkinParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_stereotype_styles_from_blocks_and_lines() {
+        let mut params = SkinParams::new();
+        params.begin_block("rectangle<<person>>");
+        params.set_in_block("BackgroundColor", "#08427B");
+        params.set_in_block("BorderStyle", "dashed");
+        params.end_block();
+        params.set("rectangleFontColor<<person>>", "white");
+        let mut theme = Theme::default();
+        params.apply_to(&mut theme);
+        let style = &theme.stereotype_styles["person"];
+        assert_eq!(
+            style.background.as_ref().map(Color::to_css).as_deref(),
+            Some("#08427B")
+        );
+        assert_eq!(
+            style.font.as_ref().map(Color::to_css).as_deref(),
+            Some("white")
+        );
+        assert!(style.dashed);
+    }
 
     #[test]
     fn test_default_theme() {

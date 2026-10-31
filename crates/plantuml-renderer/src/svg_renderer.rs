@@ -983,6 +983,30 @@ impl SvgRenderer {
     fn render_element_with_id(&self, element: &LayoutElement, theme: &Theme, id: &str) -> Group {
         let mut group = Group::new().set("id", id);
 
+        // Оформление стереотипа заменяет цвета темы для этой фигуры.
+        let styled;
+        let theme = match element
+            .properties
+            .get("stereotype")
+            .and_then(|name| theme.stereotype_styles.get(name))
+        {
+            Some(style) => {
+                let mut local = theme.clone();
+                if let Some(color) = &style.background {
+                    local.node_background = color.clone();
+                }
+                if let Some(color) = &style.border {
+                    local.node_border = color.clone();
+                }
+                if let Some(color) = &style.font {
+                    local.text_color = color.clone();
+                }
+                styled = local;
+                &styled
+            }
+            None => theme,
+        };
+
         // Цвета из свойств приводим к форме PlantUML ОДИН раз здесь:
         // сервер записывает их сокращённо (`#000000` → `#000`), а движки
         // раскладки задают полную запись. Нормализация в одной точке
@@ -3675,7 +3699,10 @@ impl Renderer for SvgRenderer {
         // ширина строки в метриках шрифта. Атрибут добавляется одной
         // постобработкой, а не в каждом из методов отрисовки текста:
         // так его невозможно забыть при добавлении нового метода.
-        annotate_text_length(&crate::rich_text::expand_markup(&svg))
+        annotate_text_length(&crate::rich_text::expand_markup(
+            &svg,
+            &self.options.sprites,
+        ))
     }
 }
 

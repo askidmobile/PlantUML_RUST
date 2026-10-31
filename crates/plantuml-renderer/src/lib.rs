@@ -67,6 +67,8 @@ pub struct RenderOptions {
     /// и usecase PlantUML помечает как `DESCRIPTION`, а ER и object — как
     /// `CLASS`.
     pub diagram_type: Option<String>,
+    /// Спрайты, на которые могут ссылаться подписи `<$имя>`
+    pub sprites: Vec<plantuml_ast::class::Sprite>,
 }
 
 impl Default for RenderOptions {
@@ -76,6 +78,7 @@ impl Default for RenderOptions {
             scale: 1.0,
             background_color: None, // None = PlantUML default (#FEFECE)
             diagram_type: None,
+            sprites: Vec::new(),
         }
     }
 }

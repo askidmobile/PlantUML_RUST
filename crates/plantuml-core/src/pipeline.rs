@@ -34,7 +34,7 @@ pub fn render_pipeline(source: &str, options: &RenderOptions) -> Result<String> 
     let layout = layout(&diagram, options)?;
 
     // 4. Рендеринг с темой из исходника
-    let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
+    let svg = render_svg(&layout, options, &theme, &diagram)?;
 
     Ok(plantuml_renderer::decorations::decorate(
         svg,
@@ -64,7 +64,7 @@ pub fn render_pipeline_with_includes(
     let layout = layout(&diagram, options)?;
 
     // 4. Рендеринг с темой из исходника
-    let svg = render_svg(&layout, options, &theme, svg_diagram_type(&diagram))?;
+    let svg = render_svg(&layout, options, &theme, &diagram)?;
 
     Ok(plantuml_renderer::decorations::decorate(
         svg,
@@ -228,8 +228,8 @@ fn layout(diagram: &Diagram, _options: &RenderOptions) -> Result<LayoutResult> {
             Ok(engine.layout(salt, &_config))
         }
         Diagram::Archimate(arch) => {
-            // Archimate использует ComponentLayoutEngine
-            let engine = ComponentLayoutEngine::new();
+            // Archimate использует ComponentLayoutEngine; стереотип здесь задаёт значок, а не подпись
+            let engine = ComponentLayoutEngine::new().hide_stereotypes();
             Ok(engine.layout(arch))
         }
     }
@@ -245,7 +245,7 @@ fn render_svg(
     layout: &LayoutResult,
     options: &RenderOptions,
     source_theme: &Theme,
-    diagram_type: &str,
+    diagram: &Diagram,
 ) -> Result<String> {
     // Фон холста: явная опция важнее темы, но и тема из исходника
     // (`skinparam backgroundColor`, `!theme`) должна доходить до
@@ -265,7 +265,8 @@ fn render_svg(
         xml_header: options.xml_header,
         scale: options.scale,
         background_color,
-        diagram_type: Some(diagram_type.to_string()),
+        diagram_type: Some(svg_diagram_type(diagram).to_string()),
+        sprites: diagram.metadata().sprites.clone(),
     };
 
     // Тема из исходника накладывается поверх темы из опций.

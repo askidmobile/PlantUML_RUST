@@ -3,7 +3,7 @@ source: crates/plantuml-core/tests/state_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="306px" preserveAspectRatio="none" style="width:177px;height:306px;background:#FFFFFF;" version="1.1" viewBox="0 0 177 305.7" width="177px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="381px" preserveAspectRatio="none" style="width:121px;height:381px;background:#FFFFFF;" version="1.1" viewBox="0 0 121 380.7" width="121px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="composite_Active">
 <rect fill="#E2E2F0" height="205" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="110" x="0" y="81"/>
@@ -30,8 +30,8 @@ Waiting
 <line stroke="#181818" stroke-width="0.5" x1="7.814399999999999" x2="80.1856" y1="255.297" y2="255.297"/>
 </g>
 <g id="final_top#final">
-<ellipse cx="155" cy="253" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="155" cy="253" fill="#222" rx="6" ry="6" stroke="none"/>
+<ellipse cx="43" cy="350" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="43" cy="350" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
 <path d="M39.234234234234236,168 L20,198.5 L33.18918918918919,229" fill="none" stroke="#181818" stroke-width="1"/>
@@ -42,12 +42,12 @@ Waiting
 <polygon fill="#181818" points="55,168 51,177 55,173 59,177" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
-<path d="M55,20 L55,50.5 L55,118" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="55,118 59,109 55,113 51,109" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M55,20 L55,50.5 L55,81" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="55,81 59,72 55,76 51,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M95.54054054054055,168 L145,198.5 L153.81981981981983,243" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="153.82,243 155.994,233.394 152.848,238.095 148.146,234.949" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M44,286 L44,309.5 L44,340" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="44,340 48,331 44,335 40,331" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

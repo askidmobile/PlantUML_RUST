@@ -295,12 +295,26 @@ impl TextMeasurer {
             return 0.0;
         }
 
-        // Читатель видит подпись без разметки: её и измеряем.
-        let em_sum: f64 = crate::creole::plain(line)
-            .chars()
-            .map(|c| self.char_em(c))
-            .sum();
-        em_sum * font_size
+        // Читатель видит подпись без разметки, с её кеглем и насыщенностью.
+        if crate::creole::has_markup(line) {
+            return crate::creole::parse(line)
+                .iter()
+                .map(|span| {
+                    let size = span.size.unwrap_or(font_size);
+                    let width = self.raw_width(&span.text, size);
+                    if span.bold {
+                        width * BOLD_WIDTH_FACTOR
+                    } else {
+                        width
+                    }
+                })
+                .sum();
+        }
+        self.raw_width(line, font_size)
+    }
+
+    fn raw_width(&self, line: &str, font_size: f64) -> f64 {
+        line.chars().map(|c| self.char_em(c)).sum::<f64>() * font_size
     }
 
     /// Ширина одного символа в долях от размера шрифта.

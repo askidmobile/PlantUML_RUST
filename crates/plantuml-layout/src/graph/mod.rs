@@ -45,6 +45,10 @@ pub struct GraphEdge {
     /// Концы на одном ранге: `A -right-> B`, заметка сбоку
     pub same_rank: bool,
     pub weight: i64,
+    /// Начало связи — рамка кластера, а не узел: все её узлы выше конца
+    pub from_cluster: Option<usize>,
+    /// Конец связи — рамка кластера: все её узлы ниже начала
+    pub to_cluster: Option<usize>,
     /// Выводить ломаную от `to` к `from`: `A -up-> B` раскладывается как `B` над `A`, но идёт от `A`
     pub reverse_path: bool,
 }
@@ -69,6 +73,8 @@ impl GraphEdge {
             same_rank,
             weight: 1,
             reverse_path,
+            from_cluster: None,
+            to_cluster: None,
         }
     }
 }
@@ -170,15 +176,12 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
     let mut chains: Vec<Vec<usize>> = vec![Vec::new(); input.edges.len()];
     let mut label_vertex: Vec<Option<usize>> = vec![None; input.edges.len()];
 
+    let endpoints = choose_endpoints(input, &flipped, &ranks);
     for (index, edge) in input.edges.iter().enumerate() {
         if edge.from == edge.to || edge.from >= input.nodes.len() || edge.to >= input.nodes.len() {
             continue;
         }
-        let (upper, lower) = if flipped[index] {
-            (edge.to, edge.from)
-        } else {
-            (edge.from, edge.to)
-        };
+        let (upper, lower) = endpoints[index];
         let (ru, rl) = (vertex_rank[upper], vertex_rank[lower]);
         if ru >= rl {
             continue; // одинаковый ранг: ребро идёт по прямой, без цепочки
@@ -244,7 +247,39 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
         &chains,
         &label_vertex,
         &flipped,
+        &endpoints,
     )
+}
+
+/// Концы рёбер сверху вниз. Связь с рамкой идёт к её крайнему по рангу узлу.
+fn choose_endpoints(input: &GraphInput, flipped: &[bool], ranks: &[i64]) -> Vec<(usize, usize)> {
+    input
+        .edges
+        .iter()
+        .enumerate()
+        .map(|(index, edge)| {
+            let (upper, lower, upper_cluster, lower_cluster) = if flipped[index] {
+                (edge.to, edge.from, edge.to_cluster, edge.from_cluster)
+            } else {
+                (edge.from, edge.to, edge.from_cluster, edge.to_cluster)
+            };
+            let upper = upper_cluster
+                .and_then(|c| {
+                    members_of(input, c)
+                        .into_iter()
+                        .max_by_key(|m| ranks.get(*m).copied().unwrap_or(0))
+                })
+                .unwrap_or(upper);
+            let lower = lower_cluster
+                .and_then(|c| {
+                    members_of(input, c)
+                        .into_iter()
+                        .min_by_key(|m| ranks.get(*m).copied().unwrap_or(0))
+                })
+                .unwrap_or(lower);
+            (upper, lower)
+        })
+        .collect()
 }
 
 /// Рёбра, которые надо развернуть, чтобы граф стал ациклическим (обход без рекурсии).
@@ -329,10 +364,65 @@ fn assign_ranks(input: &GraphInput, flipped: &[bool]) -> Vec<i64> {
                 weight: edge.weight.max(1),
             });
         }
+        // Связь с рамкой обязана обойти все её узлы, иначе рамка накроет другой конец.
+        let (upper_cluster, lower_cluster) = if flipped[index] {
+            (edge.to_cluster, edge.from_cluster)
+        } else {
+            (edge.from_cluster, edge.to_cluster)
+        };
+        if let Some(cluster) = upper_cluster {
+            for member in members_of(input, cluster) {
+                if leaders[member] != to {
+                    constraints.push(Constraint {
+                        from: leaders[member],
+                        to,
+                        min_len: edge.min_rank.max(0),
+                        weight: 0,
+                    });
+                }
+            }
+        }
+        if let Some(cluster) = lower_cluster {
+            for member in members_of(input, cluster) {
+                if leaders[member] != from {
+                    constraints.push(Constraint {
+                        from,
+                        to: leaders[member],
+                        min_len: edge.min_rank.max(0),
+                        weight: 0,
+                    });
+                }
+            }
+        }
     }
     let constraints = drop_cycles(n, constraints);
     let solved = solve(n, &constraints);
     (0..n).map(|v| solved[leaders[v]]).collect()
+}
+
+/// Настоящие узлы кластера вместе с вложенными.
+fn members_of(input: &GraphInput, cluster: usize) -> Vec<usize> {
+    let inside = |mut current: Option<usize>| {
+        let mut guard = 0;
+        while let Some(c) = current {
+            if c == cluster {
+                return true;
+            }
+            current = input.clusters.get(c).and_then(|cl| cl.parent);
+            guard += 1;
+            if guard > input.clusters.len() {
+                break;
+            }
+        }
+        false
+    };
+    input
+        .nodes
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| inside(node.cluster))
+        .map(|(index, _)| index)
+        .collect()
 }
 
 /// Убирает дуги, замыкающие цикл после склейки узлов одного ранга.
@@ -674,6 +764,7 @@ fn finish(
     chains: &[Vec<usize>],
     label_vertex: &[Option<usize>],
     flipped: &[bool],
+    endpoints: &[(usize, usize)],
 ) -> GraphLayout {
     let horizontal = input.direction == Direction::LeftToRight;
 
@@ -788,11 +879,7 @@ fn finish(
             }
             continue;
         }
-        let (upper, lower) = if flipped[index] {
-            (edge.to, edge.from)
-        } else {
-            (edge.from, edge.to)
-        };
+        let (upper, lower) = endpoints[index];
         let mut points: Vec<Point> = Vec::with_capacity(chains[index].len() + 2);
         points.push(center(upper));
         for v in &chains[index] {
@@ -814,6 +901,19 @@ fn finish(
             labels[index] = Some(((ax + bx) / 2.0, (ay + by) / 2.0 - lift));
         }
         clip_ends(&mut points, nodes[upper], nodes[lower]);
+        let (upper_cluster, lower_cluster) = if flipped[index] {
+            (edge.to_cluster, edge.from_cluster)
+        } else {
+            (edge.from_cluster, edge.to_cluster)
+        };
+        if let Some(cluster) = upper_cluster.and_then(|c| finished.get(c)) {
+            points.reverse();
+            cut_at_box(&mut points, *cluster);
+            points.reverse();
+        }
+        if let Some(cluster) = lower_cluster.and_then(|c| finished.get(c)) {
+            cut_at_box(&mut points, *cluster);
+        }
         if flipped[index] != edge.reverse_path {
             points.reverse();
         }
@@ -912,6 +1012,35 @@ fn border_point(b: Boxed, toward: Point) -> Point {
     };
     let s = sx.min(sy);
     (cx + dx * s, cy + dy * s)
+}
+
+/// Обрывает ломаную на первом входе в прямоугольник: стрелка упирается в рамку.
+fn cut_at_box(points: &mut Vec<Point>, b: Boxed) {
+    let inside = |p: Point| p.0 > b.x && p.0 < b.x + b.width && p.1 > b.y && p.1 < b.y + b.height;
+    let Some(first_inside) = points.iter().position(|p| inside(*p)) else {
+        return;
+    };
+    if first_inside == 0 {
+        return;
+    }
+    let (a, c) = (points[first_inside - 1], points[first_inside]);
+    // Ищем пересечение с рамкой по параметру отрезка.
+    let mut t: f64 = 1.0;
+    let mut try_edge = |value: f64, from: f64, to: f64| {
+        if (to - from).abs() > f64::EPSILON {
+            let candidate = (value - from) / (to - from);
+            if candidate > 0.0 && candidate < t {
+                t = candidate;
+            }
+        }
+    };
+    try_edge(b.x, a.0, c.0);
+    try_edge(b.x + b.width, a.0, c.0);
+    try_edge(b.y, a.1, c.1);
+    try_edge(b.y + b.height, a.1, c.1);
+    let hit = (a.0 + (c.0 - a.0) * t, a.1 + (c.1 - a.1) * t);
+    points.truncate(first_inside);
+    points.push(hit);
 }
 
 /// Концы ломаной ставит на границу узлов.
@@ -1116,6 +1245,42 @@ mod tests {
         assert!(outer.x <= inner.x && outer.y <= inner.y, "{r:?}");
         assert!(outer.x + outer.width >= inner.x + inner.width, "{r:?}");
         assert!(outer.y + outer.height >= inner.y + inner.height, "{r:?}");
+    }
+
+    /// Связь с рамкой обходит все её узлы и обрывается на границе.
+    #[test]
+    fn test_edge_to_cluster_stops_at_its_border() {
+        let mut to_frame = edge(0, 1);
+        to_frame.to_cluster = Some(0);
+        let mut from_frame = edge(2, 3);
+        from_frame.from_cluster = Some(0);
+        let mut data = input(
+            vec![node(None), node(Some(0)), node(Some(0)), node(None)],
+            vec![edge(1, 2), to_frame, from_frame],
+        );
+        data.clusters = vec![GraphCluster {
+            parent: None,
+            title_height: 20.0,
+            min_width: 0.0,
+        }];
+        let r = layout(&data);
+        let c = r.clusters[0];
+        assert!(
+            r.nodes[0].y + r.nodes[0].height <= c.y,
+            "начало над рамкой: {r:?}"
+        );
+        assert!(r.nodes[3].y >= c.y + c.height, "конец под рамкой: {r:?}");
+        let into = &r.edges[1];
+        let tip = into[into.len() - 1];
+        assert!(
+            (tip.1 - c.y).abs() < 1.0,
+            "стрелка упирается в рамку: {into:?} {c:?}"
+        );
+        let out = &r.edges[2];
+        assert!(
+            (out[0].1 - (c.y + c.height)).abs() < 1.0,
+            "выход от рамки: {out:?} {c:?}"
+        );
     }
 
     #[test]

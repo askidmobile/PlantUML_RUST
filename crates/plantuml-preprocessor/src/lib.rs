@@ -768,12 +768,10 @@ impl<R: FileResolver> Preprocessor<R> {
             // не начинаются со `skinparam`, но тоже относятся к настройкам
             // и не должны попадать в вывод (иначе парсер получает
             // осиротевшую `}` и падает).
-            if trimmed.starts_with("skinparam ") {
-                self.handle_skinparam(trimmed, ctx);
-                continue;
-            }
-            if ctx.skin_params.in_block() {
-                self.handle_skinparam(trimmed, ctx);
+            // Значение может быть переменной: `BackgroundColor $BOUNDARY_BG_COLOR`.
+            if trimmed.starts_with("skinparam ") || ctx.skin_params.in_block() {
+                let expanded = self.substitute_checked(trimmed, ctx)?;
+                self.handle_skinparam(expanded.trim(), ctx);
                 continue;
             }
 
@@ -1137,7 +1135,9 @@ impl<R: FileResolver> Preprocessor<R> {
         // а отступ в четыре пробела начинает свойство.
         let normalized = line
             .replace("}skinparam ", "}\nskinparam ")
-            .replace("{    ", "{\n    ");
+            .replace("{    ", "{\n    ")
+            .replace("    ", "\n    ")
+            .replace('}', "\n}");
         if normalized.contains('\n') {
             for part in normalized.split('\n') {
                 self.handle_skinparam_line(part, ctx);

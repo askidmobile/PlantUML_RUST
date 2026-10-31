@@ -49,6 +49,7 @@ use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
 pub struct ComponentLayoutEngine {
     config: ComponentLayoutConfig,
+    show_stereotypes: bool,
 }
 
 impl ComponentLayoutEngine {
@@ -56,12 +57,22 @@ impl ComponentLayoutEngine {
     pub fn new() -> Self {
         Self {
             config: ComponentLayoutConfig::default(),
+            show_stereotypes: true,
         }
+    }
+
+    /// Не выводить стереотип подписью: у Archimate он задаёт только значок.
+    pub fn hide_stereotypes(mut self) -> Self {
+        self.show_stereotypes = false;
+        self
     }
 
     /// Создаёт engine с заданной конфигурацией
     pub fn with_config(config: ComponentLayoutConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            show_stereotypes: true,
+        }
     }
 
     /// Выполняет layout диаграммы
@@ -76,11 +87,12 @@ impl ComponentLayoutEngine {
             scene.set_direction(GraphDirection::LeftToRight);
         }
 
+        let sprites = &diagram.metadata.sprites;
         for comp in &diagram.components {
-            self.add_component(&mut scene, None, comp);
+            self.add_component(&mut scene, None, comp, sprites);
         }
         for pkg in &diagram.packages {
-            self.add_package(&mut scene, None, pkg);
+            self.add_package(&mut scene, None, pkg, sprites);
         }
         for conn in &diagram.connections {
             let mut edge = SceneEdge::new(conn.from.clone(), conn.to.clone(), conn.arrow);
@@ -140,6 +152,7 @@ impl ComponentLayoutEngine {
         scene: &mut Scene,
         parent: Option<usize>,
         pkg: &plantuml_ast::component::ComponentPackage,
+        sprites: &[plantuml_ast::class::Sprite],
     ) {
         use plantuml_ast::component::PackageType;
         let kind = match pkg.package_type {
@@ -168,14 +181,20 @@ impl ComponentLayoutEngine {
             self.cluster_element(&pkg.name, kind, stereotype),
         );
         for comp in &pkg.components {
-            self.add_component(scene, Some(cluster), comp);
+            self.add_component(scene, Some(cluster), comp, sprites);
         }
         for nested in &pkg.packages {
-            self.add_package(scene, Some(cluster), nested);
+            self.add_package(scene, Some(cluster), nested, sprites);
         }
     }
 
-    fn add_component(&self, scene: &mut Scene, cluster: Option<usize>, comp: &Component) {
+    fn add_component(
+        &self,
+        scene: &mut Scene,
+        cluster: Option<usize>,
+        comp: &Component,
+        sprites: &[plantuml_ast::class::Sprite],
+    ) {
         let mut names: Vec<&str> = vec![comp.name.as_str()];
         if let Some(alias) = &comp.alias {
             names.push(alias.as_str());
@@ -195,12 +214,38 @@ impl ComponentLayoutEngine {
                 self.cluster_element(&comp.name, "rectangle", None),
             );
             for child in &comp.children {
-                self.add_component(scene, Some(inner), child);
+                self.add_component(scene, Some(inner), child, sprites);
             }
             return;
         }
 
-        let (mut element, bounds) = self.create_component_element(comp, 0.0, 0.0);
+        // Стереотип — первая строка подписи, спрайт в подписи растягивает фигуру.
+        let stereotype = comp
+            .stereotype
+            .as_ref()
+            .and_then(|s| s.names.first())
+            .filter(|_| self.show_stereotypes);
+        let mut shown = comp.clone();
+        if let Some(stereotype) = stereotype {
+            shown.name = format!("//«{stereotype}»//\\n{}", comp.name);
+        }
+        let (mut element, mut bounds) = self.create_component_element(&shown, 0.0, 0.0);
+        let label = shown.name.replace("\\n", "\n");
+        for line in label.lines() {
+            for span in crate::creole::parse(line) {
+                let Some(sprite) = span.sprite.as_ref().and_then(|(name, scale)| {
+                    sprites
+                        .iter()
+                        .find(|s| &s.name == name)
+                        .map(|s| (s.width as f64 * scale, s.height as f64 * scale))
+                }) else {
+                    continue;
+                };
+                bounds.width = bounds.width.max(sprite.0 + 20.0);
+                bounds.height += (sprite.1 - LINE_HEIGHT).max(0.0);
+            }
+        }
+        element.bounds = bounds;
         if let Some(stereotype) = comp.stereotype.as_ref().and_then(|s| s.names.first()) {
             element
                 .properties
