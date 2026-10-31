@@ -9,7 +9,7 @@ use plantuml_ast::timing::{
     ParticipantType, StateChange, TimeConstraint, TimeValue, TimingDiagram, TimingParticipant,
 };
 
-use crate::error::syntax_error_from_pest;
+use crate::error::{syntax_error_from_pest, ParseError};
 use crate::Result;
 
 #[derive(Parser)]
@@ -32,6 +32,30 @@ pub fn parse_timing(source: &str) -> Result<TimingDiagram> {
                 }
             }
         }
+    }
+
+    // `X is Y` без объявленного участника — не timing, а произвольная фраза вроде
+    // «this is nonsense». Настоящий PlantUML отвечает ошибкой, а пустая схема скрыла бы её.
+    let declared = |name: &str| {
+        name.is_empty()
+            || diagram
+                .participants
+                .iter()
+                .any(|p| p.name == name || p.alias.as_deref() == Some(name))
+    };
+    if let Some(change) = diagram
+        .state_changes
+        .iter()
+        .find(|c| !declared(&c.participant))
+    {
+        let line = source
+            .lines()
+            .position(|l| l.trim_start().starts_with(change.participant.as_str()))
+            .map_or(1, |index| index + 1);
+        return Err(ParseError::SyntaxError {
+            line,
+            message: format!("unknown participant \"{}\"", change.participant),
+        });
     }
 
     Ok(diagram)
@@ -317,6 +341,16 @@ fn extract_quoted_string(pair: pest::iterators::Pair<Rule>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_state_change_needs_a_declared_participant() {
+        assert!(parse_timing("@startuml\nthis is nonsense\n@enduml").is_err());
+        let ok = "@startuml\nrobust \"Web\" as W\n@0\nW is Idle\n@enduml";
+        assert_eq!(
+            parse_timing(ok).map(|d| d.state_changes.len()).ok(),
+            Some(1)
+        );
+    }
 
     #[test]
     fn test_parse_simple_timing() {
