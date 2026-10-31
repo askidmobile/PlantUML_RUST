@@ -249,7 +249,8 @@ fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite], number
             rest = &tail[close + "</tspan>".len()..];
         }
     } else {
-        let text = unescape(content).replace("\\n", "\n");
+        // Библиотека SVG оборачивает текст переводами строк: это не строки подписи.
+        let text = unescape(content.trim_matches('\n')).replace("\\n", "\n");
         for (index, line) in text.lines().enumerate() {
             lines.push((line.to_string(), x, y + index as f64 * line_height));
         }

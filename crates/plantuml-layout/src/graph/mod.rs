@@ -129,6 +129,9 @@ pub struct GraphLayout {
     pub height: f64,
 }
 
+/// Зазор между горизонтальной линией и подписью над ней.
+const LABEL_GAP: f64 = 2.0;
+
 /// Вершина слоя: настоящий узел или фиктивный на длинном ребре.
 #[derive(Debug, Clone)]
 struct Vertex {
@@ -137,6 +140,19 @@ struct Vertex {
     /// Самый глубокий кластер, которому принадлежит вершина
     cluster: Option<usize>,
     is_real: bool,
+    /// Место под подпись сбоку от линии: положительное справа, отрицательное слева.
+    /// Как в dot: линия остаётся прямой, а подпись стоит рядом, а не на ней.
+    label_side: f64,
+}
+
+impl Vertex {
+    fn left(&self) -> f64 {
+        self.width / 2.0 + (-self.label_side).max(0.0)
+    }
+
+    fn right(&self) -> f64 {
+        self.width / 2.0 + self.label_side.max(0.0)
+    }
 }
 
 /// Участок ребра между соседними рангами.
@@ -168,6 +184,7 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
                 height,
                 cluster: n.cluster,
                 is_real: true,
+                label_side: 0.0,
             }
         })
         .collect();
@@ -202,10 +219,16 @@ pub fn layout(input: &GraphInput) -> GraphLayout {
             };
             let id = vertices.len();
             vertices.push(Vertex {
-                width: label_w,
+                width: 0.0,
                 height: label_h,
                 cluster: shared,
                 is_real: false,
+                // После поворота раскладки «слева» становится «над линией».
+                label_side: if horizontal {
+                    -(label_w + LABEL_GAP)
+                } else {
+                    label_w
+                },
             });
             vertex_rank.push(rank);
             if rank == label_at && edge.label.is_some() {
@@ -563,7 +586,7 @@ fn assign_positions(
     };
 
     for (v, path) in paths.iter().enumerate() {
-        let half = vertices[v].width / 2.0;
+        let (left, right) = (vertices[v].left(), vertices[v].right());
         for &c in path {
             used[c] = true;
             // В горизонтальной раскладке заголовок лежит поперёк рангов.
@@ -572,8 +595,8 @@ fn assign_positions(
             } else {
                 0.0
             };
-            constraints.push(fixed(left_of(c), v, half + input.cluster_margin + title));
-            constraints.push(fixed(v, right_of(c), half + input.cluster_margin));
+            constraints.push(fixed(left_of(c), v, left + input.cluster_margin + title));
+            constraints.push(fixed(v, right_of(c), right + input.cluster_margin));
         }
     }
     for (c, cluster) in input.clusters.iter().enumerate() {
@@ -605,11 +628,11 @@ fn assign_positions(
             // Соседями в ряду оказываются внешние кластеры, расходящиеся на этом уровне.
             let (from, a_half) = match paths[a].get(common) {
                 Some(c) => (right_of(*c), 0.0),
-                None => (a, vertices[a].width / 2.0),
+                None => (a, vertices[a].right()),
             };
             let (to, b_half) = match paths[b].get(common) {
                 Some(c) => (left_of(*c), 0.0),
-                None => (b, vertices[b].width / 2.0),
+                None => (b, vertices[b].left()),
             };
             constraints.push(fixed(from, to, a_half + b_half + input.node_sep));
         }
@@ -654,12 +677,10 @@ fn assign_positions(
 
     let solved = solve(total, &constraints);
     let mut x: Vec<f64> = solved[..n].iter().map(|v| *v as f64).collect();
-    if cluster_count == 0 {
-        balance(&mut x, input, vertices, rows, segments, paths);
-    }
-    let clusters = (0..cluster_count)
+    let clusters: Vec<Option<(f64, f64)>> = (0..cluster_count)
         .map(|c| used[c].then(|| (solved[left_of(c)] as f64, solved[right_of(c)] as f64)))
         .collect();
+    balance(&mut x, input, vertices, rows, segments, paths, &clusters);
     Positions { x, clusters }
 }
 
@@ -675,37 +696,111 @@ fn balance(
     rows: &[Vec<usize>],
     segments: &[Segment],
     paths: &[Vec<usize>],
+    frames: &[Option<(f64, f64)>],
 ) {
-    let mut neighbours: Vec<Vec<usize>> = vec![Vec::new(); x.len()];
+    let horizontal = input.direction == Direction::LeftToRight;
+    let mut ups = vec![0_usize; x.len()];
+    let mut downs = vec![0_usize; x.len()];
+    let mut neighbours: Vec<Vec<(usize, usize)>> = vec![Vec::new(); x.len()];
     for segment in segments {
-        neighbours[segment.upper].push(segment.lower);
-        neighbours[segment.lower].push(segment.upper);
+        let (upper, lower) = (segment.upper, segment.lower);
+        downs[upper] += 1;
+        ups[lower] += 1;
+        let weight = straighten_weight(vertices[upper].is_real, vertices[lower].is_real) as usize;
+        neighbours[upper].push((lower, weight));
+        neighbours[lower].push((upper, weight));
+    }
+    // Столбец: вершины на одной линии, связанные единственными участками. Двигать надо
+    // и его целиком: перекладина fork стоит под предком, по отдельности любой её сдвиг
+    // хуже, а вместе с предком сдвиг в середину между детьми ничего не стоит.
+    let mut parent: Vec<usize> = (0..x.len()).collect();
+    fn find(parent: &mut [usize], mut v: usize) -> usize {
+        while parent[v] != v {
+            parent[v] = parent[parent[v]];
+            v = parent[v];
+        }
+        v
+    }
+    for segment in segments {
+        let (upper, lower) = (segment.upper, segment.lower);
+        if downs[upper] == 1 && ups[lower] == 1 && (x[upper] - x[lower]).abs() < 0.5 {
+            let (a, b) = (find(&mut parent, upper), find(&mut parent, lower));
+            parent[b] = a;
+        }
+    }
+    let mut columns: Vec<Vec<usize>> = vec![Vec::new(); x.len()];
+    for v in 0..x.len() {
+        let root = find(&mut parent, v);
+        columns[root].push(v);
+    }
+    let mut groups: Vec<Vec<usize>> = columns.into_iter().filter(|c| c.len() > 1).collect();
+    groups.extend((0..x.len()).map(|v| vec![v]));
+    let mut inside = vec![usize::MAX; x.len()];
+    let mut place = vec![(0_usize, 0_usize); x.len()];
+    for (r, row) in rows.iter().enumerate() {
+        for (index, &v) in row.iter().enumerate() {
+            place[v] = (r, index);
+        }
     }
     let gap = |a: usize, b: usize| {
-        (vertices[a].width + vertices[b].width) / 2.0
+        vertices[a].right()
+            + vertices[b].left()
             + input.node_sep
             + boundaries_between(&paths[a], &paths[b]) as f64 * input.cluster_margin
     };
     for _ in 0..10 {
-        for row in rows {
-            for (index, &v) in row.iter().enumerate() {
-                let count = neighbours[v].len();
-                if count == 0 || count % 2 == 1 {
-                    continue;
+        for (group_index, group) in groups.iter().enumerate() {
+            for &v in group {
+                inside[v] = group_index;
+            }
+            // Цена сдвига кусочно-линейна. Вес повторяем: при чётной сумме весов минимум
+            // занимает целый отрезок, и его середина раскладку не ухудшает.
+            let mut offsets: Vec<f64> = Vec::new();
+            for &v in group {
+                for &(u, weight) in &neighbours[v] {
+                    if inside[u] != group_index {
+                        offsets.extend(std::iter::repeat_n(x[u] - x[v], weight));
+                    }
                 }
-                let mut places: Vec<f64> = neighbours[v].iter().map(|u| x[*u]).collect();
-                places.sort_by(f64::total_cmp);
-                let target = (places[count / 2 - 1] + places[count / 2]) / 2.0;
-                let mut low = f64::MIN;
-                let mut high = f64::MAX;
-                if let Some(&left) = index.checked_sub(1).and_then(|i| row.get(i)) {
-                    low = x[left] + gap(left, v);
+            }
+            if offsets.is_empty() || offsets.len() % 2 == 1 {
+                continue;
+            }
+            offsets.sort_by(f64::total_cmp);
+            let middle = offsets.len() / 2;
+            if offsets[middle] - offsets[middle - 1] < 0.5 {
+                continue;
+            }
+            let target = (offsets[middle - 1] + offsets[middle]) / 2.0;
+
+            let mut low = f64::MIN;
+            let mut high = f64::MAX;
+            for &v in group {
+                let (r, index) = place[v];
+                if let Some(&left) = index.checked_sub(1).and_then(|i| rows[r].get(i)) {
+                    low = low.max(x[left] + gap(left, v) - x[v]);
                 }
-                if let Some(&right) = row.get(index + 1) {
-                    high = x[right] - gap(v, right);
+                if let Some(&right) = rows[r].get(index + 1) {
+                    high = high.min(x[right] - gap(v, right) - x[v]);
                 }
-                if low <= high {
-                    x[v] = target.clamp(low, high);
+                for &c in &paths[v] {
+                    let Some((left, right)) = frames.get(c).copied().flatten() else {
+                        continue;
+                    };
+                    let title = if horizontal {
+                        input.clusters[c].title_height
+                    } else {
+                        0.0
+                    };
+                    let margin = input.cluster_margin;
+                    low = low.max(left + vertices[v].left() + margin + title - x[v]);
+                    high = high.min(right - vertices[v].right() - margin - x[v]);
+                }
+            }
+            if low <= high {
+                let shift = target.clamp(low, high);
+                for &v in group {
+                    x[v] += shift;
                 }
             }
         }
@@ -888,7 +983,12 @@ fn finish(
         points.push(center(lower));
         if let Some(v) = label_vertex[index] {
             let (cx, cy) = center(v);
-            labels[index] = Some((cx, cy));
+            let side = vertices[v].label_side;
+            labels[index] = Some(if horizontal {
+                (cx + (side + LABEL_GAP) / 2.0 - LABEL_GAP, cy)
+            } else {
+                (cx + side / 2.0, cy)
+            });
         } else if let Some((_, label_h)) = edge.label {
             let (ax, ay) = center(upper);
             let (bx, by) = center(lower);
@@ -1189,6 +1289,34 @@ mod tests {
                 *x > mid.x && *x < mid.x + mid.width && *y > mid.y && *y < mid.y + mid.height;
             assert!(!inside, "ребро прошло сквозь узел: {long:?}");
         }
+    }
+
+    #[test]
+    fn test_chain_above_fork_is_centered_over_children() {
+        // start -> fork -> (a, b): столбец start-fork стоит между детьми.
+        let r = layout(&input(
+            vec![node(None), node(None), node(None), node(None)],
+            vec![edge(0, 1), edge(1, 2), edge(1, 3)],
+        ));
+        let center = |b: Boxed| b.x + b.width / 2.0;
+        let middle = (center(r.nodes[2]) + center(r.nodes[3])) / 2.0;
+        assert!((center(r.nodes[1]) - middle).abs() < 1.0, "{:?}", r.nodes);
+        assert!((center(r.nodes[0]) - middle).abs() < 1.0, "{:?}", r.nodes);
+    }
+
+    #[test]
+    fn test_label_stands_beside_the_line() {
+        let mut labeled = edge(0, 1);
+        labeled.label = Some((60.0, 16.0));
+        let r = layout(&input(vec![node(None), node(None)], vec![labeled]));
+        let (x, _) = r.labels[0].expect("есть подпись");
+        let (line_x, _) = r.edges[0][0];
+        assert!(
+            r.edges[0].iter().all(|p| (p.0 - line_x).abs() < 0.5),
+            "линия прямая: {:?}",
+            r.edges[0]
+        );
+        assert!(x - 30.0 >= line_x - 0.01, "подпись справа от линии");
     }
 
     #[test]

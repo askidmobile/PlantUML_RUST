@@ -379,7 +379,18 @@ fn process_rule(
             }
         }
         Rule::create_stmt => {
+            let kind = pair
+                .clone()
+                .into_inner()
+                .find(|inner| inner.as_rule() == Rule::participant_type)
+                .map(|inner| participant_kind(inner.as_str()));
             if let Some(participant_id) = parse_destroy(pair) {
+                let known = diagram.participants.iter().any(|p| {
+                    p.id.name == participant_id || p.id.alias.as_ref() == Some(&participant_id)
+                });
+                if let Some(kind) = kind.filter(|_| !known) {
+                    diagram.add_participant(Participant::new(participant_id.clone(), kind));
+                }
                 let element = SequenceElement::Activation(Activation {
                     participant: participant_id,
                     activation_type: ActivationType::Create,
@@ -454,6 +465,19 @@ fn push_element(
 }
 
 /// Парсит объявление участника
+fn participant_kind(keyword: &str) -> ParticipantType {
+    match keyword.to_lowercase().as_str() {
+        "actor" => ParticipantType::Actor,
+        "boundary" => ParticipantType::Boundary,
+        "control" => ParticipantType::Control,
+        "entity" => ParticipantType::Entity,
+        "database" => ParticipantType::Database,
+        "collections" => ParticipantType::Collections,
+        "queue" => ParticipantType::Queue,
+        _ => ParticipantType::Participant,
+    }
+}
+
 fn parse_participant(pair: pest::iterators::Pair<Rule>) -> Option<Participant> {
     let mut participant_type = ParticipantType::Participant;
     let mut name = String::new();
@@ -465,17 +489,7 @@ fn parse_participant(pair: pest::iterators::Pair<Rule>) -> Option<Participant> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::participant_type => {
-                participant_type = match inner.as_str().to_lowercase().as_str() {
-                    "participant" => ParticipantType::Participant,
-                    "actor" => ParticipantType::Actor,
-                    "boundary" => ParticipantType::Boundary,
-                    "control" => ParticipantType::Control,
-                    "entity" => ParticipantType::Entity,
-                    "database" => ParticipantType::Database,
-                    "collections" => ParticipantType::Collections,
-                    "queue" => ParticipantType::Queue,
-                    _ => ParticipantType::Participant,
-                };
+                participant_type = participant_kind(inner.as_str());
             }
             Rule::participant_name => {
                 name = extract_name(inner);
@@ -1247,6 +1261,19 @@ pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Directio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_create_keeps_participant_type() {
+        let diagram = parse_sequence(
+            "@startuml\nAlice -> Bob : a\ncreate actor Carol\nBob -> Carol : b\n@enduml",
+        )
+        .unwrap();
+        let carol = diagram.participants.iter().find(|p| p.id.name == "Carol");
+        assert_eq!(
+            carol.map(|p| p.participant_type),
+            Some(ParticipantType::Actor)
+        );
+    }
 
     /// Короткая форма актёра `:Alice:`.
     ///

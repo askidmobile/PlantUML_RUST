@@ -120,6 +120,32 @@ impl StateLayoutEngine {
         }
 
         let mut result = scene.build();
+        // Пунктир между регионами идёт через всё составное состояние, а не по содержимому.
+        let frames: Vec<Rect> = result
+            .elements
+            .iter()
+            .filter(|e| matches!(e.element_type, ElementType::CompositeState { .. }))
+            .map(|e| e.bounds)
+            .collect();
+        for element in &mut result.elements {
+            if !element.properties.contains_key("region-index") {
+                continue;
+            }
+            let b = element.bounds;
+            let parent = frames
+                .iter()
+                .filter(|f| {
+                    f.x <= b.x
+                        && f.y <= b.y
+                        && f.x + f.width >= b.x + b.width
+                        && f.y + f.height >= b.y + b.height
+                })
+                .min_by(|f, g| (f.width * f.height).total_cmp(&(g.width * g.height)));
+            if let Some(parent) = parent {
+                element.bounds.x = parent.x;
+                element.bounds.width = parent.width;
+            }
+        }
         // Поля сверх общих рендерера сняты с эталона `state_simple`.
         result.bounds.width += STATE_RIGHT_EXTRA;
         result.bounds.height += self.config.margin * 2.0;
@@ -264,15 +290,8 @@ impl StateLayoutEngine {
 
         // Первый регион разобран в `substates`, остальные лежат в `regions`.
         let regions: Vec<&[State]> = std::iter::once(state.substates.as_slice())
-            .filter(|first| !first.is_empty())
             .chain(state.regions.iter().map(Vec::as_slice))
             .collect();
-        // Регионы идут рядом; переход относится к региону своих концов.
-        let region_of = |name: &str| {
-            regions
-                .iter()
-                .position(|region| region.iter().any(|s| s.name == name))
-        };
         for (index, region) in regions.iter().enumerate() {
             let region_name = format!("{}#region{index}", state.name);
             let region_cluster = scene.add_cluster(
@@ -299,10 +318,7 @@ impl StateLayoutEngine {
             let transitions: Vec<plantuml_ast::state::Transition> = state
                 .internal_transitions
                 .iter()
-                .filter(|t| {
-                    let home = region_of(&t.from).or_else(|| region_of(&t.to)).unwrap_or(0);
-                    home == index
-                })
+                .filter(|t| t.region == index)
                 .cloned()
                 .collect();
             let scope = format!("{}#{index}", state.name);

@@ -21,26 +21,26 @@ const FRAGMENT_HEADER_FILL: &str = "#EEE";
 /// Смещение кружка граничного элемента вправо от линии жизни.
 const BOUNDARY_CIRCLE_SHIFT: f64 = 8.5;
 
-/// Вершина «вороньей лапки» от конца линии (эталон `er_basic`: 129.24 → 139.24).
-const CROW_FOOT_APEX: f64 = 10.0;
+/// Вершина «лапки» от края сущности; лучи сходятся в ней от самого края (эталон: 147.19 → 139.19).
+const CROW_FOOT_APEX: f64 = 8.0;
 
-/// Длина лучей «лапки» (эталон: 139.24 → 147.24).
-const CROW_FOOT_LENGTH: f64 = 18.0;
-
-/// Разброс крайних лучей «лапки» (эталон: ±6).
+/// Разброс крайних лучей «лапки» у края сущности (эталон: ±6).
 const CROW_FOOT_SPREAD: f64 = 6.0;
 
-/// Положение первой перекладины «один» от конца линии (эталон: 1).
-const CROW_FOOT_BAR_FIRST: f64 = 1.0;
+/// Перекладины «один» от края сущности (эталон: 88 → 92 и 95).
+const CROW_FOOT_BARS: [f64; 2] = [4.0, 7.0];
 
-/// Шаг между перекладинами «один» (эталон: 94.79 и 91.79).
-const CROW_FOOT_BAR_STEP: f64 = 3.0;
+/// Перекладина над «лапкой» в нотации `}|`.
+const CROW_FOOT_BAR_ABOVE_APEX: f64 = 11.0;
 
-/// Половина длины перекладины «один» (эталон: 55.75…63.75).
+/// Половина длины перекладины «один» (эталон: 8 в длину).
 const CROW_FOOT_BAR_HALF: f64 = 4.0;
 
-/// Расстояние от конца линии до центра кружка «ноль».
-const CROW_FOOT_CIRCLE: f64 = 4.0;
+/// Центр кружка над «лапкой» (эталон: 147.19 → 133.19).
+const CROW_FOOT_CIRCLE_OVER_FOOT: f64 = 14.0;
+
+/// Центр кружка над перекладиной в нотации `|o`.
+const CROW_FOOT_CIRCLE_OVER_BAR: f64 = 12.0;
 
 /// Радиус кружка «ноль» (эталон: 4).
 const CROW_FOOT_CIRCLE_RADIUS: f64 = 4.0;
@@ -48,6 +48,18 @@ const CROW_FOOT_CIRCLE_RADIUS: f64 = 4.0;
 /// Является ли кардинальность записью ER-нотации.
 ///
 /// Такие PlantUML рисует фигурами; числовые («1», «*») остаются текстом.
+/// Отрезок линии у края сущности, который занимает значок: линия подходит только к нему.
+fn crow_foot_reach(symbol: &str) -> f64 {
+    let many = symbol.contains(['}', '{']);
+    match (many, symbol.contains('o'), symbol.contains('|')) {
+        (true, true, _) => CROW_FOOT_CIRCLE_OVER_FOOT + CROW_FOOT_CIRCLE_RADIUS,
+        (false, true, true) => CROW_FOOT_CIRCLE_OVER_BAR + CROW_FOOT_CIRCLE_RADIUS,
+        (false, true, false) => 2.0 * CROW_FOOT_CIRCLE_RADIUS,
+        (true, false, true) => CROW_FOOT_BAR_ABOVE_APEX + 3.0,
+        _ => CROW_FOOT_APEX,
+    }
+}
+
 fn is_crow_foot(symbol: &str) -> bool {
     !symbol.is_empty() && symbol.chars().all(|c| matches!(c, '|' | 'o' | '{' | '}'))
 }
@@ -2742,6 +2754,12 @@ impl SvgRenderer {
             _ if arrow_end && draws_head => head_trim,
             _ => 0.0,
         };
+        let crow_reach = |card: Option<&str>| {
+            card.filter(|card| is_crow_foot(card))
+                .map_or(0.0, crow_foot_reach)
+        };
+        let trim_start = trim_start.max(crow_reach(from_cardinality));
+        let trim_end = trim_end.max(crow_reach(to_cardinality));
 
         // Направление линии считаем по ИСХОДНЫМ точкам, а не по
         // подрезанным. Разница принципиальна для ортогональных путей
@@ -3051,13 +3069,7 @@ impl SvgRenderer {
     ///
     /// PlantUML в ER-нотации НЕ пишет `||` и `}o` текстом, а рисует их
     /// линиями и кружком. Геометрия снята с эталона `er_basic` для связи
-    /// `user ||--o{ order` (линия идёт сверху вниз, `tip` — конец у
-    /// сущности, `inward` — соседняя точка линии):
-    ///
-    ///   * `||` — стойка длиной 8 и две перекладины на 1 и 4 от конца,
-    ///     полушириной 4 (`line 55.75..63.75` на y=91.79 и 94.79);
-    ///   * `}o` — кружок r=4 с центром на 4 от конца и «лапка»: вершина
-    ///     на 10, три луча до 18 с разбросом ±6.
+    /// `tip` — точка на краю сущности, `inward` — соседняя точка линии.
     fn render_crow_foot(
         &self,
         symbol: &str,
@@ -3066,7 +3078,8 @@ impl SvgRenderer {
         theme: &Theme,
         mut group: Group,
     ) -> Group {
-        let (dx, dy) = (tip.x - inward.x, tip.y - inward.y);
+        // Значок лежит на линии, от конца в сторону второй фигуры.
+        let (dx, dy) = (inward.x - tip.x, inward.y - tip.y);
         let len = (dx * dx + dy * dy).sqrt();
         if len < f64::EPSILON {
             return group;
@@ -3078,32 +3091,43 @@ impl SvgRenderer {
         let stroke = theme.node_border.to_css();
         let mut d = String::new();
 
-        if symbol.contains('}') {
+        let many = symbol.contains(['}', '{']);
+        let mut segment = |from: (f64, f64), to: (f64, f64)| {
+            d.push_str(&format!(
+                "M{},{} L{},{} ",
+                fmt(from.0),
+                fmt(from.1),
+                fmt(to.0),
+                fmt(to.1)
+            ));
+        };
+        if many {
             let apex = at(CROW_FOOT_APEX, 0.0);
             for spread in [0.0, CROW_FOOT_SPREAD, -CROW_FOOT_SPREAD] {
-                let end = at(CROW_FOOT_LENGTH, spread);
-                d.push_str(&format!(
-                    "M{},{} L{},{} ",
-                    fmt(apex.0),
-                    fmt(apex.1),
-                    fmt(end.0),
-                    fmt(end.1)
-                ));
+                segment(apex, at(0.0, spread));
             }
         }
 
-        // Перекладины «один»: по одной на каждый символ `|`.
-        for index in 0..symbol.matches('|').count() {
-            let t = CROW_FOOT_BAR_FIRST + CROW_FOOT_BAR_STEP * index as f64;
-            let left = at(t, CROW_FOOT_BAR_HALF);
-            let right = at(t, -CROW_FOOT_BAR_HALF);
-            d.push_str(&format!(
-                "M{},{} L{},{} ",
-                fmt(left.0),
-                fmt(left.1),
-                fmt(right.0),
-                fmt(right.1)
-            ));
+        // Перекладины «один» со стойкой: кружок или линия начинаются выше неё.
+        let bars = symbol.matches('|').count();
+        if bars > 0 {
+            let places: &[f64] = if many {
+                &[CROW_FOOT_BAR_ABOVE_APEX]
+            } else {
+                &CROW_FOOT_BARS[..bars.min(CROW_FOOT_BARS.len())]
+            };
+            for t in places {
+                segment(at(*t, CROW_FOOT_BAR_HALF), at(*t, -CROW_FOOT_BAR_HALF));
+            }
+            let stem_from = if many { CROW_FOOT_APEX } else { 0.0 };
+            let stem_to = if symbol.contains('o') {
+                CROW_FOOT_CIRCLE_OVER_BAR - CROW_FOOT_CIRCLE_RADIUS
+            } else {
+                crow_foot_reach(symbol)
+            };
+            if stem_to > stem_from {
+                segment(at(stem_from, 0.0), at(stem_to, 0.0));
+            }
         }
 
         if !d.is_empty() {
@@ -3117,7 +3141,7 @@ impl SvgRenderer {
         }
 
         if symbol.contains('o') {
-            let center = at(CROW_FOOT_CIRCLE, 0.0);
+            let center = at(crow_foot_reach(symbol) - CROW_FOOT_CIRCLE_RADIUS, 0.0);
             group = group.add(
                 svg::node::element::Ellipse::new()
                     .set("cx", fmt(center.0))

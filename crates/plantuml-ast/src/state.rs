@@ -163,6 +163,9 @@ pub struct Transition {
     pub color: Option<Color>,
     /// Форма стрелки
     pub arrow: crate::common::ArrowShape,
+    /// Номер параллельного региона (`--`) внутри составного состояния
+    #[serde(default)]
+    pub region: usize,
 }
 
 impl Transition {
@@ -176,6 +179,7 @@ impl Transition {
             action: None,
             color: None,
             arrow: crate::common::ArrowShape::default(),
+            region: 0,
         }
     }
 

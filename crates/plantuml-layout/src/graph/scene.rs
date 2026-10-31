@@ -20,6 +20,7 @@ const NOTE_LINE_HEIGHT: f64 = 16.0;
 const NOTE_FILL: &str = "#FEFFDD";
 const LABEL_FONT: f64 = 13.0;
 /// Высота строки подписи ребра вместе с зазором: шаг рангов в эталоне 77 при 60 без подписи.
+const LABEL_PADDING: f64 = 4.0;
 const LABEL_LINE: f64 = 17.0;
 
 /// Связь между именованными фигурами.
@@ -257,7 +258,10 @@ impl Scene {
     fn label_size(&self, label: &str) -> (f64, f64) {
         let text = label.replace("\\n", "\n");
         let lines = text.lines().count().max(1) as f64;
-        (self.text.width(&text, LABEL_FONT) + 4.0, lines * LABEL_LINE)
+        (
+            self.text.width(&text, LABEL_FONT) + LABEL_PADDING,
+            lines * LABEL_LINE,
+        )
     }
 
     /// Раскладывает сцену в элементы диаграммы.
@@ -412,9 +416,10 @@ impl Scene {
                 elements.push(LayoutElement {
                     id: format!("edge_label_{edge_index}"),
                     bounds: Rect::new(
-                        center.0 - width / 2.0 + 2.0,
+                        // Эталон ставит текст в 1 от линии; запас в `label_size` за текстом.
+                        center.0 - width / 2.0 + 1.0,
                         center.1 - height / 2.0,
-                        width,
+                        width - LABEL_PADDING,
                         height,
                     ),
                     text: None,

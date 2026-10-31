@@ -3,57 +3,57 @@ source: crates/plantuml-core/tests/state_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="279px" preserveAspectRatio="none" style="width:226px;height:279px;background:#FFFFFF;" version="1.1" viewBox="2 0 226.22400000000002 278.7" width="226px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="279px" preserveAspectRatio="none" style="width:223px;height:279px;background:#FFFFFF;" version="1.1" viewBox="0 0 223.22400000000002 278.7" width="223px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="initial_top#initial">
-<ellipse cx="116.05095000000001" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
+<ellipse cx="89.51670000000001" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
 </g>
 <g id="state_Active">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="63.7612" x="84.17035000000001" y="81"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="116.05095000000001" y="99.1485" textLength="43.761">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="63.7612" x="57.63610000000001" y="81"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="89.51670000000001" y="99.1485" textLength="43.761">
 Active
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="84.17035000000001" x2="147.93155000000002" y1="107.297" y2="107.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="57.63610000000001" x2="121.39730000000002" y1="107.297" y2="107.297"/>
 </g>
 <g id="state_Inactive">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="75.2888" x="34.01025000000001" y="209"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="71.65465" y="227.1485" textLength="55.289">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="75.2888" x="7.11395000000001" y="209"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="44.75835000000001" y="227.1485" textLength="55.289">
 Inactive
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="34.01025000000001" x2="109.29905000000001" y1="235.297" y2="235.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="7.11395000000001" x2="82.40275" y1="235.297" y2="235.297"/>
 </g>
 <g id="final_top#final">
-<ellipse cx="196.05095" cy="233" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="196.05095" cy="233" fill="#222" rx="6" ry="6" stroke="none"/>
+<ellipse cx="177.51670000000001" cy="233" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="177.51670000000001" cy="233" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
-<path d="M116.051,20 C116.051,25.083 116.051,40.333 116.051,50.5 C116.051,60.667 116.051,75.917 116.051,81" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="116.051,81 120.051,72 116.051,76 112.051,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M89.517,20 C89.517,25.083 89.517,40.333 89.517,50.5 C89.517,60.667 89.517,75.917 89.517,81" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="89.517,81 93.517,72 89.517,76 85.517,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_1">
-<path d="M84.17,128.979 C74.685,135.816 32.235,156.663 27.258,170 C22.282,183.337 49.803,202.5 54.312,209" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="54.312,209 52.469,199.325 51.462,204.892 45.896,203.885" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M57.636,128.793 C48.03,135.661 5.06,156.632 0,170 C-5.06,183.368 22.729,202.5 27.275,209" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="27.275,209 25.395,199.332 24.409,204.903 18.839,203.917" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
-<path d="M88.997,209 C93.506,202.5 111.542,183 116.051,170 C120.56,157 116.051,137.5 116.051,131" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="116.051,131 112.051,140 116.051,136 120.051,140" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M62.242,209 C66.788,202.5 84.971,183 89.517,170 C94.062,157 89.517,137.5 89.517,131" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="89.517,131 85.517,140 89.517,136 93.517,140" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M147.439,131 C155.6,137.5 188.154,154.667 196.405,170 C204.655,185.333 196.851,214.167 196.94,223" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="196.94,223 200.849,213.96 196.889,218 192.849,214.041" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M121.397,129.168 C130.762,135.973 168.092,154.361 177.585,170 C187.078,185.639 178.228,214.167 178.357,223" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="178.357,223 182.225,213.943 178.284,218.001 174.226,214.059" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_label_1">
-<text fill="#000" font-family="sans-serif" font-size="13" x="2" y="174.5" textLength="50.517">
+<text fill="#000" font-family="sans-serif" font-size="13" x="1" y="174.5" textLength="50.517">
 timeout
 </text>
 </g>
 <g id="edge_label_2">
-<text fill="#000" font-family="sans-serif" font-size="13" x="91.51670000000001" y="174.5" textLength="49.069">
+<text fill="#000" font-family="sans-serif" font-size="13" x="90.51670000000001" y="174.5" textLength="49.069">
 resume
 </text>
 </g>
 <g id="edge_label_3">
-<text fill="#000" font-family="sans-serif" font-size="13" x="179.58520000000001" y="174.5" textLength="33.639">
+<text fill="#000" font-family="sans-serif" font-size="13" x="178.58520000000001" y="174.5" textLength="33.639">
 close
 </text>
 </g>

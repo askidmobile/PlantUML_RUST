@@ -251,6 +251,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
                 // сваливались в один список.
                 let mut sub_diagram = StateDiagram::new();
                 let mut current_region: Option<Vec<State>> = None;
+                let mut region_index = 0;
                 let mut inner_notes = Vec::new();
 
                 for statement in inner.into_inner() {
@@ -259,6 +260,7 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
                             regions.push(region);
                         }
                         current_region = Some(Vec::new());
+                        region_index += 1;
                         continue;
                     }
 
@@ -269,6 +271,9 @@ fn parse_state_composite(pair: pest::iterators::Pair<Rule>) -> Option<State> {
                             Some(region) => merge_state(region, state),
                             None => merge_state(&mut sub_diagram.states, state),
                         }
+                    }
+                    for transition in &mut one.transitions {
+                        transition.region = region_index;
                     }
                     sub_diagram.transitions.append(&mut one.transitions);
                     inner_notes.append(&mut one.notes);
@@ -487,6 +492,7 @@ fn parse_transition(pair: pest::iterators::Pair<Rule>) -> Option<Transition> {
         action,
         color: None,
         arrow,
+        region: 0,
     })
 }
 
@@ -705,6 +711,20 @@ pub fn parse_direction_text(text: &str) -> Option<plantuml_ast::common::Directio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_region_separator_splits_transitions() {
+        let diagram =
+            parse_state("@startuml\nstate S {\n[*] --> A\n--\n[*] --> B\n}\n@enduml").unwrap();
+        let composite = &diagram.states[0];
+        assert_eq!(composite.regions.len(), 1);
+        let regions: Vec<usize> = composite
+            .internal_transitions
+            .iter()
+            .map(|t| t.region)
+            .collect();
+        assert_eq!(regions, vec![0, 1]);
+    }
 
     /// Цвет состояния и многострочная заметка.
     ///
