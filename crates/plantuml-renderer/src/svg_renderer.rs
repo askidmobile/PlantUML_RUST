@@ -66,8 +66,24 @@ const FRAGMENT_LABEL_FONT_SIZE: f64 = 13.0;
 /// Кегль условия секции (эталон: `font-size="11"`).
 const FRAGMENT_CONDITION_FONT_SIZE: f64 = 11.0;
 
-/// Отступ условия от правого края рамки (эталон: 179.355 - 163.36).
-const FRAGMENT_CONDITION_INSET: f64 = 16.0;
+/// Зазор между вкладкой фрагмента и его условием (эталон: 96.40 - 81.40).
+const FRAGMENT_CONDITION_AFTER_TAB: f64 = 15.0;
+
+/// Кегль текста блока `ref` и шаг его строк (эталон `ref_lang_024`).
+const REF_FONT_SIZE: f64 = 12.0;
+const REF_LINE_STEP: f64 = 13.969;
+
+/// Базис первой строки `ref` от верха рамки (эталон: 589.264 при 557.125).
+const REF_TEXT_BASELINE: f64 = 32.138;
+
+/// Подпись разделителя `== ==`: кегль, поля коробки, базис и положение
+/// двойной линии от верха (эталон `real_seq_real`).
+const DIVIDER_FONT_SIZE: f64 = 13.0;
+const DIVIDER_BOX_PADDING: f64 = 12.0;
+const DIVIDER_BOX_HEIGHT: f64 = 23.133;
+const DIVIDER_TEXT_BASELINE: f64 = 16.066;
+const DIVIDER_LINE_TOP: f64 = 10.566;
+const DIVIDER_LINE_STEP: f64 = 3.0;
 
 /// Базис условия от верха рамки (эталон: 94.64 при 82.43).
 const FRAGMENT_CONDITION_BASELINE: f64 = 12.21;
@@ -1208,6 +1224,7 @@ impl SvgRenderer {
                         .properties
                         .get("label-end-x")
                         .and_then(|value| value.parse().ok()),
+                    dash: element.properties.get("dasharray").map(String::as_str),
                 };
                 group = self.render_edge(
                     points,
@@ -1222,6 +1239,30 @@ impl SvgRenderer {
                     style,
                     theme,
                     group,
+                );
+            }
+            ElementType::Text { text, font_size }
+                if element.properties.get("seq-role").map(String::as_str) == Some("divider") =>
+            {
+                group = self.render_seq_divider(&element.bounds, text, theme, group);
+            }
+            ElementType::Text { text, font_size }
+                if element.properties.get("seq-role").map(String::as_str) == Some("delay") =>
+            {
+                // Подпись паузы стоит по центру схемы на заданном базисе
+                let baseline = element
+                    .properties
+                    .get("baseline")
+                    .and_then(|value| value.parse::<f64>().ok())
+                    .unwrap_or(element.bounds.y);
+                group = group.add(
+                    svg::node::element::Text::new(text.as_str())
+                        .set("x", element.bounds.x + element.bounds.width / 2.0)
+                        .set("y", baseline)
+                        .set("text-anchor", "middle")
+                        .set("font-family", theme.font_family.as_str())
+                        .set("font-size", *font_size)
+                        .set("fill", theme.text_color.to_css()),
                 );
             }
             ElementType::Text { text, font_size } => {
@@ -1690,16 +1731,25 @@ impl SvgRenderer {
         if label.is_empty() {
             return group;
         }
-        let text = svg::node::element::Text::new(label)
-            .set("x", bounds.x + text_inset)
-            .set("y", bounds.y + bounds.height / 2.0)
-            .set("text-anchor", "start")
-            .set("dominant-baseline", "middle")
-            .set("font-family", theme.font_family.as_str())
-            .set("font-size", label_font_size)
-            .set("fill", label_color);
-
-        group.add(text)
+        // Каждая строка (`\n` или настоящий перенос) — отдельный текст,
+        // середина блока строк совпадает с серединой рамки. Шаг строк 15.133
+        // из эталона `real_seq_real`.
+        let label = label.replace("\\n", "\n");
+        let lines: Vec<&str> = label.split('\n').collect();
+        let first_y =
+            bounds.y + bounds.height / 2.0 - (lines.len() as f64 - 1.0) * NOTE_LINE_STEP / 2.0;
+        for (i, line) in lines.iter().enumerate() {
+            let text = svg::node::element::Text::new(*line)
+                .set("x", bounds.x + text_inset)
+                .set("y", first_y + i as f64 * NOTE_LINE_STEP)
+                .set("text-anchor", "start")
+                .set("dominant-baseline", "middle")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", label_font_size)
+                .set("fill", label_color.as_str());
+            group = group.add(text);
+        }
+        group
     }
 
     /// Фигура элемента component/deployment по свойству `shape`.
@@ -2578,11 +2628,11 @@ impl SvgRenderer {
         // PlantUML использует stroke-dasharray: 5,5 для lifelines, 2,2 для dashed сообщений
         if dashed {
             // Для lifelines (без стрелок) используем 5,5, для dashed сообщений - 2,2
-            let dash_pattern = if arrow_end || arrow_start {
+            let dash_pattern = style.dash.unwrap_or(if arrow_end || arrow_start {
                 "2,2"
             } else {
                 "5,5"
-            };
+            });
             path = path.set("stroke-dasharray", dash_pattern);
         }
 
@@ -2732,12 +2782,17 @@ impl SvgRenderer {
                     .set("dominant-baseline", "auto")
                     .set("font-family", theme.font_family.as_str())
                     .set("font-size", font_size)
+                    // Номер жирный, как в эталоне: `font-weight="700"`
+                    .set("font-weight", "700")
                     .set("fill", theme.text_color.to_css());
                 group = group.add(autonumber_element);
 
-                // Вычисляем ширину autonumber для смещения текста
-                // PlantUML: ~7px на символ + небольшой отступ 3px
-                let num_width = num_text.len() as f64 * 7.0 + 3.0;
+                // Подпись начинается через ширину номера (жирными метриками)
+                // и зазор 5.82: эталон `real_seq_real` — номер на 213.151,
+                // подпись на 226.197 при ширине «2» 7.23.
+                let num_width = plantuml_layout::text::TextMeasurer::default()
+                    .width_bold(num_text, font_size)
+                    + AUTONUMBER_GAP;
                 base_x + num_width
             } else {
                 base_x
@@ -3192,24 +3247,43 @@ impl SvgRenderer {
 
         group = group.add(type_text);
 
+        // Блок `ref`: вместо условия — текст ссылки по центру под вкладкой
+        // (эталон `real_seq_real`: кегль 12, первая строка на 32.138 от верха).
+        if fragment_type == "ref" {
+            let body = sections
+                .first()
+                .and_then(|section| section.condition.as_deref())
+                .unwrap_or("")
+                .replace("\\n", "\n");
+            for (i, line) in body.lines().enumerate() {
+                let line_text = svg::node::element::Text::new(line)
+                    .set("x", bounds.x + bounds.width / 2.0)
+                    .set("y", bounds.y + REF_TEXT_BASELINE + i as f64 * REF_LINE_STEP)
+                    .set("text-anchor", "middle")
+                    .set("font-family", theme.font_family.as_str())
+                    .set("font-size", REF_FONT_SIZE)
+                    .set("fill", theme.text_color.to_css());
+                group = group.add(line_text);
+            }
+            return group;
+        }
+
         // 3. Условие первой секции справа от пятиугольника
         if let Some(first_section) = sections.first() {
             if let Some(condition) = &first_section.condition {
                 // Условие секции тоже ПОЛУЖИРНОЕ: в эталоне
                 // sequence_fragments элементы «[Успешно]» и «[Ошибка]»
                 // имеют font-weight="700", как и тип «alt».
-                // Условие прижато к ПРАВОМУ краю рамки с отступом 16,
-                // кегль 11: эталон `sequence_fragments` даёт «[Успешно]» на
-                // x = 96.40 при рамке 16.955..179.355 (96.40 + 66.96 + 16 =
-                // 179.36), базис — на 12.21 ниже верха.
+                // Условие стоит в 15 правее вкладки, кегль 11: эталон
+                // `sequence_fragments` даёт «[Успешно]» на x = 96.40 при
+                // рамке с 16.955 и вкладке 64.44, базис — на 12.21 ниже
+                // верха. Раньше его прижимали к правому краю по формуле
+                // «край - 16 - ширина»: в узкой рамке это то же самое, а в
+                // широкой (рамка охватывает вложенное) условие уезжало от
+                // вкладки (эталон `real_seq_real`: 103.397 при рамке 23.954).
                 let cond_value = format!("[{condition}]");
-                let cond_width = plantuml_layout::text::TextMeasurer::default()
-                    .width_bold(&cond_value, FRAGMENT_CONDITION_FONT_SIZE);
                 let cond_text = svg::node::element::Text::new(cond_value)
-                    .set(
-                        "x",
-                        bounds.x + bounds.width - FRAGMENT_CONDITION_INSET - cond_width,
-                    )
+                    .set("x", bounds.x + label_width + FRAGMENT_CONDITION_AFTER_TAB)
                     .set("y", bounds.y + FRAGMENT_CONDITION_BASELINE)
                     .set("font-family", theme.font_family.as_str())
                     .set("font-size", FRAGMENT_CONDITION_FONT_SIZE)
@@ -3295,6 +3369,70 @@ impl SvgRenderer {
         }
 
         group
+    }
+
+    /// Рисует разделитель `== текст ==`: двойная линия через всю ширину и
+    /// подпись в рамке по центру. Без текста остаётся одна двойная линия.
+    fn render_seq_divider(
+        &self,
+        bounds: &Rect,
+        text: &str,
+        theme: &Theme,
+        mut group: Group,
+    ) -> Group {
+        let top = bounds.y;
+        let line_y = top + DIVIDER_LINE_TOP;
+        let right = bounds.x + bounds.width;
+        let line = |y: f64| {
+            svg::node::element::Line::new()
+                .set("x1", bounds.x)
+                .set("y1", y)
+                .set("x2", right)
+                .set("y2", y)
+                .set("style", "stroke:#000;stroke-width:1;")
+        };
+        group = group.add(
+            Rectangle::new()
+                .set("x", bounds.x)
+                .set("y", line_y)
+                .set("width", bounds.width)
+                .set("height", DIVIDER_LINE_STEP)
+                .set("fill", FRAGMENT_HEADER_FILL)
+                .set(
+                    "style",
+                    format!("stroke:{FRAGMENT_HEADER_FILL};stroke-width:1;"),
+                ),
+        );
+        group = group
+            .add(line(line_y))
+            .add(line(line_y + DIVIDER_LINE_STEP));
+
+        let text = text.trim();
+        if text.is_empty() {
+            return group;
+        }
+        let text_width =
+            plantuml_layout::text::TextMeasurer::default().width_bold(text, DIVIDER_FONT_SIZE);
+        let box_width = text_width + DIVIDER_BOX_PADDING;
+        let box_x = bounds.x + (bounds.width - box_width) / 2.0;
+        group = group.add(
+            Rectangle::new()
+                .set("x", box_x)
+                .set("y", top)
+                .set("width", box_width)
+                .set("height", DIVIDER_BOX_HEIGHT)
+                .set("fill", FRAGMENT_HEADER_FILL)
+                .set("style", "stroke:#000;stroke-width:2;"),
+        );
+        group.add(
+            svg::node::element::Text::new(text)
+                .set("x", box_x + DIVIDER_BOX_PADDING / 2.0)
+                .set("y", top + DIVIDER_TEXT_BASELINE)
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", DIVIDER_FONT_SIZE)
+                .set("font-weight", "700")
+                .set("fill", theme.text_color.to_css()),
+        )
     }
 
     /// Рендерит Participant Box (фоновый прямоугольник с заголовком)
@@ -3888,6 +4026,12 @@ impl Renderer for SvgRenderer {
     }
 }
 
+/// Шаг строк текста примечания.
+const NOTE_LINE_STEP: f64 = 15.133;
+
+/// Зазор между номером сообщения и подписью.
+const AUTONUMBER_GAP: f64 = 5.82;
+
 /// Высота заголовка состояния: в эталоне разделитель на 113.297 при
 /// верхней границе 87, то есть 26.297.
 const STATE_HEADER_HEIGHT: f64 = 26.297;
@@ -3966,6 +4110,8 @@ struct EdgeStyle<'a> {
     head_start: Option<&'a str>,
     /// Правый край подписи: подпись выравнивается по нему, а не по началу.
     label_end_x: Option<f64>,
+    /// Своя штриховка линии (`1,4` у линии жизни на паузе)
+    dash: Option<&'a str>,
 }
 
 /// Оформление текста: жирность и цвет.

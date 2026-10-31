@@ -184,6 +184,11 @@ pub struct DiagramMetrics {
     pub parallel_floor: Option<f64>,
     /// Правый край последней заметки
     pub last_note_right: f64,
+    /// Низ самого нижнего из размещённых примечаний
+    pub last_note_bottom: f64,
+    /// Паузы `...`: на них линии жизни становятся точечными, а активации
+    /// прерываются (Y начала, Y конца)
+    pub gaps: Vec<(f64, f64)>,
 }
 
 impl DiagramMetrics {
@@ -206,6 +211,8 @@ impl DiagramMetrics {
             item_flow_start: 0.0,
             parallel_floor: None,
             last_note_right: 0.0,
+            last_note_bottom: 0.0,
+            gaps: Vec::new(),
         }
     }
 

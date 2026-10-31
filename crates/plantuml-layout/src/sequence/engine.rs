@@ -42,7 +42,78 @@ const NOTE_TOP_GAP: f64 = 13.0;
 /// Измерено по эталону: низ примечания 108.43, следующая стрелка 134.695.
 const NOTE_BOTTOM_GAP: f64 = 26.265;
 
+/// Запас между краем примечания и соседней линией жизни.
+const NOTE_LIFELINE_GAP: f64 = 10.0;
+
+/// Примечание над несколькими участниками может выступать за крайние линии.
+const NOTE_SPAN_OVERHANG: f64 = 20.0;
+
+/// Примечание без привязки стоит на 16.133 выше стрелки.
+const NOTE_ATTACHED_RISE: f64 = 16.133;
+
+/// Зазор между подряд идущими примечаниями.
+const NOTE_STACK_GAP: f64 = 10.133;
+
 const NOTE_BACKGROUND: &str = "#FEFFDD";
+
+/// Шаг строк примечания (эталон `real_seq_real`: базисы 379.723 и 394.856).
+const NOTE_LINE_HEIGHT: f64 = 15.133;
+
+/// Кегль текста блока `ref` (эталон: `font-size="12"`).
+const REF_FONT_SIZE: f64 = 12.0;
+
+/// Высота блока `ref` без строк текста: 39.102 при одной строке 13.969.
+const REF_BASE_HEIGHT: f64 = 25.133;
+
+/// Шаг строк текста блока `ref`.
+const REF_LINE_HEIGHT: f64 = 13.969;
+
+/// Блок `ref` встаёт на 21.133 выше позиции потока: стрелка на 70.43,
+/// рамка на 78.43 при шаге потока 29.133.
+const REF_TOP_OFFSET: f64 = 21.133;
+
+/// Поток после `ref` уходит на 26.133 ниже низа рамки (эталон `ref_lang_024`).
+const REF_BOTTOM_ADVANCE: f64 = 26.133;
+
+/// Рамка `ref` уже коробок крайних участников на 2 с каждой стороны.
+const REF_SPAN_INSET: f64 = 2.0;
+
+/// Запас вокруг текста `ref`: рамка 192.09 при тексте 184.09.
+const REF_TEXT_PADDING: f64 = 8.0;
+
+/// Ширина вкладки `ref` (метка 13 жирным плюс отступы 45).
+const REF_TAB_WIDTH: f64 = 65.0;
+
+/// Разделитель `== ==` встаёт на 11.133 выше позиции потока (эталон
+/// `ref_lang_023`: стрелка 113.563, коробка разделителя 131.563).
+const DIVIDER_TOP_OFFSET: f64 = 11.133;
+
+/// Поля коробки подписи разделителя: ширина текста плюс 12.
+const DIVIDER_BOX_PADDING: f64 = 12.0;
+
+/// Высота коробки подписи разделителя.
+const DIVIDER_BOX_HEIGHT: f64 = 23.133;
+
+/// От верха разделителя до места, где начинается пауза (33.133), и дальше
+/// до следующей стрелки (21.133): 54.266 в сумме.
+const DIVIDER_TO_GAP: f64 = 33.133;
+
+/// Поток после паузы или разделителя уходит на 21.133 ниже её конца.
+const GAP_TAIL: f64 = 21.133;
+
+/// Пауза `...` с текстом занимает 40.804, без текста 28.
+const DELAY_TEXT_HEIGHT: f64 = 40.804;
+const DELAY_PLAIN_HEIGHT: f64 = 28.0;
+
+/// Кегль подписи паузы (эталон: `font-size="11"`).
+const DELAY_FONT_SIZE: f64 = 11.0;
+
+/// Отступ базиса подписи паузы от её начала (эталон: 668.57 - 644.36).
+const DELAY_TEXT_BASELINE: f64 = 24.21;
+
+/// Запас справа и слева, на который рамка охватывает вложенные рамки и примечания.
+const FRAGMENT_NESTED_RIGHT: f64 = 25.0;
+const FRAGMENT_NESTED_LEFT: f64 = 12.0;
 
 /// Отступ заметки от линии жизни (измерено по эталону sequence_notes).
 const NOTE_ANCHOR_GAP: f64 = 4.5;
@@ -290,6 +361,34 @@ impl SequenceLayoutEngine {
         // 12. Расширяем bounds для текста сообщений (PlantUML Вариант B)
         // Текст может выходить за границы участников, viewBox расширяется
         self.adjust_bounds_for_message_text(diagram, &metrics, &mut result);
+
+        // 13. Холст охватывает всё нарисованное: примечания и рамки внутри
+        // фрагментов лежат в `children`, а не в верхнем списке, и `bounds`
+        // их не видел (примечание выходило за правый край и обрезалось).
+        let mut nested = Vec::new();
+        collect_nested_bounds(&result.elements, &mut nested);
+        for rect in nested {
+            let right = (result.bounds.x + result.bounds.width).max(rect.x + rect.width);
+            let bottom = (result.bounds.y + result.bounds.height).max(rect.y + rect.height);
+            result.bounds.x = result.bounds.x.min(rect.x);
+            result.bounds.y = result.bounds.y.min(rect.y);
+            result.bounds.width = right - result.bounds.x;
+            result.bounds.height = bottom - result.bounds.y;
+        }
+
+        // Рамка подписи разделителя обязана уместиться в холст: у схемы из
+        // двух узких участников она шире всего остального (эталон
+        // `ref_lang_003`).
+        let mut widest = 0.0_f64;
+        widest_divider(&result.elements, &self.config, &mut widest);
+        if result.bounds.width < widest {
+            let grow = widest - result.bounds.width;
+            result.bounds.x -= grow / 2.0;
+            result.bounds.width = widest;
+        }
+
+        // 14. Разделители и паузы тянутся на всю ширину охвата.
+        stretch_full_width(&mut result.elements, result.bounds.x, result.bounds.width);
 
         result
     }
@@ -840,6 +939,28 @@ impl SequenceLayoutEngine {
             }
         }
 
+        // Примечания и блоки `ref` тоже требуют места между линиями: иначе
+        // примечание справа от участника ложится на следующую линию жизни.
+        let mut blocks: Vec<(usize, usize, f64)> = Vec::new();
+        self.collect_block_constraints(
+            &diagram.elements,
+            participant_order,
+            participant_widths,
+            &mut blocks,
+        );
+        for (start_idx, end_idx, need) in blocks {
+            let half_start = participant_widths[start_idx] / 2.0;
+            let half_end = participant_widths[end_idx] / 2.0;
+            let between: f64 = (start_idx + 1..end_idx)
+                .map(|i| participant_widths[i])
+                .sum();
+            let spacing_sum: f64 = (start_idx..end_idx).map(|i| spacing[i]).sum();
+            let distance = spacing_sum + half_start + between + half_end;
+            if distance < need {
+                spacing[start_idx] += need - distance;
+            }
+        }
+
         // Конвертируем в HashMap с ключами "participant1_participant2"
         let mut spacing_map: std::collections::HashMap<String, f64> =
             std::collections::HashMap::new();
@@ -853,6 +974,112 @@ impl SequenceLayoutEngine {
         }
 
         spacing_map
+    }
+
+    /// Собирает требования примечаний и блоков `ref` к расстоянию между
+    /// линиями жизни: `(левый индекс, правый индекс, расстояние между центрами)`.
+    fn collect_block_constraints(
+        &self,
+        elements: &[SequenceElement],
+        order: &[String],
+        widths: &[f64],
+        out: &mut Vec<(usize, usize, f64)>,
+    ) {
+        let index = |name: &String| order.iter().position(|p| p == name);
+        for element in elements {
+            match element {
+                SequenceElement::Note(note) => {
+                    let (note_width, _) = self.note_extent(note);
+                    let anchors: Vec<usize> = note.anchors.iter().filter_map(index).collect();
+                    match (note.position, anchors.as_slice()) {
+                        (NotePosition::Right, [i]) if i + 1 < order.len() => {
+                            out.push((*i, i + 1, NOTE_ANCHOR_GAP + note_width + NOTE_LIFELINE_GAP));
+                        }
+                        (NotePosition::Left, [i]) if *i > 0 => {
+                            out.push((i - 1, *i, NOTE_ANCHOR_GAP + note_width + NOTE_LIFELINE_GAP));
+                        }
+                        (_, [first, .., last]) if first != last => {
+                            let (lo, hi) = (*first.min(last), *first.max(last));
+                            out.push((lo, hi, note_width - NOTE_SPAN_OVERHANG));
+                        }
+                        _ => {}
+                    }
+                }
+                SequenceElement::Reference(reference) => {
+                    let ids: Vec<usize> = reference.participants.iter().filter_map(index).collect();
+                    if let (Some(&lo), Some(&hi)) = (ids.iter().min(), ids.iter().max()) {
+                        if lo != hi {
+                            let text = reference.text.replace("\\n", "\n");
+                            let text_width = text
+                                .lines()
+                                .map(|line| self.config.text.width(line, REF_FONT_SIZE))
+                                .fold(0.0_f64, f64::max);
+                            let boxes = (widths[lo] + widths[hi]) / 2.0;
+                            out.push((
+                                lo,
+                                hi,
+                                text_width + REF_TEXT_PADDING + 2.0 * REF_SPAN_INSET - boxes,
+                            ));
+                        }
+                    }
+                }
+                SequenceElement::Fragment(frag) => {
+                    // Рамка с широким условием не должна доставать до
+                    // следующей за ней линии жизни: эталон `real_seq_real`
+                    // держит `loop` на API левее линии БД.
+                    let mut used = (usize::MAX, 0_usize);
+                    for section in &frag.sections {
+                        Self::collect_used_indices(&section.elements, order, &mut used);
+                    }
+                    if used.0 <= used.1 && used.1 + 1 < order.len() {
+                        out.push((
+                            used.0,
+                            used.1 + 1,
+                            self.fragment_min_width(frag) - FRAGMENT_FRAME_LEFT_HALF
+                                + FRAGMENT_NESTED_RIGHT
+                                + NOTE_LIFELINE_GAP,
+                        ));
+                    }
+                    for section in &frag.sections {
+                        self.collect_block_constraints(&section.elements, order, widths, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Наименьший и наибольший индексы участников, задействованных в элементах.
+    fn collect_used_indices(
+        elements: &[SequenceElement],
+        order: &[String],
+        used: &mut (usize, usize),
+    ) {
+        let mark = |used: &mut (usize, usize), name: &String| {
+            if let Some(i) = order.iter().position(|p| p == name) {
+                used.0 = used.0.min(i);
+                used.1 = used.1.max(i);
+            }
+        };
+        for element in elements {
+            match element {
+                SequenceElement::Message(msg) => {
+                    mark(used, &msg.from);
+                    mark(used, &msg.to);
+                }
+                SequenceElement::Note(note) => {
+                    for name in &note.anchors {
+                        mark(used, name);
+                    }
+                }
+                SequenceElement::Fragment(inner) => {
+                    for section in &inner.sections {
+                        Self::collect_used_indices(&section.elements, order, used);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     /// Собирает все сообщения и группирует по span (количеству сегментов)
@@ -1553,28 +1780,6 @@ impl SequenceLayoutEngine {
         // Находим границы фрагмента
         let (min_x, max_x) = self.find_fragment_x_bounds(frag, metrics);
 
-        // Ширина условия — нижняя граница для рамки.
-        //
-        // Проверено на сервере двумя замерами: условие «[Успешно]» (66.96)
-        // даёт рамку 162.40, «[ОченьДлинноеУсловиеВетки]» (194.89) — 290.33,
-        // то есть условие + 95.44 в обоих случаях.
-        let condition_width = frag
-            .sections
-            .iter()
-            .filter_map(|section| section.condition.as_deref())
-            .map(|condition| {
-                // Условие рисуется ПОЛУЖИРНЫМ, поэтому и ширина берётся
-                // по жирным метрикам.
-                self.config
-                    .text
-                    .width_bold(&format!("[{condition}]"), FRAGMENT_CONDITION_FONT_SIZE)
-            })
-            .fold(0.0_f64, f64::max);
-        let condition_width = condition_width.max(self.config.text.width_bold(
-            &format!("[{}]", frag.condition.clone().unwrap_or_default()),
-            FRAGMENT_CONDITION_FONT_SIZE,
-        ));
-
         // Ширина рамки — БОЛЬШЕЕ из двух: охват содержимого и ширина условия.
         //
         // Правило выведено замерами и проверено на четырёх независимых
@@ -1593,24 +1798,30 @@ impl SequenceLayoutEngine {
         // Прежний расчёт брал ТОЛЬКО условие. На коротком условии это
         // совпадало, а на большой диаграмме рамка `alt` выходила 231 против
         // эталонных 1211 — содержимое из неё вылезало и растягивало холст.
-        let mut by_condition = condition_width + FRAGMENT_CONDITION_EXTRA;
-        // Ярлык группы несёт её название, и оно длиннее слова `group`:
-        // ярлык, условие и их отступы должны уместиться в рамке.
-        if let Some(title) = frag
-            .title
-            .as_deref()
-            .filter(|_| frag.fragment_type == FragmentType::Group)
-        {
-            let tab = self.config.text.width_bold(title, 13.0) + 45.0;
-            by_condition = by_condition.max(tab + condition_width + 26.0);
-        }
+        let by_condition = self.fragment_min_width(frag);
         let by_content =
             (max_x - min_x).max(0.0) + FRAGMENT_FRAME_LEFT_HALF + FRAGMENT_FRAME_RIGHT_HALF;
         let width = by_condition.max(by_content);
+        // Рамка охватывает вложенные примечания и рамки целиком: без этого
+        // `alt` с `loop` и примечанием внутри кончался раньше своего
+        // содержимого (эталон `real_seq_real`: правый край `loop` 497.4,
+        // `alt` — 522.4).
+        let mut frame_left = min_x - FRAGMENT_FRAME_LEFT_HALF;
+        let mut frame_right = frame_left + width;
+        for child in layout_sections.iter().flat_map(|s| s.children.iter()) {
+            if matches!(
+                child.element_type,
+                ElementType::Note { .. } | ElementType::Fragment { .. }
+            ) {
+                frame_left = frame_left.min(child.bounds.x - FRAGMENT_NESTED_LEFT);
+                frame_right =
+                    frame_right.max(child.bounds.x + child.bounds.width + FRAGMENT_NESTED_RIGHT);
+            }
+        }
         let fragment_bounds = Rect::new(
-            min_x - FRAGMENT_FRAME_LEFT_HALF,
+            frame_left,
             start_y,
-            width,
+            frame_right - frame_left,
             end_y - start_y,
         );
 
@@ -1651,6 +1862,44 @@ impl SequenceLayoutEngine {
         };
 
         elements.push(fragment_elem);
+    }
+
+    /// Наименьшая ширина рамки: условия ветвей и ярлык вместе с отступами.
+    fn fragment_min_width(&self, frag: &Fragment) -> f64 {
+        // Ширина условия — нижняя граница для рамки.
+        //
+        // Проверено на сервере двумя замерами: условие «[Успешно]» (66.96)
+        // даёт рамку 162.40, «[ОченьДлинноеУсловиеВетки]» (194.89) — 290.33,
+        // то есть условие + 95.44 в обоих случаях.
+        let condition_width = frag
+            .sections
+            .iter()
+            .filter_map(|section| section.condition.as_deref())
+            .map(|condition| {
+                // Условие рисуется ПОЛУЖИРНЫМ, поэтому и ширина берётся
+                // по жирным метрикам.
+                self.config
+                    .text
+                    .width_bold(&format!("[{condition}]"), FRAGMENT_CONDITION_FONT_SIZE)
+            })
+            .fold(0.0_f64, f64::max);
+        let condition_width = condition_width.max(self.config.text.width_bold(
+            &format!("[{}]", frag.condition.clone().unwrap_or_default()),
+            FRAGMENT_CONDITION_FONT_SIZE,
+        ));
+
+        let mut by_condition = condition_width + FRAGMENT_CONDITION_EXTRA;
+        // Ярлык группы несёт её название, и оно длиннее слова `group`:
+        // ярлык, условие и их отступы должны уместиться в рамке.
+        if let Some(title) = frag
+            .title
+            .as_deref()
+            .filter(|_| frag.fragment_type == FragmentType::Group)
+        {
+            let tab = self.config.text.width_bold(title, 13.0) + 45.0;
+            by_condition = by_condition.max(tab + condition_width + 26.0);
+        }
+        by_condition
     }
 
     /// Находит X границы фрагмента
@@ -1720,6 +1969,21 @@ impl SequenceLayoutEngine {
         }
     }
 
+    /// Размер примечания: ширина по самой длинной строке, высота по числу
+    /// строк. `\n` в тексте — перенос, как и настоящая новая строка.
+    fn note_extent(&self, note: &Note) -> (f64, f64) {
+        let text = note.text.replace("\\n", "\n");
+        let lines = text.split('\n');
+        let (count, widest) = lines.fold((0_usize, 0.0_f64), |(n, w), line| {
+            (n + 1, w.max(self.config.text.width(line, NOTE_FONT_SIZE)))
+        });
+        // Нижней границы нет: в эталоне `feat_seq_note_varianty` рамка «n1» 37 шириной,
+        // а не базовые 94.
+        let width = widest + NOTE_WIDTH_EXTRA;
+        let height = self.config.note_height + count.saturating_sub(1) as f64 * NOTE_LINE_HEIGHT;
+        (width, height)
+    }
+
     /// Размещает заметку
     fn layout_note(
         &self,
@@ -1735,28 +1999,55 @@ impl SequenceLayoutEngine {
         // примечание начинается на 83.43, то есть отступ 13. Прежде
         // примечание ставилось на `current_y`, который уже сдвинут на
         // весь шаг сообщения (29.133), и оно оказывалось на 16 ниже.
-        let y = if metrics.last_message_y > 0.0 {
-            metrics.last_message_y + NOTE_TOP_GAP
+        //
+        // Примечание без привязки (`note left : t`) относится к последней
+        // стрелке: оно стоит рядом с ней и по высоте охватывает её (эталон
+        // `feat_seq_note_varianty`: стрелка 70.43, рамка с 54.297), а
+        // обе такие заметки — слева и справа — лежат на одной строке.
+        // Остальные встают под стрелкой или под предыдущим примечанием
+        // (зазор 10.133), иначе подряд идущие примечания наезжают друг на друга.
+        let attached = note.anchors.is_empty() && metrics.last_message_ends.is_some();
+        // После `/` и `&` примечание делит строку с предыдущим.
+        let stack_floor = if metrics.parallel_floor.is_some() {
+            0.0
         } else {
-            metrics.current_y
+            metrics.last_note_bottom + NOTE_STACK_GAP
+        };
+        let y = if attached {
+            metrics.last_message_y - NOTE_ATTACHED_RISE
+        } else if metrics.last_message_y > 0.0 {
+            (metrics.last_message_y + NOTE_TOP_GAP).max(stack_floor)
+        } else {
+            metrics.current_y.max(stack_floor)
+        };
+
+        // Привязка: у заметки без цели — крайние участники последней стрелки.
+        let anchors: Vec<String> = match (&metrics.last_message_ends, attached) {
+            (Some((from, to)), true) => {
+                let mut ends: Vec<(f64, String)> = [from, to]
+                    .into_iter()
+                    .filter_map(|name| Some((metrics.participant_center_x(name)?, name.clone())))
+                    .collect();
+                ends.sort_by(|a, b| a.0.total_cmp(&b.0));
+                match note.position {
+                    NotePosition::Left => ends.first().map(|e| e.1.clone()).into_iter().collect(),
+                    NotePosition::Right => ends.last().map(|e| e.1.clone()).into_iter().collect(),
+                    _ => ends.into_iter().map(|e| e.1).collect(),
+                }
+            }
+            _ => note.anchors.clone(),
         };
 
         // Ширина по тексту: эталон `sequence_notes` — текст 73.83, рамка 94,
         // то есть текст плюс 20.17. Короче базовой ширины рамка не бывает.
-        let text_width = note
-            .text
-            .replace("\\n", "\n")
-            .split('\n')
-            .map(|line| self.config.text.width(line, NOTE_FONT_SIZE))
-            .fold(0.0_f64, f64::max);
-        let note_width = self.config.note_width.max(text_width + NOTE_WIDTH_EXTRA);
+        let (note_width, note_height) = self.note_extent(note);
 
         // Определяем X позицию
-        let x = if note.anchors.is_empty() {
+        let x = if anchors.is_empty() {
             self.config.margin
-        } else if note.anchors.len() == 1 {
+        } else if anchors.len() == 1 {
             let anchor_x = metrics
-                .participant_center_x(&note.anchors[0])
+                .participant_center_x(&anchors[0])
                 .unwrap_or(self.config.margin);
             match note.position {
                 // Отступ заметки от линии жизни. Измерено по эталону:
@@ -1771,15 +2062,13 @@ impl SequenceLayoutEngine {
             // Over multiple participants.
             //
             // Список анкоров может быть пуст — парсер считает такую заметку
-            // допустимой. Раньше здесь стояли note.anchors[0] и
+            // допустимой. Раньше здесь стояли anchors[0] и
             // anchors.last().unwrap(), то есть паника на валидном входе.
-            let first_x = note
-                .anchors
+            let first_x = anchors
                 .first()
                 .and_then(|a| metrics.participant_center_x(a))
                 .unwrap_or(self.config.margin);
-            let last_x = note
-                .anchors
+            let last_x = anchors
                 .last()
                 .and_then(|a| metrics.participant_center_x(a))
                 .unwrap_or(first_x);
@@ -1793,8 +2082,9 @@ impl SequenceLayoutEngine {
             x
         };
         metrics.last_note_right = x + note_width;
+        metrics.last_note_bottom = metrics.last_note_bottom.max(y + note_height);
 
-        let bounds = Rect::new(x, y, note_width, self.config.note_height);
+        let bounds = Rect::new(x, y, note_width, note_height);
 
         // Цвет заметки в PlantUML — светло-жёлтый (#FEFFDD).
         // Раньше заливка бралась из темы (серо-голубая #E2E2F0), из-за чего
@@ -1827,81 +2117,82 @@ impl SequenceLayoutEngine {
 
         // Следующее сообщение идёт НИЖЕ примечания. Измерено по эталону:
         // низ примечания 108.43, следующая стрелка на 134.695.
-        let note_bottom = y + self.config.note_height;
+        let note_bottom = y + note_height;
         metrics.current_y = metrics.current_y.max(note_bottom + NOTE_BOTTOM_GAP);
     }
 
-    /// Размещает ref блок (ссылка на другую диаграмму)
-    /// Ref блок в PlantUML выглядит как рамка с меткой "ref" в левом верхнем углу
+    /// Размещает блок `ref over A, B : текст`.
+    ///
+    /// Рамка идёт от коробки первого участника до коробки последнего (с
+    /// отступом 2), но не уже текста плюс запас: в эталоне при тексте
+    /// 184.09 рамка 192.09. Текст центрирован, строки с шагом 13.969.
     fn layout_reference(
         &self,
         reference: &Reference,
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        let y = metrics.current_y;
+        let top = metrics.current_y - REF_TOP_OFFSET;
 
-        // Определяем границы ref блока по охваченным участникам
-        let (x, width) = if reference.participants.is_empty() {
-            // Если участники не указаны, охватываем всю диаграмму
-            (self.config.margin, metrics.max_x - self.config.margin * 2.0)
-        } else if reference.participants.len() == 1 {
-            // Один участник - центрируем вокруг него
-            let center_x = reference
-                .participants
-                .first()
-                .and_then(|p| metrics.participant_center_x(p))
-                .unwrap_or(self.config.margin + 50.0);
-            let width = self.config.participant_spacing.max(100.0);
-            (center_x - width / 2.0, width)
+        let text = reference.text.replace("\\n", "\n");
+        let lines: Vec<&str> = text.lines().collect();
+        let text_width = lines
+            .iter()
+            .map(|line| self.config.text.width(line, REF_FONT_SIZE))
+            .fold(0.0_f64, f64::max);
+
+        // Охват задают коробки названных участников, а без имён — всех.
+        let named: Vec<&ParticipantMetrics> = reference
+            .participants
+            .iter()
+            .filter_map(|name| metrics.participants.get(name))
+            .collect();
+        let covered: Vec<&ParticipantMetrics> = if named.is_empty() {
+            metrics.participants.values().collect()
         } else {
-            // Несколько участников - от первого до последнего
-            let first_x = reference
-                .participants
-                .first()
-                .and_then(|p| metrics.participant_center_x(p))
-                .unwrap_or(self.config.margin);
-            let last_x = reference
-                .participants
-                .last()
-                .and_then(|p| metrics.participant_center_x(p))
-                .unwrap_or(metrics.max_x);
-            let padding = 20.0;
-            (first_x - padding, last_x - first_x + padding * 2.0)
+            named
+        };
+        let span_left = covered
+            .iter()
+            .map(|p| p.center_x - p.width / 2.0 + REF_SPAN_INSET)
+            .fold(f64::MAX, f64::min);
+        let span_right = covered
+            .iter()
+            .map(|p| p.center_x + p.width / 2.0 - REF_SPAN_INSET)
+            .fold(f64::MIN, f64::max);
+        let (span_left, span_right) = if covered.is_empty() {
+            (self.config.margin, self.config.margin)
+        } else {
+            (span_left, span_right)
         };
 
-        // Высота ref блока зависит от текста
-        let text_lines = reference.text.lines().count().max(1);
-        let ref_height = self.config.fragment_header_height
-            + (text_lines as f64 * self.config.line_height)
-            + 10.0;
+        let width = (span_right - span_left)
+            .max(text_width + REF_TEXT_PADDING)
+            .max(REF_TAB_WIDTH);
+        let x = (span_left + span_right) / 2.0 - width / 2.0;
+        let height = REF_BASE_HEIGHT + lines.len().max(1) as f64 * REF_LINE_HEIGHT;
 
-        let bounds = Rect::new(x, y, width, ref_height);
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("type".to_string(), "ref".to_string());
+        properties.insert("label".to_string(), "ref".to_string());
+        properties.insert("font-weight".to_string(), "700".to_string());
 
-        // Создаём ref блок как фрагмент
-        let ref_elem = LayoutElement {
-            id: format!("ref_{}", y as u32),
-            bounds,
+        elements.push(LayoutElement {
+            id: format!("ref_{}", top as i64),
+            bounds: Rect::new(x, top, width, height),
             text: Some(reference.text.clone()),
-            properties: {
-                let mut props = std::collections::HashMap::new();
-                props.insert("type".to_string(), "ref".to_string());
-                props.insert("label".to_string(), "ref".to_string());
-                props
-            },
+            properties,
             element_type: ElementType::Fragment {
                 fragment_type: "ref".to_string(),
                 sections: vec![FragmentSection {
                     condition: Some(reference.text.clone()),
-                    start_y: y,
-                    end_y: y + ref_height,
+                    start_y: top,
+                    end_y: top + height,
                     children: vec![],
                 }],
             },
-        };
-
-        elements.push(ref_elem);
-        metrics.advance_y(ref_height + self.config.message_spacing);
+        });
+        metrics.current_y = top + height + REF_BOTTOM_ADVANCE;
     }
 
     /// Y-координата, на которой завершаются незакрытые активации.
@@ -1940,65 +2231,83 @@ impl SequenceLayoutEngine {
         }
     }
 
-    /// Размещает разделитель
+    /// Размещает разделитель `== текст ==`.
+    ///
+    /// Двойная линия идёт через всю схему, подпись стоит в рамке по центру.
+    /// Ширину линии задаёт итоговый охват диаграммы, поэтому здесь элемент
+    /// получает нулевую ширину, а `stretch_full_width` растягивает его.
     fn layout_divider(
         &self,
         div: &Divider,
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        let y = metrics.current_y;
+        let top = metrics.current_y - DIVIDER_TOP_OFFSET;
+        let anchor_x = metrics
+            .participants
+            .values()
+            .next()
+            .map_or(self.config.margin, |p| p.center_x);
 
-        // Линия через всю диаграмму
-        let divider = LayoutElement {
-            id: format!("divider_{}", y as u32),
-            bounds: Rect::new(
-                self.config.margin,
-                y,
-                metrics.max_x - self.config.margin,
-                self.config.divider_height,
-            ),
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("seq-role".to_string(), "divider".to_string());
+        properties.insert("font-weight".to_string(), "700".to_string());
+        elements.push(LayoutElement {
+            id: format!("divider_{}", top as i64),
+            bounds: Rect::new(anchor_x, top, 0.0, DIVIDER_BOX_HEIGHT),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties,
             element_type: ElementType::Text {
-                text: format!("== {} ==", div.text),
+                text: div.text.clone(),
                 font_size: self.config.font_size,
             },
-        };
-
-        elements.push(divider);
-        metrics.advance_y(self.config.divider_height);
+        });
+        metrics.current_y = top + DIVIDER_TO_GAP + GAP_TAIL;
     }
 
-    /// Размещает задержку
+    /// Размещает паузу `...` или `...текст...`.
+    ///
+    /// Пауза прерывает линии жизни и активации на своей высоте; подпись
+    /// стоит по центру схемы.
     fn layout_delay(
         &self,
         delay: &Delay,
         metrics: &mut DiagramMetrics,
         elements: &mut Vec<LayoutElement>,
     ) {
-        let y = metrics.current_y;
-
-        let text = delay.text.clone().unwrap_or_else(|| "...".to_string());
-
-        let delay_elem = LayoutElement {
-            id: format!("delay_{}", y as u32),
-            bounds: Rect::new(
-                self.config.margin,
-                y,
-                metrics.max_x - self.config.margin,
-                self.config.delay_height,
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Text {
-                text,
-                font_size: self.config.font_size,
-            },
+        let gap_start = metrics.current_y - GAP_TAIL;
+        let text = delay.text.clone().filter(|t| !t.trim().is_empty());
+        let height = if text.is_some() {
+            DELAY_TEXT_HEIGHT
+        } else {
+            DELAY_PLAIN_HEIGHT
         };
+        metrics.gaps.push((gap_start, gap_start + height));
 
-        elements.push(delay_elem);
-        metrics.advance_y(self.config.delay_height);
+        if let Some(text) = text {
+            let anchor_x = metrics
+                .participants
+                .values()
+                .next()
+                .map_or(self.config.margin, |p| p.center_x);
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("seq-role".to_string(), "delay".to_string());
+            properties.insert(
+                "baseline".to_string(),
+                (gap_start + DELAY_TEXT_BASELINE).to_string(),
+            );
+            elements.push(LayoutElement {
+                id: format!("delay_{}", gap_start as i64),
+                bounds: Rect::new(anchor_x, gap_start, 0.0, height),
+                text: None,
+                properties,
+                element_type: ElementType::Text {
+                    text,
+                    font_size: DELAY_FONT_SIZE,
+                },
+            });
+        }
+        metrics.current_y = gap_start + height + GAP_TAIL;
     }
 
     /// Добавляет прямоугольники активаций
@@ -2009,21 +2318,33 @@ impl SequenceLayoutEngine {
                 let offset = (info.level as f64 - 1.0) * self.config.activation_width / 2.0;
                 let x = participant.center_x - self.config.activation_width / 2.0 + offset;
 
-                let height = end_y - info.start_y;
+                // Пауза прерывает активацию: до неё и после неё два куска.
+                let mut pieces: Vec<(f64, f64)> = Vec::new();
+                let mut cursor = info.start_y;
+                for &(gap_start, gap_end) in &metrics.gaps {
+                    if gap_start > cursor && gap_end < *end_y {
+                        pieces.push((cursor, gap_start));
+                        cursor = gap_end;
+                    }
+                }
+                pieces.push((cursor, *end_y));
 
-                // Минимальная высота активации
-                let height = height.max(10.0);
-
-                let activation = LayoutElement {
-                    id: format!("activation_{}_{}", info.participant, i),
-                    bounds: Rect::new(x, info.start_y, self.config.activation_width, height),
-                    // Используем специальный тип Activation для белого фона
-                    text: None,
-                    properties: std::collections::HashMap::new(),
-                    element_type: ElementType::Activation,
-                };
-
-                elements.push(activation);
+                for (n, (from_y, to_y)) in pieces.into_iter().enumerate() {
+                    // Минимальная высота активации
+                    let height = (to_y - from_y).max(10.0);
+                    elements.push(LayoutElement {
+                        id: if n == 0 {
+                            format!("activation_{}_{}", info.participant, i)
+                        } else {
+                            format!("activation_{}_{}_{}", info.participant, i, n)
+                        },
+                        bounds: Rect::new(x, from_y, self.config.activation_width, height),
+                        // Используем специальный тип Activation для белого фона
+                        text: None,
+                        properties: std::collections::HashMap::new(),
+                        element_type: ElementType::Activation,
+                    });
+                }
             }
         }
     }
@@ -2045,26 +2366,54 @@ impl SequenceLayoutEngine {
             // (учитывает box_title_height если есть боксы)
             let start_y = participant.header_bounds.y + self.config.participant_height;
 
-            let lifeline = LayoutElement {
-                id: format!("lifeline_{}", id),
-                bounds: Rect::new(participant.center_x - 0.5, start_y, 1.0, end_y - start_y),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Edge {
-                    points: vec![
-                        Point::new(participant.center_x, start_y),
-                        Point::new(participant.center_x, end_y),
-                    ],
-                    label: None,
-                    arrow_start: false,
-                    arrow_end: false,
-                    dashed: true,              // Lifelines всегда пунктирные
-                    edge_type: EdgeType::Link, // линия без маркеров
-                    from_cardinality: None,
-                    to_cardinality: None,
-                },
-            };
-            elements.push(lifeline);
+            // Паузы разрывают линию: до и после неё пунктир, внутри точки
+            // (эталон: `stroke-dasharray:1,4` между 644.36 и 685.16).
+            let mut cursor = start_y;
+            let mut pieces: Vec<(f64, f64, bool)> = Vec::new();
+            for &(gap_start, gap_end) in &metrics.gaps {
+                let (gap_start, gap_end) = (gap_start.max(cursor), gap_end.min(end_y));
+                if gap_end <= gap_start {
+                    continue;
+                }
+                if gap_start > cursor {
+                    pieces.push((cursor, gap_start, false));
+                }
+                pieces.push((gap_start, gap_end, true));
+                cursor = gap_end;
+            }
+            if end_y > cursor {
+                pieces.push((cursor, end_y, false));
+            }
+
+            for (n, (from_y, to_y, dotted)) in pieces.into_iter().enumerate() {
+                let mut properties = std::collections::HashMap::new();
+                if dotted {
+                    properties.insert("dasharray".to_string(), "1,4".to_string());
+                }
+                elements.push(LayoutElement {
+                    id: if n == 0 {
+                        format!("lifeline_{}", id)
+                    } else {
+                        format!("lifeline_{}_{}", id, n)
+                    },
+                    bounds: Rect::new(participant.center_x - 0.5, from_y, 1.0, to_y - from_y),
+                    text: None,
+                    properties,
+                    element_type: ElementType::Edge {
+                        points: vec![
+                            Point::new(participant.center_x, from_y),
+                            Point::new(participant.center_x, to_y),
+                        ],
+                        label: None,
+                        arrow_start: false,
+                        arrow_end: false,
+                        dashed: true,              // Lifelines всегда пунктирные
+                        edge_type: EdgeType::Link, // линия без маркеров
+                        from_cardinality: None,
+                        to_cardinality: None,
+                    },
+                });
+            }
         }
     }
 
@@ -2119,6 +2468,60 @@ impl SequenceLayoutEngine {
             };
             apply_stereotype(&mut footer, participant.stereotype.as_ref());
             elements.push(footer);
+        }
+    }
+}
+
+/// Собирает прямоугольники примечаний и рамок, вложенных во фрагменты.
+fn collect_nested_bounds(elements: &[LayoutElement], out: &mut Vec<Rect>) {
+    for element in elements {
+        if let ElementType::Fragment { sections, .. } = &element.element_type {
+            for child in sections.iter().flat_map(|section| section.children.iter()) {
+                if matches!(
+                    child.element_type,
+                    ElementType::Note { .. } | ElementType::Fragment { .. }
+                ) {
+                    out.push(child.bounds);
+                }
+            }
+            for section in sections {
+                collect_nested_bounds(&section.children, out);
+            }
+        }
+    }
+}
+
+/// Ширина самой широкой коробки подписи среди разделителей схемы.
+fn widest_divider(elements: &[LayoutElement], config: &SequenceLayoutConfig, widest: &mut f64) {
+    for element in elements {
+        if element.properties.get("seq-role").map(String::as_str) == Some("divider") {
+            if let ElementType::Text { text, font_size } = &element.element_type {
+                if !text.trim().is_empty() {
+                    let width =
+                        config.text.width_bold(text.trim(), *font_size) + DIVIDER_BOX_PADDING;
+                    *widest = widest.max(width);
+                }
+            }
+        }
+        if let ElementType::Fragment { sections, .. } = &element.element_type {
+            for section in sections {
+                widest_divider(&section.children, config, widest);
+            }
+        }
+    }
+}
+
+/// Растягивает разделители и паузы на ширину охвата `[x, x + width]`.
+fn stretch_full_width(elements: &mut [LayoutElement], x: f64, width: f64) {
+    for element in elements {
+        if element.properties.contains_key("seq-role") {
+            element.bounds.x = x;
+            element.bounds.width = width;
+        }
+        if let ElementType::Fragment { sections, .. } = &mut element.element_type {
+            for section in sections {
+                stretch_full_width(&mut section.children, x, width);
+            }
         }
     }
 }
