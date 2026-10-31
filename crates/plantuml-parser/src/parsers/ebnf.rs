@@ -75,20 +75,20 @@ fn tokenize(text: &str) -> crate::Result<Vec<Token>> {
                 j += 1;
             }
             if j + 1 >= chars.len() {
-                return Err(err(i, "не закрыт комментарий (* ... *)"));
+                return Err(err(i, "comment (* ... *) is not closed"));
             }
             let note: String = chars[start..j].iter().collect();
             tokens.push(Token::Comment(note.trim().to_string()));
             i = j + 2;
         } else if c == '"' || c == '\'' {
             let Some(len) = chars[i + 1..].iter().position(|x| *x == c) else {
-                return Err(err(i, "не закрыта кавычка"));
+                return Err(err(i, "quote is not closed"));
             };
             tokens.push(Token::Str(chars[i + 1..i + 1 + len].iter().collect()));
             i += len + 2;
         } else if c == '?' {
             let Some(len) = chars[i + 1..].iter().position(|x| *x == '?') else {
-                return Err(err(i, "не закрыта специальная последовательность ? ... ?"));
+                return Err(err(i, "special sequence ? ... ? is not closed"));
             };
             let text: String = chars[i + 1..i + 1 + len].iter().collect();
             tokens.push(Token::Special(text.trim().to_string()));
@@ -103,9 +103,7 @@ fn tokenize(text: &str) -> crate::Result<Vec<Token>> {
                 .iter()
                 .take_while(|x| x.is_ascii_digit())
                 .collect();
-            let value = digits
-                .parse()
-                .map_err(|_| err(i, "слишком большое число"))?;
+            let value = digits.parse().map_err(|_| err(i, "number is too large"))?;
             i += digits.len();
             tokens.push(Token::Number(value));
         } else if is_ident_char(c) {
@@ -122,7 +120,7 @@ fn tokenize(text: &str) -> crate::Result<Vec<Token>> {
             tokens.push(Token::Sym(c));
             i += 1;
         } else {
-            return Err(err(i, &format!("неожиданный символ «{c}»")));
+            return Err(err(i, &format!("unexpected character \"{c}\"")));
         }
     }
     Ok(tokens)
@@ -160,11 +158,11 @@ impl Parser {
     fn rule(&mut self) -> crate::Result<EbnfRule> {
         let name = match self.peek() {
             Some(Token::Ident(name)) => name.clone(),
-            _ => return self.fail("ожидалось имя правила"),
+            _ => return self.fail("expected a rule name"),
         };
         self.pos += 1;
         if !self.eat('=') {
-            return self.fail(&format!("после имени «{name}» ожидался знак «=»"));
+            return self.fail(&format!("expected \"=\" after the name \"{name}\""));
         }
         let body = if self.peek() == Some(&Token::Sym(';')) {
             RailNode::Empty
@@ -172,7 +170,7 @@ impl Parser {
             self.alternation(0)?
         };
         if !self.eat(';') {
-            return self.fail(&format!("правило «{name}» не завершено знаком «;»"));
+            return self.fail(&format!("rule \"{name}\" is not terminated with \";\""));
         }
         Ok(EbnfRule {
             name,
@@ -183,7 +181,7 @@ impl Parser {
 
     fn alternation(&mut self, depth: usize) -> crate::Result<RailNode> {
         if depth > MAX_DEPTH {
-            return self.fail("слишком глубокая вложенность скобок");
+            return self.fail("brackets are nested too deeply");
         }
         let mut branches = vec![self.sequence(depth)?];
         while self.eat('|') {
@@ -213,7 +211,7 @@ impl Parser {
         if let Some(Token::Number(n)) = self.peek().cloned() {
             self.pos += 1;
             if !self.eat('*') {
-                return self.fail("после числа ожидался знак «*»");
+                return self.fail("expected \"*\" after the number");
             }
             let body = self.factor(depth)?;
             return Ok(RailNode::Loop {
@@ -235,7 +233,7 @@ impl Parser {
 
     fn factor(&mut self, depth: usize) -> crate::Result<RailNode> {
         let Some(token) = self.peek().cloned() else {
-            return self.fail("выражение оборвано");
+            return self.fail("the expression is cut off");
         };
         self.pos += 1;
         match token {
@@ -265,7 +263,7 @@ impl Parser {
                 }
                 Ok(RailNode::Alt(vec![RailNode::Empty, looped]))
             }
-            other => self.fail(&format!("неожиданный токен {other:?}")),
+            other => self.fail(&format!("unexpected token {other:?}")),
         }
     }
 
@@ -281,7 +279,7 @@ impl Parser {
         if self.eat(sym) {
             Ok(inner)
         } else {
-            self.fail(&format!("ожидалась закрывающая скобка «{sym}»"))
+            self.fail(&format!("expected the closing bracket \"{sym}\""))
         }
     }
 }
@@ -311,7 +309,7 @@ mod tests {
     fn sequence_optional_repeat_group() {
         let d = parse("r = a, [b], {c}, (d | e), {f}-;");
         let RailNode::Seq(items) = &d.rules[0].body else {
-            panic!("ожидалась последовательность");
+            panic!("expected a sequence");
         };
         assert_eq!(items[0], RailNode::NonTerminal("a".into()));
         assert!(matches!(&items[1], RailNode::Alt(v) if v[0] == RailNode::Empty));

@@ -58,7 +58,7 @@ pub fn parse_yaml(source: &str) -> crate::Result<YamlDiagram> {
         let root = parse_block(&mut lines, &mut pos, indent, None)?;
         if pos < lines.len() {
             return Err(ParseError::GrammarError(format!(
-                "Ошибка парсинга YAML: неожиданный отступ в «{}»",
+                "failed to parse YAML: unexpected indentation in \"{}\"",
                 lines[pos].1
             )));
         }
@@ -238,7 +238,7 @@ fn parse_yaml_value(
             // Пара-обёртка может оказаться пустой — прежний `unwrap()`
             // в этом случае ронял процесс целиком.
             let inner = pair.into_inner().next().ok_or_else(|| {
-                ParseError::GrammarError("yaml_value без вложенного значения".to_string())
+                ParseError::GrammarError("yaml_value without a nested value".to_string())
             })?;
             parse_yaml_value(key, inner)
         }
@@ -284,18 +284,18 @@ fn parse_yaml_value(
         }
         Rule::yaml_scalar => {
             let inner = pair.into_inner().next().ok_or_else(|| {
-                ParseError::GrammarError("yaml_scalar без вложенного значения".to_string())
+                ParseError::GrammarError("yaml_scalar without a nested value".to_string())
             })?;
             parse_yaml_scalar(key, inner)
         }
         Rule::yaml_inline_value => {
             let inner = pair.into_inner().next().ok_or_else(|| {
-                ParseError::GrammarError("yaml_inline_value без вложенного значения".to_string())
+                ParseError::GrammarError("yaml_inline_value without a nested value".to_string())
             })?;
             parse_yaml_value(key, inner)
         }
         _ => Err(ParseError::GrammarError(format!(
-            "Неожиданное правило YAML: {:?}",
+            "unexpected YAML rule: {:?}",
             pair.as_rule()
         ))),
     }
@@ -305,9 +305,9 @@ fn parse_yaml_value(
 fn parse_yaml_mapping_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNode> {
     let mut inner = pair.into_inner();
 
-    let key_pair = inner
-        .next()
-        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в YAML mapping".to_string()))?;
+    let key_pair = inner.next().ok_or_else(|| {
+        ParseError::GrammarError("expected a key in the YAML mapping".to_string())
+    })?;
     let key = key_pair.as_str().to_string();
 
     // Значение может отсутствовать (будет null)
@@ -322,13 +322,13 @@ fn parse_yaml_mapping_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<
 fn parse_yaml_inline_entry(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNode> {
     let mut inner = pair.into_inner();
 
-    let key_pair = inner
-        .next()
-        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в YAML inline entry".to_string()))?;
+    let key_pair = inner.next().ok_or_else(|| {
+        ParseError::GrammarError("expected a key in the YAML inline entry".to_string())
+    })?;
     let key = key_pair.as_str().to_string();
 
     let value_pair = inner.next().ok_or_else(|| {
-        ParseError::GrammarError("Ожидалось значение в YAML inline entry".to_string())
+        ParseError::GrammarError("expected a value in the YAML inline entry".to_string())
     })?;
 
     parse_yaml_value(Some(key), value_pair)
@@ -359,7 +359,7 @@ fn parse_yaml_scalar(
         }
         Rule::yaml_null => Ok(JsonNode::null(key)),
         _ => Err(ParseError::GrammarError(format!(
-            "Неожиданный YAML скаляр: {:?}",
+            "unexpected YAML scalar: {:?}",
             pair.as_rule()
         ))),
     }

@@ -35,7 +35,7 @@ pub fn parse_chart(source: &str) -> crate::Result<ChartDiagram> {
             .map_or((line, ""), |(c, r)| (c, r.trim()));
         let fail = |message: &str| ParseError::SyntaxError {
             line: index + 1,
-            message: format!("{message} в «{line}»"),
+            message: format!("{message} in \"{line}\""),
         };
         match command.to_lowercase().as_str() {
             "h-axis" => {
@@ -57,14 +57,14 @@ pub fn parse_chart(source: &str) -> crate::Result<ChartDiagram> {
                 };
                 let (name, after) = quoted(rest).unwrap_or((String::new(), rest));
                 let Some(list) = bracketed(after) else {
-                    return Err(fail("у ряда нет списка значений [..]"));
+                    return Err(fail("the series has no list of values [..]"));
                 };
                 let mut values = Vec::new();
                 for item in split_list(list) {
                     // Пара `(x,y)`: для категориальной оси важен только y
                     let number = item.trim_matches(|c| c == '(' || c == ')');
                     let number = number.rsplit(',').next().unwrap_or(number).trim();
-                    values.push(number.parse::<f64>().map_err(|_| fail("не число"))?);
+                    values.push(number.parse::<f64>().map_err(|_| fail("not a number"))?);
                 }
                 let tail = after.rsplit(']').next().unwrap_or("");
                 chart.series.push(Series {
@@ -95,7 +95,7 @@ pub fn parse_chart(source: &str) -> crate::Result<ChartDiagram> {
             "title" => chart.metadata.title = Some(rest.trim_start_matches(':').trim().to_string()),
             "stackmode" => chart.stacked = rest.eq_ignore_ascii_case("stacked"),
             // Молча пропущенная строка дала бы неполный график, который выглядит верным.
-            _ => return Err(fail("неподдержанная команда графика")),
+            _ => return Err(fail("unsupported chart command")),
         }
     }
     if chart.series.is_empty() && chart.h_axis.categories.is_empty() {

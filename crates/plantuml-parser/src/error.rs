@@ -35,7 +35,7 @@ pub fn syntax_error_from_pest(
 
     ParseError::SyntaxError {
         line,
-        message: format!("непонятная строка «{}»", error.line().trim()),
+        message: format!("cannot understand \"{}\"", error.line().trim()),
     }
 }
 
@@ -43,19 +43,19 @@ pub fn syntax_error_from_pest(
 #[derive(Error, Debug)]
 pub enum ParseError {
     /// Тип схемы вне поддержки движка
-    #[error("тип диаграммы не поддерживается: @start{kind}")]
+    #[error("diagram type is not supported: @start{kind}")]
     Unsupported { kind: String },
 
     /// В схеме нет элементов
-    #[error("в диаграмме нет элементов")]
+    #[error("the diagram has no elements")]
     EmptyDiagram,
 
     /// Вложенность превышает предел: дальше разбор мог бы переполнить стек
-    #[error("слишком глубокая вложенность в строке {line}: допустимо не более {limit} уровней")]
+    #[error("nesting too deep at line {line}: at most {limit} levels are allowed")]
     TooDeep { limit: usize, line: usize },
 
     /// Неожиданный токен
-    #[error("неожиданный токен '{token}' в строке {line}, позиция {column}")]
+    #[error("unexpected token '{token}' at line {line}, column {column}")]
     UnexpectedToken {
         token: String,
         line: usize,
@@ -63,30 +63,30 @@ pub enum ParseError {
     },
 
     /// Синтаксическая ошибка
-    #[error("синтаксическая ошибка в строке {line}: {message}")]
+    #[error("syntax error at line {line}: {message}")]
     SyntaxError { line: usize, message: String },
 
     /// Неизвестный тип диаграммы
-    #[error("не удалось определить тип диаграммы")]
+    #[error("cannot determine the diagram type")]
     UnknownDiagramType,
 
     /// Отсутствует @startuml
-    #[error("отсутствует @startuml")]
+    #[error("missing @startuml")]
     MissingStartTag,
 
     /// Отсутствует @enduml
-    #[error("отсутствует @enduml")]
+    #[error("missing @enduml")]
     MissingEndTag,
 
     /// Неизвестный участник
-    #[error("неизвестный участник: {0}")]
+    #[error("unknown participant: {0}")]
     UnknownParticipant(String),
 
     /// Ошибка лексера
-    #[error("ошибка лексера: {0}")]
+    #[error("lexer error: {0}")]
     LexerError(String),
 
     /// Ошибка грамматики
-    #[error("ошибка грамматики: {0}")]
+    #[error("grammar error: {0}")]
     GrammarError(String),
 }

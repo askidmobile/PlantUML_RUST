@@ -16,7 +16,7 @@ struct JsonParser;
 /// Парсит JSON диаграмму
 pub fn parse_json(source: &str) -> crate::Result<JsonDiagram> {
     let pairs = JsonParser::parse(Rule::json_diagram, source)
-        .map_err(|e| ParseError::GrammarError(format!("Ошибка парсинга JSON: {}", e)))?;
+        .map_err(|e| ParseError::GrammarError(format!("failed to parse JSON: {}", e)))?;
 
     let mut diagram = JsonDiagram::new();
 
@@ -59,7 +59,7 @@ fn parse_json_value(
             // грамматика совпала на пустом значении. Прежний `unwrap()`
             // в этом случае ронял процесс целиком.
             let inner = pair.into_inner().next().ok_or_else(|| {
-                ParseError::GrammarError("json_value без вложенного значения".to_string())
+                ParseError::GrammarError("json_value without a nested value".to_string())
             })?;
             parse_json_value(key, inner)
         }
@@ -100,7 +100,7 @@ fn parse_json_value(
         }
         Rule::json_null => Ok(JsonNode::null(key)),
         _ => Err(ParseError::GrammarError(format!(
-            "Неожиданное правило: {:?}",
+            "unexpected rule: {:?}",
             pair.as_rule()
         ))),
     }
@@ -112,12 +112,12 @@ fn parse_json_member(pair: pest::iterators::Pair<Rule>) -> crate::Result<JsonNod
 
     let key_pair = inner
         .next()
-        .ok_or_else(|| ParseError::GrammarError("Ожидался ключ в JSON объекте".to_string()))?;
+        .ok_or_else(|| ParseError::GrammarError("expected a key in the JSON object".to_string()))?;
     let key = parse_json_string(key_pair.as_str());
 
-    let value_pair = inner
-        .next()
-        .ok_or_else(|| ParseError::GrammarError("Ожидалось значение в JSON объекте".to_string()))?;
+    let value_pair = inner.next().ok_or_else(|| {
+        ParseError::GrammarError("expected a value in the JSON object".to_string())
+    })?;
 
     parse_json_value(Some(key), value_pair)
 }

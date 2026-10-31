@@ -19,19 +19,19 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PngError {
     /// Ошибка парсинга SVG
-    #[error("ошибка парсинга SVG: {0}")]
+    #[error("failed to parse SVG: {0}")]
     SvgParseError(String),
 
     /// Ошибка создания pixmap
-    #[error("не удалось создать pixmap: размер {width}x{height}")]
+    #[error("failed to create pixmap of size {width}x{height}")]
     PixmapCreationError { width: u32, height: u32 },
 
     /// Ошибка кодирования PNG
-    #[error("ошибка кодирования PNG: {0}")]
+    #[error("failed to encode PNG: {0}")]
     EncodingError(String),
 
     /// Некорректные размеры
-    #[error("некорректные размеры изображения")]
+    #[error("invalid image size")]
     InvalidDimensions,
 }
 
@@ -135,7 +135,7 @@ impl PngRenderer {
     ) -> Result<(), PngError> {
         let png_data = self.render_svg(svg_content)?;
         std::fs::write(path, png_data)
-            .map_err(|e| PngError::EncodingError(format!("не удалось записать файл: {}", e)))
+            .map_err(|e| PngError::EncodingError(format!("failed to write file: {}", e)))
     }
 }
 

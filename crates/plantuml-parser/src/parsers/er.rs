@@ -16,7 +16,7 @@ struct ErParser;
 /// Парсит ER диаграмму
 pub fn parse_er(source: &str) -> crate::Result<ErDiagram> {
     let pairs = ErParser::parse(Rule::er_diagram, source)
-        .map_err(|e| ParseError::GrammarError(format!("Ошибка парсинга ER: {}", e)))?;
+        .map_err(|e| ParseError::GrammarError(format!("failed to parse ER: {}", e)))?;
 
     let mut diagram = ErDiagram::new();
 

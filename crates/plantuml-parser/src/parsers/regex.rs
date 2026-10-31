@@ -27,7 +27,7 @@ pub fn parse_regex(source: &str) -> crate::Result<RegexDiagram> {
         };
         let node = parser.alternation(0)?;
         if parser.pos < parser.chars.len() {
-            return Err(parser.error("лишняя закрывающая скобка"));
+            return Err(parser.error("extra closing parenthesis"));
         }
         patterns.push(node);
     }
@@ -60,7 +60,7 @@ impl Parser {
 
     fn alternation(&mut self, depth: usize) -> crate::Result<RailNode> {
         if depth > MAX_DEPTH {
-            return Err(self.error("слишком глубокая вложенность групп"));
+            return Err(self.error("groups are nested too deeply"));
         }
         let mut branches = vec![self.sequence(depth)?];
         while self.peek() == Some('|') {
@@ -135,7 +135,7 @@ impl Parser {
         }
         let body = self.alternation(depth + 1)?;
         if self.peek() != Some(')') {
-            return Err(self.error("не закрыта скобка группы"));
+            return Err(self.error("group parenthesis is not closed"));
         }
         self.pos += 1;
         Ok(if frame {
@@ -184,12 +184,12 @@ impl Parser {
                 _ => {}
             }
         }
-        Err(self.error("не закрыт класс символов"))
+        Err(self.error("character class is not closed"))
     }
 
     fn escape(&mut self) -> crate::Result<RailNode> {
         let Some(c) = self.peek() else {
-            return Err(self.error("обратная косая черта в конце выражения"));
+            return Err(self.error("backslash at the end of the expression"));
         };
         self.pos += 1;
         match c {
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn quantifiers_wrap_only_last_atom() {
         let RailNode::Seq(items) = one("ab+") else {
-            panic!("ожидалась последовательность");
+            panic!("expected a sequence");
         };
         assert_eq!(items[0], RailNode::Terminal("a".into()));
         assert!(matches!(items[1], RailNode::Loop { label: None, .. }));

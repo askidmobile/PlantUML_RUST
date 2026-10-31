@@ -175,7 +175,7 @@ impl FsFileResolver {
         // Проверка глубины
         if self.current_depth >= self.max_depth {
             return Err(PreprocessError::RecursiveInclude(format!(
-                "превышена максимальная глубина включений ({})",
+                "maximum include depth exceeded ({})",
                 self.max_depth
             )));
         }

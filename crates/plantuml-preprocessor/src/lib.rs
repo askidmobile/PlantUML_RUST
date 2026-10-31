@@ -880,12 +880,12 @@ impl<R: FileResolver> Preprocessor<R> {
             });
         } else if directive == "endwhile" {
             return Err(PreprocessError::SyntaxError(
-                "!endwhile без соответствующего !while".to_string(),
+                "!endwhile without matching !while".to_string(),
             ));
         } else if let Some(rest) = directive.strip_prefix("foreach ") {
             let Some((var, collection)) = rest.split_once(" in ") else {
                 return Err(PreprocessError::SyntaxError(
-                    "!foreach требует форму `!foreach $x in $коллекция`".to_string(),
+                    "!foreach must have the form `!foreach $x in $collection`".to_string(),
                 ));
             };
             ctx.foreach_stack.push(ForeachDef {
@@ -895,7 +895,7 @@ impl<R: FileResolver> Preprocessor<R> {
             });
         } else if directive == "endfor" {
             return Err(PreprocessError::SyntaxError(
-                "!endfor без соответствующего !foreach".to_string(),
+                "!endfor without matching !foreach".to_string(),
             ));
         } else if let Some(rest) = directive.strip_prefix("elseif ") {
             directives::handle_elseif(rest.trim(), ctx)?;
@@ -1025,13 +1025,13 @@ impl<R: FileResolver> Preprocessor<R> {
                 .collect::<Vec<_>>()
                 .join(" -> ");
             return Err(PreprocessError::RecursiveInclude(format!(
-                "циклическое включение: {chain}"
+                "circular include: {chain}"
             )));
         }
 
         if ctx.include_stack.len() >= ctx.max_include_depth {
             return Err(PreprocessError::RecursiveInclude(format!(
-                "превышена максимальная глубина включений ({})",
+                "maximum include depth exceeded ({})",
                 ctx.max_include_depth
             )));
         }
@@ -1237,7 +1237,7 @@ impl<R: FileResolver> Preprocessor<R> {
         }
 
         let (name, params) = functions::parse_callable_definition(def).ok_or_else(|| {
-            PreprocessError::SyntaxError(format!("неверный формат определения функции: {}", def))
+            PreprocessError::SyntaxError(format!("invalid function definition: {}", def))
         })?;
 
         let callable = functions::UserCallable::function(name, params);
@@ -1253,7 +1253,7 @@ impl<R: FileResolver> Preprocessor<R> {
         }
 
         let (name, params) = functions::parse_callable_definition(def).ok_or_else(|| {
-            PreprocessError::SyntaxError(format!("неверный формат определения процедуры: {}", def))
+            PreprocessError::SyntaxError(format!("invalid procedure definition: {}", def))
         })?;
 
         let callable = functions::UserCallable::procedure(name, params);
@@ -1287,8 +1287,7 @@ impl<R: FileResolver> Preprocessor<R> {
             }
             DefiningCallable::None => {
                 return Err(PreprocessError::SyntaxError(
-                    "!endfunction/!endprocedure без соответствующего !function/!procedure"
-                        .to_string(),
+                    "!endfunction/!endprocedure without matching !function/!procedure".to_string(),
                 ));
             }
         }
@@ -1315,7 +1314,7 @@ impl<R: FileResolver> Preprocessor<R> {
     ) -> Result<(String, Option<String>)> {
         if ctx.call_depth >= MAX_CALL_DEPTH {
             return Err(PreprocessError::RecursiveInclude(format!(
-                "превышена глубина вызовов макросов ({MAX_CALL_DEPTH})"
+                "macro call depth exceeded ({MAX_CALL_DEPTH})"
             )));
         }
 
@@ -3048,7 +3047,7 @@ mod include_tests {
             .expect_err("циклическое включение должно давать ошибку, а не падать");
         let msg = err.to_string();
         assert!(
-            msg.contains("циклическое") || msg.contains("рекурсивное"),
+            msg.contains("circular") || msg.contains("recursive"),
             "неожиданная ошибка: {msg}"
         );
     }
@@ -3086,7 +3085,7 @@ mod include_tests {
             .process("@startuml\n!include \"f0.puml\"\n@enduml")
             .unwrap_err();
         assert!(
-            err.to_string().contains("глубин"),
+            err.to_string().contains("depth"),
             "неожиданная ошибка: {err}"
         );
     }

@@ -18,7 +18,7 @@ pub struct InflateError(pub String);
 
 impl std::fmt::Display for InflateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ошибка распаковки: {}", self.0)
+        write!(f, "failed to unpack: {}", self.0)
     }
 }
 
@@ -49,7 +49,7 @@ impl<'a> BitReader<'a> {
     fn read(&mut self, n: u32) -> Result<u32, InflateError> {
         while self.count < n {
             if self.pos >= self.data.len() {
-                return Err(InflateError("поток кончился раньше времени".into()));
+                return Err(InflateError("stream ended early".into()));
             }
             self.bits |= (self.data[self.pos] as u32) << self.count;
             self.pos += 1;
@@ -139,7 +139,7 @@ impl Huffman {
             }
         }
 
-        Err(InflateError("код Хаффмана не найден".into()))
+        Err(InflateError("Huffman code not found".into()))
     }
 }
 
@@ -227,7 +227,7 @@ pub fn decode_compressed_sprite(
         let index = PLANTUML_ALPHABET
             .iter()
             .position(|c| *c == byte)
-            .ok_or_else(|| InflateError(format!("недопустимый символ: {}", byte as char)))?;
+            .ok_or_else(|| InflateError(format!("invalid character: {}", byte as char)))?;
         translated.push(STD_ALPHABET[index]);
     }
 
@@ -239,7 +239,7 @@ pub fn decode_compressed_sprite(
         let value = STD_ALPHABET
             .iter()
             .position(|c| *c == byte)
-            .ok_or_else(|| InflateError("сбой перестановки алфавита".into()))?
+            .ok_or_else(|| InflateError("alphabet permutation failed".into()))?
             as u32;
         accumulator = (accumulator << 6) | value;
         bits += 6;
@@ -255,7 +255,7 @@ pub fn decode_compressed_sprite(
     let expected = width * height;
     if pixels.len() < expected {
         return Err(InflateError(format!(
-            "распаковалось {} байт, ожидалось {expected}",
+            "unpacked {} bytes, expected {expected}",
             pixels.len()
         )));
     }
@@ -288,7 +288,7 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, InflateError> {
                 let (literal, distance) = read_dynamic_tables(&mut reader)?;
                 inflate_block(&mut reader, &mut output, &literal, &distance)?;
             }
-            _ => return Err(InflateError("недопустимый тип блока".into())),
+            _ => return Err(InflateError("invalid block type".into())),
         }
 
         if final_block {
@@ -306,7 +306,7 @@ fn inflate_stored(reader: &mut BitReader<'_>, output: &mut Vec<u8>) -> Result<()
     let len = reader.read(16)? as usize;
     let nlen = reader.read(16)? as usize;
     if len != (!nlen & 0xFFFF) {
-        return Err(InflateError("несогласованная длина блока".into()));
+        return Err(InflateError("inconsistent block length".into()));
     }
 
     for _ in 0..len {
@@ -340,7 +340,7 @@ fn read_dynamic_tables(reader: &mut BitReader<'_>) -> Result<(Huffman, Huffman),
             16 => {
                 let previous = *lengths
                     .last()
-                    .ok_or_else(|| InflateError("повтор без предыдущей длины".into()))?;
+                    .ok_or_else(|| InflateError("repeat without a previous length".into()))?;
                 let repeat = reader.read(2)? as usize + 3;
                 lengths.extend(std::iter::repeat_n(previous, repeat));
             }
@@ -352,12 +352,12 @@ fn read_dynamic_tables(reader: &mut BitReader<'_>) -> Result<(Huffman, Huffman),
                 let repeat = reader.read(7)? as usize + 11;
                 lengths.extend(std::iter::repeat_n(0, repeat));
             }
-            _ => return Err(InflateError("недопустимый код длины".into())),
+            _ => return Err(InflateError("invalid length code".into())),
         }
     }
 
     if lengths.len() != total {
-        return Err(InflateError("длины не сошлись с заголовком".into()));
+        return Err(InflateError("lengths do not match the header".into()));
     }
 
     let literal_lengths = &lengths[..literal_count];
@@ -388,13 +388,15 @@ fn inflate_block(
 
                 let distance_symbol = distance.decode(reader)? as usize;
                 if distance_symbol >= DISTANCE_BASE.len() {
-                    return Err(InflateError("недопустимое расстояние".into()));
+                    return Err(InflateError("invalid distance".into()));
                 }
                 let back = DISTANCE_BASE[distance_symbol]
                     + reader.read(DISTANCE_EXTRA[distance_symbol])?;
 
                 if back as usize > output.len() {
-                    return Err(InflateError("ссылка за начало вывода".into()));
+                    return Err(InflateError(
+                        "reference before the start of the output".into(),
+                    ));
                 }
 
                 let start = output.len() - back as usize;
@@ -403,7 +405,7 @@ fn inflate_block(
                     output.push(byte);
                 }
             }
-            _ => return Err(InflateError("недопустимый символ".into())),
+            _ => return Err(InflateError("invalid symbol".into())),
         }
     }
 }

@@ -9,30 +9,30 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Error, Debug)]
 pub enum Error {
     /// Ошибка препроцессора
-    #[error("ошибка препроцессора: {0}")]
+    #[error("preprocessor error: {0}")]
     Preprocess(String),
 
     /// Ошибка парсинга
-    #[error("ошибка парсинга: {0}")]
+    #[error("{0}")]
     Parse(String),
 
     /// Ошибка layout
-    #[error("ошибка layout: {0}")]
+    #[error("layout error: {0}")]
     Layout(String),
 
     /// Ошибка рендеринга
-    #[error("ошибка рендеринга: {0}")]
+    #[error("render error: {0}")]
     Render(String),
 
     /// Неподдерживаемый тип диаграммы
-    #[error("неподдерживаемый тип диаграммы: {0}")]
+    #[error("unsupported diagram type: {0}")]
     UnsupportedDiagram(String),
 
     /// Неизвестная тема
-    #[error("неизвестная тема: {0}")]
+    #[error("unknown theme: {0}")]
     UnknownTheme(String),
 
     /// Пустой исходный код
-    #[error("пустой исходный код")]
+    #[error("empty source")]
     EmptySource,
 }

@@ -6,35 +6,35 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PreprocessError {
     /// Ошибка чтения файла
-    #[error("не удалось прочитать файл: {0}")]
+    #[error("failed to read file: {0}")]
     FileReadError(String),
 
     /// !include не поддерживается
-    #[error("!include не поддерживается в этом окружении: {0}")]
+    #[error("!include is not available here: {0}")]
     IncludeNotSupported(String),
 
     /// Файл не найден
-    #[error("файл не найден: {0}")]
+    #[error("file not found: {0}")]
     FileNotFound(String),
 
     /// Синтаксическая ошибка
-    #[error("синтаксическая ошибка в директиве: {0}")]
+    #[error("syntax error in directive: {0}")]
     SyntaxError(String),
 
     /// Несбалансированные !ifdef/!endif
-    #[error("несбалансированные !ifdef/!endif")]
+    #[error("unbalanced !ifdef/!endif")]
     UnbalancedCondition,
 
     /// Неизвестная переменная
-    #[error("неизвестная переменная: {0}")]
+    #[error("unknown variable: {0}")]
     UnknownVariable(String),
 
     /// Рекурсивное включение
-    #[error("рекурсивное включение файла: {0}")]
+    #[error("recursive include: {0}")]
     RecursiveInclude(String),
 
     /// Ошибка вычисления выражения
-    #[error("ошибка вычисления выражения: {0}")]
+    #[error("failed to evaluate expression: {0}")]
     ExpressionError(String),
 
     /// Исчерпан бюджет раскрытия макросов.
@@ -45,7 +45,7 @@ pub enum PreprocessError {
     /// тело уже накопленный текст, и объём рос лавиной. Ошибка вместо
     /// роста памяти позволяет показать пользователю внятное сообщение, а
     /// не уронить процесс.
-    #[error("превышен предел раскрытия макросов ({limit} МиБ): вероятно, цикл !while не сходится")]
+    #[error("macro expansion limit exceeded ({limit} MiB): a !while loop probably never ends")]
     ExpansionLimit {
         /// Предел в байтах.
         limit: usize,

@@ -21,7 +21,7 @@ pub fn handle_variable_assignment(directive: &str, ctx: &mut PreprocessContext) 
             [name, value] => (*name, *value, false),
             _ => {
                 return Err(PreprocessError::SyntaxError(format!(
-                    "неверный формат присваивания: {}",
+                    "invalid assignment: {}",
                     directive
                 )))
             }

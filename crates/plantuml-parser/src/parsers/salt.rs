@@ -21,7 +21,7 @@ pub fn parse_salt(source: &str) -> crate::Result<SaltDiagram> {
     let salt_content = extract_salt_content(source)?;
 
     let pairs = SaltParser::parse(Rule::salt_diagram, &salt_content)
-        .map_err(|e| ParseError::GrammarError(format!("Ошибка парсинга Salt: {}", e)))?;
+        .map_err(|e| ParseError::GrammarError(format!("failed to parse Salt: {}", e)))?;
 
     let mut diagram = SaltDiagram::new();
 

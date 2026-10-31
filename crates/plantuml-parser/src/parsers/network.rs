@@ -20,7 +20,7 @@ pub fn parse_network(source: &str) -> crate::Result<NetworkDiagram> {
     let nwdiag_content = extract_nwdiag_content(source)?;
 
     let pairs = NetworkParser::parse(Rule::network_diagram, &nwdiag_content)
-        .map_err(|e| ParseError::GrammarError(format!("Ошибка парсинга Network: {}", e)))?;
+        .map_err(|e| ParseError::GrammarError(format!("failed to parse network: {}", e)))?;
 
     let mut diagram = NetworkDiagram::new();
 
