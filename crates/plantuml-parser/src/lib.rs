@@ -901,7 +901,7 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     // `A -DOWN-> B` он разбирает как CLASS. У нас же срабатывал общий
     // признак «есть `->`», диаграмма уходила в sequence и падала.
     if has_directed_arrow(&source_lower) {
-        return Ok(DiagramKind::Component);
+        return Ok(DiagramKind::Class);
     }
 
     // Sequence Diagram — остальные случаи со стрелками

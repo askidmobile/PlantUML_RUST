@@ -163,6 +163,15 @@ pub struct Classifier {
     pub border_color: Option<Color>,
     /// Обобщённые параметры (generics)
     pub generics: Option<String>,
+    /// `hide circle`: значок вида слева от имени не рисуется
+    #[serde(default)]
+    pub hide_circle: bool,
+    /// Отсек полей не рисуется вовсе (`hide members`, `hide empty fields`)
+    #[serde(default)]
+    pub hide_fields: bool,
+    /// Отсек методов не рисуется вовсе (`hide members`, `hide empty methods`)
+    #[serde(default)]
+    pub hide_methods: bool,
 }
 
 impl Classifier {
@@ -177,6 +186,9 @@ impl Classifier {
             background_color: None,
             border_color: None,
             generics: None,
+            hide_circle: false,
+            hide_fields: false,
+            hide_methods: false,
         }
     }
 
@@ -275,6 +287,10 @@ pub struct Member {
     /// Член объявлен как метод (есть скобки), а не как поле.
     #[serde(default)]
     pub is_method: bool,
+    /// Знак видимости в записи не стоял: PlantUML не рисует для такого члена
+    /// ни значок, ни префикс.
+    #[serde(default)]
+    pub no_visibility: bool,
 }
 
 impl Member {
@@ -317,6 +333,7 @@ impl Member {
             parameters: Vec::new(),
             separator: None,
             is_method: false,
+            no_visibility: false,
         }
     }
 
@@ -331,6 +348,7 @@ impl Member {
             parameters: Vec::new(),
             separator: None,
             is_method: true,
+            no_visibility: false,
         }
     }
 

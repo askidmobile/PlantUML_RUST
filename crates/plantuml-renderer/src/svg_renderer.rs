@@ -3727,6 +3727,10 @@ impl SvgRenderer {
             );
         }
 
+        let hide_circle = properties.contains_key("hide-circle");
+        let hide_fields = properties.contains_key("hide-fields");
+        let hide_methods = properties.contains_key("hide-methods");
+
         let mut current_y = bounds.y + padding;
 
         // 2. Иконка и имя. Пара «значок + имя» стоит по центру шапки, как
@@ -3740,7 +3744,11 @@ impl SvgRenderer {
         } else {
             self.measure_text(name, theme.font_size)
         };
-        let content_width = icon_size * 2.0 + CLASS_ICON_GAP + name_width;
+        let content_width = if hide_circle {
+            name_width
+        } else {
+            icon_size * 2.0 + CLASS_ICON_GAP + name_width
+        };
         let left = if has_sprites {
             bounds.x + padding
         } else {
@@ -3751,19 +3759,21 @@ impl SvgRenderer {
         let icon_y = current_y + icon_size;
 
         // Круг иконки
-        let icon_circle = svg::node::element::Ellipse::new()
-            .set("cx", icon_x)
-            .set("cy", icon_y)
-            .set("rx", icon_size)
-            .set("ry", icon_size)
-            .set("fill", icon_fill)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 1);
-        group = group.add(icon_circle);
+        if !hide_circle {
+            let icon_circle = svg::node::element::Ellipse::new()
+                .set("cx", icon_x)
+                .set("cy", icon_y)
+                .set("rx", icon_size)
+                .set("ry", icon_size)
+                .set("fill", icon_fill)
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", 1);
+            group = group.add(icon_circle);
+        }
 
         // Буква значка. PlantUML рисует её контуром; здесь это `<text>` с
         // пометкой `data-glyph`, чтобы сверка подписей её не считала словом.
-        if !icon_letter.is_empty() {
+        if !icon_letter.is_empty() && !hide_circle {
             let icon_text = svg::node::element::Text::new(icon_letter)
                 .set("x", icon_x)
                 .set("y", icon_y + CLASS_GLYPH_DROP)
@@ -3777,7 +3787,11 @@ impl SvgRenderer {
         }
 
         // 3. Стереотип (если есть)
-        let name_x = icon_x + icon_size + CLASS_ICON_GAP;
+        let name_x = if hide_circle {
+            left
+        } else {
+            icon_x + icon_size + CLASS_ICON_GAP
+        };
         if let Some(stereo) = stereotype {
             let stereo_text = svg::node::element::Text::new(format!("«{}»", stereo))
                 .set("x", name_x)
@@ -3794,7 +3808,12 @@ impl SvgRenderer {
         // Вставка `<$имя>` заменяется спрайтом: PlantUML разбивает строку
         // на часть до вставки, растр и часть после. Растр рисуется
         // прямоугольниками палитры, как и объявленный отдельно.
-        let baseline = current_y + CLASS_NAME_BASELINE;
+        // Без значка имя стоит выше: в эталоне baseline 17.995 от верха рамки.
+        let baseline = if hide_circle {
+            current_y - padding + CLASS_NAME_BASELINE_NO_CIRCLE
+        } else {
+            current_y + CLASS_NAME_BASELINE
+        };
         let mut cursor = name_x;
 
         for part in split_sprite_references(name, sprites) {
@@ -3832,22 +3851,28 @@ impl SvgRenderer {
                 }
             }
         }
-        // Шапка занимает 32 от верха рамки (плюс строка стереотипа).
-        current_y += CLASS_HEADER_HEIGHT - padding;
+        // Шапка занимает 32 от верха рамки (плюс строка стереотипа); без значка 26.297.
+        current_y += if hide_circle {
+            CLASS_HEADER_HEIGHT_NO_CIRCLE
+        } else {
+            CLASS_HEADER_HEIGHT
+        } - padding;
 
-        // 5. Разделитель после имени
-        let separator1 = svg::node::element::Line::new()
-            .set("x1", bounds.x + 1.0)
-            .set("y1", current_y)
-            .set("x2", bounds.x + bounds.width - 1.0)
-            .set("y2", current_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 0.5);
-        group = group.add(separator1);
+        // 5. Разделитель после имени. Оба отсека сняты — тела нет и линий тоже.
+        if !(hide_fields && hide_methods) {
+            let separator1 = svg::node::element::Line::new()
+                .set("x1", bounds.x + 1.0)
+                .set("y1", current_y)
+                .set("x2", bounds.x + bounds.width - 1.0)
+                .set("y2", current_y)
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", 0.5);
+            group = group.add(separator1);
+        }
         current_y += padding;
 
         // 6. Поля
-        for field in fields {
+        for field in fields.iter().filter(|_| !hide_fields) {
             if field.separator.is_some() {
                 group = self.render_class_separator(bounds, current_y, field, theme, group);
                 current_y += line_height;
@@ -3866,19 +3891,21 @@ impl SvgRenderer {
         // Низ секции: в эталоне 3 от последней строки до черты.
         current_y += CLASS_SECTION_TAIL;
 
-        // 7. Разделитель между полями и методами
-        let separator2 = svg::node::element::Line::new()
-            .set("x1", bounds.x + 1.0)
-            .set("y1", current_y)
-            .set("x2", bounds.x + bounds.width - 1.0)
-            .set("y2", current_y)
-            .set("stroke", theme.node_border.to_css())
-            .set("stroke-width", 0.5);
-        group = group.add(separator2);
+        // 7. Разделитель между полями и методами: нужен, пока видны оба отсека
+        if !hide_fields && !hide_methods {
+            let separator2 = svg::node::element::Line::new()
+                .set("x1", bounds.x + 1.0)
+                .set("y1", current_y)
+                .set("x2", bounds.x + bounds.width - 1.0)
+                .set("y2", current_y)
+                .set("stroke", theme.node_border.to_css())
+                .set("stroke-width", 0.5);
+            group = group.add(separator2);
+        }
         current_y += padding;
 
         // 8. Методы
-        for method in methods {
+        for method in methods.iter().filter(|_| !hide_methods) {
             if method.separator.is_some() {
                 group = self.render_class_separator(bounds, current_y, method, theme, group);
                 current_y += line_height;
@@ -4032,6 +4059,26 @@ impl SvgRenderer {
         let icon_radius = 3.0;
         let icon_x = x + icon_radius;
         let icon_y = y + 8.0;
+        // Значок рисуется, когда знак видимости записан и значки не отключены
+        // (`skinparam classAttributeIconSize 0` пишет знак текстом).
+        let draw_icon = theme.class_attribute_icons && !member.no_visibility;
+        if !draw_icon {
+            let prefix = match (member.no_visibility, member.visibility) {
+                (true, _) => "",
+                (false, MemberVisibility::Public) => "+",
+                (false, MemberVisibility::Private) => "-",
+                (false, MemberVisibility::Protected) => "#",
+                (false, MemberVisibility::Package) => "~",
+            };
+            return self.render_class_member_text(
+                x + 1.0,
+                y,
+                &format!("{prefix}{}", member.text),
+                member,
+                theme,
+                group,
+            );
+        }
 
         // Иконка видимости (цветной кружок)
         let (fill_color, stroke_color) = match member.visibility {
@@ -4051,9 +4098,21 @@ impl SvgRenderer {
             .set("stroke-width", 1);
         group = group.add(icon);
 
-        // Текст члена
         let text_x = icon_x + icon_radius + 5.0;
-        let mut text = svg::node::element::Text::new(&member.text)
+        self.render_class_member_text(text_x, y, &member.text, member, theme, group)
+    }
+
+    /// Текст члена класса: подчёркнутый у статического, курсивный у абстрактного.
+    fn render_class_member_text(
+        &self,
+        text_x: f64,
+        y: f64,
+        content: &str,
+        member: &ClassMember,
+        theme: &Theme,
+        group: Group,
+    ) -> Group {
+        let mut text = svg::node::element::Text::new(content)
             .set("x", text_x)
             .set("y", y + 12.0)
             .set("font-family", theme.font_family.as_str())
@@ -4467,6 +4526,9 @@ const CLASS_ICON_GAP: f64 = 4.0;
 
 /// Базис имени класса от верха строки шапки.
 const CLASS_NAME_BASELINE: f64 = 15.847;
+/// Высота шапки без значка вида и baseline имени в ней (эталон `feat_class_hide`).
+const CLASS_HEADER_HEIGHT_NO_CIRCLE: f64 = 26.297;
+const CLASS_NAME_BASELINE_NO_CIRCLE: f64 = 17.995;
 
 /// Кегль и просадка буквы значка класса.
 const CLASS_GLYPH_SIZE: f64 = 17.0;

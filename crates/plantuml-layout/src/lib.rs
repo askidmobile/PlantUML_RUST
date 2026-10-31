@@ -349,6 +349,8 @@ pub struct ClassMember {
     pub is_abstract: bool,
     /// Разделитель тела (`--`, `..`, `__`, `==`): символ линии; в `text` его подпись.
     pub separator: Option<char>,
+    /// Знак видимости в записи не стоял: ни значка, ни префикса
+    pub no_visibility: bool,
 }
 
 impl ClassMember {
@@ -359,6 +361,7 @@ impl ClassMember {
             is_static: false,
             is_abstract: false,
             separator: None,
+            no_visibility: false,
         }
     }
 }

@@ -300,7 +300,8 @@ fn render_svg(
         && (source_theme.line_width - default_theme.line_width).abs() < f64::EPSILON
         && (source_theme.corner_radius - default_theme.corner_radius).abs() < f64::EPSILON
         && source_theme.shadow == default_theme.shadow
-        && source_theme.handwritten == default_theme.handwritten;
+        && source_theme.handwritten == default_theme.handwritten
+        && source_theme.class_attribute_icons == default_theme.class_attribute_icons;
     if !source_is_default {
         theme = source_theme.clone();
     }

@@ -441,6 +441,7 @@ impl ClassLayoutEngine {
             is_static: m.is_static,
             is_abstract: m.is_abstract,
             separator: m.separator,
+            no_visibility: m.no_visibility,
         };
         let fields: Vec<ClassMember> = classifier
             .map(|c| c.fields.iter().map(convert).collect())
@@ -456,6 +457,16 @@ impl ClassLayoutEngine {
         // на часть до и часть после.
         let mut properties = std::collections::HashMap::new();
         if let Some(c) = classifier {
+            // Скрытые значок и отсеки: рендерер не рисует их, а размер уже учтён.
+            for (flag, key) in [
+                (c.hide_circle, "hide-circle"),
+                (c.hide_fields, "hide-fields"),
+                (c.hide_methods, "hide-methods"),
+            ] {
+                if flag {
+                    properties.insert(key.to_string(), "1".to_string());
+                }
+            }
             if let Some(generics) = c.generics.as_deref().filter(|g| !g.is_empty()) {
                 properties.insert("generics".to_string(), generics.to_string());
             }

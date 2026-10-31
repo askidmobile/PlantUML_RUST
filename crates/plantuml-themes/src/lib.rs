@@ -115,6 +115,15 @@ pub struct Theme {
 
     /// Рукописный стиль
     pub handwritten: bool,
+
+    /// Значки видимости членов класса; `skinparam classAttributeIconSize 0`
+    /// заменяет их знаками `+ - # ~` в тексте
+    #[serde(default = "default_true")]
+    pub class_attribute_icons: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Theme {
@@ -134,6 +143,7 @@ impl Default for Theme {
             corner_radius: 2.5, // PlantUML использует rx/ry = 2.5
             shadow: false,
             handwritten: false,
+            class_attribute_icons: true,
         }
     }
 }
@@ -160,6 +170,7 @@ impl Theme {
             corner_radius: 5.0,
             shadow: true,
             handwritten: false,
+            class_attribute_icons: true,
         }
     }
 
@@ -179,6 +190,7 @@ impl Theme {
             corner_radius: 0.0,
             shadow: false,
             handwritten: false,
+            class_attribute_icons: true,
         }
     }
 
@@ -198,6 +210,7 @@ impl Theme {
             corner_radius: 3.0,
             shadow: false,
             handwritten: false,
+            class_attribute_icons: true,
         }
     }
 
@@ -217,6 +230,7 @@ impl Theme {
             corner_radius: 8.0,
             shadow: false,
             handwritten: true,
+            class_attribute_icons: true,
         }
     }
 
@@ -236,6 +250,7 @@ impl Theme {
             corner_radius: 4.0,
             shadow: true,
             handwritten: false,
+            class_attribute_icons: true,
         }
     }
 
@@ -401,6 +416,12 @@ impl SkinParams {
         }
         if let Some(v) = self.get("handwritten") {
             theme.handwritten = v == "true";
+        }
+        if let Some(v) = self
+            .get("classAttributeIconSize")
+            .or_else(|| self.get("classattributeiconsize"))
+        {
+            theme.class_attribute_icons = v.trim() != "0";
         }
         if let Some(v) = self.get("shadowing") {
             theme.shadow = v == "true";

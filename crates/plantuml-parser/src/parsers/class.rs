@@ -178,9 +178,9 @@ fn convert_note_relationships(diagram: &mut ClassDiagram) {
 
 /// Применяет `hide`/`show`/`remove`/`restore` по порядку их записи.
 ///
-/// Скрытие полей и методов очищает списки: так элемент рисуется без тела, как
-/// в PlantUML. `remove` убирает элемент вместе со связями. Значок (`circle`)
-/// отдельно не хранится, поэтому его скрытие ни на что не влияет.
+/// Скрытие полей и методов очищает списки и снимает отсек: так элемент рисуется
+/// без тела, как в PlantUML. `remove` убирает элемент вместе со связями. Значок (`circle`)
+/// и отсеки помечаются флагами элемента, а рисует их раскладка.
 fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
     if commands.is_empty() {
         return;
@@ -189,6 +189,10 @@ fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
         removed: bool,
         fields: bool,
         methods: bool,
+        /// `hide empty fields`: снять отсек полей, только если он пуст
+        empty_fields: bool,
+        empty_methods: bool,
+        circle: bool,
         stereotype: bool,
     }
 
@@ -222,6 +226,9 @@ fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
             removed: false,
             fields: false,
             methods: false,
+            empty_fields: false,
+            empty_methods: false,
+            circle: false,
             stereotype: false,
         };
         for command in commands {
@@ -263,7 +270,16 @@ fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
                 continue;
             }
             match feature {
-                // `hide empty members` скрывает только пустые секции, а они и так не несут текста.
+                // `hide empty members` снимает только пустые отсеки.
+                Some(f) if empty_only => match f.to_lowercase().as_str() {
+                    "members" => {
+                        flags.empty_fields = hiding;
+                        flags.empty_methods = hiding;
+                    }
+                    "fields" | "attributes" => flags.empty_fields = hiding,
+                    "methods" => flags.empty_methods = hiding,
+                    _ => {}
+                },
                 _ if empty_only => {}
                 None => flags.removed = hiding,
                 Some(f) => match f.to_lowercase().as_str() {
@@ -274,6 +290,7 @@ fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
                     "fields" | "attributes" => flags.fields = hiding,
                     "methods" => flags.methods = hiding,
                     "stereotype" | "stereotypes" => flags.stereotype = hiding,
+                    "circle" => flags.circle = hiding,
                     _ => {}
                 },
             }
@@ -284,6 +301,9 @@ fn apply_commands(diagram: &mut ClassDiagram, commands: &[VisCommand]) {
         if flags.methods {
             c.methods.clear();
         }
+        c.hide_fields = flags.fields || (flags.empty_fields && c.fields.is_empty());
+        c.hide_methods = flags.methods || (flags.empty_methods && c.methods.is_empty());
+        c.hide_circle = flags.circle;
         if flags.stereotype {
             c.stereotype = None;
         }
@@ -519,6 +539,7 @@ fn plain_member(text: String) -> Member {
         parameters: Vec::new(),
         separator: None,
         is_method: false,
+        no_visibility: true,
     }
 }
 
@@ -689,6 +710,9 @@ fn parse_class_decl_with_inheritance(
             background_color: color,
             border_color: border,
             generics,
+            hide_circle: false,
+            hide_fields: false,
+            hide_methods: false,
         },
         extends,
         implements,
@@ -771,6 +795,7 @@ fn parse_field(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
     let mut name = String::new();
     let mut field_type: Option<String> = None;
     let mut visibility = Visibility::Private;
+    let mut explicit_visibility = false;
     let mut is_static = false;
     let mut is_abstract = false;
 
@@ -778,6 +803,8 @@ fn parse_field(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
         match inner.as_rule() {
             Rule::visibility => {
                 visibility = parse_visibility(inner.as_str());
+                // `{method}` и `{field}` — не знак видимости
+                explicit_visibility = !inner.as_str().starts_with('{');
             }
             Rule::modifier => {
                 let mod_str = inner.as_str().to_lowercase();
@@ -811,6 +838,7 @@ fn parse_field(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
         parameters: Vec::new(),
         separator: None,
         is_method: false,
+        no_visibility: !explicit_visibility,
     })
 }
 
@@ -820,6 +848,7 @@ fn parse_method(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
     let mut prefix = String::new();
     let mut return_type: Option<String> = None;
     let mut visibility = Visibility::Public;
+    let mut explicit_visibility = false;
     let mut is_static = false;
     let mut is_abstract = false;
     let mut parameters: Vec<Parameter> = Vec::new();
@@ -828,6 +857,8 @@ fn parse_method(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
         match inner.as_rule() {
             Rule::visibility => {
                 visibility = parse_visibility(inner.as_str());
+                // `{method}` и `{field}` — не знак видимости
+                explicit_visibility = !inner.as_str().starts_with('{');
             }
             Rule::modifier => {
                 let mod_str = inner.as_str().to_lowercase();
@@ -871,6 +902,7 @@ fn parse_method(pair: pest::iterators::Pair<Rule>) -> Option<Member> {
         parameters,
         separator: None,
         is_method: true,
+        no_visibility: !explicit_visibility,
     })
 }
 
@@ -1926,6 +1958,21 @@ Customer "1" --o "0..*" Order
         assert!(diagram.classifiers[0].methods.is_empty());
         assert_eq!(diagram.classifiers[1].fields.len(), 1);
         assert!(diagram.classifiers[1].stereotype.is_none());
+    }
+
+    /// `hide empty members` снимает только пустые отсеки, `hide circle` — значок.
+    #[test]
+    fn test_hide_empty_compartments_and_circle() {
+        let source =
+            "@startuml\nclass A {\n+x : int\n}\nclass B\nhide empty members\nhide circle\n@enduml";
+        let diagram = parse_class(source).expect("разбирается");
+        let (a, b) = (&diagram.classifiers[0], &diagram.classifiers[1]);
+        assert!(
+            !a.hide_fields && a.hide_methods,
+            "у A поле есть, методов нет"
+        );
+        assert!(b.hide_fields && b.hide_methods);
+        assert!(a.hide_circle && b.hide_circle);
     }
 
     /// Цвета элемента: фон, градиент и линия.

@@ -12,6 +12,10 @@ use plantuml_model::Size;
 /// Измерено по эталону class_inheritance: «Dog» 28.232 → 68.3,
 /// «Animal» 48.446 → 80.446.
 const CLASS_NAME_EXTRA: f64 = 32.0;
+/// Ширина полей вокруг имени без значка вида: «A» 7.577 -> рамка 15.577.
+const CLASS_NAME_EXTRA_NO_CIRCLE: f64 = 8.0;
+/// Насколько шапка без значка ниже шапки со значком.
+const CLASS_CIRCLE_HEIGHT: f64 = 5.703;
 
 /// Ширина пикселя спрайта, вставленного в подпись.
 const SPRITE_LABEL_PIXEL: f64 = 1.0;
@@ -185,7 +189,11 @@ impl Node {
         let name_width =
             // Имя класса рисуется ЖИРНЫМ — шире обычного примерно на 8.3%.
             name_width_with_sprites(&classifier.id.name, sprites, config)
-                + CLASS_NAME_EXTRA
+                + if classifier.hide_circle {
+                    CLASS_NAME_EXTRA_NO_CIRCLE
+                } else {
+                    CLASS_NAME_EXTRA
+                }
                 + generics_width;
         let name_width = name_width.max(stereotype_width);
 
@@ -228,7 +236,13 @@ impl Node {
         //   «Dog»  ширина 68.3 при «bark()» 42.253
         //   «Cat»  ширина 79.2 при «meow()» 53.19
         let content_width = field_max_width.max(method_max_width) + CLASS_CONTENT_EXTRA;
-        let width = name_width.max(content_width).max(config.min_class_width);
+        // Без значка вида рамка облегает имя: 15.577 в эталоне `feat_class_hide`.
+        let min_width = if classifier.hide_circle {
+            0.0
+        } else {
+            config.min_class_width
+        };
+        let width = name_width.max(content_width).max(min_width);
 
         // Высота: заголовок + поля + методы
         // Заголовок включает: иконку + стереотип (если есть) + имя класса
@@ -273,8 +287,23 @@ impl Node {
         // в секции методов и в конце) — итого 56 вместо 48.297.
         let _ = (fields_height, methods_height);
         let rows = classifier.fields.len() + classifier.methods.len();
-        let height = header_height + config.line_height + rows as f64 * config.line_height;
-        let height = height.max(config.min_class_height);
+        // Каждый видимый отсек даёт полстроки: пустой класс с двумя отсеками
+        // занимает заголовок плюс строку, а снятый отсек места не требует.
+        let sections = usize::from(!classifier.hide_fields) + usize::from(!classifier.hide_methods);
+        // Без значка шапка ниже: в эталоне `feat_class_hide` 26.297 против 32.
+        let header_height = if classifier.hide_circle {
+            header_height - CLASS_CIRCLE_HEIGHT
+        } else {
+            header_height
+        };
+        let height = header_height
+            + sections as f64 * config.line_height / 2.0
+            + rows as f64 * config.line_height;
+        let height = if sections == 2 {
+            height.max(config.min_class_height)
+        } else {
+            height
+        };
 
         Size::new(width, height)
     }
