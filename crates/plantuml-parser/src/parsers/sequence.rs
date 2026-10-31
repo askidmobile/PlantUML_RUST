@@ -378,6 +378,20 @@ fn process_rule(
                 }
             }
         }
+        Rule::create_stmt => {
+            if let Some(participant_id) = parse_destroy(pair) {
+                let element = SequenceElement::Activation(Activation {
+                    participant: participant_id,
+                    activation_type: ActivationType::Create,
+                    color: None,
+                });
+                if fragment_stack.is_empty() {
+                    diagram.add_element(element);
+                } else {
+                    current_section_elements.push(element);
+                }
+            }
+        }
         Rule::destroy_stmt => {
             if let Some(participant_id) = parse_destroy(pair) {
                 let element = SequenceElement::Activation(Activation {

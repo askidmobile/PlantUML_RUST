@@ -189,6 +189,12 @@ pub struct DiagramMetrics {
     /// Паузы `...`: на них линии жизни становятся точечными, а активации
     /// прерываются (Y начала, Y конца)
     pub gaps: Vec<(f64, f64)>,
+    /// Участники после `create`, ещё не получившие сообщение
+    pub pending_creates: std::collections::HashSet<String>,
+    /// Созданные по ходу схемы участники: верх их верхнего блока
+    pub created: IndexMap<String, f64>,
+    /// Уничтоженные участники: Y центра крестика
+    pub destroyed: IndexMap<String, f64>,
 }
 
 impl DiagramMetrics {
@@ -213,6 +219,9 @@ impl DiagramMetrics {
             last_note_right: 0.0,
             last_note_bottom: 0.0,
             gaps: Vec::new(),
+            pending_creates: std::collections::HashSet::new(),
+            created: IndexMap::new(),
+            destroyed: IndexMap::new(),
         }
     }
 

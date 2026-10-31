@@ -364,6 +364,8 @@ pub enum ActivationType {
     Activate,
     Deactivate,
     Destroy,
+    /// `create X`: следующее сообщение к X создаёт участника
+    Create,
 }
 
 /// Разделитель (== text ==)

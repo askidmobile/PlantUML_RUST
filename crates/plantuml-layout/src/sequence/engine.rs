@@ -129,6 +129,15 @@ const ACTIVATION_FOOTER_GAP: f64 = 10.0;
 /// Измерено по эталону PlantUML: последнее сообщение на y=157.828,
 /// footer на y=175.828, разница ровно 18px.
 const FOOTER_GAP: f64 = 18.0;
+/// Верх блока созданного участника выше стрелки создания на 21.133, а стрелка
+/// упирается в его левый край с зазором 0 (эталон `feat_seq_create_destroy`).
+const CREATE_HEAD_RISE: f64 = 21.133;
+/// Половина стороны крестика уничтожения: он 18 на 18.
+const DESTROY_CROSS_HALF: f64 = 9.0;
+/// Линия жизни уничтоженного участника кончается ниже центра крестика.
+const DESTROY_LIFELINE_TAIL: f64 = 10.164;
+/// Цвет и толщина крестика из эталона.
+const DESTROY_CROSS_COLOR: &str = "#A80036";
 
 /// Сдвиг верхнего ряда участников вниз при наличии актёра.
 ///
@@ -319,6 +328,19 @@ impl SequenceLayoutEngine {
         // 3. Обрабатываем элементы диаграммы
         for element in &diagram.elements {
             self.layout_element(element, &mut metrics, &mut elements);
+        }
+
+        // 3.5. Созданные участники: блок опускается к стрелке создания.
+        for (name, head_y) in &metrics.created {
+            let Some(participant) = metrics.participants.get_mut(name) else {
+                continue;
+            };
+            let delta = head_y - participant.header_bounds.y;
+            participant.header_bounds.y = *head_y;
+            let id = format!("participant_{name}");
+            if let Some(element) = elements.iter_mut().find(|el| el.id == id) {
+                element.bounds.y += delta;
+            }
         }
 
         // 4. Завершаем все незакрытые активации.
@@ -1546,6 +1568,15 @@ impl SequenceLayoutEngine {
         // Сохраняем Y позицию этого сообщения для последующих активаций
         metrics.last_message_y = y;
 
+        // Сообщение к участнику после `create` (или `B -> C**`) создаёт его:
+        // блок встаёт на уровень этой стрелки, а не наверху схемы.
+        let creates = !msg.to.is_empty()
+            && (metrics.pending_creates.remove(&msg.to) || msg.create)
+            && !metrics.created.contains_key(&msg.to);
+        if creates {
+            metrics.created.insert(msg.to.clone(), y - CREATE_HEAD_RISE);
+        }
+
         // Получаем X координаты ДО активации (чтобы стрелка шла к центру lifeline)
         let boundary_x = |side: BoundarySide| match side {
             BoundarySide::Left => metrics.boundary_left_x,
@@ -1555,10 +1586,24 @@ impl SequenceLayoutEngine {
             Some(side) => boundary_x(side),
             None => metrics.lifeline_x(&msg.from, &self.config),
         };
-        let to_x = match msg.to_boundary {
+        let mut to_x = match msg.to_boundary {
             Some(side) => boundary_x(side),
             None => metrics.lifeline_x(&msg.to, &self.config),
         };
+        if creates {
+            // Стрелка кончается у ближнего края нового блока, а не у линии жизни.
+            if let Some(target) = metrics.participants.get(&msg.to) {
+                let half = target.width / 2.0;
+                to_x = if from_x <= target.center_x {
+                    target.center_x - half
+                } else {
+                    target.center_x + half
+                };
+            }
+        }
+        if msg.destroy && !msg.to.is_empty() {
+            metrics.destroyed.insert(msg.to.clone(), y);
+        }
         metrics.last_message_ends = Some((msg.from.clone(), msg.to.clone()));
         if let Some(anchor) = &msg.anchor {
             metrics
@@ -2262,7 +2307,25 @@ impl SequenceLayoutEngine {
                     }
                 }
             }
-            ActivationType::Deactivate | ActivationType::Destroy => {
+            ActivationType::Create => {
+                metrics.pending_creates.insert(act.participant.clone());
+            }
+            ActivationType::Destroy => {
+                // Крестик стоит на уровне последней стрелки, если она касалась
+                // участника, иначе чуть ниже неё.
+                let touched = metrics
+                    .last_message_ends
+                    .as_ref()
+                    .is_some_and(|(from, to)| *from == act.participant || *to == act.participant);
+                let cross_y = if touched {
+                    metrics.last_message_y
+                } else {
+                    metrics.current_y - self.config.message_spacing / 2.0
+                };
+                metrics.destroyed.insert(act.participant.clone(), cross_y);
+                metrics.deactivate_at(&act.participant, cross_y);
+            }
+            ActivationType::Deactivate => {
                 // Завершаем активацию на той же отметке, где начинается
                 // нижний блок участника, минус отступ: в эталоне PlantUML
                 // активация заканчивается на 10px выше footer.
@@ -2411,6 +2474,14 @@ impl SequenceLayoutEngine {
             // Lifeline начинается от нижней границы header участника
             // (учитывает box_title_height если есть боксы)
             let start_y = participant.header_bounds.y + self.config.participant_height;
+            // Уничтоженный участник: крестик и обрыв линии жизни.
+            let end_y = match metrics.destroyed.get(id) {
+                Some(&cross_y) => {
+                    self.add_destroy_cross(id, participant.center_x, cross_y, elements);
+                    end_y.min(cross_y + DESTROY_LIFELINE_TAIL)
+                }
+                None => end_y,
+            };
 
             // Паузы разрывают линию: до и после неё пунктир, внутри точки
             // (эталон: `stroke-dasharray:1,4` между 644.36 и 685.16).
@@ -2460,6 +2531,48 @@ impl SequenceLayoutEngine {
                     },
                 });
             }
+        }
+    }
+
+    /// Крестик уничтожения участника: две диагонали 18 на 18.
+    fn add_destroy_cross(
+        &self,
+        id: &str,
+        center_x: f64,
+        center_y: f64,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        let h = DESTROY_CROSS_HALF;
+        let diagonals = [
+            (
+                Point::new(center_x - h, center_y - h),
+                Point::new(center_x + h, center_y + h),
+            ),
+            (
+                Point::new(center_x - h, center_y + h),
+                Point::new(center_x + h, center_y - h),
+            ),
+        ];
+        for (n, (from, to)) in diagonals.into_iter().enumerate() {
+            let mut properties = std::collections::HashMap::new();
+            properties.insert("stroke".to_string(), DESTROY_CROSS_COLOR.to_string());
+            properties.insert("stroke-width".to_string(), "2".to_string());
+            elements.push(LayoutElement {
+                id: format!("destroy_{id}_{n}"),
+                bounds: Rect::new(center_x - h, center_y - h, 2.0 * h, 2.0 * h),
+                text: None,
+                properties,
+                element_type: ElementType::Edge {
+                    points: vec![from, to],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Link,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
         }
     }
 
