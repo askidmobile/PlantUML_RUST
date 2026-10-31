@@ -247,6 +247,23 @@ pub fn parse(line: &str) -> Vec<Span> {
             }
         }
 
+        // Стереотип `<<слово>>` в подписи показывается как «слово».
+        if rest[0] == '<' && rest.get(1) == Some(&'<') {
+            let inner: String = rest[2..]
+                .iter()
+                .take_while(|c| !matches!(c, '<' | '>' | '\n'))
+                .collect();
+            let after = 2 + inner.chars().count();
+            if !inner.trim().is_empty()
+                && rest.get(after) == Some(&'>')
+                && rest.get(after + 1) == Some(&'>')
+            {
+                push_str(&mut spans, &state.span, &format!("«{}»", inner.trim()));
+                i += after + 2;
+                continue;
+            }
+        }
+
         if rest[0] == '<' && i.checked_sub(1).and_then(|p| chars.get(p)) != Some(&'<') {
             let text = rest_str();
             if let Some(end) = text.find('>') {
@@ -423,8 +440,11 @@ mod tests {
     #[test]
     fn test_generics_and_stereotypes_stay_text() {
         assert_eq!(plain("List<T>"), "List<T>");
-        assert_eq!(plain("<<include>>"), "<<include>>");
-        assert_eq!(plain("<<s>>"), "<<s>>");
+        assert_eq!(plain("<<include>>"), "«include»");
+        assert_eq!(plain("<<s>>"), "«s»");
+        assert_eq!(plain("a <<b>> c"), "a «b» c");
+        assert_eq!(plain("<<>>"), "<<>>");
+        assert_eq!(plain("<<a"), "<<a");
         assert_eq!(plain("a < b > c"), "a < b > c");
     }
 
