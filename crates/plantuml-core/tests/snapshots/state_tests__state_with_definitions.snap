@@ -34,19 +34,19 @@ Waiting
 <ellipse cx="43" cy="350" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
-<path d="M39.234234234234236,168 L20,198.5 L33.18918918918919,229" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M39.234,168 C36.029,173.083 21.008,188.333 20,198.5 C18.992,208.667 30.991,223.917 33.189,229" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="33.189,229 33.288,219.152 31.205,224.411 25.946,222.327" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_1">
-<path d="M48.95495495495496,229 L55,198.5 L55,168" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M48.955,229 C49.962,223.917 53.992,208.667 55,198.5 C56.008,188.333 55,173.083 55,168" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="55,168 51,177 55,173 59,177" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
-<path d="M55,20 L55,50.5 L55,81" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M55,20 C55,25.083 55,40.333 55,50.5 C55,60.667 55,75.917 55,81" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="55,81 59,72 55,76 51,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M44,286 L44,309.5 L44,340" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M44,286 C44,289.917 44,300.5 44,309.5 C44,318.5 44,334.917 44,340" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="44,340 48,331 44,335 40,331" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>

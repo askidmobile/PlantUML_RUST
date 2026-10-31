@@ -25,6 +25,9 @@ pub struct RenderOptions {
 
     /// Максимальная высота (None = без ограничений)
     pub max_height: Option<f64>,
+
+    /// Тёмная тема
+    pub dark: bool,
 }
 
 /// Формат вывода
@@ -46,6 +49,7 @@ impl Default for RenderOptions {
             background_color: None,
             max_width: None,
             max_height: None,
+            dark: false,
         }
     }
 }
@@ -54,6 +58,12 @@ impl RenderOptions {
     /// Создаёт опции по умолчанию
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Включает тёмную тему
+    pub fn with_dark(mut self, dark: bool) -> Self {
+        self.dark = dark;
+        self
     }
 
     /// Устанавливает тему

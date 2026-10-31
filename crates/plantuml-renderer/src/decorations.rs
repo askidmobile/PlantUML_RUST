@@ -156,6 +156,35 @@ fn with_attr(root: &str, name: &str, value: &str) -> String {
     format!("{}{}{}", &root[..start], value, &root[start + len..])
 }
 
+/// Применяет `scale N`: меняются внешние размеры, координаты внутри те же.
+pub fn apply_scale(svg: String, scale: f64) -> String {
+    if (scale - 1.0).abs() < f64::EPSILON || scale <= 0.0 {
+        return svg;
+    }
+    let Some(start) = svg.find("<svg") else {
+        return svg;
+    };
+    let Some(len) = svg[start..].find('>') else {
+        return svg;
+    };
+    let end = start + len + 1;
+    let root = &svg[start..end];
+    let (Some(width), Some(height)) = (number_attr(root, "width"), number_attr(root, "height"))
+    else {
+        return svg;
+    };
+    let width_s = format!("{}px", (width * scale).ceil());
+    let height_s = format!("{}px", (height * scale).ceil());
+    let mut new_root = with_attr(root, "width", &width_s);
+    new_root = with_attr(&new_root, "height", &height_s);
+    new_root = with_attr(
+        &new_root,
+        "style",
+        &format!("width:{width_s};height:{height_s};background:#FFFFFF;"),
+    );
+    format!("{}{new_root}{}", &svg[..start], &svg[end..])
+}
+
 /// Добавляет к готовому SVG элементы из метаданных. Без них SVG не меняется.
 pub fn decorate(svg: String, meta: &DiagramMetadata) -> String {
     let has_any = meta.title.is_some()
@@ -385,6 +414,14 @@ mod tests {
         for word in ["Ш", "П", "Ц", "Л", "Р"] {
             assert!(out.contains(&format!(">{word}</text>")), "нет {word}");
         }
+    }
+
+    #[test]
+    fn test_scale_changes_outer_size_only() {
+        let out = apply_scale(SVG.to_string(), 2.0);
+        assert!(out.contains(r#"width="200px""#), "{out}");
+        assert!(out.contains(r#"viewBox="0 0 100 50""#), "{out}");
+        assert_eq!(apply_scale(SVG.to_string(), 1.0), SVG);
     }
 
     #[test]

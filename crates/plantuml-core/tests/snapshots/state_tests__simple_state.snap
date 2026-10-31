@@ -27,19 +27,19 @@ Inactive
 <ellipse cx="196.05095" cy="233" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
-<path d="M116.05095000000001,20 L116.05095000000001,50.5 L116.05095000000001,81" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M116.051,20 C116.051,25.083 116.051,40.333 116.051,50.5 C116.051,60.667 116.051,75.917 116.051,81" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="116.051,81 120.051,72 116.051,76 112.051,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_1">
-<path d="M84.17035000000001,128.9789239193356 L27.258350000000004,170 L54.31234531250001,209" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M84.17,128.979 C74.685,135.816 32.235,156.663 27.258,170 C22.282,183.337 49.803,202.5 54.312,209" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="54.312,209 52.469,199.325 51.462,204.892 45.896,203.885" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
-<path d="M88.99695468750001,209 L116.05095000000001,170 L116.05095000000001,131" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M88.997,209 C93.506,202.5 111.542,183 116.051,170 C120.56,157 116.051,137.5 116.051,131" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="116.051,131 112.051,140 116.051,136 120.051,140" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M147.43909453125002,131 L196.40460000000002,170 L196.93985859375,223" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M147.439,131 C155.6,137.5 188.154,154.667 196.405,170 C204.655,185.333 196.851,214.167 196.94,223" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="196.94,223 200.849,213.96 196.889,218 192.849,214.041" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_label_1">

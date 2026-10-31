@@ -27,23 +27,23 @@ Invalid
 <ellipse cx="74.28329042968751" cy="300" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
-<path d="M27.397100000000002,20 L27.397100000000002,50.5 L27.397100000000002,81" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M27.397,20 C27.397,25.083 27.397,40.333 27.397,50.5 C27.397,60.667 27.397,75.917 27.397,81" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="27.397,81 31.397,72 27.397,76 23.397,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_1">
-<path d="M27.397100000000002,101 L27.397100000000002,140 L27.397100000000002,179" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M27.397,101 C27.397,107.5 27.397,127 27.397,140 C27.397,153 27.397,172.5 27.397,179" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="27.397,179 31.397,170 27.397,174 23.397,170" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
-<path d="M37.3971,96.32934248965128 L119.3409,140 L121.730990625,179" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M37.397,96.329 C51.054,103.608 105.285,126.222 119.341,140 C133.397,153.778 121.333,172.5 121.731,179" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="121.731,179 125.173,169.772 121.425,174.009 117.188,170.262" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M38.171735328688065,229 L51.3167904296875,259.5 L68.93072416462726,290" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M38.172,229 C40.363,234.083 46.19,249.333 51.317,259.5 C56.443,269.667 65.995,284.917 68.931,290" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="68.931,290 67.894,280.206 66.43,285.67 60.966,284.207" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_4">
-<path d="M112.44629388724664,229 L99.24979042968752,259.5 L81.63585669474776,290" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M112.446,229 C110.247,234.083 104.385,249.333 99.25,259.5 C94.115,269.667 84.572,284.917 81.636,290" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="81.636,290 89.601,284.207 84.136,285.67 82.673,280.206" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="choice_check">

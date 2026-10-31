@@ -15,7 +15,7 @@ fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
     Some(&rest[..rest.find('"')?])
 }
 
-fn unescape(text: &str) -> String {
+pub(crate) fn unescape(text: &str) -> String {
     text.replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
@@ -31,7 +31,7 @@ fn escape(text: &str) -> String {
 }
 
 /// Строки таблицы и списка creole.
-fn structural(line: &str) -> String {
+fn structural(line: &str, number: usize) -> String {
     let trimmed = line.trim_start();
     if trimmed.starts_with('|') && trimmed.trim_end().ends_with('|') {
         let cells: Vec<String> = trimmed
@@ -53,7 +53,7 @@ fn structural(line: &str) -> String {
     let hashes = trimmed.chars().take_while(|c| *c == '#').count();
     if hashes > 0 && trimmed.chars().nth(hashes) == Some(' ') {
         let body = &trimmed[hashes + 1..];
-        return format!("{}‣ {body}", "  ".repeat(hashes - 1));
+        return format!("{}{number}. {body}", "  ".repeat(hashes - 1));
     }
     line.to_string()
 }
@@ -79,7 +79,15 @@ fn span_width(measurer: &TextMeasurer, span: &Span, base_size: f64, base_bold: b
 }
 
 /// Выводит одну строку цепочкой элементов.
-fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64, sprites: &[Sprite]) {
+fn emit_line(
+    out: &mut String,
+    tag: &str,
+    line: &str,
+    at: (f64, f64),
+    sprites: &[Sprite],
+    number: usize,
+) {
+    let (x, y) = at;
     let base_size: f64 = attr(tag, "font-size")
         .and_then(|v| v.parse().ok())
         .unwrap_or(13.0);
@@ -90,7 +98,7 @@ fn emit_line(out: &mut String, tag: &str, line: &str, x: f64, y: f64, sprites: &
     let class = attr(tag, "font-style");
 
     let measurer = TextMeasurer::default();
-    let spans = creole::parse(&structural(line));
+    let spans = creole::parse(&structural(line, number));
     let width_of = |s: &Span| match sprite_size(s, sprites) {
         Some((width, _, _)) => width,
         None if s.sprite.is_some() => 0.0,
@@ -208,11 +216,11 @@ fn needs_expansion(content: &str) -> bool {
         return true;
     }
     text.lines()
-        .any(|line| creole::plain(line) != line || structural(line) != line)
+        .any(|line| creole::plain(line) != line || line.trim_start().starts_with(['*', '#', '|']))
 }
 
 /// Строки элемента: `<tspan x y>` либо текст с `\n`.
-fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite]) {
+fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite], number: usize) {
     let x: f64 = attr(tag, "x").and_then(|v| v.parse().ok()).unwrap_or(0.0);
     let y: f64 = attr(tag, "y").and_then(|v| v.parse().ok()).unwrap_or(0.0);
     let size: f64 = attr(tag, "font-size")
@@ -255,7 +263,7 @@ fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite]) {
     let mut shift = -extras.iter().sum::<f64>() / 2.0;
     for ((line, line_x, line_y), extra) in lines.iter().zip(&extras) {
         shift += extra;
-        emit_line(out, tag, line, *line_x, line_y + shift, sprites);
+        emit_line(out, tag, line, (*line_x, line_y + shift), sprites, number);
     }
 }
 
@@ -263,6 +271,7 @@ fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite]) {
 pub fn expand_markup(svg: &str, sprites: &[Sprite]) -> String {
     let mut out = String::with_capacity(svg.len());
     let mut rest = svg;
+    let mut number = 0;
     while let Some(open) = rest.find("<text") {
         out.push_str(&rest[..open]);
         let tail = &rest[open..];
@@ -272,8 +281,14 @@ pub fn expand_markup(svg: &str, sprites: &[Sprite]) -> String {
         };
         let tag = &tail[..gt];
         let content = &tail[gt + 1..close];
+        // Пункты списка лежат в отдельных элементах: считаем их здесь.
+        if content.trim_start().starts_with("# ") {
+            number += 1;
+        } else {
+            number = 0;
+        }
         if needs_expansion(content) || content.contains("<tspan") && has_tspan_markup(content) {
-            expand(&mut out, tag, content, sprites);
+            expand(&mut out, tag, content, sprites, number);
         } else {
             out.push_str(&tail[..close + "</text>".len()]);
         }

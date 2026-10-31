@@ -166,7 +166,14 @@ impl UseCaseLayoutEngine {
         y: f64,
         width: f64,
     ) -> (LayoutElement, Rect) {
-        let bounds = Rect::new(x - width / 2.0, y, width, self.config.actor_height);
+        // Каждая лишняя строка подписи удлиняет фигуру вниз.
+        let extra_lines = name.replace("\\n", "\n").lines().count().saturating_sub(1) as f64;
+        let bounds = Rect::new(
+            x - width / 2.0,
+            y,
+            width,
+            self.config.actor_height + extra_lines * 16.297,
+        );
 
         // Голова актёра в use case залита тем же `#F1F1F1`, что и
         // эллипсы (эталоны `usecase_basic`, `UseCase: Простой`); тема

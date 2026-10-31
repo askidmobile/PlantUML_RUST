@@ -395,7 +395,14 @@ impl ComponentLayoutEngine {
     fn create_actor_element(&self, name: &str, text_width: f64) -> LayoutElement {
         LayoutElement {
             id: format!("actor_{}", name.replace(' ', "_")),
-            bounds: Rect::new(0.0, 0.0, (text_width + 6.0).max(32.0), ACTOR_HEIGHT),
+            bounds: Rect::new(
+                0.0,
+                0.0,
+                (text_width + 6.0).max(32.0),
+                ACTOR_HEIGHT
+                    + name.replace("\\n", "\n").lines().count().saturating_sub(1) as f64
+                        * LINE_HEIGHT,
+            ),
             text: None,
             properties: [("fill".to_string(), "#F1F1F1".to_string())]
                 .into_iter()

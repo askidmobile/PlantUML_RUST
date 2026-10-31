@@ -197,15 +197,109 @@ fn corpus(dir: &Path) -> Vec<String> {
     names
 }
 
+fn number(tag: &str, name: &str) -> Option<f64> {
+    let needle = format!(" {name}=\"");
+    let start = tag.find(&needle)? + needle.len();
+    let rest = &tag[start..];
+    rest[..rest.find('"')?].trim_end_matches("px").parse().ok()
+}
+
+/// Подпись вышла за холст: координаты текста вне `viewBox`.
+fn clipped_text(svg: &str) -> Option<String> {
+    let root_start = svg.find("<svg")?;
+    let root = &svg[root_start..root_start + svg[root_start..].find('>')?];
+    let view = {
+        let start = root.find("viewBox=\"")? + "viewBox=\"".len();
+        let rest = &root[start..];
+        let raw = &rest[..rest.find('"')?];
+        raw.split_whitespace()
+            .filter_map(|v| v.parse::<f64>().ok())
+            .collect::<Vec<f64>>()
+    };
+    let [vx, vy, vw, vh] = view[..] else {
+        return None;
+    };
+    // Украшения лежат снаружи, сама диаграмма внутри `translate`.
+    let (mut dx, mut dy) = (0.0, 0.0);
+    if let Some(at) = svg.find("<g transform=\"translate(") {
+        let rest = &svg[at + "<g transform=\"translate(".len()..];
+        let raw = &rest[..rest.find(')')?];
+        let values: Vec<f64> = raw
+            .split_whitespace()
+            .filter_map(|v| v.parse().ok())
+            .collect();
+        if let [x, y] = values[..] {
+            dx = x;
+            dy = y;
+        }
+    }
+    let mut rest = svg;
+    while let Some(start) = rest.find("<text") {
+        let tail = &rest[start..];
+        let gt = tail.find('>')?;
+        let tag = &tail[..gt];
+        let (Some(x), Some(y)) = (number(tag, "x"), number(tag, "y")) else {
+            rest = &tail[gt..];
+            continue;
+        };
+        let length = number(tag, "textLength").unwrap_or(0.0);
+        let (left, right) = if tag.contains("text-anchor=\"middle\"") {
+            (x - length / 2.0, x + length / 2.0)
+        } else {
+            (x, x + length)
+        };
+        // Допуск на несовпадение метрик шрифта.
+        let slack = 6.0;
+        let inside = |ox: f64, oy: f64| {
+            left + ox >= vx - slack
+                && right + ox <= vx + vw + slack
+                && y + oy >= vy - slack
+                && y + oy <= vy + vh + slack
+        };
+        if !inside(dx, dy) && !inside(0.0, 0.0) {
+            let close = tail.find("</text>")?;
+            return Some(tail[gt + 1..close].to_string());
+        }
+        rest = &tail[gt..];
+    }
+    None
+}
+
 /// Первое поле строки: имя кейса.
 fn case_of(line: &str) -> &str {
     line.split(' ').next().unwrap_or(line)
 }
 
+/// Ни одна подпись корпуса не вылезает за пределы холста.
+#[test]
+fn corpus_text_stays_on_canvas() {
+    let dir = golden_dir();
+    let mut failures = Vec::new();
+    for name in corpus(&dir) {
+        let source = std::fs::read_to_string(dir.join("corpus").join(format!("{name}.puml")))
+            .expect("читается исходник");
+        if let Ok(svg) = render(&source, &RenderOptions::default()) {
+            if let Some(text) = clipped_text(&svg) {
+                failures.push(format!("{name}: {text}"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "подписи за холстом:\n{failures:#?}");
+}
+
 #[test]
 fn corpus_gate() {
     let dir = golden_dir();
-    let excepted = exceptions(&dir);
+    let listed = exceptions(&dir);
+    let excepted: BTreeMap<String, String> = listed
+        .iter()
+        .filter(|(n, _)| !n.starts_with('~'))
+        .map(|(n, r)| (n.clone(), r.clone()))
+        .collect();
+    let excepted_raw: BTreeMap<String, String> = listed
+        .iter()
+        .filter_map(|(n, r)| Some((n.strip_prefix('~')?.to_string(), r.clone())))
+        .collect();
     let names = corpus(&dir);
     assert!(names.len() >= 200, "корпус неполон: {}", names.len());
 
@@ -225,6 +319,13 @@ fn corpus_gate() {
                 "{name} в исключениях, но рисуется: молчаливая потеря недопустима"
             );
             continue;
+        }
+        // Осознанно рисуем больше эталона: `~имя` в файле исключений.
+        if let Some(v) = &found {
+            if excepted_raw.contains_key(name) && v.split(' ').nth(1) == Some("RAW") {
+                clean += 1;
+                continue;
+            }
         }
         match found {
             Some(v) => violations.push(v),

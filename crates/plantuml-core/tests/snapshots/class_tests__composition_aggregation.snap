@@ -20,7 +20,7 @@ Car
 engine: Engine
 </text>
 <ellipse cx="19.130860644149784" cy="61.297" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="27.130860644149784" y="65.297" textLength="181.016">
+<text fill="#000" font-family="sans-serif" font-size="14" x="27.130860644149784" y="65.297" textLength="142.911">
 wheels: List&lt;Wheel&gt;
 </text>
 <line stroke="#181818" stroke-width="0.5" x1="12.130860644149784" x2="177.04146064414977" y1="72.594" y2="72.594"/>
@@ -58,11 +58,11 @@ size: int
 <line stroke="#181818" stroke-width="0.5" x1="133.4063" x2="211.3209" y1="214.188" y2="214.188"/>
 </g>
 <g id="edge_Car_Engine">
-<path d="M69.42546391723545,91.66148833089674 L55.802885182952885,119.39099999999999 L51.75733975668219,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M69.425,91.661 C67.155,96.283 58.748,108.353 55.803,119.391 C52.858,130.429 52.432,151.474 51.757,157.891" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="74.717,80.891 68.481,84.513 69.425,91.661 75.661,88.04" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_Car_Wheel">
-<path d="M119.81245836848524,91.65579191729823 L133.47488032207488,119.39099999999999 L154.6228909383456,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M119.812,91.656 C122.09,96.278 127.673,108.352 133.475,119.391 C139.277,130.43 151.098,151.474 154.623,157.891" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#FFF" points="114.51,80.891 113.573,88.041 119.812,91.656 120.749,84.506" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_label_0">

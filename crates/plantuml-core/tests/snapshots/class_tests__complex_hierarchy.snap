@@ -81,20 +81,20 @@ ProductRepository
 <line stroke="#181818" stroke-width="0.5" x1="239.58299999999997" x2="505.1494" y1="32" y2="32"/>
 <line stroke="#181818" stroke-width="0.5" x1="239.58299999999997" x2="505.1494" y1="40" y2="40"/>
 <ellipse cx="246.58299999999997" cy="53" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="254.58299999999997" y="57" textLength="281.672">
+<text fill="#000" font-family="sans-serif" font-size="14" x="254.58299999999997" y="57" textLength="243.566">
 findByCategory(cat): List&lt;Product&gt;
 </text>
 </g>
 <g id="edge_AbstractRepository_Repository">
-<path d="M101.3662,205.48499999999996 L101.3662,235.48499999999999 L101.3662,247.485" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<path d="M101.366,205.485 C101.366,210.485 101.366,228.485 101.366,235.485 C101.366,242.485 101.366,245.485 101.366,247.485" fill="none" stroke="#181818" stroke-dasharray="7,7" stroke-width="1"/>
 <polygon fill="none" points="101.366,265.485 107.366,247.485 95.366,247.485 101.366,265.485" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_UserRepository_AbstractRepository">
-<path d="M101.3662,64.594 L101.3662,94.594 L101.3662,106.59399999999998" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M101.366,64.594 C101.366,69.594 101.366,87.594 101.366,94.594 C101.366,101.594 101.366,104.594 101.366,106.594" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="none" points="101.366,124.594 107.366,106.594 95.366,106.594 101.366,124.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_ProductRepository_AbstractRepository">
-<path d="M302.11813829558406,64.594 L236.8662,94.594 L195.1326192400075,116.29099604005941" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M302.118,64.594 C291.243,69.594 254.697,85.978 236.866,94.594 C219.035,103.21 202.088,112.675 195.133,116.291" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="none" points="179.162,124.594 197.9,121.615 192.365,110.967 179.162,124.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>

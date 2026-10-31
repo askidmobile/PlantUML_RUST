@@ -615,6 +615,33 @@ fn seq_head_elements(
     }
 }
 
+/// Плавная кривая через точки ломаной (Катмулл-Ром в кубические Безье).
+///
+/// Ломаная раскладки идёт через центры рангов; у dot здесь тоже сплайн.
+fn smooth_path(points: &[Point]) -> String {
+    let mut d = format!("M{},{}", fmt(points[0].x), fmt(points[0].y));
+    if points.len() == 2 {
+        d.push_str(&format!(" L{},{}", fmt(points[1].x), fmt(points[1].y)));
+        return d;
+    }
+    for i in 0..points.len() - 1 {
+        let p0 = points[i.saturating_sub(1)];
+        let p1 = points[i];
+        let p2 = points[i + 1];
+        let p3 = points[(i + 2).min(points.len() - 1)];
+        d.push_str(&format!(
+            " C{},{} {},{} {},{}",
+            fmt(p1.x + (p2.x - p0.x) / 6.0),
+            fmt(p1.y + (p2.y - p0.y) / 6.0),
+            fmt(p2.x - (p3.x - p1.x) / 6.0),
+            fmt(p2.y - (p3.y - p1.y) / 6.0),
+            fmt(p2.x),
+            fmt(p2.y),
+        ));
+    }
+    d
+}
+
 /// Радиус внутреннего круга конечного узла UML относительно внешнего.
 ///
 /// Эталон `activity_basic`: внешний круг `rx=11`, внутренний `rx=6`.
@@ -1022,6 +1049,28 @@ impl SvgRenderer {
             }
             None => theme,
         };
+        let stylized;
+        let element = match element
+            .properties
+            .get("stereotype")
+            .and_then(|name| theme.stereotype_styles.get(name))
+        {
+            Some(style) => {
+                let mut copy = element.clone();
+                if let Some(color) = &style.background {
+                    copy.properties.insert("fill".to_string(), color.to_css());
+                }
+                if let Some(color) = &style.border {
+                    copy.properties.insert("stroke".to_string(), color.to_css());
+                }
+                if style.dashed {
+                    group = group.set("stroke-dasharray", "7,7");
+                }
+                stylized = copy;
+                &stylized
+            }
+            None => element,
+        };
 
         // Цвета из свойств приводим к форме PlantUML ОДИН раз здесь:
         // сервер записывает их сокращённо (`#000000` → `#000`), а движки
@@ -1225,6 +1274,7 @@ impl SvgRenderer {
                         .get("label-end-x")
                         .and_then(|value| value.parse().ok()),
                     dash: element.properties.get("dasharray").map(String::as_str),
+                    curve: element.properties.contains_key("curve"),
                 };
                 group = self.render_edge(
                     points,
@@ -1752,6 +1802,25 @@ impl SvgRenderer {
         group
     }
 
+    /// Высота строки подписи с учётом кегля и спрайтов.
+    fn row_height(&self, line: &str) -> f64 {
+        plantuml_layout::creole::parse(line)
+            .iter()
+            .map(|span| {
+                let sprite = span.sprite.as_ref().and_then(|(name, scale)| {
+                    self.options
+                        .sprites
+                        .iter()
+                        .find(|s| &s.name == name)
+                        .map(|s| s.height as f64 * scale)
+                });
+                sprite
+                    .or(span.size.map(|size| size * 1.1641))
+                    .unwrap_or(CLUSTER_LINE_HEIGHT)
+            })
+            .fold(CLUSTER_LINE_HEIGHT, f64::max)
+    }
+
     /// Фигура элемента component/deployment по свойству `shape`.
     ///
     /// Контур даёт `symbols::symbol`, подпись стоит по центру тела фигуры;
@@ -1796,7 +1865,9 @@ impl SvgRenderer {
                 .split('\n')
                 .map(|line| (line.to_string(), false)),
         );
-        let block = rows.len() as f64 * CLUSTER_LINE_HEIGHT;
+        // Заголовок `==` и спрайт выше обычной строки.
+        let heights: Vec<f64> = rows.iter().map(|(line, _)| self.row_height(line)).collect();
+        let block: f64 = heights.iter().sum();
 
         let (shapes, cx, first_baseline) = if kind == "database" {
             let shapes = crate::symbols::database(bounds, &ink);
@@ -1822,10 +1893,14 @@ impl SvgRenderer {
             .get("text-fill")
             .cloned()
             .unwrap_or_else(|| theme.text_color.to_css());
+        let mut baseline = first_baseline;
         for (index, (line, italic)) in rows.iter().enumerate() {
+            baseline += heights[index] - CLUSTER_LINE_HEIGHT;
+            let row_y = baseline;
+            baseline += CLUSTER_LINE_HEIGHT;
             let mut text = svg::node::element::Text::new(line.as_str())
                 .set("x", cx)
-                .set("y", first_baseline + index as f64 * CLUSTER_LINE_HEIGHT)
+                .set("y", row_y)
                 .set("text-anchor", "middle")
                 .set("font-family", theme.font_family.as_str())
                 .set("font-size", theme.font_size)
@@ -2602,10 +2677,15 @@ impl SvgRenderer {
         // собирается одинаково, а признак `is_self_message` нужен лишь
         // для размещения подписи ниже.
         let line_points = trim_line_ends(points, trim_start, trim_end);
-        let mut d = format!("M{},{}", line_points[0].x, line_points[0].y);
-        for p in &line_points[1..] {
-            d.push_str(&format!(" L{},{}", p.x, p.y));
-        }
+        let d = if style.curve {
+            smooth_path(&line_points)
+        } else {
+            let mut d = format!("M{},{}", line_points[0].x, line_points[0].y);
+            for p in &line_points[1..] {
+                d.push_str(&format!(" L{},{}", p.x, p.y));
+            }
+            d
+        };
 
         // Цвет и толщина могут быть переопределены свойствами: PlantUML
         // рисует переходы состояний timing зелёным (#006400) толщиной 2,
@@ -4112,6 +4192,8 @@ struct EdgeStyle<'a> {
     label_end_x: Option<f64>,
     /// Своя штриховка линии (`1,4` у линии жизни на паузе)
     dash: Option<&'a str>,
+    /// Рисовать плавной кривой
+    curve: bool,
 }
 
 /// Оформление текста: жирность и цвет.
@@ -4503,7 +4585,8 @@ fn annotate_text_length(svg: &str) -> String {
             return out;
         };
 
-        let label = content[..close].trim();
+        // Измеряем то, что видит читатель: `&lt;` — один символ, а не четыре.
+        let label = crate::rich_text::unescape(content[..close].trim());
         let font_size = extract_font_size(tag).unwrap_or(13.0);
         // Полужирный текст шире обычного: PlantUML считает его ширину по
         // своей таблице, и в эталонах жирные подписи длиннее на 8–14 %.

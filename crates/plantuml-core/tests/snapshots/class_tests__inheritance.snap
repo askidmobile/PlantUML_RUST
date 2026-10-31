@@ -54,11 +54,11 @@ meow()
 </text>
 </g>
 <g id="edge_Dog_Animal">
-<path d="M46.999973533398986,64.594 L59.85665390625,94.594 L65.6364451116921,108.05432346637106" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M47,64.594 C49.143,69.594 56.751,87.351 59.857,94.594 C62.963,101.837 64.673,105.811 65.636,108.054" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="none" points="72.738,124.594 71.15,105.687 60.123,110.422 72.738,124.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_Cat_Animal">
-<path d="M126.26365396744878,64.594 L113.35665390625,94.594 L107.57686270080791,108.05432346637106" fill="none" stroke="#181818" stroke-width="1"/>
+<path d="M126.264,64.594 C124.112,69.594 116.471,87.351 113.357,94.594 C110.242,101.837 108.54,105.811 107.577,108.054" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="none" points="100.475,124.594 113.09,110.422 102.064,105.687 100.475,124.594" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>

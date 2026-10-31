@@ -376,7 +376,13 @@ impl Scene {
                     (max_y - min_y).max(1.0),
                 ),
                 text: None,
-                properties: edge.map(|e| e.properties.clone()).unwrap_or_default(),
+                properties: {
+                    let mut properties: HashMap<String, String> =
+                        edge.map(|e| e.properties.clone()).unwrap_or_default();
+                    properties.insert("curve".to_string(), "1".to_string());
+                    properties.insert("dasharray".to_string(), "7,7".to_string());
+                    properties
+                },
                 element_type: ElementType::Edge {
                     points,
                     label: None,
