@@ -57,7 +57,8 @@ impl Default for ActivityLayoutConfig {
             node_radius: 10.0,
             diamond_width: 70.9,
             diamond_height: 24.0,
-            bar_height: 5.0,
+            // Эталон: перекладина 6 высотой.
+            bar_height: 6.0,
             bar_width: 50.0,
             action_corner_radius: 10.0,
             font_size: 12.0,

@@ -1568,7 +1568,13 @@ impl SvgRenderer {
             .set("rx", corner_radius)
             .set("ry", corner_radius)
             .set("fill", fill_color)
-            .set("stroke", theme.node_border.to_css())
+            .set(
+                "stroke",
+                properties
+                    .get("stroke")
+                    .cloned()
+                    .unwrap_or_else(|| theme.node_border.to_css()),
+            )
             .set("stroke-width", stroke_width);
 
         if let Some(op) = opacity {

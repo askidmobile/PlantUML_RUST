@@ -514,7 +514,7 @@ mod tests {
         assert!((65.0..=66.0).contains(&r.bounds.width));
         assert_eq!(r.bounds.height, 57.0);
         let b = svgish(&r)[0].bounds;
-        assert_eq!((b.x, b.y), (15.0, 15.0));
+        assert!((b.x - 15.0).abs() < 1e-9 && (b.y - 15.0).abs() < 1e-9);
         assert!((b.height - 26.297).abs() < 1e-9);
     }
 

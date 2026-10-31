@@ -95,6 +95,9 @@ const WHILE_RETURN_DROP: f64 = 10.0;
 
 /// Высота полосы с названием раздела над потоком.
 const PARTITION_HEADER_HEIGHT: f64 = 20.0;
+/// Вкладка с названием раздела: кегль и высота (эталон `ref_lang_061`).
+const PARTITION_TITLE_FONT: f64 = 14.0;
+const PARTITION_TAB_HEIGHT: f64 = 19.297;
 
 /// Зазор между потоком и заметкой.
 const ACTIVITY_NOTE_GAP: f64 = 10.0;
@@ -109,6 +112,33 @@ const ACTIVITY_LOOP_OFFSET: f64 = 6.0;
 const ACTION_TEXT_PADDING: f64 = 20.0;
 use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
 
+/// Сдвигает контур из команд `M`/`L` вида `L10.5,20`.
+fn translate_path(d: &str, dx: f64, dy: f64) -> String {
+    d.split_whitespace()
+        .map(|token| {
+            let (command, coords) = token.split_at(1);
+            match coords.split_once(',') {
+                Some((x, y)) => match (x.parse::<f64>(), y.parse::<f64>()) {
+                    (Ok(x), Ok(y)) => format!("{command}{:.3},{:.3}", x + dx, y + dy),
+                    _ => token.to_string(),
+                },
+                None => token.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Высота линии `split` и полуразмер креста `end` (эталон `ref_lang_056`).
+const PARALLEL_LINE_HEIGHT: f64 = 1.5;
+const END_CROSS_HALF: f64 = 6.187;
+
+/// Кегль и базис заголовка дорожки (эталон: 18, базис на 16.7 ниже края).
+const SWIMLANE_TITLE_FONT: f64 = 18.0;
+const SWIMLANE_TITLE_BASELINE: f64 = 16.7;
+/// Запас между содержимым и линией дорожки.
+const LANE_SIDE_PADDING: f64 = 10.0;
+
 /// Информация о swimlane для layout
 #[derive(Debug, Clone)]
 struct SwimlaneInfo {
@@ -118,6 +148,8 @@ struct SwimlaneInfo {
     color: Option<Color>,
     /// Индекс (порядок появления)
     index: usize,
+    /// Ширина дорожки
+    width: f64,
     /// X-координата центра swimlane
     center_x: f64,
 }
@@ -678,6 +710,17 @@ impl ActivityLayoutEngine {
                 element.bounds.x += offset_x;
                 element.bounds.y += offset_y;
 
+                // Абсолютные координаты в свойствах (контур пути, базис текста)
+                // сами за `bounds` не едут.
+                if let Some(d) = element.properties.get_mut("path") {
+                    *d = translate_path(d, offset_x, offset_y);
+                }
+                if let Some(value) = element.properties.get_mut("baseline") {
+                    if let Ok(y) = value.parse::<f64>() {
+                        *value = format!("{:.3}", y + offset_y);
+                    }
+                }
+
                 // У стрелок координаты лежат ещё и в точках линии.
                 if let ElementType::Edge { points, .. } = &mut element.element_type {
                     for point in points.iter_mut() {
@@ -708,18 +751,62 @@ impl ActivityLayoutEngine {
         result
     }
 
+    /// Ширины дорожек по имени: не меньше заданной и не меньше самого
+    /// широкого содержимого, иначе вилка или ветвление вылезают за линии.
+    fn lane_widths(&self, elements: &[ActivityElement]) -> HashMap<String, f64> {
+        let mut widths: HashMap<String, f64> = HashMap::new();
+        let mut current: Option<&str> = None;
+        for element in elements {
+            if let ActivityElement::SwimlaneChange(lane) = element {
+                current = Some(lane.name.as_str());
+                continue;
+            }
+            if let Some(name) = current {
+                let need = self.span_of(element) + 2.0 * LANE_SIDE_PADDING;
+                let slot = widths.entry(name.to_string()).or_insert(0.0);
+                *slot = slot.max(need);
+            }
+        }
+        for width in widths.values_mut() {
+            *width = width.max(self.config.swimlane_width);
+        }
+        widths
+    }
+
+    /// Ширина, которую элемент занимает с учётом симметричных ветвей условия.
+    fn span_of(&self, element: &ActivityElement) -> f64 {
+        let body =
+            |items: &[ActivityElement]| items.iter().fold(0.0_f64, |m, e| m.max(self.span_of(e)));
+        match element {
+            ActivityElement::Condition(cond) if cond.elseif_branches.is_empty() => {
+                let widest =
+                    body(&cond.then_branch).max(cond.else_branch.as_deref().map_or(0.0, body));
+                self.condition_shape(&cond.condition)
+                    .0
+                    .max(2.0 * widest + 2.0 * self.branch_offset(0.0))
+            }
+            ActivityElement::While(w) => self.condition_shape(&w.condition).0.max(body(&w.body)),
+            ActivityElement::Repeat(r) => self.condition_shape(&r.condition).0.max(body(&r.body)),
+            other => self.branch_natural_width(std::slice::from_ref(other)),
+        }
+    }
+
     /// Собирает информацию о всех swimlanes в диаграмме
     fn collect_swimlanes(&self, elements: &[ActivityElement]) -> HashMap<String, SwimlaneInfo> {
         let mut swimlanes = HashMap::new();
         let mut index = 0;
+        let widths = self.lane_widths(elements);
+        let mut next_x = self.config.margin;
 
         for element in elements {
             if let ActivityElement::SwimlaneChange(swimlane) = element {
                 if !swimlanes.contains_key(&swimlane.name) {
-                    let center_x = self.config.margin
-                        + self.config.swimlane_width / 2.0
-                        + index as f64
-                            * (self.config.swimlane_width + self.config.swimlane_spacing);
+                    let width = widths
+                        .get(&swimlane.name)
+                        .copied()
+                        .unwrap_or(self.config.swimlane_width);
+                    let center_x = next_x + width / 2.0;
+                    next_x += width + self.config.swimlane_spacing;
 
                     swimlanes.insert(
                         swimlane.name.clone(),
@@ -728,6 +815,7 @@ impl ActivityLayoutEngine {
                             color: swimlane.color.clone(),
                             index,
                             center_x,
+                            width,
                         },
                     );
                     index += 1;
@@ -747,84 +835,84 @@ impl ActivityLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) {
         let total_height = content_end_y - self.config.margin + self.config.margin;
+        // Порядок дорожек важен для линий: HashMap его не хранит.
+        let mut lanes: Vec<&SwimlaneInfo> = swimlanes.values().collect();
+        lanes.sort_by_key(|info| info.index);
 
-        for info in swimlanes.values() {
-            let x = info.center_x - self.config.swimlane_width / 2.0;
+        let line_props = || {
+            std::collections::HashMap::from([
+                ("stroke".to_string(), "#000000".to_string()),
+                ("stroke-width".to_string(), "1.5".to_string()),
+            ])
+        };
+        let divider = |id: String, x: f64| LayoutElement {
+            id,
+            bounds: Rect::new(x, self.config.margin, 1.0, total_height),
+            text: None,
+            properties: line_props(),
+            element_type: ElementType::Edge {
+                points: vec![
+                    Point::new(x, self.config.margin),
+                    Point::new(x, self.config.margin + total_height),
+                ],
+                label: None,
+                arrow_start: false,
+                arrow_end: false,
+                dashed: false,
+                edge_type: EdgeType::Association,
+                from_cardinality: None,
+                to_cardinality: None,
+            },
+        };
 
-            // Фон swimlane (вертикальная полоса)
-            let mut props = std::collections::HashMap::new();
+        for info in &lanes {
+            let x = info.center_x - info.width / 2.0;
+
+            // Эталон не заливает дорожки: они разделены линиями. Заливка
+            // остаётся только у дорожки с явно заданным цветом.
             if let Some(ref color) = info.color {
+                let mut props = std::collections::HashMap::new();
                 props.insert("fill".to_string(), color.to_css());
-            } else {
-                // Чередующиеся цвета для swimlanes без явного цвета
-                let bg_color = if info.index % 2 == 0 {
-                    "#FEFECE".to_string()
-                } else {
-                    "#E2E2F0".to_string()
-                };
-                props.insert("fill".to_string(), bg_color);
-            }
-            props.insert("opacity".to_string(), "0.3".to_string());
-
-            elements.push(LayoutElement {
-                id: format!("swimlane_bg_{}", info.name),
-                bounds: Rect::new(
-                    x,
-                    self.config.margin,
-                    self.config.swimlane_width,
-                    total_height,
-                ),
-                text: None,
-                properties: props,
-                element_type: ElementType::Rectangle {
-                    label: String::new(),
-                    corner_radius: 0.0,
-                },
-            });
-
-            // Заголовок swimlane
-            let mut header_props = std::collections::HashMap::new();
-            if let Some(ref color) = info.color {
-                header_props.insert("fill".to_string(), color.to_css());
+                elements.push(LayoutElement {
+                    id: format!("swimlane_bg_{}", info.name),
+                    bounds: Rect::new(x, self.config.margin, info.width, total_height),
+                    text: None,
+                    properties: props,
+                    element_type: ElementType::Rectangle {
+                        label: String::new(),
+                        corner_radius: 0.0,
+                    },
+                });
             }
 
+            // Заголовок: крупный текст по центру дорожки, без плашки.
+            let width = self.config.text.width(&info.name, SWIMLANE_TITLE_FONT);
             elements.push(LayoutElement {
                 id: format!("swimlane_header_{}", info.name),
                 bounds: Rect::new(
-                    x,
+                    x + (info.width - width) / 2.0,
                     self.config.margin,
-                    self.config.swimlane_width,
-                    self.config.swimlane_header_height,
+                    width,
+                    SWIMLANE_TITLE_FONT,
                 ),
-                text: None,
-                properties: header_props,
-                element_type: ElementType::Rectangle {
-                    label: info.name.clone(),
-                    corner_radius: 0.0,
+                text: Some(info.name.clone()),
+                properties: std::collections::HashMap::from([(
+                    "baseline".to_string(),
+                    format!("{:.3}", self.config.margin + SWIMLANE_TITLE_BASELINE),
+                )]),
+                element_type: ElementType::Text {
+                    text: info.name.clone(),
+                    font_size: SWIMLANE_TITLE_FONT,
                 },
             });
 
-            // Вертикальная разделительная линия справа от swimlane
-            let line_x = x + self.config.swimlane_width;
-            elements.push(LayoutElement {
-                id: format!("swimlane_divider_{}", info.name),
-                bounds: Rect::new(line_x, self.config.margin, 1.0, total_height),
-                text: None,
-                properties: std::collections::HashMap::new(),
-                element_type: ElementType::Edge {
-                    points: vec![
-                        Point::new(line_x, self.config.margin),
-                        Point::new(line_x, self.config.margin + total_height),
-                    ],
-                    label: None,
-                    arrow_start: false,
-                    arrow_end: false,
-                    dashed: true,
-                    edge_type: EdgeType::Association,
-                    from_cardinality: None,
-                    to_cardinality: None,
-                },
-            });
+            if info.index == 0 {
+                elements.push(divider(format!("swimlane_edge_{}", info.name), x));
+            }
+            elements.push(divider(
+                format!("swimlane_divider_{}", info.name),
+                x + info.width,
+            ));
         }
     }
 
@@ -986,14 +1074,60 @@ impl ActivityLayoutEngine {
 
     /// Располагает конечный узел (альтернативный)
     fn layout_end(&self, center_x: f64, current_y: f64, elements: &mut Vec<LayoutElement>) -> f64 {
-        self.layout_stop(center_x, current_y, elements)
+        // `end` в PlantUML — круг с крестом, а не мишень `stop`.
+        let r = self.config.node_radius;
+        let cy = current_y + r;
+        let ink = |width: &str| {
+            HashMap::from([
+                ("stroke".to_string(), "#222222".to_string()),
+                ("stroke-width".to_string(), width.to_string()),
+            ])
+        };
+        let mut circle = ink("1.5");
+        circle.insert("fill".to_string(), "none".to_string());
+        elements.push(LayoutElement {
+            id: format!("end_{}", elements.len()),
+            bounds: Rect::new(center_x - r, current_y, r * 2.0, r * 2.0),
+            text: None,
+            properties: circle,
+            element_type: ElementType::Ellipse { label: None },
+        });
+        let d = END_CROSS_HALF;
+        for (k, (a, b)) in [
+            ((center_x - d, cy - d), (center_x + d, cy + d)),
+            ((center_x + d, cy - d), (center_x - d, cy + d)),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            elements.push(LayoutElement {
+                id: format!("end_cross_{}_{}", k, elements.len()),
+                bounds: Rect::new(a.0.min(b.0), a.1.min(b.1), 2.0 * d, 2.0 * d),
+                text: None,
+                properties: ink("2.5"),
+                element_type: ElementType::Edge {
+                    points: vec![Point::new(a.0, a.1), Point::new(b.0, b.1)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Association,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+        }
+        current_y + r * 2.0 + self.config.vertical_spacing
     }
 
-    /// Свойства линии `fork`/`split`: PlantUML рисует её тёмной, без скругления.
+    /// Свойства линии `fork`/`split`: тёмно-серая перекладина со скруглением.
     fn bar_properties() -> HashMap<String, String> {
         let mut properties = HashMap::new();
-        properties.insert("fill".to_string(), "#181818".to_string());
-        properties.insert("rx".to_string(), "0".to_string());
+        // Эталон: `fill="#555"`, обводка #555 толщиной 1, rx 2.5.
+        properties.insert("fill".to_string(), "#555555".to_string());
+        properties.insert("stroke".to_string(), "#555555".to_string());
+        properties.insert("stroke-width".to_string(), "1".to_string());
+        properties.insert("rx".to_string(), "2.5".to_string());
         properties
     }
 
@@ -1908,11 +2042,11 @@ impl ActivityLayoutEngine {
         let frame_bottom = content_bottom + PARTITION_PADDING;
 
         // Ширина рамки — по самому широкому содержимому и названию.
-        let name_width = self
+        let title_width = self
             .config
             .text
-            .width(&partition.name, self.config.font_size)
-            + PARTITION_PADDING * 2.0;
+            .width(&partition.name, PARTITION_TITLE_FONT);
+        let name_width = title_width + PARTITION_PADDING * 2.0;
         let mut half = name_width / 2.0;
         for element in &inner {
             half = half.max((element.bounds.x - center_x).abs() + PARTITION_PADDING);
@@ -1924,9 +2058,15 @@ impl ActivityLayoutEngine {
         let mut properties = HashMap::new();
         properties.insert("fill".to_string(), "none".to_string());
         properties.insert("rx".to_string(), "0".to_string());
-        if let Some(color) = &partition.color {
-            properties.insert("stroke".to_string(), color.to_css());
-        }
+        // Эталон: рамка раздела чёрная, толщиной 1.5.
+        properties.insert("stroke-width".to_string(), "1.5".to_string());
+        properties.insert(
+            "stroke".to_string(),
+            partition
+                .color
+                .as_ref()
+                .map_or_else(|| "#000000".to_string(), |color| color.to_css()),
+        );
 
         // Рамка добавляется ПЕРВОЙ, чтобы её закрыли стрелки и элементы
         elements.push(LayoutElement {
@@ -1944,12 +2084,46 @@ impl ActivityLayoutEngine {
                 corner_radius: 0.0,
             },
         });
-        self.add_text_at(
-            &partition.name,
-            center_x - half + PARTITION_PADDING,
-            current_y + header_height - 6.0,
-            elements,
-        );
+        // Название сидит во вкладке со срезанным углом (эталон `ref_lang_061`).
+        let left = center_x - half;
+        let tab_right = left + title_width + 10.0;
+        elements.push(LayoutElement {
+            id: format!("partition_tab_{}", elements.len()),
+            bounds: Rect::new(left, current_y, tab_right - left, PARTITION_TAB_HEIGHT),
+            text: None,
+            properties: HashMap::from([
+                (
+                    "path".to_string(),
+                    format!(
+                        "M{:.3},{:.3} L{:.3},{:.3} L{:.3},{:.3} L{:.3},{:.3}",
+                        tab_right,
+                        current_y,
+                        tab_right,
+                        current_y + PARTITION_TAB_HEIGHT - 10.0,
+                        tab_right - 10.0,
+                        current_y + PARTITION_TAB_HEIGHT,
+                        left,
+                        current_y + PARTITION_TAB_HEIGHT
+                    ),
+                ),
+                ("stroke".to_string(), "#000000".to_string()),
+                ("stroke-width".to_string(), "1.5".to_string()),
+            ]),
+            element_type: ElementType::Path,
+        });
+        elements.push(LayoutElement {
+            id: format!("partition_title_{}", elements.len()),
+            bounds: Rect::new(left + 3.0, current_y, title_width, PARTITION_TITLE_FONT),
+            text: None,
+            properties: HashMap::from([(
+                "baseline".to_string(),
+                format!("{:.3}", current_y + 13.995),
+            )]),
+            element_type: ElementType::Text {
+                text: partition.name.clone(),
+                font_size: PARTITION_TITLE_FONT,
+            },
+        });
 
         elements.extend(inner);
         // Поток внутри рамки доходит до её нижней границы.
@@ -2083,7 +2257,50 @@ impl ActivityLayoutEngine {
             .iter()
             .map(|branch| branch.elements.as_slice())
             .collect();
-        self.layout_parallel(&branches, center_x, current_y, elements)
+        self.layout_parallel(&branches, center_x, current_y, true, elements)
+    }
+
+    /// Перекладина `fork` (тёмный скруглённый брусок) или линия `split`
+    /// (тонкая линия 1.5, как в эталоне `ref_lang_056`).
+    fn parallel_bar(
+        &self,
+        id: String,
+        (x, y, width): (f64, f64, f64),
+        thin: bool,
+        elements: &mut Vec<LayoutElement>,
+    ) {
+        if thin {
+            elements.push(LayoutElement {
+                id,
+                bounds: Rect::new(x, y, width, PARALLEL_LINE_HEIGHT),
+                text: None,
+                properties: HashMap::from([
+                    ("stroke".to_string(), "#181818".to_string()),
+                    ("stroke-width".to_string(), "1.5".to_string()),
+                ]),
+                element_type: ElementType::Edge {
+                    points: vec![Point::new(x, y), Point::new(x + width, y)],
+                    label: None,
+                    arrow_start: false,
+                    arrow_end: false,
+                    dashed: false,
+                    edge_type: EdgeType::Association,
+                    from_cardinality: None,
+                    to_cardinality: None,
+                },
+            });
+            return;
+        }
+        elements.push(LayoutElement {
+            id,
+            bounds: Rect::new(x, y, width, self.config.bar_height),
+            text: None,
+            properties: Self::bar_properties(),
+            element_type: ElementType::Rectangle {
+                label: String::new(),
+                corner_radius: 0.0,
+            },
+        });
     }
 
     /// Параллельные ветви между двумя линиями: общая часть `fork` и `split`.
@@ -2092,8 +2309,14 @@ impl ActivityLayoutEngine {
         branches: &[&[ActivityElement]],
         center_x: f64,
         current_y: f64,
+        thin: bool,
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
+        let bar_h = if thin {
+            PARALLEL_LINE_HEIGHT
+        } else {
+            self.config.bar_height
+        };
         let count = branches.len();
         if count == 0 {
             return current_y;
@@ -2111,29 +2334,18 @@ impl ActivityLayoutEngine {
         };
         let bar_width = bar_right - bar_left;
 
-        elements.push(LayoutElement {
-            id: format!("fork_bar_{}", elements.len()),
-            bounds: Rect::new(bar_left, current_y, bar_width, self.config.bar_height),
-            text: None,
-            properties: Self::bar_properties(),
-            element_type: ElementType::Rectangle {
-                label: String::new(),
-                corner_radius: 0.0,
-            },
-        });
+        self.parallel_bar(
+            format!("fork_bar_{}", elements.len()),
+            (bar_left, current_y, bar_width),
+            thin,
+            elements,
+        );
 
-        let branches_start_y = current_y + self.config.bar_height + self.config.vertical_spacing;
+        let branches_start_y = current_y + bar_h + self.config.vertical_spacing;
         let mut ends: Vec<Option<f64>> = Vec::with_capacity(count);
         for (k, branch) in branches.iter().enumerate() {
             let cx = centers[k];
-            self.add_arrow(
-                cx,
-                current_y + self.config.bar_height,
-                cx,
-                branches_start_y,
-                None,
-                elements,
-            );
+            self.add_arrow(cx, current_y + bar_h, cx, branches_start_y, None, elements);
             let end = self.layout_branch_body(branch, cx, branches_start_y, elements);
             // Ветвь, оборванная `stop`/`end`/`detach`, в линию слияния не идёт.
             let terminated = matches!(
@@ -2154,23 +2366,19 @@ impl ActivityLayoutEngine {
             .copied()
             .fold(branches_start_y - self.config.vertical_spacing, f64::max)
             + self.config.vertical_spacing;
-        elements.push(LayoutElement {
-            id: format!("join_bar_{}", elements.len()),
-            bounds: Rect::new(bar_left, join_y, bar_width, self.config.bar_height),
-            text: None,
-            properties: Self::bar_properties(),
-            element_type: ElementType::Rectangle {
-                label: String::new(),
-                corner_radius: 0.0,
-            },
-        });
+        self.parallel_bar(
+            format!("join_bar_{}", elements.len()),
+            (bar_left, join_y, bar_width),
+            thin,
+            elements,
+        );
         for (k, end) in ends.iter().enumerate() {
             if let Some(bottom) = end {
                 self.add_arrow(centers[k], *bottom, centers[k], join_y, None, elements);
             }
         }
 
-        join_y + self.config.bar_height + self.config.vertical_spacing
+        join_y + bar_h + self.config.vertical_spacing
     }
 
     /// Располагает fork/join
@@ -2182,7 +2390,7 @@ impl ActivityLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
         let branches: Vec<&[ActivityElement]> = fork.branches.iter().map(Vec::as_slice).collect();
-        self.layout_parallel(&branches, center_x, current_y, elements)
+        self.layout_parallel(&branches, center_x, current_y, false, elements)
     }
 
     /// Добавляет стрелку
