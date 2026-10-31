@@ -71,11 +71,33 @@ fn finish(svg: String, diagram: &Diagram, options: &RenderOptions) -> String {
     let meta = diagram.metadata();
     let svg = plantuml_renderer::decorations::decorate(svg, meta);
     let svg = plantuml_renderer::decorations::apply_scale(svg, meta.scale.unwrap_or(1.0));
-    if options.dark {
+    let svg = if options.dark {
         plantuml_renderer::dark::apply(&svg)
     } else {
         svg
+    };
+    if options.transparent_background {
+        without_canvas_background(svg)
+    } else {
+        svg
     }
+}
+
+/// Убирает `background:` из стиля корневого `<svg>`. Заливка от автора лежит отдельным `<rect>`.
+fn without_canvas_background(mut svg: String) -> String {
+    let Some(root) = svg.find("<svg") else {
+        return svg;
+    };
+    let Some(root_end) = svg[root..].find('>').map(|len| root + len) else {
+        return svg;
+    };
+    let Some(start) = svg[root..root_end].find("background:").map(|at| root + at) else {
+        return svg;
+    };
+    if let Some(end) = svg[start..root_end].find(';').map(|len| start + len + 1) {
+        svg.replace_range(start..end, "");
+    }
+    svg
 }
 
 /// Имя типа диаграммы для атрибута `data-diagram-type`.

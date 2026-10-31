@@ -29,3 +29,30 @@ fn test_unknown_chart_command_is_an_error() {
     );
     assert!(result.is_err(), "молчаливая потеря строки графика");
 }
+
+#[test]
+fn test_transparent_background_leaves_only_authors_fill() {
+    let options = plantuml_core::RenderOptions::default().with_transparent_background();
+    let plain = plantuml_core::render("@startuml\nA -> B\n@enduml", &options).expect("схема");
+    let root = &plain[plain.find("<svg").expect("корень")..];
+    let root = &root[..root.find('>').expect("конец тега")];
+    assert!(!root.contains("background:"), "{root}");
+
+    let source = "@startuml\nskinparam backgroundColor #FF0000\nA -> B\n@enduml";
+    let authored = plantuml_core::render(source, &options).expect("схема");
+    assert!(
+        authored.to_lowercase().contains("#ff0000"),
+        "фон автора потерян"
+    );
+}
+
+#[test]
+fn test_dark_theme_inverts_named_fill() {
+    let options = plantuml_core::RenderOptions::default().with_dark(true);
+    let source = "@startuml\nbox \"B\" #LightBlue\nparticipant A\nend box\nA -> A\n@enduml";
+    let svg = plantuml_core::render(source, &options).expect("схема");
+    assert!(
+        !svg.contains("LightBlue"),
+        "светлая заливка под светлым текстом"
+    );
+}

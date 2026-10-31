@@ -28,6 +28,8 @@ pub struct RenderOptions {
 
     /// Тёмная тема
     pub dark: bool,
+    /// Прозрачный фон холста; см. [`RenderOptions::with_transparent_background`]
+    pub transparent_background: bool,
 }
 
 /// Формат вывода
@@ -47,6 +49,7 @@ impl Default for RenderOptions {
             scale: 1.0,
             xml_header: true,
             background_color: None,
+            transparent_background: false,
             max_width: None,
             max_height: None,
             dark: false,
@@ -92,9 +95,11 @@ impl RenderOptions {
         self
     }
 
-    /// Прозрачный фон
+    /// Прозрачный фон: схема ложится на подложку приложения. Фон, заданный автором
+    /// через `skinparam backgroundColor`, остаётся.
     pub fn with_transparent_background(mut self) -> Self {
         self.background_color = None;
+        self.transparent_background = true;
         self
     }
 
