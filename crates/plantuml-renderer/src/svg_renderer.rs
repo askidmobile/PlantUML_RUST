@@ -299,8 +299,8 @@ fn arrow_head_points(
         // Сплошная стрелка: острие, два угла хвоста, вырез, замыкание.
         ArrowHeadKind::Closed => (
             vec![
-                at(0.0, 0.0),
                 at(-ARROW_HEAD_LENGTH, -ARROW_HEAD_HALF),
+                at(0.0, 0.0),
                 at(-ARROW_HEAD_LENGTH, ARROW_HEAD_HALF),
                 at(-ARROW_HEAD_NOTCH, 0.0),
             ],
@@ -5133,8 +5133,8 @@ mod tests {
         assert_eq!(
             points,
             vec![
-                (122.175, 70.43),
                 (112.175, 66.43),
+                (122.175, 70.43),
                 (112.175, 74.43),
                 (116.175, 70.43),
             ],

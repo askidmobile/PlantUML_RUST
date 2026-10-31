@@ -176,6 +176,8 @@ pub struct DiagramMetrics {
     pub anchors: std::collections::HashMap<String, (f64, f64)>,
     /// Отправитель и получатель последнего сообщения
     pub last_message_ends: Option<(String, String)>,
+    /// Ширина петли с подписью, если последнее сообщение адресовано себе
+    pub last_self_width: f64,
     /// Позиция потока до последнего размещённого сообщения или заметки:
     /// на неё возвращается следующий элемент после `&` и `/`
     pub item_flow_start: f64,
@@ -214,6 +216,7 @@ impl DiagramMetrics {
             boundary_right_x: 0.0,
             anchors: std::collections::HashMap::new(),
             last_message_ends: None,
+            last_self_width: 0.0,
             item_flow_start: 0.0,
             parallel_floor: None,
             last_note_right: 0.0,

@@ -1605,6 +1605,11 @@ impl SequenceLayoutEngine {
             metrics.destroyed.insert(msg.to.clone(), y);
         }
         metrics.last_message_ends = Some((msg.from.clone(), msg.to.clone()));
+        metrics.last_self_width = if msg.from == msg.to {
+            SELF_MESSAGE_LOOP_WIDTH.max(self.config.message_label_width(&msg.label))
+        } else {
+            0.0
+        };
         if let Some(anchor) = &msg.anchor {
             metrics
                 .anchors
@@ -2137,6 +2142,10 @@ impl SequenceLayoutEngine {
                 // линия Bob на x=106.487, заметка начинается на 110.987,
                 // то есть отступ 4.5.
                 NotePosition::Left => anchor_x - note_width - NOTE_ANCHOR_GAP,
+                // Заметка к сообщению самому себе стоит правее петли и её подписи.
+                NotePosition::Right if attached => {
+                    anchor_x + NOTE_ANCHOR_GAP + metrics.last_self_width
+                }
                 NotePosition::Right => anchor_x + NOTE_ANCHOR_GAP,
                 NotePosition::Over => anchor_x - note_width / 2.0,
                 NotePosition::Top | NotePosition::Bottom => anchor_x - note_width / 2.0,

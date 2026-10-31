@@ -13,7 +13,7 @@ expression: svg
 </g>
 <g id="msg_Alice_Bob">
 <path d="M33.8119,70.297 L106.39760000000001,70.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="112.398,70.297 102.398,66.297 102.398,74.297 106.398,70.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="102.398,66.297 112.398,70.297 102.398,74.297 106.398,70.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40.8119" y="65.297" textLength="54.586">
 Request
 </text>
@@ -29,7 +29,7 @@ alt
 </text>
 <g id="msg_Bob_Alice">
 <path d="M112.39760000000001,130.69 L39.8119,130.69" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<polygon fill="#181818" points="33.812,130.69 43.812,134.69 43.812,126.69 39.812,130.69" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="43.812,134.69 33.812,130.69 43.812,126.69 39.812,130.69" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8119" y="125.69" textLength="18.756">
 OK
 </text>
@@ -40,7 +40,7 @@ OK
 </text>
 <g id="msg_Bob_Alice">
 <path d="M112.39760000000001,178.823 L39.8119,178.823" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<polygon fill="#181818" points="33.812,178.823 43.812,182.823 43.812,174.823 39.812,178.823" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="43.812,182.823 33.812,178.823 43.812,174.823 39.812,178.823" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8119" y="173.823" textLength="32.204">
 Error
 </text>

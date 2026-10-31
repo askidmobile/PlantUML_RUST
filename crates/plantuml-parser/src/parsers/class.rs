@@ -40,6 +40,8 @@ struct State {
     /// Последняя связь: к ней привязывается `note on link`.
     last_link: Option<(String, String)>,
     commands: Vec<VisCommand>,
+    /// Пакеты, чьё имя записано без кавычек: точка в нём означает вложенность
+    dotted_packages: std::collections::HashSet<String>,
 }
 
 impl State {
@@ -60,6 +62,44 @@ impl State {
             }
         }
     }
+}
+
+/// `package a.b.c` и `package a.b.d` — это вложенные пакеты с общими предками.
+fn nest_dotted_packages(
+    packages: Vec<Package>,
+    dotted: &std::collections::HashSet<String>,
+) -> Vec<Package> {
+    let mut out: Vec<Package> = Vec::new();
+    for mut package in packages {
+        package.packages = nest_dotted_packages(std::mem::take(&mut package.packages), dotted);
+        let segments: Vec<String> = package.name.split('.').map(str::to_string).collect();
+        // Длинная цепочка из точек не должна обходить предел вложенности разбора.
+        if !dotted.contains(&package.name)
+            || segments.len() > crate::limits::MAX_NESTING
+            || segments.iter().any(String::is_empty)
+        {
+            out.push(package);
+            continue;
+        }
+        let mut level = &mut out;
+        let (leaf, ancestors) = match segments.split_last() {
+            Some(parts) => parts,
+            None => continue,
+        };
+        for segment in ancestors {
+            let index = match level.iter().position(|p| p.name == *segment) {
+                Some(index) => index,
+                None => {
+                    level.push(Package::new(segment.clone()));
+                    level.len() - 1
+                }
+            };
+            level = &mut level[index].packages;
+        }
+        package.name = leaf.clone();
+        level.push(package);
+    }
+    out
 }
 
 /// Парсит class diagram из исходного кода
@@ -85,6 +125,10 @@ pub fn parse_class(source: &str) -> Result<ClassDiagram> {
 
     resolve_aliases(&mut diagram);
     convert_note_relationships(&mut diagram);
+    diagram.packages = nest_dotted_packages(
+        std::mem::take(&mut diagram.packages),
+        &state.dotted_packages,
+    );
     apply_commands(&mut diagram, &state.commands);
     add_implicit_classifiers(&mut diagram);
 
@@ -454,7 +498,14 @@ fn process_rule(pair: pest::iterators::Pair<Rule>, diagram: &mut ClassDiagram, s
         }
         Rule::note_stmt => parse_note_statement(pair, diagram, state),
         Rule::package_start => {
+            let quoted = pair
+                .clone()
+                .into_inner()
+                .any(|inner| inner.as_str().trim_start().starts_with('"'));
             let pkg = parse_package_start(pair);
+            if !quoted && pkg.name.contains('.') {
+                state.dotted_packages.insert(pkg.name.clone());
+            }
             state.stack.push(Block::Package(pkg));
         }
         Rule::together_start => state.stack.push(Block::Together),
@@ -1502,6 +1553,20 @@ fn parse_raster_sprite(pair: pest::iterators::Pair<Rule>) -> Option<plantuml_ast
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_dotted_package_nests_and_shares_ancestors() {
+        let diagram = parse_class(
+            "@startuml\npackage a.b.c {\nclass X\n}\npackage a.b.d {\nclass Y\n}\npackage \"v1.2\" {\nclass Z\n}\n@enduml",
+        )
+        .unwrap();
+        let names: Vec<&str> = diagram.packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["a", "v1.2"]);
+        let b = &diagram.packages[0].packages[0];
+        assert_eq!(b.name, "b");
+        let leaves: Vec<&str> = b.packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(leaves, vec!["c", "d"]);
+    }
 
     /// Сжатый спрайт (формат `16z`) разбирается и распаковывается.
     ///

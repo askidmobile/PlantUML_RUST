@@ -1,6 +1,5 @@
 ---
 source: crates/plantuml-core/tests/sequence_tests.rs
-assertion_line: 25
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
@@ -14,14 +13,14 @@ expression: svg
 </g>
 <g id="msg_Alice_Bob">
 <path d="M33.8119,70.297 L85.7887,70.297" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="91.789,70.297 81.789,66.297 81.789,74.297 85.789,70.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="81.789,66.297 91.789,70.297 81.789,74.297 85.789,70.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="40.8119" y="65.297" textLength="33.977">
 Hello
 </text>
 </g>
 <g id="msg_Bob_Alice">
 <path d="M91.7887,99.42999999999999 L39.8119,99.42999999999999" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<polygon fill="#181818" points="33.812,99.43 43.812,103.43 43.812,95.43 39.812,99.43" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<polygon fill="#181818" points="43.812,103.43 33.812,99.43 43.812,95.43 39.812,99.43" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 <text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="50.8119" y="94.42999999999999" textLength="12.893">
 Hi
 </text>
