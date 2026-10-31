@@ -78,6 +78,26 @@ pub struct Scene {
     text: TextMeasurer,
 }
 
+/// `текст >` и `< текст`: автор указывает направление чтения связи, PlantUML рисует его
+/// значком по ходу линии, а не знаком сравнения.
+fn label_with_direction(label: &str, path: &[(f64, f64)]) -> String {
+    let forward = label.strip_suffix(" >").map(|text| (text, 1.0));
+    let backward = label.strip_prefix("< ").map(|text| (text, -1.0));
+    let (Some((text, sign)), Some(first), Some(last)) =
+        (forward.or(backward), path.first(), path.last())
+    else {
+        return label.to_string();
+    };
+    let (dx, dy) = ((last.0 - first.0) * sign, (last.1 - first.1) * sign);
+    let glyph = match (dx.abs() >= dy.abs(), dx >= 0.0, dy >= 0.0) {
+        (true, true, _) => '▶',
+        (true, false, _) => '◀',
+        (false, _, true) => '▼',
+        (false, _, false) => '▲',
+    };
+    format!("{glyph} {text}")
+}
+
 impl Scene {
     /// Создаёт сцену с зазорами и полем кластера.
     pub fn new(node_sep: f64, rank_sep: f64, cluster_margin: f64, text: TextMeasurer) -> Self {
@@ -425,7 +445,7 @@ impl Scene {
                     text: None,
                     properties: HashMap::new(),
                     element_type: ElementType::Text {
-                        text: label.clone(),
+                        text: label_with_direction(label, path),
                         font_size: LABEL_FONT,
                     },
                 });

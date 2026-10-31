@@ -76,7 +76,10 @@ fn expected_labels(source: &str) -> Vec<String> {
             continue;
         }
 
+        // Знак направления чтения связи рисуется значком, проверяем сам текст.
         let text = line[colon + 2..].trim();
+        let text = text.strip_suffix(" >").unwrap_or(text);
+        let text = text.strip_prefix("< ").unwrap_or(text);
         if !text.is_empty() && !text.contains('"') {
             out.push(text.to_string());
         }

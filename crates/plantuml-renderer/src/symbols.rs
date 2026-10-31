@@ -237,6 +237,17 @@ pub fn cluster_frame(
                 false,
             )
         }
+        "component" => (
+            vec![
+                round_rect(x, y, w, h, "none", &thin),
+                rect_plain(r - 20.0, y + 5.0, 15.0, 10.0, &thin),
+                rect_plain(r - 22.0, y + 7.0, 4.0, 2.0, &thin),
+                rect_plain(r - 22.0, y + 11.0, 4.0, 2.0, &thin),
+            ],
+            x + w / 2.0,
+            y + 18.0,
+            true,
+        ),
         "cloud" => (
             vec![outline(cloud_path(b), "none", &thin)],
             x + w / 2.0,

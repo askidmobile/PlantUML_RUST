@@ -64,6 +64,8 @@ pub enum ComponentType {
     Stack,
     /// Port
     Port,
+    /// Выходной порт: стоит на нижней стороне рамки
+    PortOut,
     /// Device (физическое устройство для Deployment Diagram)
     Device,
     /// Agent (исполняемый агент для Deployment Diagram)
@@ -108,7 +110,8 @@ impl ComponentType {
             "entity" => Some(Self::Entity),
             "collections" => Some(Self::Collections),
             "usecase" => Some(Self::UseCase),
-            "portin" | "portout" => Some(Self::Port),
+            "portin" => Some(Self::Port),
+            "portout" => Some(Self::PortOut),
             _ => None,
         }
     }
@@ -300,6 +303,8 @@ pub enum PackageType {
     Frame,
     Cloud,
     Rectangle,
+    /// Компонент с содержимым (`component "Имя" { ... }`).
+    Component,
     /// База данных (`database "Имя" { ... }`).
     ///
     /// Измерено по эталону `Component: Простой`: переход в `database`

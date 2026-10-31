@@ -55,6 +55,101 @@ pub struct ComponentLayoutEngine {
     show_stereotypes: bool,
 }
 
+/// Порт стоит на рамке своего компонента, а не внутри неё; концы его связей идут за ним.
+fn seat_ports(result: &mut LayoutResult) {
+    let frames: Vec<Rect> = result
+        .elements
+        .iter()
+        .filter(|e| e.properties.contains_key("cluster-shape"))
+        .map(|e| e.bounds)
+        .collect();
+    let mut moved: Vec<(Rect, f64)> = Vec::new();
+    let mut captions: Vec<LayoutElement> = Vec::new();
+    for element in &mut result.elements {
+        if element.properties.get("shape").map(String::as_str) != Some("port") {
+            continue;
+        }
+        let b = element.bounds;
+        let parent = frames
+            .iter()
+            .filter(|f| {
+                f.x <= b.x
+                    && f.y <= b.y
+                    && f.x + f.width >= b.x + b.width
+                    && f.y + f.height >= b.y + b.height
+            })
+            .min_by(|f, g| (f.width * f.height).total_cmp(&(g.width * g.height)));
+        let Some(parent) = parent else { continue };
+        let side = if element.properties.contains_key("port-out") {
+            parent.y + parent.height
+        } else {
+            parent.y
+        };
+        let out = element.properties.contains_key("port-out");
+        let shift = side - (b.y + PORT_SIDE / 2.0);
+        moved.push((b, shift));
+        // Подпись снаружи рамки, над портом или под ним: внутри она мешала бы заголовку.
+        let name = match &mut element.element_type {
+            ElementType::Rectangle { label, .. } => std::mem::take(label),
+            _ => continue,
+        };
+        let text_width = b.width - PORT_SIDE - PORT_LABEL_GAP;
+        element.bounds = Rect::new(b.x, b.y + shift, PORT_SIDE, PORT_SIDE);
+        captions.push(LayoutElement {
+            id: format!("{}_caption", element.id),
+            bounds: Rect::new(
+                b.x + (PORT_SIDE - text_width) / 2.0,
+                if out {
+                    b.y + shift + PORT_SIDE + 2.0
+                } else {
+                    b.y + shift - LINE_HEIGHT - 2.0
+                },
+                text_width,
+                LINE_HEIGHT,
+            ),
+            text: None,
+            properties: HashMap::new(),
+            element_type: ElementType::Text {
+                text: name,
+                font_size: 14.0,
+            },
+        });
+    }
+    result.elements.append(&mut captions);
+    for element in &mut result.elements {
+        let ElementType::Edge { points, .. } = &mut element.element_type else {
+            continue;
+        };
+        let last = points.len().saturating_sub(1);
+        for index in [0, last] {
+            let Some(point) = points.get_mut(index) else {
+                continue;
+            };
+            let touched = moved.iter().find(|(b, _)| {
+                point.x >= b.x - 1.0
+                    && point.x <= b.x + b.width + 1.0
+                    && point.y >= b.y - 1.0
+                    && point.y <= b.y + b.height + 1.0
+            });
+            if let Some((_, shift)) = touched {
+                point.y += shift;
+            }
+        }
+    }
+    let top = result
+        .elements
+        .iter()
+        .map(|e| e.bounds.y)
+        .fold(result.bounds.y, f64::min);
+    let lowest = result
+        .elements
+        .iter()
+        .map(|e| e.bounds.y + e.bounds.height)
+        .fold(result.bounds.y + result.bounds.height, f64::max);
+    result.bounds.height = lowest - top;
+    result.bounds.y = top;
+}
+
 impl ComponentLayoutEngine {
     /// Создаёт новый engine с конфигурацией по умолчанию
     pub fn new() -> Self {
@@ -111,6 +206,7 @@ impl ComponentLayoutEngine {
         // справа 13.8, снизу 23; у объёмных узлов слева 16, справа 25.
         let has_clusters = !diagram.packages.is_empty();
         let mut result = scene.build();
+        seat_ports(&mut result);
         if has_clusters {
             result.bounds.x -= NODE_LEFT_EXTRA;
             result.bounds.width += NODE_LEFT_EXTRA + NODE_RIGHT_EXTRA;
@@ -166,6 +262,7 @@ impl ComponentLayoutEngine {
             PackageType::Cloud => "cloud",
             PackageType::Rectangle => "rectangle",
             PackageType::Database => "database",
+            PackageType::Component => "component",
         };
         let title = self
             .config
@@ -300,7 +397,8 @@ impl ComponentLayoutEngine {
                 text_width * 1.15 + 14.8,
                 (block + 12.1).max(28.4),
             ),
-            ComponentType::Port => return self.create_port_element(name, text_width),
+            ComponentType::Port => return self.create_port_element(name, text_width, false),
+            ComponentType::PortOut => return self.create_port_element(name, text_width, true),
             ComponentType::Interface => return self.create_interface_element(name),
             ComponentType::Actor => return self.create_actor_element(name, text_width),
             ComponentType::Boundary | ComponentType::Control | ComponentType::Entity => {
@@ -340,14 +438,17 @@ impl ComponentLayoutEngine {
     /// Порт (`port`, `portin`, `portout`): квадрат 12 на 12 с подписью справа.
     ///
     /// Положение на рамке компонента не вычисляется: порт живёт узлом внутри неё.
-    fn create_port_element(&self, name: &str, text_width: f64) -> LayoutElement {
-        let properties: HashMap<String, String> = [
+    fn create_port_element(&self, name: &str, text_width: f64, out: bool) -> LayoutElement {
+        let mut properties: HashMap<String, String> = [
             ("shape".to_string(), "port".to_string()),
             ("fill".to_string(), "#F1F1F1".to_string()),
             ("stroke-width".to_string(), "1.5".to_string()),
         ]
         .into_iter()
         .collect();
+        if out {
+            properties.insert("port-out".to_string(), "1".to_string());
+        }
         LayoutElement {
             id: format!("port_{}", name.replace(' ', "_")),
             bounds: Rect::new(

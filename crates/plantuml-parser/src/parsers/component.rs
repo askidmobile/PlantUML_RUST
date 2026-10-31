@@ -498,6 +498,7 @@ fn parse_package_type(s: &str) -> PackageType {
         "frame" => PackageType::Frame,
         "cloud" => PackageType::Cloud,
         "rectangle" => PackageType::Rectangle,
+        "component" => PackageType::Component,
         _ => PackageType::Package,
     }
 }
