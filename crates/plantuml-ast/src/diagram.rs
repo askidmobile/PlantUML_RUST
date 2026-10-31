@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::activity::ActivityDiagram;
+use crate::chart::ChartDiagram;
 use crate::class::ClassDiagram;
 use crate::common::DiagramMetadata;
 use crate::component::ComponentDiagram;
@@ -12,6 +13,7 @@ use crate::json::JsonDiagram;
 use crate::mindmap::MindMapDiagram;
 use crate::network::NetworkDiagram;
 use crate::object::ObjectDiagram;
+use crate::railroad::{EbnfDiagram, RegexDiagram};
 use crate::salt::SaltDiagram;
 use crate::sequence::SequenceDiagram;
 use crate::state::StateDiagram;
@@ -42,6 +44,9 @@ pub enum DiagramType {
     Salt,
     Er,
     Archimate,
+    Regex,
+    Ebnf,
+    Chart,
 }
 
 /// Корневой enum для всех типов диаграмм
@@ -83,6 +88,12 @@ pub enum Diagram {
     Salt(SaltDiagram),
     /// Archimate диаграмма (использует ComponentDiagram)
     Archimate(ComponentDiagram),
+    /// Регулярное выражение (железнодорожная диаграмма)
+    Regex(RegexDiagram),
+    /// Грамматика EBNF
+    Ebnf(EbnfDiagram),
+    /// Столбцы, линии и области
+    Chart(ChartDiagram),
 }
 
 impl Diagram {
@@ -107,6 +118,9 @@ impl Diagram {
             Diagram::Network(_) => DiagramType::Network,
             Diagram::Salt(_) => DiagramType::Salt,
             Diagram::Archimate(_) => DiagramType::Archimate,
+            Diagram::Regex(_) => DiagramType::Regex,
+            Diagram::Ebnf(_) => DiagramType::Ebnf,
+            Diagram::Chart(_) => DiagramType::Chart,
         }
     }
 
@@ -131,6 +145,9 @@ impl Diagram {
             Diagram::Network(d) => &d.metadata,
             Diagram::Salt(d) => &d.metadata,
             Diagram::Archimate(d) => &d.metadata,
+            Diagram::Regex(d) => &d.metadata,
+            Diagram::Ebnf(d) => &d.metadata,
+            Diagram::Chart(d) => &d.metadata,
         }
     }
 
@@ -155,6 +172,9 @@ impl Diagram {
             Diagram::Network(d) => &mut d.metadata,
             Diagram::Salt(d) => &mut d.metadata,
             Diagram::Archimate(d) => &mut d.metadata,
+            Diagram::Regex(d) => &mut d.metadata,
+            Diagram::Ebnf(d) => &mut d.metadata,
+            Diagram::Chart(d) => &mut d.metadata,
         }
     }
 }

@@ -1,14 +1,17 @@
 //! Парсеры для различных типов диаграмм
 
 pub mod activity;
+pub mod chart;
 pub mod class;
 pub mod component;
+pub mod ebnf;
 pub mod er;
 pub mod gantt;
 pub mod json;
 pub mod mindmap;
 pub mod network;
 pub mod object;
+pub mod regex;
 pub mod salt;
 pub mod sequence;
 pub mod state;
@@ -18,14 +21,17 @@ pub mod wbs;
 pub mod yaml;
 
 pub use activity::parse_activity;
+pub use chart::parse_chart;
 pub use class::parse_class;
 pub use component::parse_component;
+pub use ebnf::parse_ebnf;
 pub use er::parse_er;
 pub use gantt::parse_gantt;
 pub use json::parse_json;
 pub use mindmap::parse_mindmap;
 pub use network::parse_network;
 pub use object::parse_object;
+pub use regex::parse_regex;
 pub use salt::parse_salt;
 pub use sequence::parse_sequence;
 pub use state::parse_state;

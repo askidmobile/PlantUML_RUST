@@ -905,6 +905,8 @@ impl SvgRenderer {
         match self.options.diagram_type.as_deref() {
             Some("CLASS") => CLASS,
             Some("NWDIAG") => NWDIAG,
+            // Железнодорожные диаграммы и chart сами задают полный холст.
+            Some("REGEX" | "EBNF" | "CHART") => (0.0, 0.0, 0.0, 0.0),
             Some("MINDMAP") => MINDMAP,
             Some("JSON") | Some("YAML") => TABLE,
             Some("GANTT") => GANTT,

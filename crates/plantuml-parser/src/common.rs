@@ -10,12 +10,19 @@
 
 use plantuml_ast::common::{DiagramMetadata, Direction, LegendAlign};
 
-/// Диаграммы со своим языком: `title: x` в YAML — это обычный ключ.
+/// Диаграммы со своим языком: `title: x` в YAML — это обычный ключ, а
+/// `legend right` в chart — положение легенды, не общая подпись.
 fn has_own_language(source: &str) -> bool {
     let head = source.trim_start().to_lowercase();
-    ["@startjson", "@startyaml", "@startsalt"]
-        .iter()
-        .any(|tag| head.starts_with(tag))
+    [
+        "@startjson",
+        "@startyaml",
+        "@startsalt",
+        "@startregex",
+        "@startchart",
+    ]
+    .iter()
+    .any(|tag| head.starts_with(tag))
 }
 
 /// Текст после ключевого слова, если строка им начинается.

@@ -98,6 +98,9 @@ fn svg_diagram_type(diagram: &Diagram) -> &'static str {
         DiagramType::Network => "NWDIAG",
         DiagramType::Salt => "SALT",
         DiagramType::Archimate => "ARCHIMATE",
+        DiagramType::Regex => "REGEX",
+        DiagramType::Ebnf => "EBNF",
+        DiagramType::Chart => "CHART",
     }
 }
 
@@ -233,6 +236,9 @@ fn layout(diagram: &Diagram, _options: &RenderOptions) -> Result<LayoutResult> {
             let engine = SaltLayoutEngine::new();
             Ok(engine.layout(salt, &_config))
         }
+        Diagram::Regex(d) => Ok(plantuml_layout::railroad::layout_regex(d)),
+        Diagram::Ebnf(d) => Ok(plantuml_layout::railroad::layout_ebnf(d)),
+        Diagram::Chart(d) => Ok(plantuml_layout::chart::layout_chart(d)),
         Diagram::Archimate(arch) => {
             // Archimate использует ComponentLayoutEngine; стереотип здесь задаёт значок, а не подпись
             let engine = ComponentLayoutEngine::new().hide_stereotypes();

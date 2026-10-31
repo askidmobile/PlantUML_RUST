@@ -3,6 +3,7 @@
 //! Layout engines для автоматического размещения элементов диаграмм.
 
 pub mod activity;
+pub mod chart;
 pub mod class;
 pub mod component;
 pub mod config;
@@ -14,6 +15,7 @@ pub mod json;
 pub mod mindmap;
 pub mod network;
 pub mod object;
+pub mod railroad;
 pub mod salt;
 pub mod sequence;
 pub mod state;

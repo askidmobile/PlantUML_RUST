@@ -197,6 +197,9 @@ fn parse_kind(kind: DiagramKind, source: &str) -> Result<Diagram> {
         DiagramKind::Network => parse_network_diagram(source),
         DiagramKind::Salt => parse_salt_diagram(source),
         DiagramKind::Archimate => parse_archimate_diagram(source),
+        DiagramKind::Regex => Ok(Diagram::Regex(parsers::parse_regex(source)?)),
+        DiagramKind::Ebnf => Ok(Diagram::Ebnf(parsers::parse_ebnf(source)?)),
+        DiagramKind::Chart => Ok(Diagram::Chart(parsers::parse_chart(source)?)),
         DiagramKind::Unknown => Err(ParseError::UnknownDiagramType),
     }
 }
@@ -209,7 +212,8 @@ fn has_start_tag(source: &str) -> bool {
 /// Теги типов, которых движок не поддерживает: они дают понятную ошибку.
 fn unsupported_kind(source: &str) -> Option<String> {
     const KNOWN: &[&str] = &[
-        "uml", "gantt", "mindmap", "wbs", "json", "yaml", "salt", "nwdiag",
+        "uml", "gantt", "mindmap", "wbs", "json", "yaml", "salt", "nwdiag", "regex", "ebnf",
+        "chart",
     ];
     let line = source
         .lines()
@@ -267,6 +271,9 @@ pub enum DiagramKind {
     Network,
     Salt,
     Archimate,
+    Regex,
+    Ebnf,
+    Chart,
     Unknown,
 }
 
@@ -554,6 +561,17 @@ pub fn detect_diagram_type(source: &str) -> Result<DiagramKind> {
     // внутри подписей сообщений приводят к ложной детекции.
     let skeleton = structural_skeleton(source);
     let source_lower = skeleton.to_lowercase();
+
+    // Эти теги однозначны, а тело (регулярка, EBNF) легко принять за другой тип.
+    for (tag, kind) in [
+        ("@startregex", DiagramKind::Regex),
+        ("@startebnf", DiagramKind::Ebnf),
+        ("@startchart", DiagramKind::Chart),
+    ] {
+        if source_lower.contains(tag) {
+            return Ok(kind);
+        }
+    }
 
     // Salt Diagram — проверяем по @startsalt или salt keyword
     if source_lower.contains("@startsalt")

@@ -6,6 +6,7 @@
 //! распарсенных PlantUML диаграмм.
 
 pub mod activity;
+pub mod chart;
 pub mod class;
 pub mod common;
 pub mod component;
@@ -16,6 +17,7 @@ pub mod json;
 pub mod mindmap;
 pub mod network;
 pub mod object;
+pub mod railroad;
 pub mod salt;
 pub mod sequence;
 pub mod state;
