@@ -1,0 +1,10 @@
+@startuml
+class Service
+note right of Service
+  **Важно:** //читать//
+  * первый пункт
+  * второй пункт
+  <color:red>красный</color>
+  ""моно""
+end note
+@enduml

@@ -1,0 +1,8 @@
+@startjson
+{
+  "name": "yttri",
+  "version": "1.0",
+  "features": ["notes", "mail", "tasks"],
+  "owner": {"name": "Alice", "active": true}
+}
+@endjson

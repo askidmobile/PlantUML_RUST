@@ -20,3 +20,12 @@ fn test_library_works_with_application_allocator() {
     .expect("простая схема рисуется");
     assert!(svg.contains("<svg"));
 }
+
+#[test]
+fn test_unknown_chart_command_is_an_error() {
+    let result = plantuml_core::render(
+        "@startchart\nh-axis [a, b]\nbar [1, 2]\nannotation \"важно\"\n@endchart",
+        &plantuml_core::RenderOptions::default(),
+    );
+    assert!(result.is_err(), "молчаливая потеря строки графика");
+}

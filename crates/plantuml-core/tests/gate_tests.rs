@@ -373,7 +373,11 @@ fn corpus_gate() {
         return;
     }
     let baseline = std::fs::read_to_string(&baseline_path).unwrap_or_default();
-    let known: BTreeSet<&str> = baseline.lines().map(case_of).collect();
+    let known: BTreeSet<&str> = baseline
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(case_of)
+        .collect();
     let current: BTreeSet<&str> = violations.iter().map(|v| case_of(v)).collect();
 
     let new: Vec<&String> = violations

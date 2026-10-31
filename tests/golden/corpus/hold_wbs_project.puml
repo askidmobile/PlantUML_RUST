@@ -1,0 +1,10 @@
+@startwbs
+* Project
+** Planning
+*** Scope
+*** Budget
+** Execution
+*** Development
+*** Testing
+** Closure
+@endwbs

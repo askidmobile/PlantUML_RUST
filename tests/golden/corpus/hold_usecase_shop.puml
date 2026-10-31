@@ -1,0 +1,16 @@
+@startuml
+left to right direction
+actor Customer
+actor "Support Agent" as Agent
+rectangle "Online Shop" {
+  usecase "Browse catalog" as UC1
+  usecase "Place order" as UC2
+  usecase "Pay" as UC3
+  usecase "Refund" as UC4
+  UC2 ..> UC3 : <<include>>
+  UC4 ..> UC3 : <<extend>>
+}
+Customer --> UC1
+Customer --> UC2
+Agent --> UC4
+@enduml

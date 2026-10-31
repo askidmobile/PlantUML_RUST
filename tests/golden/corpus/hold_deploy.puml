@@ -1,0 +1,17 @@
+@startuml
+node "Kubernetes Cluster" {
+  node "Pod: web" {
+    artifact "web.jar" as web
+  }
+  node "Pod: worker" {
+    artifact "worker.jar" as worker
+  }
+}
+database "RDS" as db
+storage "S3" as s3
+web --> db : JDBC
+worker --> db
+worker --> s3
+actor Admin
+Admin --> web : HTTPS
+@enduml

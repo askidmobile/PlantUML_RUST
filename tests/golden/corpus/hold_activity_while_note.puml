@@ -1,0 +1,14 @@
+@startuml
+start
+:Read file;
+while (more lines?) is (yes)
+  :Parse line;
+  note right: skip comments
+  if (error?) then (yes)
+    :Log error;
+    break
+  endif
+endwhile (no)
+:Close file;
+stop
+@enduml

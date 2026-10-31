@@ -258,7 +258,14 @@ fn expand(out: &mut String, tag: &str, content: &str, sprites: &[Sprite], number
     // Высокий спрайт раздвигает строки; блок остаётся по центру своей фигуры.
     let extras: Vec<f64> = lines
         .iter()
-        .map(|(line, _, _)| line_extra(line, line_height, sprites))
+        // Одиночную строку рендерер уже разместил по её высоте: двигать нечего.
+        .map(|(line, _, _)| {
+            if lines.len() > 1 {
+                line_extra(line, line_height, sprites)
+            } else {
+                0.0
+            }
+        })
         .collect();
     let mut shift = -extras.iter().sum::<f64>() / 2.0;
     for ((line, line_x, line_y), extra) in lines.iter().zip(&extras) {

@@ -1,0 +1,24 @@
+@startuml
+title Синхронизация заметок
+autonumber
+actor Пользователь as U
+participant "Приложение" as A
+database "SQLite" as DB
+participant "Облако" as C
+
+U -> A : Сохранить заметку
+A -> DB : INSERT note
+activate DB
+DB --> A : ok
+deactivate DB
+group Фоновая синхронизация
+    A -> C : PUT /notes/42
+    alt сеть доступна
+        C --> A : 200
+    else нет сети
+        A -> A : поставить в очередь
+        note right : Повторим при\nподключении
+    end
+end
+A --> U : Готово
+@enduml

@@ -1,0 +1,7 @@
+@startsalt
+{
+  Login | "user@example.com"
+  Password | "****"
+  [Cancel] | [ OK ]
+}
+@endsalt

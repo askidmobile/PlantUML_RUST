@@ -1,0 +1,16 @@
+@startuml
+package com.example.repo {
+  interface Repository<T> {
+    +findById(id: Long): T
+    +save(entity: T): void
+  }
+  abstract class BaseRepository<T>
+  class UserRepository
+}
+package com.example.model {
+  class User
+}
+BaseRepository ..|> Repository
+UserRepository --|> BaseRepository
+UserRepository ..> User
+@enduml

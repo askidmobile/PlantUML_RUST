@@ -357,7 +357,25 @@ impl SkinParams {
     /// `fontColor`/`FontColor`, `linetype`, `roundCorner`/`roundcorner`,
     /// `nodesep`, `ranksep`.
     pub fn apply_to(&self, theme: &mut Theme) {
-        for (key, value) in &self.params {
+        // Библиотеки вроде C4 задают стиль стереотипа для каждой фигуры отдельно, а общий
+        // стиль у нас один. У актёра подпись снаружи, и её цвет совпадает с заливкой других
+        // фигур, поэтому фигуры с внешней подписью пропускаем, а `rectangle` применяем
+        // последним. Сортировка нужна ещё и ради одинакового результата при каждом запуске.
+        let mut keys: Vec<&String> = self
+            .params
+            .keys()
+            .filter(|key| {
+                let lower = key.to_lowercase();
+                !["actor", "person", "arrow", "boundary", "participant"]
+                    .iter()
+                    .any(|element| lower.starts_with(element))
+            })
+            .collect();
+        keys.sort_by_key(|key| (key.to_lowercase().starts_with("rectangle"), key.as_str()));
+        for key in keys {
+            let Some(value) = self.params.get(key) else {
+                continue;
+            };
             let Some((stereotype, property)) = stereotype_key(key) else {
                 continue;
             };

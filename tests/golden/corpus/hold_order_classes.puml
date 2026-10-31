@@ -1,0 +1,35 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+class Order {
+  -id: UUID
+  -status: OrderStatus
+  -items: List<OrderItem>
+  +total(): Money
+  +cancel(): void
+}
+class OrderItem {
+  -sku: String
+  -qty: int
+  -price: Money
+}
+enum OrderStatus {
+  NEW
+  PAID
+  SHIPPED
+  CANCELLED
+}
+interface PaymentGateway {
+  +charge(amount: Money): Receipt
+}
+class StripeGateway
+class Customer {
+  +name: String
+  +email: String
+}
+Customer "1" --> "0..*" Order : places
+Order "1" *-- "1..*" OrderItem : contains
+Order --> OrderStatus
+StripeGateway ..|> PaymentGateway
+Order ..> PaymentGateway : uses
+@enduml

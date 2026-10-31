@@ -1,0 +1,15 @@
+@startuml
+state check <<choice>>
+state fork1 <<fork>>
+state join1 <<join>>
+[*] --> check
+check --> Approved : [ok]
+check --> Rejected : [fail]
+Approved --> fork1
+fork1 --> Ship
+fork1 --> Invoice
+Ship --> join1
+Invoice --> join1
+join1 --> [*]
+Rejected --> [*]
+@enduml

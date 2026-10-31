@@ -1,0 +1,18 @@
+@startuml
+[*] --> Open : create
+Open --> InProgress : assign
+InProgress --> Review : submit
+Review --> InProgress : changes requested
+Review --> Done : approve
+Done --> [*]
+InProgress --> Blocked : dependency
+Blocked --> InProgress : unblock
+state Done {
+  [*] --> Merged
+  Merged --> Deployed
+}
+note right of Blocked
+  Waiting for an
+  external team
+end note
+@enduml

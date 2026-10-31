@@ -94,7 +94,8 @@ pub fn parse_chart(source: &str) -> crate::Result<ChartDiagram> {
             }
             "title" => chart.metadata.title = Some(rest.trim_start_matches(':').trim().to_string()),
             "stackmode" => chart.stacked = rest.eq_ignore_ascii_case("stacked"),
-            _ => {}
+            // Молча пропущенная строка дала бы неполный график, который выглядит верным.
+            _ => return Err(fail("неподдержанная команда графика")),
         }
     }
     if chart.series.is_empty() && chart.h_axis.categories.is_empty() {

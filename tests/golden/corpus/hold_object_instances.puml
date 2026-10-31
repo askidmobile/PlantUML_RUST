@@ -1,0 +1,15 @@
+@startuml
+object order1 {
+  id = 42
+  status = "PAID"
+}
+object customer {
+  name = "Alice"
+}
+map limits {
+  daily => 100
+  monthly => 1000
+}
+customer --> order1
+order1 --> limits
+@enduml

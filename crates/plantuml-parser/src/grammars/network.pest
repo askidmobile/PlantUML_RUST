@@ -63,7 +63,7 @@ network_element = _{ network_address | description_attr | color_attr | server_in
 network_address = { "address" ~ ws ~ "=" ~ ws ~ quoted_string }
 
 // Сервер внутри сети
-server_in_network = { identifier ~ ws ~ server_attributes? }
+server_in_network = { identifier ~ ws ~ server_attributes? ~ ws ~ ";"? }
 
 // Атрибуты сервера
 server_attributes = { "[" ~ ws ~ (server_attribute ~ ws ~ ("," ~ ws ~ server_attribute)*)? ~ ws ~ "]" }
@@ -104,7 +104,7 @@ group_element = _{ color_attr | description_attr | group_member | comment }
 group_member = { identifier }
 
 // Определение сервера вне сети
-server_definition = { identifier ~ ws ~ server_attributes }
+server_definition = { identifier ~ ws ~ server_attributes ~ ws ~ ";"? }
 
 // Идентификатор
 identifier = @{ (LETTER | NUMBER | "_" | "-")+ }

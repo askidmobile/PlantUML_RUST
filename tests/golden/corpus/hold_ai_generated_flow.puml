@@ -1,0 +1,23 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+title User Registration Flow
+
+start
+:User fills registration form;
+:Validate input;
+if (Input valid?) then (yes)
+  :Check if email exists;
+  if (Email exists?) then (yes)
+    :Show error "Email already registered";
+    stop
+  else (no)
+    :Create user account;
+    :Send verification email;
+    :Show success message;
+  endif
+else (no)
+  :Show validation errors;
+  stop
+endif
+stop
+@enduml

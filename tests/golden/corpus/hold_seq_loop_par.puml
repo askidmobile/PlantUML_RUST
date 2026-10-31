@@ -1,0 +1,18 @@
+@startuml
+participant Scheduler
+participant Worker
+participant DB
+loop every minute
+    Scheduler -> Worker : tick
+    par fetch
+        Worker -> DB : SELECT jobs
+    else report
+        Worker -> Scheduler : heartbeat
+    end
+    opt jobs found
+        Worker -> Worker : execute
+        Worker -> DB : UPDATE status
+    end
+end
+destroy Worker
+@enduml

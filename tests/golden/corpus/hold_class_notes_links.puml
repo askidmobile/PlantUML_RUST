@@ -1,0 +1,11 @@
+@startuml
+class Foo
+class Bar
+Foo -right-> Bar : next
+note top of Foo : top note
+note bottom of Bar : bottom note
+Foo : +field : int
+Foo : +method()
+Bar <|-up- Baz
+class Baz <<service>>
+@enduml

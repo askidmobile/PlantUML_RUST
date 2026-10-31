@@ -1,0 +1,13 @@
+@startgantt
+Project starts 2026-11-02
+saturday are closed
+sunday are closed
+[Design] lasts 5 days
+[Backend] lasts 10 days
+[Frontend] lasts 8 days
+[Backend] starts at [Design]'s end
+[Frontend] starts at [Design]'s end
+[QA] lasts 5 days
+[QA] starts at [Backend]'s end
+[Release] happens at [QA]'s end
+@endgantt

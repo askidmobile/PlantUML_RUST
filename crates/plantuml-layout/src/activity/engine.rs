@@ -2,11 +2,12 @@
 //!
 //! Flowchart-based layout algorithm для activity diagrams.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use plantuml_ast::activity::{
     Action, ActionStyle, ActivityDiagram, ActivityElement, ArrowSpec, Condition, Fork, Partition,
-    RepeatLoop, Split, Switch, WhileLoop,
+    RepeatLoop, Split, Swimlane, Switch, WhileLoop,
 };
 use plantuml_ast::common::Color;
 use plantuml_model::{Point, Rect};
@@ -157,6 +158,59 @@ struct SwimlaneInfo {
 /// Layout engine для activity diagrams
 pub struct ActivityLayoutEngine {
     config: ActivityLayoutConfig,
+    /// Оси дорожек и текущая дорожка: смена дорожки встречается и внутри ветвей,
+    /// до которых идёт длинная цепочка вызовов раскладки.
+    lanes: RefCell<LaneState>,
+}
+
+#[derive(Default)]
+struct LaneState {
+    centers: HashMap<String, f64>,
+    current: Option<String>,
+}
+
+/// Поток не продолжается после последнего шага этого списка.
+fn ends_flow(items: &[ActivityElement]) -> bool {
+    matches!(
+        items.last(),
+        Some(
+            ActivityElement::Stop
+                | ActivityElement::End
+                | ActivityElement::Kill
+                | ActivityElement::Detach
+        )
+    )
+}
+
+/// Списки шагов, вложенные в элемент.
+fn nested_bodies(element: &ActivityElement) -> Vec<&[ActivityElement]> {
+    match element {
+        ActivityElement::Condition(cond) => {
+            let mut bodies = vec![cond.then_branch.as_slice()];
+            bodies.extend(cond.elseif_branches.iter().map(|b| b.elements.as_slice()));
+            bodies.extend(cond.else_branch.as_deref());
+            bodies
+        }
+        ActivityElement::While(w) => vec![w.body.as_slice()],
+        ActivityElement::Repeat(r) => vec![r.body.as_slice()],
+        ActivityElement::Fork(f) => f.branches.iter().map(Vec::as_slice).collect(),
+        ActivityElement::Partition(p) => vec![p.elements.as_slice()],
+        ActivityElement::Switch(s) => s.branches.iter().map(|b| b.elements.as_slice()).collect(),
+        ActivityElement::Split(s) => s.branches.iter().map(|b| b.elements.as_slice()).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Смены дорожек на всех уровнях, в порядке появления.
+fn collect_lane_changes<'a>(elements: &'a [ActivityElement], out: &mut Vec<&'a Swimlane>) {
+    for element in elements {
+        if let ActivityElement::SwimlaneChange(lane) = element {
+            out.push(lane);
+        }
+        for body in nested_bodies(element) {
+            collect_lane_changes(body, out);
+        }
+    }
 }
 
 impl ActivityLayoutEngine {
@@ -164,12 +218,16 @@ impl ActivityLayoutEngine {
     pub fn new() -> Self {
         Self {
             config: ActivityLayoutConfig::default(),
+            lanes: RefCell::default(),
         }
     }
 
     /// Создаёт engine с заданной конфигурацией
     pub fn with_config(config: ActivityLayoutConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            lanes: RefCell::default(),
+        }
     }
 
     /// Свойства фигуры activity: заливка, скругление и кегль подписи.    ///
@@ -437,9 +495,28 @@ impl ActivityLayoutEngine {
         elements: &mut Vec<LayoutElement>,
     ) -> f64 {
         let mut y = start_y;
+        let mut x = center_x;
+        let entry_lane = self.lanes.borrow().current.clone();
         for elem in body {
-            y = self.layout_element(elem, center_x, y, elements);
+            if let ActivityElement::SwimlaneChange(lane) = elem {
+                let target = if entry_lane.as_deref() == Some(lane.name.as_str()) {
+                    // Возврат в свою дорожку: шаг встаёт в колонку ветви, а не на ось дорожки.
+                    Some(center_x)
+                } else {
+                    self.lanes.borrow().centers.get(&lane.name).copied()
+                };
+                self.lanes.borrow_mut().current = Some(lane.name.clone());
+                if let Some(target) = target.filter(|target| (target - x).abs() > 1.0) {
+                    if let Some(from_y) = Self::take_entry_arrow(elements, x, y) {
+                        self.add_cross_swimlane_arrow(x, from_y, target, y, elements);
+                    }
+                    x = target;
+                }
+                continue;
+            }
+            y = self.layout_element(elem, x, y, elements);
         }
+        self.lanes.borrow_mut().current = entry_lane;
 
         let is_plain_tail = elements.last().is_some_and(|element| {
             element.id.starts_with("arrow_")
@@ -447,6 +524,15 @@ impl ActivityLayoutEngine {
         });
         if is_plain_tail {
             elements.pop();
+        }
+
+        // Ветвь кончилась в чужой дорожке: возвращаем поток в свою колонку, к ней
+        // привязаны стрелки слияния.
+        if (x - center_x).abs() > 1.0 && !ends_flow(body) {
+            let bottom = y - self.config.vertical_spacing;
+            self.add_line(x, bottom, x, y, elements);
+            self.add_line(x, y, center_x, y, elements);
+            return y + self.config.vertical_spacing;
         }
 
         y
@@ -459,6 +545,13 @@ impl ActivityLayoutEngine {
         // Собираем информацию о swimlanes
         let swimlanes = self.collect_swimlanes(&diagram.elements);
         let has_swimlanes = !swimlanes.is_empty();
+        *self.lanes.borrow_mut() = LaneState {
+            centers: swimlanes
+                .values()
+                .map(|info| (info.name.clone(), info.center_x))
+                .collect(),
+            current: None,
+        };
 
         // Начальная Y позиция (после заголовков swimlanes если есть)
         let content_start_y = if has_swimlanes {
@@ -492,6 +585,7 @@ impl ActivityLayoutEngine {
             // Обрабатываем смену swimlane
             if let ActivityElement::SwimlaneChange(swimlane) = element {
                 current_swimlane = Some(swimlane.name.clone());
+                self.lanes.borrow_mut().current = Some(swimlane.name.clone());
                 continue;
             }
 
@@ -518,7 +612,7 @@ impl ActivityLayoutEngine {
                 // Если есть swimlanes но текущий не установлен, используем первый
                 swimlanes
                     .values()
-                    .next()
+                    .min_by_key(|info| info.index)
                     .map(|info| info.center_x)
                     .unwrap_or(default_center_x)
             } else {
@@ -755,7 +849,19 @@ impl ActivityLayoutEngine {
     /// широкого содержимого, иначе вилка или ветвление вылезают за линии.
     fn lane_widths(&self, elements: &[ActivityElement]) -> HashMap<String, f64> {
         let mut widths: HashMap<String, f64> = HashMap::new();
-        let mut current: Option<&str> = None;
+        self.measure_lanes(elements, None, &mut widths);
+        for width in widths.values_mut() {
+            *width = width.max(self.config.swimlane_width);
+        }
+        widths
+    }
+
+    fn measure_lanes<'a>(
+        &self,
+        elements: &'a [ActivityElement],
+        mut current: Option<&'a str>,
+        widths: &mut HashMap<String, f64>,
+    ) {
         for element in elements {
             if let ActivityElement::SwimlaneChange(lane) = element {
                 current = Some(lane.name.as_str());
@@ -766,11 +872,10 @@ impl ActivityLayoutEngine {
                 let slot = widths.entry(name.to_string()).or_insert(0.0);
                 *slot = slot.max(need);
             }
+            for body in nested_bodies(element) {
+                self.measure_lanes(body, current, widths);
+            }
         }
-        for width in widths.values_mut() {
-            *width = width.max(self.config.swimlane_width);
-        }
-        widths
     }
 
     /// Ширина, которую элемент занимает с учётом симметричных ветвей условия.
@@ -797,29 +902,29 @@ impl ActivityLayoutEngine {
         let mut index = 0;
         let widths = self.lane_widths(elements);
         let mut next_x = self.config.margin;
+        let mut changes = Vec::new();
+        collect_lane_changes(elements, &mut changes);
 
-        for element in elements {
-            if let ActivityElement::SwimlaneChange(swimlane) = element {
-                if !swimlanes.contains_key(&swimlane.name) {
-                    let width = widths
-                        .get(&swimlane.name)
-                        .copied()
-                        .unwrap_or(self.config.swimlane_width);
-                    let center_x = next_x + width / 2.0;
-                    next_x += width + self.config.swimlane_spacing;
+        for swimlane in changes {
+            if !swimlanes.contains_key(&swimlane.name) {
+                let width = widths
+                    .get(&swimlane.name)
+                    .copied()
+                    .unwrap_or(self.config.swimlane_width);
+                let center_x = next_x + width / 2.0;
+                next_x += width + self.config.swimlane_spacing;
 
-                    swimlanes.insert(
-                        swimlane.name.clone(),
-                        SwimlaneInfo {
-                            name: swimlane.name.clone(),
-                            color: swimlane.color.clone(),
-                            index,
-                            center_x,
-                            width,
-                        },
-                    );
-                    index += 1;
-                }
+                swimlanes.insert(
+                    swimlane.name.clone(),
+                    SwimlaneInfo {
+                        name: swimlane.name.clone(),
+                        color: swimlane.color.clone(),
+                        index,
+                        center_x,
+                        width,
+                    },
+                );
+                index += 1;
             }
         }
 
@@ -1575,25 +1680,47 @@ impl ActivityLayoutEngine {
         bottoms.push(else_bottom);
 
         // Слияние: общая линия, куда ведут все ветви, и один выход вниз.
-        let merge_y = bottoms.iter().copied().fold(f64::MIN, f64::max) + MERGE_BAR_DROP;
+        // Ветвь, где поток оборвался, к линии не подходит.
+        let else_ended = else_body.is_some_and(ends_flow);
+        let alive = bottoms
+            .iter()
+            .take(columns)
+            .zip(&tests)
+            .filter(|(_, test)| !ends_flow(test.2))
+            .map(|(bottom, _)| *bottom)
+            .chain((!else_ended).then_some(else_bottom));
+        let Some(lowest) = alive.reduce(f64::max) else {
+            let lowest = bottoms.iter().copied().fold(f64::MIN, f64::max);
+            return lowest + self.config.vertical_spacing;
+        };
+        let merge_y = lowest + MERGE_BAR_DROP;
         for (k, bottom) in bottoms.iter().take(columns).enumerate() {
-            self.add_arrow(centers[k], *bottom, centers[k], merge_y, None, elements);
+            if !ends_flow(tests[k].2) {
+                self.add_arrow(centers[k], *bottom, centers[k], merge_y, None, elements);
+            }
         }
-        if else_body.is_some() {
-            self.add_arrow(else_x, else_bottom, else_x, merge_y, None, elements);
-        } else {
+        match else_body {
+            Some(_) if else_ended => {}
+            Some(_) => self.add_arrow(else_x, else_bottom, else_x, merge_y, None, elements),
             // `else` нет: путь «нет» уходит вправо и вниз прямо к линии.
-            self.add_elbow_arrow(
+            None => self.add_elbow_arrow(
                 vec![
                     Point::new(last_right, mid_y),
                     Point::new(else_x, mid_y),
                     Point::new(else_x, merge_y),
                 ],
                 elements,
-            );
+            ),
         }
-        let line_left = centers[0].min(center_x);
-        let line_right = else_x.max(center_x);
+        let alive_xs = || {
+            (0..columns)
+                .filter(|k| !ends_flow(tests[*k].2))
+                .map(|k| centers[k])
+                .chain((!else_ended).then_some(else_x))
+                .chain(Some(center_x))
+        };
+        let line_left = alive_xs().fold(f64::MAX, f64::min);
+        let line_right = alive_xs().fold(f64::MIN, f64::max);
         self.add_line(line_left, merge_y, line_right, merge_y, elements);
 
         merge_y + self.config.vertical_spacing
@@ -1773,8 +1900,19 @@ impl ActivityLayoutEngine {
         let then_bottom = then_end_y - self.config.vertical_spacing;
         let else_bottom = else_end_y - self.config.vertical_spacing;
 
-        // Точка слияния
-        let merge_y = then_bottom.max(else_bottom);
+        // Ветвь, где поток оборвался (`stop`, `kill` и подобные), к слиянию не идёт.
+        // Если оборвались обе, ромба нет: следовать за условием нечему.
+        let then_alive = !ends_flow(&cond.then_branch);
+        let else_alive = cond
+            .else_branch
+            .as_deref()
+            .is_none_or(|body| !ends_flow(body));
+        let merge_y = match (then_alive, else_alive) {
+            (false, false) => return then_end_y.max(else_end_y),
+            (true, false) => then_bottom,
+            (false, true) => else_bottom,
+            (true, true) => then_bottom.max(else_bottom),
+        };
 
         // Стрелки к точке слияния.
         //
@@ -1786,32 +1924,23 @@ impl ActivityLayoutEngine {
         let merge_center_y = merge_top + MERGE_DIAMOND_SIZE / 2.0;
         let merge_half = MERGE_DIAMOND_SIZE / 2.0;
 
-        self.add_elbow_arrow(
-            vec![
-                Point::new(left_x, then_bottom),
-                Point::new(left_x, merge_center_y),
-                Point::new(center_x - merge_half, merge_center_y),
-            ],
-            elements,
-        );
-
-        let mut merge_branches: Vec<(f64, f64)> = Vec::new();
-        if cond.else_branch.is_some() {
-            let right_x = center_x
-                + self.config.horizontal_spacing * (cond.elseif_branches.len() as f64 + 1.0);
-            merge_branches.push((right_x, else_bottom));
-        }
-        for (i, _) in cond.elseif_branches.iter().enumerate() {
-            // Ветки elseif уходят вниз в свою точку слияния отдельными
-            // линиями: их курсор хранится в `elseif_end_y` как общий.
-            let branch_x = center_x + self.config.horizontal_spacing * (i as f64 + 1.0);
-            merge_branches.push((branch_x, elseif_end_y - self.config.vertical_spacing));
-        }
-        for (branch_x, bottom) in merge_branches {
+        if then_alive {
             self.add_elbow_arrow(
                 vec![
-                    Point::new(branch_x, bottom),
-                    Point::new(branch_x, merge_center_y),
+                    Point::new(left_x, then_bottom),
+                    Point::new(left_x, merge_center_y),
+                    Point::new(center_x - merge_half, merge_center_y),
+                ],
+                elements,
+            );
+        }
+
+        if cond.else_branch.is_some() && else_alive {
+            let right_x = center_x + offset;
+            self.add_elbow_arrow(
+                vec![
+                    Point::new(right_x, else_bottom),
+                    Point::new(right_x, merge_center_y),
                     Point::new(center_x + merge_half, merge_center_y),
                 ],
                 elements,
@@ -2442,6 +2571,108 @@ impl Default for ActivityLayoutEngine {
 mod tests {
     use super::*;
     use plantuml_ast::activity::ElseIfBranch;
+
+    fn action(name: &str) -> ActivityElement {
+        ActivityElement::Action(Action::new(name))
+    }
+
+    fn lane(name: &str) -> ActivityElement {
+        ActivityElement::SwimlaneChange(Swimlane {
+            name: name.to_string(),
+            color: None,
+        })
+    }
+
+    fn condition(then_branch: Vec<ActivityElement>, other: Vec<ActivityElement>) -> Condition {
+        Condition {
+            condition: "у".to_string(),
+            then_branch,
+            then_label: None,
+            elseif_branches: Vec::new(),
+            else_branch: Some(other),
+            else_label: None,
+        }
+    }
+
+    fn action_center(result: &LayoutResult, name: &str) -> Option<f64> {
+        result.elements.iter().find_map(|e| match &e.element_type {
+            ElementType::Rectangle { label, .. } if label.contains(name) => {
+                Some(e.bounds.x + e.bounds.width / 2.0)
+            }
+            _ => None,
+        })
+    }
+
+    #[test]
+    fn test_ended_branches_do_not_reach_merge() {
+        let both_stop = condition(
+            vec![action("а"), ActivityElement::Stop],
+            vec![action("б"), ActivityElement::Kill],
+        );
+        let mut diagram = ActivityDiagram::new();
+        diagram.elements.push(ActivityElement::Condition(both_stop));
+        let result = ActivityLayoutEngine::new().layout(&diagram);
+        assert!(
+            !result
+                .elements
+                .iter()
+                .any(|e| e.id.starts_with("merge_diamond")),
+            "обе ветви оборвались, сливать нечего"
+        );
+
+        let one_stop = condition(vec![action("а"), ActivityElement::Stop], vec![action("б")]);
+        let mut diagram = ActivityDiagram::new();
+        diagram.elements.push(ActivityElement::Condition(one_stop));
+        diagram.elements.push(action("в"));
+        let result = ActivityLayoutEngine::new().layout(&diagram);
+        let merge = result
+            .elements
+            .iter()
+            .find(|e| e.id.starts_with("merge_diamond"));
+        let Some(merge) = merge else {
+            panic!("живая ветвь идёт к ромбу слияния");
+        };
+        let center = merge.bounds.x + merge.bounds.width / 2.0;
+        let into_merge = result.elements.iter().filter(|e| match &e.element_type {
+            ElementType::Edge { points, .. } => points.last().is_some_and(|p| {
+                (p.y - (merge.bounds.y + merge.bounds.height / 2.0)).abs() < 1.0
+                    && (p.x - center).abs() <= merge.bounds.width / 2.0 + 1.0
+            }),
+            _ => false,
+        });
+        assert_eq!(into_merge.count(), 1, "к ромбу подходит только живая ветвь");
+    }
+
+    #[test]
+    fn test_lane_change_inside_branch_moves_step() {
+        let mut diagram = ActivityDiagram::new();
+        diagram.elements.push(lane("Сервер"));
+        diagram.elements.push(ActivityElement::Condition(condition(
+            vec![
+                action("обработать"),
+                lane("База"),
+                action("записать"),
+                lane("Сервер"),
+                action("ответить"),
+            ],
+            vec![action("отказ")],
+        )));
+        let engine = ActivityLayoutEngine::new();
+        let result = engine.layout(&diagram);
+
+        let lanes = engine.collect_swimlanes(&diagram.elements);
+        let db = lanes.get("База").map(|info| info.center_x);
+        assert_eq!(
+            action_center(&result, "записать"),
+            db,
+            "шаг в своей дорожке"
+        );
+        assert_eq!(
+            action_center(&result, "ответить"),
+            action_center(&result, "обработать"),
+            "возврат в свою дорожку ставит шаг в колонку ветви"
+        );
+    }
 
     /// Ветки `elseif` должны попадать в раскладку.
     ///

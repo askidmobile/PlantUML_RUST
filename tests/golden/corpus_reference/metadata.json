@@ -611,6 +611,192 @@
     "svg_bytes": "1928",
     "svg_sha256": "f1d2e0a2abf2c1c1ce52b3fc2131983457ea5831cf4627acab9f14f0f8587e8a"
   },
+  "hold_activity_swimlane": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4f20df9d49d0b6d4a0a824ea18c8c9bdc233aeeab832cfb9c623df5022d46f18",
+    "svg_bytes": "8126",
+    "svg_sha256": "c095d0f3c78d0ad1871ff4aa90f61da4bc06581180964fa481af606b16b3d6e5"
+  },
+  "hold_activity_while_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "31e3673ba8a61c4f777d0939bde637a7161741d04add282df8d9b9af92b944e6",
+    "svg_bytes": "6315",
+    "svg_sha256": "4ac90367ae5f5f87bf46085960aa4758afa30cc32340273d42d68fc79242f74f"
+  },
+  "hold_ai_generated_flow": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "cc5e858a77d43e1958246d29c8c65c80015390f8accbf2b82a20d4009df498ea",
+    "svg_bytes": "8725",
+    "svg_sha256": "a7e59492d43847261b654ed4c5e26a26aa7fe9d02c0997586b0f88dc6ad70108"
+  },
+  "hold_auth_flow": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "346f655b71afce5f3356f18f1b799136866706bbb3e2e1d2660a6efadb0b1df9",
+    "svg_bytes": "10248",
+    "svg_sha256": "5498fa420388776c1c5507e33e25238cc7757fe0f35dad01f2d50bda60cd0646"
+  },
+  "hold_c4_context": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "097727cbd8cbd995bee51ebfe9c6714778a2138f0639b585f3d9a2abc19adfb6",
+    "svg_bytes": "6871",
+    "svg_sha256": "3ada65a52fb47709ad21f01a49da6ca10119920f409948a15f3edae55f84f75b"
+  },
+  "hold_ci_activity": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "03a91a409fa8014fcc5a1012be85f21715d78545f8b122e6c410cb1913f412e5",
+    "svg_bytes": "11525",
+    "svg_sha256": "44d20702694f9cfd2111313b297a96f91497a12b47ce348e3a57ea1e365d500c"
+  },
+  "hold_class_generic_pkg": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "518170d2929ad382a61a5b479faf75fe7f2f527f2f1d17988e5623538f3c07d6",
+    "svg_bytes": "9742",
+    "svg_sha256": "555897747d2b39fc03dde4298513f808b537f3c5e6879fc3cccdc8d7c2f7b1dd"
+  },
+  "hold_class_notes_links": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "e3b1af41e71e50a1d86c7f50d6ee59e01b3e6abea6bd96a29b0c2f0a83b8b9bb",
+    "svg_bytes": "6882",
+    "svg_sha256": "c82616836ebae9ec9835286ca7ad96b2dd3dbc7b34a04757981e922e265e210b"
+  },
+  "hold_component_interfaces": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "338068f30d165c391ebbc728fdbd095c9348d46309b0b016afa8f72cb6cd3f9d",
+    "svg_bytes": "6067",
+    "svg_sha256": "84345a574e6f9129141d1fa28fd1c5898ddf2dbc47ece4a2dd25107991191f7f"
+  },
+  "hold_creole_note": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "ebc8c0b9bb7d377eaf90d2e170da68950e9e6efed7ae3053542054c4ebe6c356",
+    "svg_bytes": "2972",
+    "svg_sha256": "89b1b992697630fbb8c282fb7ab454a71964a2c9ed1e61611b4e78ba339319ae"
+  },
+  "hold_deploy": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "531d2750077735b244372b624262150ba39afbced0cc9a327c80ed0990e1bf06",
+    "svg_bytes": "7628",
+    "svg_sha256": "3eaebb0d180b6989904f6ac9035bc0993f542c28f0eb0eaa087dde03d4b4c531"
+  },
+  "hold_er_blog": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "0476b2df1f5ba08a9f3894801cf9c7fdf9bf523d9bf0096784df3c55dfd431d7",
+    "svg_bytes": "8506",
+    "svg_sha256": "2ee31a4dace46b0e43cde97d980783b701845a8de26404e8ff923466e266a75d"
+  },
+  "hold_gantt_release": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d2a630a940ed7119f31980a29ff5aa8a333c75891665ace48d56fbc96d3f308f",
+    "svg_bytes": "17760",
+    "svg_sha256": "91f5cc63303b13226fd66133ee6e295c36bbcb14a09384c940d80840fddc8caf"
+  },
+  "hold_json_config": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1cd8deded1b486f775becbfc3e66073047d79bd8965add106964476e9cae9a5b",
+    "svg_bytes": "4457",
+    "svg_sha256": "eec60d99c8fadf8c7cd2cc218e123f122cc4fffb01a02ab8e1597ec05d2f5183"
+  },
+  "hold_microservices": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "c70516b81b34b1450a3248c2d453c1e26691a2649b572f432e83c08037bd8dd8",
+    "svg_bytes": "14325",
+    "svg_sha256": "c39643104e2edad1f59626afa4ef7ec557ef8c94d833f374063d3312b904f662"
+  },
+  "hold_mindmap_product": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "3895947e80b89394f8344916706d4cd278d04593e1a7971c5b852e1a6cdc0179",
+    "svg_bytes": "4300",
+    "svg_sha256": "96abe1b76be4ebf9deaaad2828e08cf496f208c92f357def03c1a6cd2e55dd51"
+  },
+  "hold_no_tags_short": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "fd51806e6f05a1584bdc8f409e1adb9b0110719dcb90290ff8463b8f5c9301fa",
+    "svg_bytes": "2496",
+    "svg_sha256": "95a79426c3ac7ac4f195da59c0d26810dbc664949456b271fba138aec813fe57"
+  },
+  "hold_nwdiag": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "8eae5158462e4623db1d6e8415f6a8230ec427ef5e16ef44e96a5644a2bd8690",
+    "svg_bytes": "2112",
+    "svg_sha256": "52723144e034b89ec017578ba6245d903d7d3dd2599539b910c2f1c5f70a7cee"
+  },
+  "hold_object_instances": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7748ecccd889d60adc44b383448f8e53223a04fe1563ecded2ac994f2af827ca",
+    "svg_bytes": "3660",
+    "svg_sha256": "6674db6e30e802423e204ec39b8ed27051cc1e802f6177ebc043c15d7b04703c"
+  },
+  "hold_order_classes": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "61a8d71a829131c7a7cea21137f90d5093681c25cfb3bf3ff1e8145f7a54fbf5",
+    "svg_bytes": "11500",
+    "svg_sha256": "15ce271630f73c4e5eac222d5d6bf1a361f80fb714261c66679905a595cde36d"
+  },
+  "hold_salt_form": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "4278e2b7bcd31d605425af62fcc6cc72940b82bbde44af7605524538f63d0f78",
+    "svg_bytes": "1793",
+    "svg_sha256": "fc1d9eae61379b5a3a2aa822191dff092f77dfd52bc230939ca3c1dac81736d6"
+  },
+  "hold_seq_loop_par": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "dad1d237901ed826917b65c7d0b721fc5aaf2395e72062c80c46d53216abf737",
+    "svg_bytes": "6916",
+    "svg_sha256": "df903772baedd2183d4be81eea2a1217d2f5ffe6a86c13e5f7293bbdde9bbf8b"
+  },
+  "hold_seq_notes_ref": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d27cf7e6f76c75cdcbe52d4c8ab247b9b04bcc6a4295a2c9c1d9a85f5d28640c",
+    "svg_bytes": "6849",
+    "svg_sha256": "e05e2275e9fbbe006b9db16d240180a8e7e0bcd4d242fbf528f002b85be2714e"
+  },
+  "hold_seq_ru": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "1f91b539f908b6cf45f6cad089450bdd18499c9be00bc16590ac81b24a6dab90",
+    "svg_bytes": "10235",
+    "svg_sha256": "6e9fe5688f167254d5603ca6d1809dafc831006104fb641ba90cb93c89347c00"
+  },
+  "hold_skinparam_style": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "d4b09b92b995beb85cc4048a38c730e6e23abf48c5553183fa9402102d0bbba0",
+    "svg_bytes": "2760",
+    "svg_sha256": "14e44212a333d5f731cbef42c2900506aa50ca4d29c85f702f08b484f7f2f1fd"
+  },
+  "hold_state_choice": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "114ba8d4e184b5877333b89cbd4b509790310ff5fc9c386d6d4ad45defc6982b",
+    "svg_bytes": "8206",
+    "svg_sha256": "cbd3e6051cb156916e7710b67c135640d62b6893ae3221c6e3711234102d2e8b"
+  },
+  "hold_ticket_state": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "218f1fa7c2a7227119514a0bc6418b1230d3b227d4b8d328b4c9c01a39f18239",
+    "svg_bytes": "10698",
+    "svg_sha256": "f23c2a9ffb7c0c3b9aacfbd8aa147546b36a6e0d05c4399f1a45d3f44cc17593"
+  },
+  "hold_timing": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "2c8b14ae9b4666a6fd3fbd20f8c2ad9dc53511136a910a1967313e4472936e9d",
+    "svg_bytes": "5174",
+    "svg_sha256": "4f98e5c149fc6db45b9236ecdbc708c8f5be488868a3e0819515b7137b4a78ea"
+  },
+  "hold_usecase_shop": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "af03866d6dbd48aeb387a1f42d3e21f77c3e240425885b4c277a8e8b65dcdca1",
+    "svg_bytes": "5886",
+    "svg_sha256": "a6d65e6acd08f51e19c351b1d99af25f49dd1b11243a91718e551a54205b9283"
+  },
+  "hold_wbs_project": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "477afa0d23ffe4353ed4f537419cf730a1e5b2f1a320229cde1e7325a526708a",
+    "svg_bytes": "3289",
+    "svg_sha256": "67f451b1e54c42f7f4c0466810a274bac357c0e558635526e574d4ad2b537cf4"
+  },
+  "hold_yaml_compose": {
+    "plantuml_version": "1.2026.9beta4",
+    "source_sha256": "7ce0c2f523c57ac7ee9461d7ec4195d876fd0112345522bf71be27f86b9edb9d",
+    "svg_bytes": "5203",
+    "svg_sha256": "4b604f62ad3badc1e0fd20daf993ea7916239f3cb143b1869fd8de54dd3f65bc"
+  },
   "real_activity_real": {
     "plantuml_version": "1.2026.9beta4",
     "source_sha256": "8e95500ffc07026283d17d5b6d4f82b5d85909641a9105fa357815322b279fb5",

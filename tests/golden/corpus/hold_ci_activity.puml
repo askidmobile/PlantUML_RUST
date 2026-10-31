@@ -1,0 +1,26 @@
+@startuml
+title CI Pipeline
+start
+:Checkout code;
+:Install dependencies;
+fork
+  :Run unit tests;
+fork again
+  :Run linter;
+fork again
+  :Build Docker image;
+end fork
+if (All checks passed?) then (yes)
+  :Push image to registry;
+  if (Branch is main?) then (yes)
+    :Deploy to production;
+  else (no)
+    :Deploy to staging;
+  endif
+else (no)
+  :Notify developers;
+  stop
+endif
+:Run smoke tests;
+stop
+@enduml

@@ -1,0 +1,8 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign center
+Alice -> Bob : styled message
+Bob --> Alice : reply
+@enduml

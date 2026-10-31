@@ -1,0 +1,8 @@
+@startuml
+!include <C4/C4_Context>
+Person(user, "Customer", "Buys products")
+System(shop, "Online Shop", "Sells products")
+System_Ext(pay, "Payment Provider", "Handles cards")
+Rel(user, shop, "Uses", "HTTPS")
+Rel(shop, pay, "Charges", "REST")
+@enduml

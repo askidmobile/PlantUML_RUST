@@ -1,0 +1,25 @@
+@startuml
+entity "users" as u {
+  *id : bigint <<PK>>
+  --
+  *email : varchar
+  name : varchar
+}
+entity "posts" as p {
+  *id : bigint <<PK>>
+  --
+  *author_id : bigint <<FK>>
+  title : varchar
+  body : text
+}
+entity "comments" as c {
+  *id : bigint <<PK>>
+  --
+  *post_id : bigint <<FK>>
+  *user_id : bigint <<FK>>
+  text : text
+}
+u ||--o{ p : writes
+p ||--o{ c : has
+u ||--o{ c : leaves
+@enduml

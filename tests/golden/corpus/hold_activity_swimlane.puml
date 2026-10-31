@@ -1,0 +1,19 @@
+@startuml
+|Client|
+start
+:Submit request;
+|Server|
+:Validate;
+if (valid?) then (yes)
+  :Process;
+  |DB|
+  :Store;
+  |Server|
+  :Respond 200;
+else (no)
+  :Respond 400;
+endif
+|Client|
+:Show result;
+stop
+@enduml

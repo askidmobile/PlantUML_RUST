@@ -1,0 +1,28 @@
+@startuml
+package "Frontend" {
+  [Web App] as web
+  [Mobile App] as mobile
+}
+node "API Layer" {
+  [API Gateway] as gw
+  [Auth Service] as auth
+}
+node "Services" {
+  [Orders] as orders
+  [Payments] as pay
+  [Notifications] as notify
+}
+database "PostgreSQL" as pg
+queue "Kafka" as kafka
+cloud "Stripe" as stripe
+
+web --> gw : HTTPS
+mobile --> gw : HTTPS
+gw --> auth : gRPC
+gw --> orders : gRPC
+orders --> pg
+orders --> kafka : events
+kafka --> notify
+orders --> pay
+pay --> stripe : REST
+@enduml

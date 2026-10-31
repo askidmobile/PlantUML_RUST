@@ -1,0 +1,13 @@
+@startuml
+interface "REST" as rest
+component "Billing" as billing
+component "Ledger" as ledger
+rest - billing
+billing ..> ledger : use
+note left of billing : Core module
+frame "Reports" {
+  [PDF Export]
+  [CSV Export]
+}
+ledger --> [PDF Export]
+@enduml
