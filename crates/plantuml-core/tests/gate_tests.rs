@@ -50,6 +50,11 @@ fn text_of(svg: &str, skip_small: bool) -> String {
         let Some(end) = content.find("</text>") else {
             break;
         };
+        // Буква значка класса: контур в эталоне, не слово.
+        if tail[..gt].contains("data-glyph") {
+            rest = &content[end..];
+            continue;
+        }
         if skip_small && tail[..gt].contains("font-size=\"10\"") {
             rest = &content[end..];
             continue;

@@ -144,6 +144,8 @@ impl ClassLayoutEngine {
         let mut properties = HashMap::new();
         properties.insert("fill".to_string(), "none".to_string());
         properties.insert("rx".to_string(), "2.5".to_string());
+        // Пакет класса — рамка с вкладкой-именем слева сверху.
+        properties.insert("cluster-shape".to_string(), "package".to_string());
         if let Some(color) = &package.background_color {
             properties.insert("fill".to_string(), color.to_css());
         }
@@ -236,7 +238,9 @@ impl ClassLayoutEngine {
         placed.extend(blockers(elements));
 
         for (index, note) in diagram.notes.iter().enumerate() {
-            let lines: Vec<&str> = note.text.split('\n').collect();
+            // Буквальный `\n` в тексте заметки — тоже перенос строки.
+            let text = note.text.replace("\\n", "\n");
+            let lines: Vec<&str> = text.split('\n').collect();
             let text_width = lines
                 .iter()
                 .map(|line| self.config.text.width(line, CLASS_NOTE_FONT))

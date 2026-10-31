@@ -27,6 +27,7 @@ pub mod decorations;
 pub mod rich_text;
 pub mod shapes;
 pub mod svg_renderer;
+pub mod symbols;
 
 #[cfg(feature = "png")]
 pub mod png_renderer;

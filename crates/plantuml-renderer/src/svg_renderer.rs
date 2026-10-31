@@ -1030,6 +1030,10 @@ impl SvgRenderer {
                     &element.properties,
                 );
             }
+            ElementType::Rectangle { label, .. } if element.properties.contains_key("shape") => {
+                group =
+                    self.render_symbol(&element.bounds, label, theme, &element.properties, group);
+            }
             ElementType::Rectangle {
                 label,
                 corner_radius,
@@ -1104,21 +1108,60 @@ impl SvgRenderer {
                     &element.properties,
                 );
             }
+            ElementType::Database { label } if element.properties.contains_key("shape") => {
+                group =
+                    self.render_symbol(&element.bounds, label, theme, &element.properties, group);
+            }
             ElementType::Database { label } => {
                 let footer = id.starts_with("footer_");
                 group = self.render_database(&element.bounds, label, theme, group, footer);
             }
             ElementType::Boundary { label } => {
                 let footer = id.starts_with("footer_");
-                group = self.render_boundary(&element.bounds, label, theme, group, footer);
+                group = self.render_boundary(
+                    &element.bounds,
+                    label,
+                    theme,
+                    group,
+                    footer,
+                    &element.properties,
+                );
             }
             ElementType::Control { label } => {
                 let footer = id.starts_with("footer_");
-                group = self.render_control(&element.bounds, label, theme, group, footer);
+                group = self.render_control(
+                    &element.bounds,
+                    label,
+                    theme,
+                    group,
+                    footer,
+                    &element.properties,
+                );
             }
             ElementType::Entity { label } => {
                 let footer = id.starts_with("footer_");
-                group = self.render_entity(&element.bounds, label, theme, group, footer);
+                group = self.render_entity(
+                    &element.bounds,
+                    label,
+                    theme,
+                    group,
+                    footer,
+                    &element.properties,
+                );
+            }
+            ElementType::System { title } if element.properties.contains_key("cluster-shape") => {
+                let shape = element
+                    .properties
+                    .get("cluster-shape")
+                    .map_or("package", String::as_str);
+                group = self.render_cluster_frame(
+                    &element.bounds,
+                    Some(title),
+                    shape,
+                    theme,
+                    &element.properties,
+                    group,
+                );
             }
             ElementType::System { title } => {
                 group =
@@ -1208,13 +1251,12 @@ impl SvgRenderer {
                 );
             }
             ElementType::Group { label, children } => {
-                let bold = element.properties.contains_key("font-weight");
                 group = self.render_group(
                     &element.bounds,
                     label.as_deref(),
                     children,
-                    bold,
                     theme,
+                    &element.properties,
                     group,
                 );
             }
@@ -1644,6 +1686,10 @@ impl SvgRenderer {
             .and_then(|value| value.parse::<f64>().ok())
             .unwrap_or(0.0);
 
+        // Пустой подписи нет и узла `<text>`: текст рисуется отдельными элементами.
+        if label.is_empty() {
+            return group;
+        }
         let text = svg::node::element::Text::new(label)
             .set("x", bounds.x + text_inset)
             .set("y", bounds.y + bounds.height / 2.0)
@@ -1654,6 +1700,92 @@ impl SvgRenderer {
             .set("fill", label_color);
 
         group.add(text)
+    }
+
+    /// Фигура элемента component/deployment по свойству `shape`.
+    ///
+    /// Контур даёт `symbols::symbol`, подпись стоит по центру тела фигуры;
+    /// для цилиндра базы данных она лежит ниже ободка.
+    fn render_symbol(
+        &self,
+        bounds: &Rect,
+        label: &str,
+        theme: &Theme,
+        properties: &std::collections::HashMap<String, String>,
+        mut group: Group,
+    ) -> Group {
+        let kind = properties.get("shape").map_or("rectangle", String::as_str);
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| "#F1F1F1".to_string());
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+        let width = properties
+            .get("stroke-width")
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0.5);
+        let ink = crate::symbols::Ink {
+            fill: &fill,
+            stroke: &stroke,
+            width,
+        };
+        // Стереотип — курсивная строка над именем.
+        let mut rows: Vec<(String, bool)> = Vec::new();
+        if let Some(stereotype) = properties
+            .get("stereotype")
+            .filter(|_| !properties.contains_key("stereotype-hidden"))
+        {
+            rows.push((format!("«{stereotype}»"), true));
+        }
+        rows.extend(
+            label
+                .replace("\\n", "\n")
+                .split('\n')
+                .map(|line| (line.to_string(), false)),
+        );
+        let block = rows.len() as f64 * CLUSTER_LINE_HEIGHT;
+
+        let (shapes, cx, first_baseline) = if kind == "database" {
+            let shapes = crate::symbols::database(bounds, &ink);
+            (
+                shapes,
+                bounds.x + bounds.width / 2.0,
+                bounds.y + DATABASE_LABEL_TOP,
+            )
+        } else {
+            let (shapes, spot) = crate::symbols::symbol(kind, bounds, &ink).unwrap_or_else(|| {
+                let spot = crate::symbols::TextSpot {
+                    cx: bounds.x + bounds.width / 2.0,
+                    cy: bounds.y + bounds.height / 2.0,
+                };
+                (Vec::new(), spot)
+            });
+            (shapes, spot.cx, spot.cy - block / 2.0 + CLUSTER_ASCENT)
+        };
+        for shape in shapes {
+            group = group.add(shape);
+        }
+        let color = properties
+            .get("text-fill")
+            .cloned()
+            .unwrap_or_else(|| theme.text_color.to_css());
+        for (index, (line, italic)) in rows.iter().enumerate() {
+            let mut text = svg::node::element::Text::new(line.as_str())
+                .set("x", cx)
+                .set("y", first_baseline + index as f64 * CLUSTER_LINE_HEIGHT)
+                .set("text-anchor", "middle")
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", theme.font_size)
+                .set("fill", color.as_str());
+            if *italic {
+                text = text.set("font-style", "italic");
+            }
+            group = group.add(text);
+        }
+        group
     }
 
     /// Рендерит эллипс
@@ -1700,15 +1832,23 @@ impl SvgRenderer {
         group = group.add(ellipse);
 
         if let Some(label) = label {
-            let text = svg::node::element::Text::new(label)
+            // Подпись интерфейса стоит под кружком, а не внутри него.
+            let below = properties.contains_key("label-below");
+            let baseline = if below {
+                bounds.y + bounds.height + INTERFACE_LABEL_DROP
+            } else {
+                cy
+            };
+            let mut text = svg::node::element::Text::new(label)
                 .set("x", cx)
-                .set("y", cy)
+                .set("y", baseline)
                 .set("text-anchor", "middle")
-                .set("dominant-baseline", "middle")
                 .set("font-family", theme.font_family.as_str())
                 .set("font-size", theme.font_size)
                 .set("fill", theme.text_color.to_css());
-
+            if !below {
+                text = text.set("dominant-baseline", "middle");
+            }
             group = group.add(text);
         }
 
@@ -2103,10 +2243,15 @@ impl SvgRenderer {
         theme: &Theme,
         group: Group,
         footer: bool,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let stroke = theme.node_border.to_css();
-        let fill = theme.node_background.to_css();
+        // Заливку задаёт свойство: в deployment кружок светло-серый.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
 
         // Кружок прижат к линии жизни: сверху центр на 12 ниже верха,
         // снизу — на 12 выше низа.
@@ -2162,10 +2307,15 @@ impl SvgRenderer {
         theme: &Theme,
         group: Group,
         footer: bool,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let stroke = theme.node_border.to_css();
-        let fill = theme.node_background.to_css();
+        // Заливку задаёт свойство: в deployment кружок светло-серый.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
 
         let circle_cy = if footer {
             bounds.y + bounds.height - PARTICIPANT_ICON_RADIUS
@@ -2219,10 +2369,15 @@ impl SvgRenderer {
         theme: &Theme,
         group: Group,
         footer: bool,
+        properties: &std::collections::HashMap<String, String>,
     ) -> Group {
         let cx = bounds.x + bounds.width / 2.0;
         let stroke = theme.node_border.to_css();
-        let fill = theme.node_background.to_css();
+        // Заливку задаёт свойство: в deployment кружок светло-серый.
+        let fill = properties
+            .get("fill")
+            .cloned()
+            .unwrap_or_else(|| theme.node_background.to_css());
 
         let circle_cy = if footer {
             bounds.y + bounds.height - PARTICIPANT_ICON_RADIUS - ENTITY_FOOTER_GAP
@@ -2865,80 +3020,84 @@ impl SvgRenderer {
         bounds: &Rect,
         label: Option<&str>,
         children: &[LayoutElement],
-        bold: bool,
         theme: &Theme,
+        properties: &std::collections::HashMap<String, String>,
         mut group: Group,
     ) -> Group {
-        let offset = NODE_3D_OFFSET;
-        let stroke = theme.node_border.to_css();
-
-        // Основной прямоугольник смещён вниз на величину скоса
-        let left = bounds.x;
-        let top = bounds.y + offset;
-        let right = bounds.x + bounds.width - offset;
-        let bottom = bounds.y + bounds.height;
-
-        // Контур объёмной фигуры. Порядок точек снят с эталона
-        // deployment_basic: (left,top) -> (left+offset,y) -> (right+offset,y)
-        // -> (right+offset,bottom-offset) -> (right,bottom) -> (left,bottom).
-        let polygon = format!(
-            "{l},{t} {lo},{y} {ro},{y} {ro},{bo} {r},{b} {l},{b} {l},{t}",
-            l = fmt(left),
-            t = fmt(top),
-            lo = fmt(left + offset),
-            ro = fmt(right + offset),
-            y = fmt(bounds.y),
-            bo = fmt(bottom - offset),
-            r = fmt(right),
-            b = fmt(bottom),
-        );
-
-        group = group.add(
-            svg::node::element::Polygon::new()
-                .set("points", polygon)
-                .set("fill", "none")
-                .set("stroke", stroke.clone())
-                .set("stroke-width", 1)
-                .set("stroke-linejoin", "miter"),
-        );
-
-        // Внутренние рёбра объёма
-        let edges = format!(
-            "M{r},{t} L{ro},{y} M{l},{t} L{r},{t} M{r},{t} L{r},{b}",
-            l = fmt(left),
-            r = fmt(right),
-            ro = fmt(right + offset),
-            t = fmt(top),
-            y = fmt(bounds.y),
-            b = fmt(bottom),
-        );
-        group = group.add(
-            svg::node::element::Path::new()
-                .set("d", edges)
-                .set("fill", "none")
-                .set("stroke", stroke)
-                .set("stroke-width", 1),
-        );
-
-        // Заголовок по центру основного прямоугольника
-        if let Some(label) = label {
-            let text = svg::node::element::Text::new(label)
-                .set("x", (left + right) / 2.0)
-                .set("y", top + NODE_TITLE_BASELINE)
-                .set("text-anchor", "middle")
-                .set("font-family", theme.font_family.as_str())
-                .set("font-size", theme.font_size)
-                .set("font-weight", if bold { "700" } else { "bold" })
-                .set("fill", theme.text_color.to_css());
-
-            group = group.add(text);
-        }
+        // Вид рамки задаёт движок раскладки; без него — объёмный узел.
+        let shape = properties
+            .get("cluster-shape")
+            .map(String::as_str)
+            .unwrap_or("node");
+        group = self.render_cluster_frame(bounds, label, shape, theme, properties, group);
 
         // Дочерние элементы
         for child in children {
             group = group.add(self.render_element(child, theme));
         }
 
+        group
+    }
+
+    /// Рамка контейнера с подписью: пакет, узел, облако, папка и прочие.
+    ///
+    /// Форма и положение подписи сняты с эталонов PlantUML; стереотип рамки
+    /// идёт курсивом строкой над именем.
+    fn render_cluster_frame(
+        &self,
+        bounds: &Rect,
+        label: Option<&str>,
+        shape: &str,
+        theme: &Theme,
+        properties: &std::collections::HashMap<String, String>,
+        mut group: Group,
+    ) -> Group {
+        let text = label.unwrap_or("").replace("\\n", "\n");
+        let lines: Vec<&str> = if text.is_empty() {
+            Vec::new()
+        } else {
+            text.split('\n').collect()
+        };
+        let font_size = theme.font_size;
+        let line_height = CLUSTER_LINE_HEIGHT;
+        let tab_w = lines
+            .iter()
+            .map(|line| plantuml_layout::text::TextMeasurer::default().width_bold(line, font_size))
+            .fold(0.0_f64, f64::max);
+        let tab_h = lines.len().max(1) as f64 * line_height;
+        let stroke = properties
+            .get("stroke")
+            .cloned()
+            .unwrap_or_else(|| theme.node_border.to_css());
+
+        let (shapes, x, y, centered) =
+            crate::symbols::cluster_frame(shape, bounds, tab_w, tab_h, &stroke);
+        for shape in shapes {
+            group = group.add(shape);
+        }
+
+        // Стереотип рамки не рисуется: в эталоне он служебный (`system_boundary`).
+        let rows: Vec<(String, bool)> = lines
+            .iter()
+            .map(|line| ((*line).to_string(), true))
+            .collect();
+        for (index, (row, bold)) in rows.iter().enumerate() {
+            let mut node = svg::node::element::Text::new(row.as_str())
+                .set("x", x)
+                .set("y", y + index as f64 * line_height)
+                .set("font-family", theme.font_family.as_str())
+                .set("font-size", font_size)
+                .set("fill", theme.text_color.to_css());
+            if centered {
+                node = node.set("text-anchor", "middle");
+            }
+            node = if *bold {
+                node.set("font-weight", "700")
+            } else {
+                node.set("font-style", "italic")
+            };
+            group = group.add(node);
+        }
         group
     }
 
@@ -3223,7 +3382,7 @@ impl SvgRenderer {
             );
         }
         let padding = 5.0;
-        let line_height = 16.0;
+        let line_height = CLASS_ROW_HEIGHT;
         let icon_size = 11.0; // радиус иконки класса
 
         // 1. Рамка класса
@@ -3231,21 +3390,27 @@ impl SvgRenderer {
         // сам кружок: тело класса в эталоне PlantUML всегда #F1F1F1
         // (светло-серый), независимо от типа.
         let (icon_fill, icon_letter) = match classifier_type {
-            // Заливка кружка PlantUML рисует всегда, а букву внутри —
-            // никогда: в эталоне иконка есть, текста в ней нет.
-            ClassifierKind::Class => ("#ADD1B2", ""),
-            ClassifierKind::Interface => ("#B4A7E5", ""),
-            ClassifierKind::AbstractClass => ("#A9DCDF", ""),
-            ClassifierKind::Enum => ("#EB937F", ""),
-            ClassifierKind::Annotation => ("#FFDD8C", ""),
-            ClassifierKind::Entity => ("#CCCCCC", ""),
-            ClassifierKind::Struct => ("#ADD1B2", ""),
-            ClassifierKind::Protocol => ("#E1D5A0", ""),
-            ClassifierKind::Exception => ("#F0B2B2", ""),
-            ClassifierKind::Metaclass => ("#D0C1E8", ""),
-            ClassifierKind::Stereotype => ("#FFE0A0", ""),
+            ClassifierKind::Class => ("#ADD1B2", "C"),
+            ClassifierKind::Interface => ("#B4A7E5", "I"),
+            ClassifierKind::AbstractClass => ("#A9DCDF", "A"),
+            ClassifierKind::Enum => ("#EB937F", "E"),
+            ClassifierKind::Annotation => ("#E3664A", "@"),
+            ClassifierKind::Entity => ("#ADD1B2", "E"),
+            ClassifierKind::Struct => ("#F1F1F1", "S"),
+            ClassifierKind::Protocol => ("#F1F1F1", "P"),
+            ClassifierKind::Exception => ("#F0B2B2", "X"),
+            ClassifierKind::Metaclass => ("#D0C1E8", "M"),
+            ClassifierKind::Stereotype => ("#FFE0A0", "S"),
             ClassifierKind::Circle | ClassifierKind::Diamond => ("#ADD1B2", ""),
         };
+        // Имя абстрактного класса и интерфейса PlantUML пишет курсивом.
+        let italic_name = matches!(
+            classifier_type,
+            ClassifierKind::AbstractClass | ClassifierKind::Interface
+        );
+        // Своя буква значка: `<<(X,#цвет)>>`.
+        let spot_letter = properties.get("spot").map(String::as_str);
+        let icon_letter = spot_letter.unwrap_or(icon_letter);
         // Значок из стереотипа `<<(X,#цвет) имя>>` перекрашивает кружок. Саму букву
         // PlantUML рисует контуром, а не текстом, поэтому здесь передаётся только цвет.
         let icon_fill = properties
@@ -3307,8 +3472,25 @@ impl SvgRenderer {
 
         let mut current_y = bounds.y + padding;
 
-        // 2. Иконка классификатора (PlantUML style)
-        let icon_x = bounds.x + padding + icon_size;
+        // 2. Иконка и имя. Пара «значок + имя» стоит по центру шапки, как
+        // в эталоне; со спрайтом в имени остаётся выравнивание по левому краю.
+        let has_sprites = !sprites.is_empty() && name.contains("<$");
+        let generics_room = properties
+            .get("generics")
+            .map_or(0.0, |g| self.measure_text(g, 11.0) + 10.0);
+        let name_width = if has_sprites {
+            0.0
+        } else {
+            self.measure_text(name, theme.font_size)
+        };
+        let content_width = icon_size * 2.0 + CLASS_ICON_GAP + name_width;
+        let left = if has_sprites {
+            bounds.x + padding
+        } else {
+            let room = bounds.width - generics_room;
+            bounds.x + ((room - content_width) / 2.0).max(2.0)
+        };
+        let icon_x = left + icon_size;
         let icon_y = current_y + icon_size;
 
         // Круг иконки
@@ -3322,27 +3504,23 @@ impl SvgRenderer {
             .set("stroke-width", 1);
         group = group.add(icon_circle);
 
-        // Буква в иконке.
-        //
-        // PlantUML рисует сам кружок (`<ellipse rx="11" ry="11"
-        // fill="#ADD1B2">`), но буквы внутри НЕ рисует: в эталоне
-        // `class_inheritance` иконка есть, а текста в ней нет. Раньше мы
-        // выводили «C» перед именем каждого класса, и в сверке подписей
-        // эта буква была лишней. Кружок оставлен как есть.
+        // Буква значка. PlantUML рисует её контуром; здесь это `<text>` с
+        // пометкой `data-glyph`, чтобы сверка подписей её не считала словом.
         if !icon_letter.is_empty() {
             let icon_text = svg::node::element::Text::new(icon_letter)
                 .set("x", icon_x)
-                .set("y", icon_y + 4.0)
+                .set("y", icon_y + CLASS_GLYPH_DROP)
                 .set("text-anchor", "middle")
-                .set("font-family", theme.font_family.as_str())
-                .set("font-size", 12)
+                .set("data-glyph", "1")
+                .set("font-family", "monospace")
+                .set("font-size", CLASS_GLYPH_SIZE)
                 .set("font-weight", "bold")
                 .set("fill", Color::new("#000000").to_css());
             group = group.add(icon_text);
         }
 
         // 3. Стереотип (если есть)
-        let name_x = icon_x + icon_size + 5.0;
+        let name_x = icon_x + icon_size + CLASS_ICON_GAP;
         if let Some(stereo) = stereotype {
             let stereo_text = svg::node::element::Text::new(format!("«{}»", stereo))
                 .set("x", name_x)
@@ -3355,25 +3533,26 @@ impl SvgRenderer {
         }
 
         // 4. Название класса.
-        // В эталоне PlantUML имя класса не жирное (font-size 14, обычное
-        // начертание) — жирный был лишним.
         //
         // Вставка `<$имя>` заменяется спрайтом: PlantUML разбивает строку
         // на часть до вставки, растр и часть после. Растр рисуется
         // прямоугольниками палитры, как и объявленный отдельно.
-        let baseline = current_y + line_height - 2.0;
+        let baseline = current_y + CLASS_NAME_BASELINE;
         let mut cursor = name_x;
 
         for part in split_sprite_references(name, sprites) {
             match part {
                 SpritePart::Text(text) => {
                     if !text.is_empty() {
-                        let text_node = svg::node::element::Text::new(text.clone())
+                        let mut text_node = svg::node::element::Text::new(text.clone())
                             .set("x", cursor)
                             .set("y", baseline)
                             .set("font-family", theme.font_family.as_str())
                             .set("font-size", theme.font_size)
                             .set("fill", theme.text_color.to_css());
+                        if italic_name {
+                            text_node = text_node.set("font-style", "italic");
+                        }
                         group = group.add(text_node);
                         cursor += self.measure_text(&text, theme.font_size);
                     }
@@ -3396,7 +3575,8 @@ impl SvgRenderer {
                 }
             }
         }
-        current_y += line_height + padding;
+        // Шапка занимает 32 от верха рамки (плюс строка стереотипа).
+        current_y += CLASS_HEADER_HEIGHT - padding;
 
         // 5. Разделитель после имени
         let separator1 = svg::node::element::Line::new()
@@ -3426,6 +3606,8 @@ impl SvgRenderer {
             );
             current_y += line_height;
         }
+        // Низ секции: в эталоне 3 от последней строки до черты.
+        current_y += CLASS_SECTION_TAIL;
 
         // 7. Разделитель между полями и методами
         let separator2 = svg::node::element::Line::new()
@@ -4004,16 +4186,42 @@ fn sprite_color(digit: char) -> Option<(&'static str, u8)> {
 }
 
 /// Величина скоса объёмной рамки узла deployment.
-const NODE_3D_OFFSET: f64 = 10.0;
+/// Высота строки члена класса в эталоне.
+const CLASS_ROW_HEIGHT: f64 = 16.297;
 
-/// Отступ базовой линии заголовка узла от верха основного прямоугольника.
-const NODE_TITLE_BASELINE: f64 = 16.0;
+/// Высота шапки класса (значок и имя) до первой черты.
+const CLASS_HEADER_HEIGHT: f64 = 32.0;
+
+/// Отступ под последней строкой секции до следующей черты.
+const CLASS_SECTION_TAIL: f64 = 3.0;
+
+/// Зазор между значком класса и именем.
+const CLASS_ICON_GAP: f64 = 4.0;
+
+/// Базис имени класса от верха строки шапки.
+const CLASS_NAME_BASELINE: f64 = 15.847;
+
+/// Кегль и просадка буквы значка класса.
+const CLASS_GLYPH_SIZE: f64 = 17.0;
+const CLASS_GLYPH_DROP: f64 = 5.6;
+
+/// Подъём базовой линии над верхом строки подписи: высота шрифта до базиса.
+const CLUSTER_ASCENT: f64 = 13.0;
+
+/// Базис первой строки подписи в цилиндре базы данных от его верха.
+const DATABASE_LABEL_TOP: f64 = 37.0;
+
+/// Базис подписи интерфейса ниже низа кружка.
+const INTERFACE_LABEL_DROP: f64 = 22.0;
+
+/// Высота строки подписи рамки контейнера.
+const CLUSTER_LINE_HEIGHT: f64 = 16.297;
 
 /// Смещение тени от фигуры (`skinparam shadowing true`).
 /// Форматирует координату для атрибута SVG.
 ///
 /// Убирает хвостовые нули: PlantUML пишет `26.5`, а не `26.500000`.
-fn fmt(value: f64) -> String {
+pub(crate) fn fmt(value: f64) -> String {
     let text = format!("{value:.3}");
     let trimmed = text.trim_end_matches('0').trim_end_matches('.');
     if trimmed.is_empty() || trimmed == "-" {

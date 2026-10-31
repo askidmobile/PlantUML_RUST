@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use plantuml_ast::common::Direction;
 use plantuml_ast::component::{Component, ComponentDiagram, ComponentType};
-use plantuml_model::{Point, Rect};
+use plantuml_model::Rect;
 
 use super::config::ComponentLayoutConfig;
 
@@ -32,20 +32,19 @@ const NODE_RIGHT_EXTRA: f64 = 29.0;
 const PACKAGE_MIN_WIDTH: f64 = 150.0;
 const PACKAGE_TITLE_EXTRA: f64 = 76.0;
 
-const COMPONENT_BASE_WIDTH: f64 = 4.6;
-/// Прибавка к ширине компонента на каждый символ подписи.
-const COMPONENT_CHAR_WIDTH: f64 = 11.43;
-/// Высота компонента по эталону.
-const COMPONENT_HEIGHT: f64 = 46.297;
+/// Диаметр кружка интерфейса (эталон: радиус 8).
+const INTERFACE_DIAMETER: f64 = 16.0;
 
-/// Добавка к ширине артефакта (измерено по эталону deployment_basic).
-const ARTIFACT_TEXT_PADDING: f64 = 30.0;
+/// Ширина значка boundary (скобка и кружок) и высота значка с подписью (эталон).
+const ICON_MIN_WIDTH: f64 = 44.0;
+const ICON_HEIGHT: f64 = 43.3;
 
-/// Высота артефакта (измерено по эталону).
-const ARTIFACT_HEIGHT: f64 = 39.297;
+/// Высота актёра с подписью (эталон: голова, тело и подпись под ними).
+const ACTOR_HEIGHT: f64 = 74.8;
+
 use crate::graph::scene::{Scene, SceneEdge};
 use crate::graph::Direction as GraphDirection;
-use crate::{EdgeType, ElementType, LayoutElement, LayoutResult};
+use crate::{ElementType, LayoutElement, LayoutResult};
 
 pub struct ComponentLayoutEngine {
     config: ComponentLayoutConfig,
@@ -219,19 +218,14 @@ impl ComponentLayoutEngine {
             return;
         }
 
-        // Стереотип — первая строка подписи, спрайт в подписи растягивает фигуру.
-        let stereotype = comp
-            .stereotype
-            .as_ref()
-            .and_then(|s| s.names.first())
-            .filter(|_| self.show_stereotypes);
-        let mut shown = comp.clone();
-        if let Some(stereotype) = stereotype {
-            shown.name = format!("//«{stereotype}»//\\n{}", comp.name);
+        let mut element = self.create_component_element(comp);
+        if !self.show_stereotypes {
+            element
+                .properties
+                .insert("stereotype-hidden".to_string(), "1".to_string());
         }
-        let (mut element, mut bounds) = self.create_component_element(&shown, 0.0, 0.0);
-        let label = shown.name.replace("\\n", "\n");
-        for line in label.lines() {
+        // Спрайт в подписи растягивает фигуру.
+        for line in comp.name.replace("\\n", "\n").lines() {
             for span in crate::creole::parse(line) {
                 let Some(sprite) = span.sprite.as_ref().and_then(|(name, scale)| {
                     sprites
@@ -241,340 +235,171 @@ impl ComponentLayoutEngine {
                 }) else {
                     continue;
                 };
-                bounds.width = bounds.width.max(sprite.0 + 20.0);
-                bounds.height += (sprite.1 - LINE_HEIGHT).max(0.0);
+                element.bounds.width = element.bounds.width.max(sprite.0 + 20.0);
+                element.bounds.height += (sprite.1 - LINE_HEIGHT).max(0.0);
             }
         }
-        element.bounds = bounds;
-        if let Some(stereotype) = comp.stereotype.as_ref().and_then(|s| s.names.first()) {
-            element
-                .properties
-                .insert("stereotype".to_string(), stereotype.clone());
-        }
-        let mut elements = vec![element];
-        if comp.component_type == ComponentType::Artifact {
-            elements.extend(self.create_artifact_icon(bounds));
-        }
-        scene.add_node(cluster, &names, elements);
+        scene.add_node(cluster, &names, vec![element]);
     }
 
-    /// Создаёт элемент компонента
-    /// Создаёт элемент компонента и возвращает его **фактические** границы.
+    /// Создаёт элемент компонента: форма и размер зависят от вида.
     ///
-    /// Раньше возвращался прямоугольник фиксированного размера
-    /// (`component_width × component_height`, 140×60) независимо от того,
-    /// что реально нарисовано. Для `Interface` (эллипс 20×20), `Actor`
-    /// (0.6 ширины) и `Cloud` (1.2 ширины) это неверно: связи привязывались
-    /// к несуществующему блоку и визуально «висели» мимо фигуры.
-    fn create_component_element(&self, comp: &Component, x: f64, y: f64) -> (LayoutElement, Rect) {
-        let elem = match comp.component_type {
-            ComponentType::Database => self.create_database_element(&comp.name, x, y),
-            ComponentType::Cloud => self.create_cloud_element(&comp.name, x, y),
-            ComponentType::Interface => self.create_interface_element(&comp.name, x, y),
-            ComponentType::Queue => self.create_queue_element(&comp.name, x, y),
-            ComponentType::Node => self.create_node_element(&comp.name, x, y),
-            ComponentType::Folder => self.create_folder_element(&comp.name, x, y),
-            ComponentType::Actor => self.create_actor_element(&comp.name, x, y),
-            // Артефакт имеет свои пропорции: измерено по эталону
-            // deployment_basic — «app.jar» при тексте 49.027 занимает
-            // 79.027x39.297, то есть текст плюс 30.
-            ComponentType::Artifact => self.create_artifact_element(&comp.name, x, y),
-            _ => self.create_standard_component_element(comp, x, y),
+    /// Размеры сняты с эталона `feat_component_deployment`: ширина — текст плюс
+    /// поля вида, высота — строки подписи плюс поля. Сам контур рисует
+    /// рендерер по свойству `shape`; движок отдаёт только границы, по которым
+    /// связи находят фигуру.
+    fn create_component_element(&self, comp: &Component) -> LayoutElement {
+        let name = &comp.name;
+        let text = name.replace("\\n", "\n");
+        let lines = text.lines().count().max(1) as f64;
+        let font = self.config.font_size;
+        let mut text_width = text
+            .lines()
+            .map(|line| self.config.text.width(line, font))
+            .fold(0.0_f64, f64::max);
+        let stereotype = comp
+            .stereotype
+            .as_ref()
+            .and_then(|s| s.names.first())
+            .cloned();
+        // Стереотип — отдельная строка над именем, она же может быть шире.
+        let mut rows = lines;
+        if let Some(stereotype) = &stereotype {
+            rows += 1.0;
+            text_width = text_width.max(self.config.text.width(&format!("«{stereotype}»"), font));
+        }
+        let block = rows * LINE_HEIGHT;
+
+        let (shape, id_prefix, width, height) = match comp.component_type {
+            ComponentType::Database => ("database", "database", text_width + 20.0, block + 29.0),
+            ComponentType::Cloud => ("cloud", "cloud", text_width + 40.0, block + 30.0),
+            ComponentType::Queue => ("queue", "queue", text_width + 20.0, block + 10.0),
+            ComponentType::Node => ("node", "node", text_width + 30.0, block + 30.0),
+            ComponentType::Folder => ("folder", "folder", text_width + 20.0, block + 20.0),
+            ComponentType::File => ("file", "file", text_width + 20.0, block + 20.0),
+            ComponentType::Card | ComponentType::Agent | ComponentType::Rectangle => {
+                ("card", "card", text_width + 20.0, block + 6.0)
+            }
+            ComponentType::Hexagon => ("hexagon", "hexagon", text_width + 19.44, block + 10.0),
+            ComponentType::Stack => ("stack", "stack", text_width + 50.0, block + 20.0),
+            ComponentType::Storage => ("storage", "storage", text_width + 20.0, block + 20.0),
+            ComponentType::Collections => (
+                "collections",
+                "collections",
+                text_width + 20.0,
+                block + 20.0,
+            ),
+            ComponentType::Artifact => ("artifact", "artifact", text_width + 30.0, block + 23.0),
+            ComponentType::UseCase => (
+                "usecase",
+                "usecase",
+                text_width * 1.15 + 14.8,
+                (block + 12.1).max(28.4),
+            ),
+            ComponentType::Interface => return self.create_interface_element(name),
+            ComponentType::Actor => return self.create_actor_element(name, text_width),
+            ComponentType::Boundary | ComponentType::Control | ComponentType::Entity => {
+                return self.create_icon_element(comp, text_width)
+            }
+            _ => ("component", "component", text_width + 40.0, block + 30.0),
         };
 
-        // Границы берём у фактически созданного элемента, а не назначаем
-        // по конфигу: иначе связи не попадают в фигуру.
-        let bounds = elem.bounds;
-
-        (elem, bounds)
-    }
-
-    /// Создаёт стандартный компонент
-    fn create_standard_component_element(&self, comp: &Component, x: f64, y: f64) -> LayoutElement {
-        let name = &comp.name;
-        let mut properties = std::collections::HashMap::new();
-
+        let mut properties: HashMap<String, String> = HashMap::new();
+        properties.insert("shape".to_string(), shape.to_string());
         // Цвет элемента, если он задан (например, слоем Archimate).
-        // Раньше поле `color` не читалось вовсе, поэтому archimate-элементы
-        // всех слоёв выглядели одинаково белыми.
         if let Some(color) = &comp.color {
             properties.insert("fill".to_string(), color.to_css());
         }
-
-        // Размер компонента зависит от длины подписи: измерено по эталону
-        // («Веб-интерфейс», 13 символов — 153.189x46.297; «Сервис API», 10 —
-        // 118.9x46.297). Отсюда ширина ≈ 4.6 + 11.43 * n, высота 46.297.
-        // Раньше размер был фиксированным (40x40), из-за чего диаграмма
-        // расходилась с эталоном.
-        let (width, height) = self.label_box(name);
-
-        LayoutElement {
-            id: format!("component_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, width, height),
-            text: None,
-            properties,
-            element_type: ElementType::Rectangle {
+        if let Some(stereotype) = stereotype {
+            properties.insert("stereotype".to_string(), stereotype);
+        }
+        let element_type = if comp.component_type == ComponentType::Database {
+            ElementType::Database {
                 label: name.to_string(),
-                corner_radius: self.config.corner_radius,
-            },
-        }
-    }
-
-    /// Создаёт артефакт.
-    ///
-    /// Измерено по эталону deployment_basic: «app.jar» при тексте 49.027
-    /// занимает 79.027x39.297, то есть ширина — текст плюс 30, высота 39.297.
-    /// Размер фигуры по подписи; многострочная подпись растягивает её.
-    fn label_box(&self, name: &str) -> (f64, f64) {
-        let text = name.replace("\\n", "\n");
-        let lines = text.lines().count().max(1);
-        if lines == 1 {
-            let chars = name.chars().count() as f64;
-            let width = (COMPONENT_BASE_WIDTH + COMPONENT_CHAR_WIDTH * chars)
-                .max(self.config.component_width);
-            return (width, self.config.component_height.max(COMPONENT_HEIGHT));
-        }
-        (
-            self.config.text.width(&text, self.config.font_size) + 30.0,
-            COMPONENT_HEIGHT + (lines - 1) as f64 * LINE_HEIGHT,
-        )
-    }
-
-    fn create_artifact_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        let width = self.config.text.width(name, self.config.font_size) + ARTIFACT_TEXT_PADDING;
-
-        // Заливка и толщина рамки — как в эталоне `deployment_basic`:
-        // `fill="#F1F1F1"`, `stroke-width:0.5`.
-        LayoutElement {
-            id: format!("artifact_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, width, ARTIFACT_HEIGHT),
-            text: None,
-            properties: [
-                ("fill".to_string(), "#F1F1F1".to_string()),
-                ("stroke".to_string(), "#181818".to_string()),
-                ("stroke-width".to_string(), "0.5".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-            element_type: ElementType::Rectangle {
+            }
+        } else {
+            ElementType::Rectangle {
                 label: name.to_string(),
                 corner_radius: 2.5,
-            },
+            }
+        };
+        LayoutElement {
+            id: format!("{id_prefix}_{}", name.replace(' ', "_")),
+            bounds: Rect::new(0.0, 0.0, width, height),
+            text: None,
+            properties,
+            element_type,
         }
     }
 
-    /// Иконка документа в правом верхнем углу артефакта.
-    ///
-    /// Геометрия снята с эталона `deployment_basic`: рамка артефакта
-    /// 79.027x39.297 в точке (57.49, 46), иконка 12x14 в точке
-    /// (119.517, 51) и загнутый уголок 6x6.
-    fn create_artifact_icon(&self, bounds: Rect) -> Vec<LayoutElement> {
-        /// Отступ иконки от правого края рамки.
-        const INSET_RIGHT: f64 = 17.0;
-        /// Отступ иконки от верхнего края рамки.
-        const INSET_TOP: f64 = 5.0;
-        /// Ширина и высота иконки.
-        const WIDTH: f64 = 12.0;
-        const HEIGHT: f64 = 14.0;
-        /// Сторона загнутого уголка.
-        const FOLD: f64 = 6.0;
-
-        let x = bounds.x + bounds.width - INSET_RIGHT;
-        let y = bounds.y + INSET_TOP;
-
-        let outline = LayoutElement {
-            id: "artifact_icon".to_string(),
-            bounds: Rect::new(x, y, WIDTH, HEIGHT),
-            text: None,
-            properties: [
-                ("fill".to_string(), "#F1F1F1".to_string()),
-                ("stroke".to_string(), "#181818".to_string()),
-                ("stroke-width".to_string(), "0.5".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-            // Вершины — в ЛОКАЛЬНЫХ координатах `bounds`: рендерер
-            // прибавляет к ним начало рамки.
-            element_type: ElementType::Polygon {
-                points: vec![
-                    Point::new(0.0, 0.0),
-                    Point::new(0.0, HEIGHT),
-                    Point::new(WIDTH, HEIGHT),
-                    Point::new(WIDTH, FOLD),
-                    Point::new(WIDTH - FOLD, 0.0),
-                ],
-                label: None,
-                font_size: 0.0,
-            },
-        };
-
-        // Загнутый уголок: вертикаль и горизонталь от точки сгиба.
-        // Двумя отрезками, потому что `ElementType::Path` — единичный
-        // вариант без геометрии, а ломаная здесь из двух звеньев.
-        let mut fold = Vec::new();
-        for (index, (from, to)) in [
-            (
-                Point::new(x + WIDTH - FOLD, y),
-                Point::new(x + WIDTH - FOLD, y + FOLD),
-            ),
-            (
-                Point::new(x + WIDTH - FOLD, y + FOLD),
-                Point::new(x + WIDTH, y + FOLD),
-            ),
+    /// Интерфейс: кружок, подпись стоит под ним, а связь идёт к кружку.
+    fn create_interface_element(&self, name: &str) -> LayoutElement {
+        let properties: HashMap<String, String> = [
+            ("fill".to_string(), "#F1F1F1".to_string()),
+            ("stroke-width".to_string(), "0.5".to_string()),
+            ("label-below".to_string(), "1".to_string()),
         ]
         .into_iter()
-        .enumerate()
-        {
-            fold.push(LayoutElement {
-                id: format!("artifact_icon_fold_{index}"),
-                bounds: Rect::new(from.x, from.y, (to.x - from.x).abs(), (to.y - from.y).abs()),
-                text: None,
-                properties: [
-                    ("fill".to_string(), "none".to_string()),
-                    ("stroke".to_string(), "#181818".to_string()),
-                    ("stroke-width".to_string(), "0.5".to_string()),
-                ]
-                .into_iter()
-                .collect(),
-                element_type: ElementType::Edge {
-                    points: vec![from, to],
-                    label: None,
-                    arrow_start: false,
-                    arrow_end: false,
-                    dashed: false,
-                    edge_type: EdgeType::Link,
-                    from_cardinality: None,
-                    to_cardinality: None,
-                },
-            });
-        }
-
-        let mut result = vec![outline];
-        result.extend(fold);
-        result
-    }
-
-    /// Создаёт элемент базы данных (цилиндр)
-    fn create_database_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        let (width, height) = self.label_box(name);
-
-        LayoutElement {
-            id: format!("database_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, width, height),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            // База данных рисуется цилиндром, а не эмодзи: символ 🛢
-            // зависит от наличия шрифта в системе и визуально не совпадает
-            // с оригиналом PlantUML
-            element_type: ElementType::Database {
-                label: name.to_string(),
-            },
-        }
-    }
-
-    /// Создаёт элемент облака
-    fn create_cloud_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        LayoutElement {
-            id: format!("cloud_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width * 1.2,
-                self.config.component_height,
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: self.config.component_height / 2.0,
-            },
-        }
-    }
-
-    /// Создаёт элемент интерфейса (кружок)
-    fn create_interface_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        let r = self.config.interface_radius;
+        .collect();
         LayoutElement {
             id: format!("interface_{}", name.replace(' ', "_")),
-            bounds: Rect::new(x, y, r * 2.0, r * 2.0),
+            bounds: Rect::new(0.0, 0.0, INTERFACE_DIAMETER, INTERFACE_DIAMETER),
             text: None,
-            properties: std::collections::HashMap::new(),
+            properties,
             element_type: ElementType::Ellipse {
                 label: Some(name.to_string()),
             },
         }
     }
 
-    /// Создаёт элемент очереди
-    fn create_queue_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
+    /// Boundary, control и entity: значок-кружок с подписью под ним.
+    fn create_icon_element(&self, comp: &Component, text_width: f64) -> LayoutElement {
+        let name = &comp.name;
+        let (id_prefix, element_type) = match comp.component_type {
+            ComponentType::Boundary => (
+                "boundary",
+                ElementType::Boundary {
+                    label: name.to_string(),
+                },
+            ),
+            ComponentType::Control => (
+                "control",
+                ElementType::Control {
+                    label: name.to_string(),
+                },
+            ),
+            _ => (
+                "entity",
+                ElementType::Entity {
+                    label: name.to_string(),
+                },
+            ),
+        };
         LayoutElement {
-            id: format!("queue_{}", name.replace(' ', "_")),
+            id: format!("{id_prefix}_{}", name.replace(' ', "_")),
             bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width,
-                self.config.component_height,
+                0.0,
+                0.0,
+                (text_width + 6.0).max(ICON_MIN_WIDTH),
+                ICON_HEIGHT,
             ),
             text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: self.config.component_height / 4.0,
-            },
+            properties: [("fill".to_string(), "#F1F1F1".to_string())]
+                .into_iter()
+                .collect(),
+            element_type,
         }
     }
 
-    /// Создаёт элемент node
-    fn create_node_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        LayoutElement {
-            id: format!("node_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width,
-                self.config.component_height,
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: 0.0, // Node — с углами
-            },
-        }
-    }
-
-    /// Создаёт элемент folder
-    fn create_folder_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
-        LayoutElement {
-            id: format!("folder_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width,
-                self.config.component_height,
-            ),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Rectangle {
-                label: name.to_string(),
-                corner_radius: self.config.corner_radius,
-            },
-        }
-    }
-
-    /// Создаёт элемент actor
-    fn create_actor_element(&self, name: &str, x: f64, y: f64) -> LayoutElement {
+    /// Актёр: человечек с подписью под ним (высота снята с эталона).
+    fn create_actor_element(&self, name: &str, text_width: f64) -> LayoutElement {
         LayoutElement {
             id: format!("actor_{}", name.replace(' ', "_")),
-            bounds: Rect::new(
-                x,
-                y,
-                self.config.component_width * 0.6,
-                self.config.component_height,
-            ),
+            bounds: Rect::new(0.0, 0.0, (text_width + 6.0).max(32.0), ACTOR_HEIGHT),
             text: None,
-            properties: std::collections::HashMap::new(),
-            // Актёр — стик-фигура, а не эмодзи
+            properties: [("fill".to_string(), "#F1F1F1".to_string())]
+                .into_iter()
+                .collect(),
             element_type: ElementType::Actor {
                 label: name.to_string(),
             },

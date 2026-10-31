@@ -7,31 +7,37 @@ expression: svg
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Serializable">
 <rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="144.89419999999998" x="0" y="140.891"/>
-<ellipse cx="16" cy="156.891" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="159.891" textLength="80.793">
+<ellipse cx="30.050799999999988" cy="156.891" fill="#B4A7E5" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text data-glyph="1" fill="#000" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" x="30.050799999999988" y="162.49099999999999" textLength="5.635">
+I
+</text>
+<text fill="#000" font-family="sans-serif" font-size="14" font-style="italic" x="45.05079999999999" y="161.738" textLength="80.793">
 Serializable
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="166.891" y2="166.891"/>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="171.891" y2="171.891"/>
-<ellipse cx="8" cy="184.891" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="188.891" textLength="120.894">
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="172.891" y2="172.891"/>
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="180.891" y2="180.891"/>
+<ellipse cx="8" cy="193.891" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="197.891" textLength="120.894">
 serialize(): String
 </text>
 </g>
 <g id="User">
 <rect fill="#F1F1F1" height="80.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="144.89419999999998" x="0" y="0"/>
-<ellipse cx="16" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="32" y="19" textLength="31.868">
+<ellipse cx="54.51299999999999" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text data-glyph="1" fill="#000" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" x="54.51299999999999" y="21.6" textLength="13.152">
+C
+</text>
+<text fill="#000" font-family="sans-serif" font-size="14" x="69.51299999999999" y="20.847" textLength="31.868">
 User
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="26" y2="26"/>
-<ellipse cx="8" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="43" textLength="92.158">
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="32" y2="32"/>
+<ellipse cx="8" cy="45" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="49" textLength="92.158">
 name: String
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="47" y2="47"/>
-<ellipse cx="8" cy="60" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="64" textLength="120.894">
+<line stroke="#181818" stroke-width="0.5" x1="1" x2="143.89419999999998" y1="56.297" y2="56.297"/>
+<ellipse cx="8" cy="69.297" fill="#84BE84" rx="3" ry="3" stroke="#038048" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="16" y="73.297" textLength="120.894">
 serialize(): String
 </text>
 </g>
