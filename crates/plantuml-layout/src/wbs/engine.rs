@@ -283,17 +283,23 @@ impl WbsLayoutEngine {
                     next_free_row = child_bottom_row + 1;
                 }
 
-                // Рисуем связь от родителя к ребёнку
+                // Связь от родителя: ребёнок корня висит на общей шине сверху, а столбец
+                // детей остальных узлов подключён сбоку (эталон `hold_wbs_project`).
                 let child_node_width = self.calculate_node_width(&child.text);
-                let child_center_x = child_x
-                    + (child_subtree_width - child_node_width) / 2.0
-                    + child_node_width / 2.0;
-
-                elements.push(self.create_connection(
-                    node_rect.bottom_center(),
-                    Point::new(child_center_x, child_y),
-                    child_start_id,
-                ));
+                let connection = if is_root {
+                    self.create_connection(
+                        node_rect.bottom_center(),
+                        Point::new(child_x + child_node_width / 2.0, child_y),
+                        child_start_id,
+                    )
+                } else {
+                    self.create_side_connection(
+                        node_rect.bottom_center(),
+                        Point::new(child_x, child_y + self.config.node_height / 2.0),
+                        child_start_id,
+                    )
+                };
+                elements.push(connection);
 
                 if is_root {
                     child_x += child_subtree_width + self.config.sibling_spacing;
@@ -337,6 +343,10 @@ impl WbsLayoutEngine {
 
         let mut properties = HashMap::new();
         properties.insert("level".to_string(), node.level.to_string());
+        // Эталон: прямые углы, заливка #F1F1F1, линия 1.5.
+        properties.insert("fill".to_string(), "#F1F1F1".to_string());
+        properties.insert("stroke-width".to_string(), "1.5".to_string());
+        properties.insert("rx".to_string(), "0".to_string());
         // Размер шрифта подписи.  его не несёт,
         // поэтому передаём свойством: в эталоне подписи WBS нарисованы
         // при font-size=12, тогда как тема даёт 14.
@@ -363,6 +373,24 @@ impl WbsLayoutEngine {
         let path = format!(
             "M{},{} L{},{} L{},{} L{},{}",
             from.x, from.y, from.x, mid_y, to.x, mid_y, to.x, to.y
+        );
+        properties.insert("path".to_string(), path);
+
+        LayoutElement {
+            id: format!("conn_{}", id),
+            bounds: Rect::from_points(from, to),
+            element_type: ElementType::Path,
+            text: None,
+            properties,
+        }
+    }
+
+    /// Связь со столбцом детей: вниз вдоль столбца, затем к левой стороне ребёнка.
+    fn create_side_connection(&self, from: Point, to: Point, id: usize) -> LayoutElement {
+        let mut properties = HashMap::new();
+        let path = format!(
+            "M{},{} L{},{} L{},{}",
+            from.x, from.y, from.x, to.y, to.x, to.y
         );
         properties.insert("path".to_string(), path);
 

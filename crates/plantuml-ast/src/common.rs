@@ -102,8 +102,17 @@ pub enum Color {
 
 impl Color {
     /// Создаёт цвет из HEX строки
+    ///
+    /// Разбор отдаёт сюда значение после `#`, а там бывает и имя: `[#Orange]`. Такое
+    /// значение становится именованным цветом: `#Orange` в SVG дал бы чёрную заливку.
     pub fn from_hex(hex: impl Into<String>) -> Self {
-        Self::Hex(hex.into())
+        let hex = hex.into();
+        let digits = hex.trim_start_matches('#');
+        if digits.chars().all(|c| c.is_ascii_hexdigit()) {
+            Self::Hex(hex)
+        } else {
+            Self::Named(digits.to_string())
+        }
     }
 
     /// Создаёт именованный цвет

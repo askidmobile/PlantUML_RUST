@@ -340,6 +340,16 @@ impl MindMapLayoutEngine {
         let mut properties = HashMap::new();
         properties.insert("text".to_string(), node.text.clone());
         properties.insert("level".to_string(), node.level.to_string());
+        // Эталон: заливка #F1F1F1, линия 1.5, радиус 12.5; цвет узла важнее заливки.
+        properties.insert(
+            "fill".to_string(),
+            node.background_color
+                .as_ref()
+                .or(node.color.as_ref())
+                .map_or_else(|| "#F1F1F1".to_string(), |bg| bg.to_css()),
+        );
+        properties.insert("stroke-width".to_string(), "1.5".to_string());
+        properties.insert("rx".to_string(), "12.5".to_string());
 
         if let Some(color) = &node.color {
             properties.insert("color".to_string(), color.to_css());
@@ -366,7 +376,8 @@ impl MindMapLayoutEngine {
 
         // Контрольные точки для плавной кривой
         // PlantUML стиль: горизонтальный выход, потом изгиб к цели
-        let ctrl_offset = (to.x - from.x).abs() * 0.4;
+        // Знак важен: у левой ветви кривая идёт к потомку, а не от него.
+        let ctrl_offset = (to.x - from.x) * 0.4;
         let ctrl1_x = from.x + ctrl_offset;
         let ctrl2_x = to.x - ctrl_offset;
 
