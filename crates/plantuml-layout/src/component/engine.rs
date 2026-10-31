@@ -83,15 +83,10 @@ impl ComponentLayoutEngine {
             self.add_package(&mut scene, None, pkg);
         }
         for conn in &diagram.connections {
-            scene.add_edge(SceneEdge {
-                from: conn.from.clone(),
-                to: conn.to.clone(),
-                label: conn.label.clone(),
-                arrow: conn.arrow,
-                dashed: conn.dashed,
-                edge_type: EdgeType::Association,
-                properties: HashMap::new(),
-            });
+            let mut edge = SceneEdge::new(conn.from.clone(), conn.to.clone(), conn.arrow);
+            edge.label = conn.label.clone();
+            edge.dashed = conn.dashed;
+            scene.add_edge(edge);
         }
         for note in &diagram.notes {
             scene.add_note(note.clone());

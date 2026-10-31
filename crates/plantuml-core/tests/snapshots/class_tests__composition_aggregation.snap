@@ -1,27 +1,26 @@
 ---
 source: crates/plantuml-core/tests/class_tests.rs
-assertion_line: 110
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="CLASS" height="244px" preserveAspectRatio="none" style="width:233px;height:244px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 233.1218 243.89499999999998" width="233px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="CLASS" height="244px" preserveAspectRatio="none" style="width:234px;height:244px;background:#FFFFFF;" version="1.1" viewBox="-7 -7 233.6009 243.89499999999998" width="234px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="Car">
-<rect fill="#F1F1F1" height="80.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="166.9106" x="22.465599999999995" y="0"/>
-<ellipse cx="38.465599999999995" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="54.465599999999995" y="19" textLength="23.986">
+<rect fill="#F1F1F1" height="80.89099999999999" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="166.9106" x="11.130860644149784" y="0"/>
+<ellipse cx="27.130860644149784" cy="16" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="43.130860644149784" y="19" textLength="23.986">
 Car
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="23.465599999999995" x2="188.37619999999998" y1="26" y2="26"/>
-<ellipse cx="30.465599999999995" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="38.465599999999995" y="43" textLength="105.631">
+<line stroke="#181818" stroke-width="0.5" x1="12.130860644149784" x2="177.04146064414977" y1="26" y2="26"/>
+<ellipse cx="19.130860644149784" cy="39" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="27.130860644149784" y="43" textLength="105.631">
 engine: Engine
 </text>
-<ellipse cx="30.465599999999995" cy="55" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="38.465599999999995" y="59" textLength="181.016">
+<ellipse cx="19.130860644149784" cy="55" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="27.130860644149784" y="59" textLength="181.016">
 wheels: List&lt;Wheel&gt;
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="23.465599999999995" x2="188.37619999999998" y1="63" y2="63"/>
+<line stroke="#181818" stroke-width="0.5" x1="12.130860644149784" x2="177.04146064414977" y1="63" y2="63"/>
 </g>
 <g id="Engine">
 <rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="96.7272" x="0" y="157.891"/>
@@ -37,29 +36,33 @@ power: int
 <line stroke="#181818" stroke-width="0.5" x1="1" x2="95.7272" y1="204.891" y2="204.891"/>
 </g>
 <g id="Wheel">
-<rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="79.91460000000001" x="131.9272" y="157.891"/>
-<ellipse cx="147.9272" cy="173.891" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="163.9272" y="176.891" textLength="44.432">
+<rect fill="#F1F1F1" height="64.594" rx="2.5" ry="2.5" stroke="#181818" stroke-width="0.5" width="79.91460000000001" x="132.4063" y="157.891"/>
+<ellipse cx="148.4063" cy="173.891" fill="#ADD1B2" rx="11" ry="11" stroke="#181818" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="164.4063" y="176.891" textLength="44.432">
 Wheel
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="132.9272" x2="210.8418" y1="183.891" y2="183.891"/>
-<ellipse cx="139.9272" cy="196.891" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
-<text fill="#000" font-family="sans-serif" font-size="14" x="147.9272" y="200.891" textLength="55.915">
+<line stroke="#181818" stroke-width="0.5" x1="133.4063" x2="211.3209" y1="183.891" y2="183.891"/>
+<ellipse cx="140.4063" cy="196.891" fill="#C82829" rx="3" ry="3" stroke="#C80000" stroke-width="1"/>
+<text fill="#000" font-family="sans-serif" font-size="14" x="148.4063" y="200.891" textLength="55.915">
 size: int
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="132.9272" x2="210.8418" y1="204.891" y2="204.891"/>
+<line stroke="#181818" stroke-width="0.5" x1="133.4063" x2="211.3209" y1="204.891" y2="204.891"/>
 </g>
 <g id="edge_Car_Engine">
-<path d="M105.92089999999999,92.89099999999999 L105.92089999999999,119.39099999999999 L48.3636,119.39099999999999 L48.3636,157.891" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="105.921,80.891 101.921,86.891 105.921,92.891 109.921,86.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="110.92089999999999" y="75.89099999999999" textLength="53.897">
+<path d="M69.42546391723545,91.66148833089674 L55.802885182952885,119.39099999999999 L51.75733975668219,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="74.717,80.891 68.481,84.513 69.425,91.661 75.661,88.04" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_Car_Wheel">
+<path d="M119.81245836848524,91.65579191729823 L133.47488032207488,119.39099999999999 L154.6228909383456,157.891" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#FFF" points="114.51,80.891 113.573,88.041 119.812,91.656 120.749,84.506" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+</g>
+<g id="edge_label_0">
+<text fill="#000" font-family="sans-serif" font-size="13" x="28.854535182952883" y="123.89099999999999" textLength="53.897">
 contains
 </text>
 </g>
-<g id="edge_Car_Wheel">
-<path d="M105.92089999999999,92.89099999999999 L105.92089999999999,119.39099999999999 L171.8845,119.39099999999999 L171.8845,157.891" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#FFF" points="105.921,80.891 101.921,86.891 105.921,92.891 109.921,86.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
-<text dominant-baseline="auto" fill="#000" font-family="sans-serif" font-size="13" text-anchor="start" x="110.92089999999999" y="75.89099999999999" textLength="22.966">
+<g id="edge_label_1">
+<text fill="#000" font-family="sans-serif" font-size="13" x="121.99198032207488" y="123.89099999999999" textLength="22.966">
 has
 </text>
 </g>

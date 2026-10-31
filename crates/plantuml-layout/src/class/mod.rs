@@ -14,7 +14,6 @@
 pub mod config;
 pub mod engine;
 pub mod graph;
-pub mod sugiyama;
 
 pub use config::ClassLayoutConfig;
 pub use engine::ClassLayoutEngine;

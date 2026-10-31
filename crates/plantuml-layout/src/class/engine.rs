@@ -1,8 +1,9 @@
 //! ClassLayoutEngine - layout engine для диаграмм классов.
 
 use plantuml_ast::class::{ClassDiagram, ClassifierType, NoteTarget, Package, RelationshipType};
-use plantuml_ast::common::Direction;
+use plantuml_ast::common::{ArrowShape, Direction, LineStyle};
 use plantuml_model::{Point, Rect};
+use std::collections::HashMap;
 
 use crate::traits::LayoutEngine;
 use crate::{
@@ -31,7 +32,8 @@ const PACKAGE_HEADER: f64 = 24.0;
 /// Зазор между заметкой и элементом, к которому она привязана.
 const CLASS_NOTE_GAP: f64 = 10.0;
 use super::graph::Graph;
-use super::sugiyama::SugiyamaLayout;
+use crate::graph::scene::{Scene, SceneEdge};
+use crate::graph::Direction as GraphDirection;
 
 /// Layout engine для Class Diagrams
 #[derive(Debug, Clone)]
@@ -65,67 +67,40 @@ impl ClassLayoutEngine {
         }
 
         // Строим граф и выполняем Sugiyama layout
-        let mut graph = Graph::from_diagram(diagram, &self.config);
-        let mut sugiyama = SugiyamaLayout::new(&mut graph, &self.config);
-        sugiyama.run();
+        let graph = Graph::from_diagram(diagram, &self.config);
+        let mut scene = Scene::new(
+            self.config.node_horizontal_spacing,
+            self.config.layer_vertical_spacing,
+            PACKAGE_PADDING,
+            self.config.text,
+        );
+        if diagram.metadata.direction == Some(Direction::LeftToRight) {
+            scene.set_direction(GraphDirection::LeftToRight);
+        }
 
-        // Преобразуем результат в LayoutElements
-        let mut elements = Vec::new();
-
-        // Объявленные спрайты НЕ рисуются отдельными блоками.
-        //
-        // Проверено на сервере: `sprite $a {...}` без подстановки не
-        // оставляет в выводе ничего — спрайт появляется только там, где
-        // стоит `<$имя>`. Прежний код размещал каждый объявленный спрайт
-        // отдельным блоком, из-за чего диаграмма разрасталась: для двух
-        // объявленных спрайтов выходило 14 прямоугольников против 3 в
-        // эталоне.
-        //
-        // Подстановка в подписи обрабатывается ниже: движок кладёт
-        // спрайты в свойство элемента, а рендерер рисует их в тексте.
-        //
-        // Добавляем узлы (классы)
+        // Пакеты — кластеры, поэтому их рамки не накрывают чужие классы.
+        let mut cluster_of: HashMap<&str, usize> = HashMap::new();
+        for package in &diagram.packages {
+            self.add_package(package, None, &mut scene, &mut cluster_of);
+        }
         for node in &graph.nodes {
-            // Ищем оригинальный classifier для получения деталей
             let classifier = diagram
                 .classifiers
                 .iter()
                 .find(|c| c.id.name == node.classifier_name)
                 .or_else(|| {
-                    // Ищем в пакетах
                     Self::find_classifier_in_packages(&diagram.packages, &node.classifier_name)
                 });
-
             let element = self.create_class_element(node, classifier, diagram);
-            elements.push(element);
+            let cluster = cluster_of.get(node.id.as_str()).copied();
+            scene.add_node(cluster, &[node.id.as_str()], vec![element]);
+        }
+        for rel in &diagram.relationships {
+            scene.add_edge(self.create_edge(rel));
         }
 
-        // Добавляем рёбра (отношения)
-        for edge in &graph.edges {
-            let from_node = &graph.nodes[edge.from];
-            let to_node = &graph.nodes[edge.to];
-
-            let edge_element = self.create_edge_element(edge, from_node, to_node);
-            elements.push(edge_element);
-        }
-
-        // `left to right direction` МЕНЯЕТ ОСИ раскладки.
-        //
-        // Проверено на сервере: для `class A; class B; A --> B` эталон
-        // даёт 63x178 без директивы (рамки друг под другом) и 165x70 с
-        // ней (рамки рядом). Направление сохранялось в AST, но раскладка
-        // его не читала, поэтому вывод был одинаковым.
-        if diagram.metadata.direction == Some(Direction::LeftToRight) {
-            transpose_elements(&mut elements);
-        }
-
-        // Пакеты и заметки строятся по готовым положениям классов: так им не
-        // мешает транспонирование и они видят итоговые координаты.
-        let packages = self.layout_packages(diagram, &elements);
-        elements.splice(0..0, packages);
-        // Заметки. Раньше поле `ClassDiagram::notes` не читалось нигде:
-        // грамматика заметки принимала, парсер их разбирал, а в раскладку
-        // они не попадали, и в выводе не было ни текста, ни рамки.
+        let mut result = scene.build();
+        let mut elements = std::mem::take(&mut result.elements);
         self.layout_notes(diagram, &mut elements);
 
         let mut result = LayoutResult {
@@ -150,100 +125,94 @@ impl ClassLayoutEngine {
         result
     }
 
-    /// Рамки пакетов: охватывают свои классы и вложенные пакеты.
-    ///
-    /// Рамка строится по уже разложенным классам, поэтому пакет без классов
-    /// получает минимальный размер и встаёт под диаграммой.
-    fn layout_packages(
-        &self,
-        diagram: &ClassDiagram,
-        elements: &[LayoutElement],
-    ) -> Vec<LayoutElement> {
-        let mut out = Vec::new();
-        let mut spare_y = elements
-            .iter()
-            .map(|e| e.bounds.y + e.bounds.height)
-            .fold(0.0_f64, f64::max)
-            + PACKAGE_PADDING * 2.0;
-        for package in &diagram.packages {
-            self.layout_package(package, "", elements, &mut spare_y, &mut out);
-        }
-        out
-    }
-
-    /// Рамка одного пакета; возвращает занятый ею прямоугольник.
-    fn layout_package(
-        &self,
-        package: &Package,
-        parent_path: &str,
-        elements: &[LayoutElement],
-        spare_y: &mut f64,
-        out: &mut Vec<LayoutElement>,
-    ) -> Rect {
-        let path = format!("{parent_path}/{}", package.name);
-        // Дочерние пакеты кладутся в `out` раньше родителя; порядок рисования
-        // выправляется ниже: родитель идёт первым и не закрывает потомков.
-        let mut inner: Vec<LayoutElement> = Vec::new();
-        let mut parts: Vec<Rect> = package
-            .classifiers
-            .iter()
-            .filter_map(|c| elements.iter().find(|e| e.id == c.id.name))
-            .map(|e| e.bounds)
-            .collect();
-        for child in &package.packages {
-            parts.push(self.layout_package(child, &path, elements, spare_y, &mut inner));
-        }
-
-        let title = package_title(package);
-        let title_width = self.config.text.width(&title, self.config.font_size + 1.0);
-        let mut bounds = match union_of(&parts) {
-            Some(content) => Rect::new(
-                content.x - PACKAGE_PADDING,
-                content.y - PACKAGE_PADDING - PACKAGE_HEADER,
-                content.width + PACKAGE_PADDING * 2.0,
-                content.height + PACKAGE_PADDING * 2.0 + PACKAGE_HEADER,
-            ),
-            None => {
-                let rect = Rect::new(
-                    0.0,
-                    *spare_y,
-                    title_width + PACKAGE_PADDING * 2.0,
-                    PACKAGE_HEADER + PACKAGE_PADDING * 2.0,
-                );
-                *spare_y += rect.height + PACKAGE_PADDING;
-                rect
-            }
-        };
-        // Заголовок должен помещаться в рамку.
-        if bounds.width < title_width + PACKAGE_PADDING * 2.0 {
-            let extra = title_width + PACKAGE_PADDING * 2.0 - bounds.width;
-            bounds.x -= extra / 2.0;
-            bounds.width += extra;
-        }
-
-        let mut properties = std::collections::HashMap::new();
-        properties.insert("fill".to_string(), "none".to_string());
-        properties.insert("rx".to_string(), "2.5".to_string());
-        if let Some(color) = &package.background_color {
-            properties.insert("fill".to_string(), color.to_css());
-        }
-        out.push(LayoutElement {
-            id: format!("package_{}", package.name),
-            bounds,
-            text: None,
-            properties,
-            element_type: ElementType::System { title },
-        });
-        out.append(&mut inner);
-        bounds
-    }
-
     /// Размещает заметки диаграммы и проводит к ним линии.
     ///
     /// Заметка привязывается к элементу через `anchors`; плавающая (без
     /// якоря) встаёт под диаграммой. Размер даёт текст, а не константа, чтобы
     /// ни одна строка не терялась. Если место у якоря занято, заметка
     /// отодвигается от него. Цвет в PlantUML светло-жёлтый (#FEFFDD).
+    /// Объявляет пакет и его вложенные пакеты кластерами.
+    fn add_package<'a>(
+        &self,
+        package: &'a Package,
+        parent: Option<usize>,
+        scene: &mut Scene,
+        cluster_of: &mut HashMap<&'a str, usize>,
+    ) {
+        let title = package_title(package);
+        let title_width = self.config.text.width(&title, self.config.font_size + 1.0);
+        let mut properties = HashMap::new();
+        properties.insert("fill".to_string(), "none".to_string());
+        properties.insert("rx".to_string(), "2.5".to_string());
+        if let Some(color) = &package.background_color {
+            properties.insert("fill".to_string(), color.to_css());
+        }
+        let cluster = scene.add_cluster(
+            parent,
+            &[package.name.as_str()],
+            PACKAGE_HEADER,
+            title_width + PACKAGE_PADDING * 2.0,
+            LayoutElement {
+                id: format!("package_{}", package.name),
+                bounds: Rect::new(0.0, 0.0, 0.0, 0.0),
+                text: None,
+                properties,
+                element_type: ElementType::System { title },
+            },
+        );
+        for classifier in &package.classifiers {
+            cluster_of.insert(classifier.id.name.as_str(), cluster);
+        }
+        for nested in &package.packages {
+            self.add_package(nested, Some(cluster), scene, cluster_of);
+        }
+    }
+
+    /// Связь: концы и украшения берутся из записи стрелки, а не из типа.
+    fn create_edge(&self, rel: &plantuml_ast::class::Relationship) -> SceneEdge {
+        let (from, to, arrow, from_card, to_card) = if rel.declared_by_keyword {
+            // `class Dog extends Animal`: родитель сверху, значок у него.
+            let arrow = ArrowShape {
+                head_from: true,
+                head_to: false,
+                ..ArrowShape::default()
+            };
+            (
+                &rel.to,
+                &rel.from,
+                arrow,
+                &rel.to_cardinality,
+                &rel.from_cardinality,
+            )
+        } else {
+            (
+                &rel.from,
+                &rel.to,
+                rel.arrow,
+                &rel.from_cardinality,
+                &rel.to_cardinality,
+            )
+        };
+        let mut edge = SceneEdge::new(from.clone(), to.clone(), arrow);
+        edge.id = Some(format!("edge_{from}_{to}"));
+        edge.label = rel.label.clone();
+        edge.from_cardinality = from_card.clone();
+        edge.to_cardinality = to_card.clone();
+        (edge.dashed, edge.edge_type) = match rel.relationship_type {
+            RelationshipType::Inheritance => (false, EdgeType::Inheritance),
+            RelationshipType::Realization => (true, EdgeType::Realization),
+            RelationshipType::Composition => (false, EdgeType::Composition),
+            RelationshipType::Aggregation => (false, EdgeType::Aggregation),
+            RelationshipType::Association => (false, EdgeType::Association),
+            RelationshipType::Dependency => (true, EdgeType::Dependency),
+            RelationshipType::Link => (false, EdgeType::Link),
+        };
+        if rel.line_style == LineStyle::Dashed {
+            edge.dashed = true;
+        }
+        edge
+    }
+
     fn layout_notes(&self, diagram: &ClassDiagram, elements: &mut Vec<LayoutElement>) {
         if diagram.notes.is_empty() {
             return;
@@ -556,190 +525,6 @@ impl ClassLayoutEngine {
             plantuml_ast::class::Visibility::Package => MemberVisibility::Package,
         }
     }
-
-    /// Создаёт LayoutElement для ребра (отношения)
-    fn create_edge_element(
-        &self,
-        edge: &super::graph::Edge,
-        from_node: &super::graph::Node,
-        to_node: &super::graph::Node,
-    ) -> LayoutElement {
-        // Определяем визуальное направление стрелки
-        // В графе: from_node = родитель (слой 0, вверху), to_node = потомок (ниже)
-        // Для наследования стрелка должна идти ОТ потомка К родителю (снизу вверх)
-        // Для композиции/агрегации стрелка идёт ОТ владельца К части
-        let (visual_from, visual_to) = match edge.relationship_type {
-            RelationshipType::Inheritance | RelationshipType::Realization => {
-                // Стрелка от потомка к родителю
-                (to_node, from_node)
-            }
-            _ => (from_node, to_node),
-        };
-
-        // Вычисляем точки соединения (передаём тип связи для правильного выбора грани)
-        let (start_point, end_point) =
-            self.calculate_connection_points(visual_from, visual_to, edge.relationship_type);
-
-        // Создаём путь с ортогональными линиями
-        let points = self.create_orthogonal_path(start_point, end_point, visual_from, visual_to);
-
-        // Определяем стрелки и тип линии на основе типа отношения
-        // arrow_end = маркер на конце линии (у целевого узла)
-        let (arrow_start, arrow_end, dashed, edge_type) = match edge.relationship_type {
-            RelationshipType::Inheritance => (false, true, false, EdgeType::Inheritance), // --|>
-            RelationshipType::Realization => (false, true, true, EdgeType::Realization),  // ..|>
-            RelationshipType::Composition => (true, false, false, EdgeType::Composition), // *--
-            RelationshipType::Aggregation => (true, false, false, EdgeType::Aggregation), // o--
-            RelationshipType::Association => (false, true, false, EdgeType::Association), // -->
-            RelationshipType::Dependency => (false, true, true, EdgeType::Dependency),    // ..>
-            RelationshipType::Link => (false, false, false, EdgeType::Link),              // --
-        };
-
-        // Если ребро было обращено при удалении циклов, меняем местами стрелки
-        let (arrow_start, arrow_end) = if edge.reversed {
-            (arrow_end, arrow_start)
-        } else {
-            (arrow_start, arrow_end)
-        };
-
-        // Для кардинальностей: если ребро было инвертировано для визуала, меняем местами
-        let (from_card, to_card) = match edge.relationship_type {
-            RelationshipType::Inheritance | RelationshipType::Realization => {
-                // Визуально стрелка идёт от to_node к from_node
-                (edge.to_cardinality.clone(), edge.from_cardinality.clone())
-            }
-            _ => (edge.from_cardinality.clone(), edge.to_cardinality.clone()),
-        };
-
-        LayoutElement {
-            id: format!("edge_{}_{}", from_node.id, to_node.id),
-            bounds: self.calculate_edge_bounds(&points),
-            text: None,
-            properties: std::collections::HashMap::new(),
-            element_type: ElementType::Edge {
-                points,
-                label: edge.label.clone(),
-                arrow_start,
-                arrow_end,
-                dashed,
-                edge_type,
-                from_cardinality: from_card,
-                to_cardinality: to_card,
-            },
-        }
-    }
-
-    /// Вычисляет точки соединения между двумя узлами
-    fn calculate_connection_points(
-        &self,
-        from: &super::graph::Node,
-        to: &super::graph::Node,
-        relationship_type: RelationshipType,
-    ) -> (Point, Point) {
-        let from_center_x = from.x + from.size.width / 2.0;
-        let to_center_x = to.x + to.size.width / 2.0;
-
-        // Для наследования и реализации ВСЕГДА используем верхнюю/нижнюю грань
-        // независимо от горизонтального расположения узлов
-        match relationship_type {
-            RelationshipType::Inheritance | RelationshipType::Realization => {
-                // from = потомок (снизу), to = родитель (сверху)
-                // Стрелка выходит из верхней грани потомка, входит в нижнюю грань родителя
-                let start = Point::new(from_center_x, from.y); // верх потомка
-                let end = Point::new(to_center_x, to.y + to.size.height); // низ родителя
-                (start, end)
-            }
-            _ => {
-                // Для других типов связей - автоопределение направления
-                let from_center_y = from.y + from.size.height / 2.0;
-                let to_center_y = to.y + to.size.height / 2.0;
-                let dx = to_center_x - from_center_x;
-                let dy = to_center_y - from_center_y;
-
-                if dy.abs() > dx.abs() {
-                    // Вертикальное соединение
-                    if dy > 0.0 {
-                        (
-                            Point::new(from_center_x, from.y + from.size.height),
-                            Point::new(to_center_x, to.y),
-                        )
-                    } else {
-                        (
-                            Point::new(from_center_x, from.y),
-                            Point::new(to_center_x, to.y + to.size.height),
-                        )
-                    }
-                } else {
-                    // Горизонтальное соединение
-                    if dx > 0.0 {
-                        (
-                            Point::new(from.x + from.size.width, from_center_y),
-                            Point::new(to.x, to_center_y),
-                        )
-                    } else {
-                        (
-                            Point::new(from.x, from_center_y),
-                            Point::new(to.x + to.size.width, to_center_y),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    /// Создаёт ортогональный путь между точками (с коленом)
-    fn create_orthogonal_path(
-        &self,
-        start: Point,
-        end: Point,
-        _from: &super::graph::Node,
-        _to: &super::graph::Node,
-    ) -> Vec<Point> {
-        let dx = end.x - start.x;
-        let dy = end.y - start.y;
-
-        // Если точки почти на одной линии - прямая
-        if dx.abs() < 1.0 || dy.abs() < 1.0 {
-            return vec![start, end];
-        }
-
-        // Ортогональный путь с коленом
-        // Для вертикального наследования (потомок снизу, родитель сверху):
-        // start = верх потомка, end = низ родителя
-        // Линия: вверх от потомка → горизонтально → вниз к родителю
-
-        // Вычисляем Y для горизонтального сегмента
-        // Это должно быть между нижней гранью родителя и верхней гранью потомка
-        let mid_y = if dy < 0.0 {
-            // end выше start (типичное наследование: потомок внизу)
-            // mid_y = середина между end.y и start.y
-            end.y + (start.y - end.y) / 2.0
-        } else {
-            // end ниже start
-            start.y + (end.y - start.y) / 2.0
-        };
-
-        vec![
-            start,
-            Point::new(start.x, mid_y),
-            Point::new(end.x, mid_y),
-            end,
-        ]
-    }
-
-    /// Вычисляет bounds для ребра
-    fn calculate_edge_bounds(&self, points: &[Point]) -> Rect {
-        if points.is_empty() {
-            return Rect::new(0.0, 0.0, 0.0, 0.0);
-        }
-
-        let min_x = points.iter().map(|p| p.x).fold(f64::MAX, f64::min);
-        let min_y = points.iter().map(|p| p.y).fold(f64::MAX, f64::min);
-        let max_x = points.iter().map(|p| p.x).fold(f64::MIN, f64::max);
-        let max_y = points.iter().map(|p| p.y).fold(f64::MIN, f64::max);
-
-        Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -762,20 +547,6 @@ fn package_title(package: &Package) -> String {
     } else {
         format!("{} «{}»", package.name, stereotype.join(", "))
     }
-}
-
-/// Прямоугольник, охватывающий все данные.
-fn union_of(parts: &[Rect]) -> Option<Rect> {
-    let first = parts.first()?;
-    let (mut x0, mut y0) = (first.x, first.y);
-    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
-    for r in parts {
-        x0 = x0.min(r.x);
-        y0 = y0.min(r.y);
-        x1 = x1.max(r.x + r.width);
-        y1 = y1.max(r.y + r.height);
-    }
-    Some(Rect::new(x0, y0, x1 - x0, y1 - y0))
 }
 
 /// Пересекаются ли прямоугольники (касание не считается).
@@ -881,27 +652,6 @@ impl LayoutEngine for ClassLayoutEngine {
 
     fn layout(&self, input: &Self::Input, _config: &LayoutConfig) -> LayoutResult {
         self.layout_diagram(input)
-    }
-}
-
-/// Меняет оси раскладки: `(x, y, ширина, высота)` → `(y, x, высота, ширина)`.
-///
-/// Так реализуется `left to right direction`: диаграмма строится обычным
-/// образом (сверху вниз), а затем оси меняются местами — PlantUML даёт
-/// именно транспонированный результат. Точки рёбер переносятся тоже,
-/// иначе стрелки остались бы на прежних местах.
-fn transpose_elements(elements: &mut [crate::LayoutElement]) {
-    for element in elements.iter_mut() {
-        let bounds = element.bounds;
-        element.bounds = Rect::new(bounds.y, bounds.x, bounds.height, bounds.width);
-
-        if let crate::ElementType::Edge { points, .. } = &mut element.element_type {
-            for point in points.iter_mut() {
-                let (x, y) = (point.x, point.y);
-                point.x = y;
-                point.y = x;
-            }
-        }
     }
 }
 

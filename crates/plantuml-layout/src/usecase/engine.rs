@@ -3,8 +3,6 @@
 //! Алгоритм layout для диаграмм вариантов использования.
 //! PlantUML стиль: актёры слева, система справа с use cases внутри.
 
-use std::collections::HashMap;
-
 use plantuml_ast::common::Direction;
 use plantuml_ast::usecase::{UseCase, UseCaseDiagram, UseCaseRelationType};
 use plantuml_model::Rect;
@@ -123,21 +121,15 @@ impl UseCaseLayoutEngine {
                 rel.relation_type,
                 UseCaseRelationType::Include | UseCaseRelationType::Extend
             ) || rel.arrow.length == 0;
-            scene.add_edge(SceneEdge {
-                from: rel.from.clone(),
-                to: rel.to.clone(),
-                label: rel.label.clone(),
-                arrow: rel.arrow,
-                dashed,
-                edge_type: match rel.relation_type {
-                    UseCaseRelationType::Generalization => EdgeType::Inheritance,
-                    UseCaseRelationType::Include | UseCaseRelationType::Extend => {
-                        EdgeType::Dependency
-                    }
-                    UseCaseRelationType::Association => EdgeType::Association,
-                },
-                properties: HashMap::new(),
-            });
+            let mut edge = SceneEdge::new(rel.from.clone(), rel.to.clone(), rel.arrow);
+            edge.label = rel.label.clone();
+            edge.dashed = dashed;
+            edge.edge_type = match rel.relation_type {
+                UseCaseRelationType::Generalization => EdgeType::Inheritance,
+                UseCaseRelationType::Include | UseCaseRelationType::Extend => EdgeType::Dependency,
+                UseCaseRelationType::Association => EdgeType::Association,
+            };
+            scene.add_edge(edge);
         }
         for note in &diagram.notes {
             scene.add_note(note.clone());

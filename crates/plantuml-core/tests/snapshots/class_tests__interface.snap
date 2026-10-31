@@ -1,6 +1,5 @@
 ---
 source: crates/plantuml-core/tests/class_tests.rs
-assertion_line: 80
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
@@ -37,8 +36,8 @@ serialize(): String
 </text>
 </g>
 <g id="edge_User_Serializable">
-<path d="M72.44709999999999,140.891 L72.44709999999999,98.89099999999999" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
-<polygon fill="none" points="72.447,80.891 66.447,98.891 78.447,98.891 72.447,80.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M72.44709999999999,80.89099999999999 L72.44709999999999,110.89099999999999 L72.44709999999999,122.89099999999999" fill="none" stroke="#181818" stroke-dasharray="2,2" stroke-width="1"/>
+<polygon fill="none" points="72.447,140.891 78.447,122.891 66.447,122.891 72.447,140.891" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>

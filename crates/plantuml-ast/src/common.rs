@@ -308,8 +308,8 @@ impl ArrowShape {
         .map(|(_, hint)| *hint);
         let length = lower.chars().filter(|c| matches!(c, '-' | '.')).count();
         Self {
-            head_from: lower.starts_with('<'),
-            head_to: lower.ends_with('>'),
+            head_from: lower.starts_with(['<', '*', 'o', '#', 'x', '+', '}', '|', '^']),
+            head_to: lower.ends_with(['>', '*', 'o', '#', 'x', '+', '{', '|', '^']),
             length: length.clamp(1, 16) as u8,
             hint,
         }

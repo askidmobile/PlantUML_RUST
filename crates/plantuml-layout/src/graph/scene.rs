@@ -32,6 +32,28 @@ pub struct SceneEdge {
     pub dashed: bool,
     pub edge_type: EdgeType,
     pub properties: HashMap<String, String>,
+    /// Идентификатор элемента; по умолчанию порядковый
+    pub id: Option<String>,
+    pub from_cardinality: Option<String>,
+    pub to_cardinality: Option<String>,
+}
+
+impl SceneEdge {
+    /// Связь с обычной стрелкой.
+    pub fn new(from: impl Into<String>, to: impl Into<String>, arrow: ArrowShape) -> Self {
+        Self {
+            from: from.into(),
+            to: to.into(),
+            label: None,
+            arrow,
+            dashed: false,
+            edge_type: EdgeType::Association,
+            properties: HashMap::new(),
+            id: None,
+            from_cardinality: None,
+            to_cardinality: None,
+        }
+    }
 }
 
 /// Рамка кластера с готовым элементом.
@@ -307,8 +329,8 @@ impl Scene {
                     arrow_end: edge.is_some_and(|e| e.arrow.head_to),
                     dashed: edge.is_none_or(|e| e.dashed),
                     edge_type: edge.map_or(EdgeType::Link, |e| e.edge_type),
-                    from_cardinality: None,
-                    to_cardinality: None,
+                    from_cardinality: edge.and_then(|e| e.from_cardinality.clone()),
+                    to_cardinality: edge.and_then(|e| e.to_cardinality.clone()),
                 },
             }
         };
@@ -319,7 +341,11 @@ impl Scene {
             if path.len() < 2 {
                 continue;
             }
-            elements.push(edge_element(format!("edge_{edge_index}"), path, Some(edge)));
+            let id = edge
+                .id
+                .clone()
+                .unwrap_or_else(|| format!("edge_{edge_index}"));
+            elements.push(edge_element(id, path, Some(edge)));
             if let (Some(label), Some(center)) = (&edge.label, result.labels[graph_index]) {
                 let (width, height) = self.label_size(label);
                 elements.push(LayoutElement {
@@ -372,15 +398,9 @@ mod tests {
     }
 
     fn edge(from: &str, to: &str, label: Option<&str>) -> SceneEdge {
-        SceneEdge {
-            from: from.to_string(),
-            to: to.to_string(),
-            label: label.map(str::to_string),
-            arrow: ArrowShape::default(),
-            dashed: false,
-            edge_type: EdgeType::Association,
-            properties: HashMap::new(),
-        }
+        let mut edge = SceneEdge::new(from, to, ArrowShape::default());
+        edge.label = label.map(str::to_string);
+        edge
     }
 
     fn scene() -> Scene {

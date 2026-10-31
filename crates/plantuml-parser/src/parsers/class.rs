@@ -358,6 +358,7 @@ fn register_declaration(result: ClassDeclResult, diagram: &mut ClassDiagram, sta
             to_cardinality: None,
             line_style: LineStyle::Solid,
             direction: None,
+            arrow: plantuml_ast::common::ArrowShape::default(),
             declared_by_keyword: true,
         });
     }
@@ -371,6 +372,7 @@ fn register_declaration(result: ClassDeclResult, diagram: &mut ClassDiagram, sta
             to_cardinality: None,
             line_style: LineStyle::Dashed,
             direction: None,
+            arrow: plantuml_ast::common::ArrowShape::default(),
             declared_by_keyword: true,
         });
     }
@@ -1056,6 +1058,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
     let mut rel_type = RelationshipType::Association;
     let mut line_style = LineStyle::Solid;
     let mut direction: Option<Direction> = None;
+    let mut arrow = plantuml_ast::common::ArrowShape::default();
     let mut from_cardinality: Option<String> = None;
     let mut to_cardinality: Option<String> = None;
     let mut seen_arrow = false;
@@ -1082,6 +1085,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
             }
             Rule::relationship_arrow => {
                 seen_arrow = true;
+                arrow = plantuml_ast::common::ArrowShape::parse(inner.as_str());
                 let (rtype, lstyle, dir) = parse_arrow(inner);
                 rel_type = rtype;
                 line_style = lstyle;
@@ -1110,6 +1114,7 @@ fn parse_relationship(pair: pest::iterators::Pair<Rule>) -> Option<Relationship>
         to_cardinality,
         line_style,
         direction,
+        arrow,
         declared_by_keyword: false,
     })
 }

@@ -417,6 +417,8 @@ pub struct Relationship {
     pub line_style: LineStyle,
     /// Направление
     pub direction: Option<Direction>,
+    /// Форма стрелки
+    pub arrow: crate::common::ArrowShape,
     /// Связь задана КЛЮЧЕВЫМ СЛОВОМ (`extends`/`implements`), а не стрелкой.
     ///
     /// PlantUML раскладывает эти две записи ПРОТИВОПОЛОЖНО. Проверено на
@@ -447,6 +449,7 @@ impl Relationship {
             to_cardinality: None,
             line_style: LineStyle::Solid,
             direction: None,
+            arrow: crate::common::ArrowShape::default(),
             declared_by_keyword: false,
         }
     }
