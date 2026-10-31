@@ -3,51 +3,52 @@ source: crates/plantuml-core/tests/state_tests.rs
 expression: svg
 ---
 <?xml version="1.0" encoding="UTF-8"?>
-<svg contentStyleType="text/css" data-diagram-type="STATE" height="381px" preserveAspectRatio="none" style="width:121px;height:381px;background:#FFFFFF;" version="1.1" viewBox="0 0 121 380.7" width="121px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
+<svg contentStyleType="text/css" data-diagram-type="STATE" height="377px" preserveAspectRatio="none" style="width:121px;height:377px;background:#FFFFFF;" version="1.1" viewBox="0 0 121 376.997" width="121px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomAndPan="magnify">
 <g font-family="sans-serif" lengthAdjust="spacing">
 <g id="composite_Active">
-<rect fill="#E2E2F0" height="205" rx="10" ry="10" stroke="#181818" stroke-width="1.5" width="110" x="0" y="81"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle" x="55" y="98" textLength="52.701">
+<path d="M12.5,81 L97.5,81 A12.5,12.5 0 0 1 110,93.5 L110,107.297 L0,107.297 L0,93.5 A12.5,12.5 0 0 1 12.5,81" fill="#F1F1F1"/>
+<rect fill="none" height="201.29700000000003" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="110" x="0" y="81"/>
+<text fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="55" y="98.995" textLength="43.761">
 Active
 </text>
-<line stroke="#181818" stroke-width="1" x1="0" x2="110" y1="111" y2="111"/>
+<line stroke="#181818" stroke-width="0.5" x1="0" x2="110" y1="107.297" y2="107.297"/>
 </g>
 <g id="initial_top#initial">
 <ellipse cx="55" cy="10" fill="#222" rx="10" ry="10" stroke="#222" stroke-width="1"/>
 </g>
 <g id="state_Processing">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="94.4996" x="7.7501999999999995" y="118"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="55" y="136.1485" textLength="74.5">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="94.4996" x="7.7501999999999995" y="114.297"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="55" y="132.44549999999998" textLength="74.5">
 Processing
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="7.7501999999999995" x2="102.2498" y1="144.297" y2="144.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="7.7501999999999995" x2="102.2498" y1="140.594" y2="140.594"/>
 </g>
 <g id="state_Waiting">
-<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="72.3712" x="7.814399999999999" y="229"/>
-<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="44" y="247.1485" textLength="52.371">
+<rect fill="#F1F1F1" height="50" rx="12.5" ry="12.5" stroke="#181818" stroke-width="0.5" width="72.3712" x="7.814399999999999" y="225.297"/>
+<text dominant-baseline="middle" fill="#000" font-family="sans-serif" font-size="14" text-anchor="middle" x="44" y="243.4455" textLength="52.371">
 Waiting
 </text>
-<line stroke="#181818" stroke-width="0.5" x1="7.814399999999999" x2="80.1856" y1="255.297" y2="255.297"/>
+<line stroke="#181818" stroke-width="0.5" x1="7.814399999999999" x2="80.1856" y1="251.594" y2="251.594"/>
 </g>
 <g id="final_top#final">
-<ellipse cx="43" cy="350" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
-<ellipse cx="43" cy="350" fill="#222" rx="6" ry="6" stroke="none"/>
+<ellipse cx="43" cy="346.297" fill="none" rx="11" ry="11" stroke="#222" stroke-width="1"/>
+<ellipse cx="43" cy="346.297" fill="#222" rx="6" ry="6" stroke="none"/>
 </g>
 <g id="edge_0">
-<path d="M39.234,168 C36.029,173.083 21.008,188.333 20,198.5 C18.992,208.667 30.991,223.917 33.189,229" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="33.189,229 33.288,219.152 31.205,224.411 25.946,222.327" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M39.234,164.297 C36.029,169.38 21.008,184.63 20,194.797 C18.992,204.964 30.991,220.214 33.189,225.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="33.189,225.297 33.288,215.449 31.205,220.708 25.946,218.624" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_1">
-<path d="M48.955,229 C49.962,223.917 53.992,208.667 55,198.5 C56.008,188.333 55,173.083 55,168" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="55,168 51,177 55,173 59,177" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M48.955,225.297 C49.962,220.214 53.992,204.964 55,194.797 C56.008,184.63 55,169.38 55,164.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="55,164.297 51,173.297 55,169.297 59,173.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_2">
 <path d="M55,20 C55,25.083 55,40.333 55,50.5 C55,60.667 55,75.917 55,81" fill="none" stroke="#181818" stroke-width="1"/>
 <polygon fill="#181818" points="55,81 59,72 55,76 51,72" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 <g id="edge_3">
-<path d="M44,286 C44,289.917 44,300.5 44,309.5 C44,318.5 44,334.917 44,340" fill="none" stroke="#181818" stroke-width="1"/>
-<polygon fill="#181818" points="44,340 48,331 44,335 40,331" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
+<path d="M44,282.297 C44,286.214 44,296.797 44,305.797 C44,314.797 44,331.214 44,336.297" fill="none" stroke="#181818" stroke-width="1"/>
+<polygon fill="#181818" points="44,336.297 48,327.297 44,331.297 40,327.297" stroke="#181818" stroke-linejoin="miter" stroke-miterlimit="10" stroke-width="1"/>
 </g>
 </g>
 </svg>
